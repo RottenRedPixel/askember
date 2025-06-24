@@ -6,31 +6,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
 
-export default function MagicLinkForm({ onSwitchToLogin, onSwitchToSignup }) {
+export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
 
-  const handleMagicLink = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    setMessage(null);
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await supabase.auth.signInWithPassword({
         email: email,
-        options: {
-          // Redirect to production domain after clicking the magic link
-          emailRedirectTo: 'https://askember.ai/auth/callback'
-        }
+        password: password,
       });
 
       if (error) throw error;
 
-      setMessage('Check your email for the magic link!');
-      setEmail('');
+      // Success - user will be redirected by AuthGuard
     } catch (error) {
       setError(error.message);
     } finally {
@@ -41,13 +36,13 @@ export default function MagicLinkForm({ onSwitchToLogin, onSwitchToSignup }) {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="text-center">
-        <CardTitle>Welcome to AskEmber</CardTitle>
+        <CardTitle>Welcome back</CardTitle>
         <CardDescription>
-          Enter your email to get a magic link for instant access
+          Sign in to your account
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleMagicLink} className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -61,22 +56,27 @@ export default function MagicLinkForm({ onSwitchToLogin, onSwitchToSignup }) {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={isLoading}
+            />
+          </div>
+
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={isLoading || !email}
+            disabled={isLoading || !email || !password}
           >
-            {isLoading ? 'Sending...' : 'Send Magic Link'}
+            {isLoading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
-
-        {message && (
-          <Alert className="mt-4 border-green-200 bg-green-50">
-            <AlertDescription className="text-green-800">
-              {message}
-            </AlertDescription>
-          </Alert>
-        )}
 
         {error && (
           <Alert className="mt-4 border-red-200 bg-red-50">
@@ -87,15 +87,12 @@ export default function MagicLinkForm({ onSwitchToLogin, onSwitchToSignup }) {
         )}
 
         <div className="mt-6 text-center space-y-2">
-          <div className="text-sm text-gray-600">
-            Prefer password login?{' '}
-            <button
-              onClick={onSwitchToLogin}
-              className="text-blue-600 hover:underline"
-            >
-              Sign in
-            </button>
-          </div>
+          <button
+            onClick={onSwitchToMagicLink}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Prefer magic link instead?
+          </button>
           <div className="text-sm text-gray-600">
             Don't have an account?{' '}
             <button

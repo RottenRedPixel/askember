@@ -1,9 +1,11 @@
 import { Routes, Route, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useEffect } from 'react';
 import useStore from './store';
 import SupabaseTest from './components/SupabaseTest';
 import AuthGuard from './components/auth/AuthGuard';
 import AuthCallback from './components/auth/AuthCallback';
+import AuthPage from './components/auth/AuthPage';
 import './App.css'
 
 function Home() {
@@ -60,33 +62,65 @@ function Dashboard() {
 }
 
 export default function App() {
+  const { user, initializeAuth, logout } = useStore();
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
   return (
     <div className="min-h-screen bg-white">
       <div className="container mx-auto px-4 py-8">
-        <nav className="mb-8 flex justify-center gap-8">
-          <Link 
-            to="/" 
-            className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
-          >
-            Home
-          </Link>
-          <Link 
-            to="/about" 
-            className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
-          >
-            About
-          </Link>
-          <Link 
-            to="/dashboard" 
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-          >
-            Dashboard
-          </Link>
+        <nav className="mb-8 flex justify-between items-center">
+          <div className="flex gap-8">
+            <Link 
+              to="/" 
+              className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+            >
+              Home
+            </Link>
+            <Link 
+              to="/about" 
+              className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+            >
+              About
+            </Link>
+            <Link 
+              to="/dashboard" 
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              Dashboard
+            </Link>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {user ? (
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-600">
+                  Welcome, {user.email}
+                </span>
+                <button
+                  onClick={logout}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <Link 
+                to="/login" 
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                Login
+              </Link>
+            )}
+          </div>
         </nav>
         
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
+          <Route path="/login" element={<AuthPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/dashboard" element={
             <AuthGuard>

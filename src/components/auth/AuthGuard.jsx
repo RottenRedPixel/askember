@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import MagicLinkForm from './MagicLinkForm';
 
 export default function AuthGuard({ children }) {
   const [user, setUser] = useState(null);
@@ -39,11 +39,7 @@ export default function AuthGuard({ children }) {
   }
 
   if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <MagicLinkForm />
-      </div>
-    );
+    return <Navigate to="/login" replace />;
   }
 
   return children;
