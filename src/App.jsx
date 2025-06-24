@@ -12,7 +12,7 @@ function Home() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Welcome to AskEmber</h1>
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">hello, I'm ember</h1>
         <p className="text-lg text-gray-600 mb-6">Your AI-powered audio and visual storytelling companion</p>
         
         <div className="flex items-center justify-center gap-4 mb-8">
@@ -36,10 +36,10 @@ function Home() {
 function About() {
   return (
     <motion.div initial={{ x: -100 }} animate={{ x: 0 }} className="max-w-2xl mx-auto">
-      <h1 className="text-4xl font-bold text-gray-900 mb-6">About AskEmber</h1>
+      <h1 className="text-4xl font-bold text-gray-900 mb-6">about ember</h1>
       <div className="prose prose-lg">
         <p className="text-gray-600 leading-relaxed">
-          AskEmber is a progressive web application that combines the power of AI with audio recording, 
+          Ember is a progressive web app that combines the power of AI with audio recording, 
           image analysis, and voice synthesis to create compelling digital stories and experiences.
         </p>
       </div>
@@ -61,7 +61,7 @@ function Dashboard() {
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-white">
       <div className="container mx-auto px-4 py-8">
         <nav className="mb-8 flex justify-center gap-8">
           <Link 
