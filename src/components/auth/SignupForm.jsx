@@ -48,7 +48,7 @@ export default function SignupForm({ onSwitchToLogin, onSwitchToMagicLink }) {
 
       if (error) throw error;
 
-      setMessage('Check your email to confirm your account!');
+      setMessage('Account created! Check your email and click the confirmation link before signing in.');
       setEmail('');
       setPassword('');
       setConfirmPassword('');

@@ -18,16 +18,33 @@ export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email,
         password: password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Login error details:', {
+          message: error.message,
+          status: error.status,
+          code: error.code,
+          details: error
+        });
+        throw error;
+      }
 
+      console.log('Login successful:', data);
       // Success - user will be redirected by AuthGuard
     } catch (error) {
-      setError(error.message);
+      console.error('Login failed:', error);
+      
+      // Provide more helpful error messages
+      let userMessage = error.message;
+      if (error.message === 'Invalid login credentials') {
+        userMessage = 'Invalid email or password. If you just signed up, please check your email and confirm your account first.';
+      }
+      
+      setError(userMessage);
     } finally {
       setIsLoading(false);
     }
