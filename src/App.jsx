@@ -9,28 +9,19 @@ import AuthPage from './components/auth/AuthPage';
 import './App.css'
 
 function Home() {
-  const count = useStore((state) => state.count);
-  const increment = useStore((state) => state.increment);
+  const { user } = useStore();
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+    <motion.div initial={{ x: -100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="space-y-8">
       <div className="text-center">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">hello, I'm ember</h1>
         <p className="text-lg text-gray-600 mb-6">Your AI-powered audio and visual storytelling companion</p>
-        
-        <div className="flex items-center justify-center gap-4 mb-8">
-          <span className="text-gray-700">Counter: {count}</span>
-          <button 
-            onClick={increment}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Increment
-          </button>
-        </div>
       </div>
       
-      <div className="max-w-2xl mx-auto">
-        <SupabaseTest />
-      </div>
+      {user && (
+        <div className="max-w-2xl mx-auto">
+          <SupabaseTest />
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -85,12 +76,14 @@ export default function App() {
             >
               About
             </Link>
-            <Link 
-              to="/dashboard" 
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-              Dashboard
-            </Link>
+            {user && (
+              <Link 
+                to="/dashboard" 
+                className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+              >
+                Dashboard
+              </Link>
+            )}
           </div>
           
           <div className="flex items-center gap-4">
