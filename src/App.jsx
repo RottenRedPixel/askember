@@ -31,7 +31,7 @@ function About() {
 
 export default function App() {
   return (
-    <div className="p-4">
+    <div className="p-4 min-h-screen bg-blue-100">
       <nav className="mb-4 flex gap-4">
         <Link to="/">Home</Link>
         <Link to="/about">About</Link>
