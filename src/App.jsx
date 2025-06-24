@@ -1,6 +1,7 @@
 import { Routes, Route, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useStore from './store';
+import SupabaseTest from './components/SupabaseTest';
 import './App.css'
 
 function Home() {
@@ -11,6 +12,10 @@ function Home() {
       <h1 className="text-3xl font-bold underline">Home</h1>
       <p>Count: {count}</p>
       <button className="btn" onClick={increment}>Increment</button>
+      
+      <div className="mt-8">
+        <SupabaseTest />
+      </div>
     </motion.div>
   );
 }
