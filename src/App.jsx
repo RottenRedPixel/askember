@@ -10,12 +10,23 @@ function Home() {
   const count = useStore((state) => state.count);
   const increment = useStore((state) => state.increment);
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      <h1 className="text-3xl font-bold underline">Home</h1>
-      <p>Count: {count}</p>
-      <button className="btn" onClick={increment}>Increment</button>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">Welcome to AskEmber</h1>
+        <p className="text-lg text-gray-600 mb-6">Your AI-powered audio and visual storytelling companion</p>
+        
+        <div className="flex items-center justify-center gap-4 mb-8">
+          <span className="text-gray-700">Counter: {count}</span>
+          <button 
+            onClick={increment}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Increment
+          </button>
+        </div>
+      </div>
       
-      <div className="mt-8">
+      <div className="max-w-2xl mx-auto">
         <SupabaseTest />
       </div>
     </motion.div>
@@ -24,9 +35,14 @@ function Home() {
 
 function About() {
   return (
-    <motion.div initial={{ x: -100 }} animate={{ x: 0 }}>
-      <h1 className="text-3xl font-bold">About</h1>
-      <p>This is the about page.</p>
+    <motion.div initial={{ x: -100 }} animate={{ x: 0 }} className="max-w-2xl mx-auto">
+      <h1 className="text-4xl font-bold text-gray-900 mb-6">About AskEmber</h1>
+      <div className="prose prose-lg">
+        <p className="text-gray-600 leading-relaxed">
+          AskEmber is a progressive web application that combines the power of AI with audio recording, 
+          image analysis, and voice synthesis to create compelling digital stories and experiences.
+        </p>
+      </div>
     </motion.div>
   );
 }
@@ -45,22 +61,40 @@ function Dashboard() {
 
 export default function App() {
   return (
-    <div className="p-4 min-h-screen bg-blue-100">
-      <nav className="mb-4 flex gap-4">
-        <Link to="/">Home</Link>
-        <Link to="/about">About</Link>
-        <Link to="/dashboard" className="text-green-600 font-medium">Dashboard (Protected)</Link>
-      </nav>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/dashboard" element={
-          <AuthGuard>
-            <Dashboard />
-          </AuthGuard>
-        } />
-      </Routes>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container mx-auto px-4 py-8">
+        <nav className="mb-8 flex justify-center gap-8">
+          <Link 
+            to="/" 
+            className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+          >
+            Home
+          </Link>
+          <Link 
+            to="/about" 
+            className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+          >
+            About
+          </Link>
+          <Link 
+            to="/dashboard" 
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+          >
+            Dashboard
+          </Link>
+        </nav>
+        
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/dashboard" element={
+            <AuthGuard>
+              <Dashboard />
+            </AuthGuard>
+          } />
+        </Routes>
+      </div>
     </div>
   );
 }
