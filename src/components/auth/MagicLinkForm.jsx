@@ -22,8 +22,8 @@ export default function MagicLinkForm() {
       const { error } = await supabase.auth.signInWithOtp({
         email: email,
         options: {
-          // Redirect to your app after clicking the magic link
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          // Redirect to production domain after clicking the magic link
+          emailRedirectTo: 'https://askember.ai/auth/callback'
         }
       });
 

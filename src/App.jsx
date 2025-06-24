@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import useStore from './store';
 import SupabaseTest from './components/SupabaseTest';
 import AuthGuard from './components/auth/AuthGuard';
+import AuthCallback from './components/auth/AuthCallback';
 import './App.css'
 
 function Home() {
@@ -53,6 +54,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/dashboard" element={
           <AuthGuard>
             <Dashboard />
