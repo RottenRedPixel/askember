@@ -36,7 +36,7 @@ CREATE POLICY "Users can insert own profile" ON user_profiles
 -- Users can update their own profile (but not role)
 CREATE POLICY "Users can update own profile" ON user_profiles
   FOR UPDATE USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id AND role = OLD.role);
+  WITH CHECK (auth.uid() = user_id);
 
 -- Super admins can read all profiles
 CREATE POLICY "Super admins can read all profiles" ON user_profiles
@@ -71,6 +71,33 @@ CREATE TRIGGER create_user_profile_trigger
   AFTER INSERT ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION create_user_profile();
+
+-- Create a function to prevent regular users from changing their role
+CREATE OR REPLACE FUNCTION prevent_role_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Allow super admins to change any role
+  IF EXISTS (
+    SELECT 1 FROM user_profiles 
+    WHERE user_id = auth.uid() AND role = 'super_admin'
+  ) THEN
+    RETURN NEW;
+  END IF;
+  
+  -- For regular users, prevent role changes
+  IF OLD.role IS DISTINCT FROM NEW.role THEN
+    RAISE EXCEPTION 'You do not have permission to change user roles';
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to prevent unauthorized role changes
+CREATE TRIGGER prevent_role_change_trigger
+  BEFORE UPDATE ON user_profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_role_change();
 
 -- Insert your first super admin user (replace with your actual user ID)
 -- You can find your user ID by logging in and checking the auth.users table
