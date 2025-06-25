@@ -95,7 +95,7 @@ export default function EmberDetail() {
             <p className="text-gray-700 text-lg font-bold">
               Hello there, I will be asking you questions here...
             </p>
-            <div className="w-[90%] mx-auto relative">
+            <div className="w-full relative">
               <Input 
                 type="text" 
                 className="w-full bg-white h-20 pr-16"
