@@ -28,7 +28,7 @@ export default function App() {
         <Route path="/create" element={<Create />} />
         <Route path="/login" element={<AuthPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/dashboard" element={
+        <Route path="/embers" element={
           <AuthGuard>
             <Dashboard />
           </AuthGuard>

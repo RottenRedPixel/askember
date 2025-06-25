@@ -26,10 +26,10 @@ export default function Header() {
   const isActive = (path) => location.pathname === path;
   
   // Helper function to get link classes based on active state
-  const getLinkClasses = (path, baseClasses = "px-4 py-2 font-medium transition-colors") => {
+  const getLinkClasses = (path, baseClasses = "px-4 py-2 font-medium transition-colors border-b-2") => {
     const activeClasses = isActive(path) 
-      ? "text-blue-600 bg-blue-50 border-b-2 border-blue-600" 
-      : "text-gray-700 hover:text-blue-600";
+      ? "text-blue-600 bg-blue-50 border-blue-600" 
+      : "text-gray-700 hover:text-blue-600 border-transparent";
     return `${baseClasses} ${activeClasses}`;
   };
   
@@ -62,7 +62,7 @@ export default function Header() {
         {/* Desktop Navigation */}
         <div className="hidden md:flex justify-between items-center">
           {/* Left side - Brand */}
-          <Link to="/" className="text-xl font-bold text-gray-900">
+          <Link to="/" className="text-2xl font-bold text-gray-900">
             ember
           </Link>
           
@@ -83,10 +83,10 @@ export default function Header() {
               </Link>
               {user && (
                 <Link 
-                  to="/dashboard" 
-                  className={getLinkClasses("/dashboard")}
+                  to="/embers" 
+                  className={getLinkClasses("/embers")}
                 >
-                  Dashboard
+                  Embers
                 </Link>
               )}
               {isAdmin && (
@@ -144,7 +144,7 @@ export default function Header() {
               ) : (
                 <Link 
                   to="/login" 
-                  className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+                  className={getLinkClasses("/login")}
                 >
                   Login
                 </Link>
@@ -156,7 +156,7 @@ export default function Header() {
         {/* Mobile Navigation */}
         <div className="md:hidden">
           <div className="flex justify-between items-center">
-            <Link to="/" className="text-xl font-bold text-gray-900">
+            <Link to="/" className="text-2xl font-bold text-gray-900">
               ember
             </Link>
             
@@ -195,11 +195,11 @@ export default function Header() {
                 </Link>
                 {user && (
                   <Link 
-                    to="/dashboard" 
-                    className={getMobileLinkClasses("/dashboard")}
+                    to="/embers" 
+                    className={getMobileLinkClasses("/embers")}
                     onClick={handleMobileLinkClick}
                   >
-                    Dashboard
+                    Embers
                   </Link>
                 )}
                                 {isAdmin && (

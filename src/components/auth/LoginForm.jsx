@@ -35,8 +35,8 @@ export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
       }
 
       console.log('Login successful:', data);
-      // Success - redirect to dashboard
-      navigate('/dashboard');
+      // Success - redirect to embers
+      navigate('/embers');
     } catch (error) {
       console.error('Login failed:', error);
       
