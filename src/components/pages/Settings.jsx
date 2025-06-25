@@ -118,7 +118,7 @@ export default function Settings() {
     }
   };
 
-  // Handle avatar file upload
+  // Handle avatar file upload (using base64 encoding instead of storage)
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -129,9 +129,9 @@ export default function Settings() {
       return;
     }
 
-    // Validate file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      setMessage({ type: 'error', text: 'Image must be less than 2MB' });
+    // Validate file size (max 1MB for base64 storage)
+    if (file.size > 1 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'Image must be less than 1MB' });
       return;
     }
 
@@ -139,27 +139,25 @@ export default function Settings() {
     setMessage({ type: '', text: '' });
 
     try {
-      // Upload to Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      // Convert image to base64 data URL
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64Url = event.target.result;
+        
+        // Update profile with base64 data URL
+        setProfileData(prev => ({ ...prev, avatarUrl: base64Url }));
+        setMessage({ type: 'success', text: 'Avatar uploaded successfully! Click "Update Profile" to save.' });
+        setLoading(false);
+      };
       
-      const { data, error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName);
-
-      // Update profile with new avatar URL
-      setProfileData(prev => ({ ...prev, avatarUrl: publicUrl }));
-      setMessage({ type: 'success', text: 'Avatar uploaded successfully! Click "Update Profile" to save.' });
+      reader.onerror = () => {
+        setMessage({ type: 'error', text: 'Failed to read image file' });
+        setLoading(false);
+      };
+      
+      reader.readAsDataURL(file);
     } catch (error) {
       setMessage({ type: 'error', text: error.message });
-    } finally {
       setLoading(false);
     }
   };
@@ -218,7 +216,7 @@ export default function Settings() {
                     className="hidden"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    JPG, PNG or GIF (max 2MB)
+                    JPG, PNG or GIF (max 1MB)
                   </p>
                 </div>
               </div>

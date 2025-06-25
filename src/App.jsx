@@ -7,6 +7,7 @@ import Create from './components/pages/Create';
 import Dashboard from './components/pages/Dashboard';
 import Settings from './components/pages/Settings';
 import AdminDashboard from './components/pages/AdminDashboard';
+import DevDashboard from './components/pages/DevDashboard';
 import AuthGuard from './components/auth/AuthGuard';
 import AdminGuard from './components/auth/AdminGuard';
 import AuthCallback from './components/auth/AuthCallback';
@@ -41,6 +42,11 @@ export default function App() {
         <Route path="/admin" element={
           <AdminGuard>
             <AdminDashboard />
+          </AdminGuard>
+        } />
+        <Route path="/dev" element={
+          <AdminGuard>
+            <DevDashboard />
           </AdminGuard>
         } />
       </Routes>
