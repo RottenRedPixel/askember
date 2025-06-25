@@ -129,12 +129,6 @@ export default function EmberChat({ emberId }) {
 
   return (
     <Card className="mt-6">
-      <CardHeader>
-        <CardTitle className="text-lg">Discussion</CardTitle>
-        <p className="text-sm text-gray-600">
-          Chat with others about this ember
-        </p>
-      </CardHeader>
       <CardContent className="space-y-4">
         {/* Q&A Area */}
         <div className="h-64 overflow-y-auto bg-gray-50 rounded-lg p-4 space-y-3">

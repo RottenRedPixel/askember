@@ -59,12 +59,12 @@ export default function EmberDetail() {
       id: 'photo',
       title: 'Photo',
       content: (
-        <div className="h-full flex flex-col bg-gray-100 rounded-xl overflow-hidden">
+        <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
           <div className="relative flex-1">
             <img
               src={ember.image_url}
               alt="Ember"
-              className="w-full h-auto rounded-t-xl"
+              className="w-full h-auto md:rounded-t-xl"
               onError={(e) => {
                 e.target.src = '/placeholder-image.png';
               }}
@@ -158,28 +158,54 @@ export default function EmberDetail() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="container mx-auto px-1.5 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="rounded-lg bg-white shadow-sm">
-            <Carousel 
-              className="w-full"
-              opts={{
-                startIndex: 0,
-                loop: false
-              }}
-            >
-              <CarouselContent className="flex items-stretch">
-                {cards.map((card) => (
-                  <CarouselItem key={card.id} className="flex">
-                    <Card className={`py-0 w-full ${card.id === 'photo' ? 'bg-gray-100' : ''}`}>
-                      <CardContent className="p-0 h-full">
-                        {card.content}
-                      </CardContent>
-                    </Card>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-            </Carousel>
+      {/* Mobile Layout */}
+      <div className="md:hidden -m-[0.67rem] -mt-[0.67rem]">
+        <Carousel 
+          className="w-full"
+          opts={{
+            startIndex: 0,
+            loop: false
+          }}
+        >
+          <CarouselContent className="flex items-stretch">
+            {cards.map((card) => (
+              <CarouselItem key={card.id} className="flex">
+                <Card className={`py-0 w-full ${card.id === 'photo' ? 'bg-gray-100' : ''} ${card.id === 'photo' ? 'rounded-none' : 'rounded-xl'}`}>
+                  <CardContent className="p-0 h-full">
+                    {card.content}
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+      </div>
+
+      {/* Desktop Layout */}
+      <div className="hidden md:block">
+        <div className="container mx-auto px-1.5 py-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="rounded-lg bg-white shadow-sm">
+              <Carousel 
+                className="w-full"
+                opts={{
+                  startIndex: 0,
+                  loop: false
+                }}
+              >
+                <CarouselContent className="flex items-stretch">
+                  {cards.map((card) => (
+                    <CarouselItem key={card.id} className="flex">
+                      <Card className={`py-0 w-full ${card.id === 'photo' ? 'bg-gray-100' : ''}`}>
+                        <CardContent className="p-0 h-full">
+                          {card.content}
+                        </CardContent>
+                      </Card>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+              </Carousel>
+            </div>
           </div>
         </div>
       </div>
