@@ -74,7 +74,7 @@ export default function Header() {
                 >
                   Admin
                   <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">
-                    {userProfile?.role === 'super_admin' ? 'SUPER' : 'ADMIN'}
+                    ADMIN
                   </Badge>
                 </Link>
               )}
@@ -84,7 +84,7 @@ export default function Header() {
               {user ? (
                 <div className="flex items-center gap-4">
                   <span className="text-sm text-gray-600 hidden lg:block">
-                    Welcome, {user.email}
+                    {user.email}
                   </span>
                   <button
                     onClick={logout}
@@ -161,9 +161,9 @@ export default function Header() {
                     onClick={handleMobileLinkClick}
                   >
                     <span>Admin</span>
-                    <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">
-                      {userProfile?.role === 'super_admin' ? 'SUPER' : 'ADMIN'}
-                    </Badge>
+                                         <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">
+                       ADMIN
+                     </Badge>
                   </Link>
                 )}
                 
