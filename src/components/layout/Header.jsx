@@ -100,9 +100,6 @@ export default function Header() {
                       {getUserInitials(user.email)}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm text-gray-600 hidden lg:block">
-                    {user.email}
-                  </span>
                   <button
                     onClick={logout}
                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
