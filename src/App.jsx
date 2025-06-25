@@ -4,7 +4,7 @@ import useStore from './store';
 import Layout from './components/layout/Layout';
 import About from './components/pages/About';
 import Create from './components/pages/Create';
-import Dashboard from './components/pages/Dashboard';
+import MyEmbers from './components/pages/MyEmbers';
 import EmberDetail from './components/pages/EmberDetail';
 import Test from './components/pages/Test';
 import Settings from './components/pages/Settings';
@@ -40,7 +40,7 @@ export default function App() {
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/embers" element={
               <AuthGuard>
-                <Dashboard />
+                <MyEmbers />
               </AuthGuard>
             } />
             <Route path="/settings" element={

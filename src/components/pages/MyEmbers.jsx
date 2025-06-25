@@ -13,6 +13,101 @@ import {
 import { getUserEmbers } from '@/lib/database';
 import useStore from '@/store';
 
+// Icons for the toolbar (using simple SVG icons)
+const GridIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+  </svg>
+);
+
+const ScrollIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+  </svg>
+);
+
+const SortIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+  </svg>
+);
+
+// Toolbar component
+const EmberToolbar = ({ 
+  sectionName, 
+  totalEmbers, 
+  viewMode, 
+  setViewMode, 
+  sortBy, 
+  setSortBy 
+}) => {
+  const sortOptions = [
+    { value: 'newest', label: 'Newest First' },
+    { value: 'oldest', label: 'Oldest First' },
+    { value: 'alphabetical', label: 'A-Z' },
+    { value: 'reverse-alphabetical', label: 'Z-A' }
+  ];
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-6">
+      <div className="flex items-center justify-between">
+        {/* Left side: Section name and count */}
+        <div className="flex items-center space-x-4">
+          <h2 className="text-xl font-semibold text-gray-900">{sectionName}</h2>
+          <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+            {totalEmbers} ember{totalEmbers !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {/* Right side: Controls */}
+        <div className="flex items-center space-x-4">
+          {/* Sort dropdown */}
+          <div className="flex items-center space-x-2">
+            <SortIcon />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {sortOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* View toggle */}
+          <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
+            <button
+              onClick={() => setViewMode('scroll')}
+              className={`p-2 flex items-center justify-center transition-colors ${
+                viewMode === 'scroll' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+              title="Scroll View"
+            >
+              <ScrollIcon />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 flex items-center justify-center transition-colors ${
+                viewMode === 'grid' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+              title="Grid View"
+            >
+              <GridIcon />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Individual ember carousel component
 const EmberCarousel = ({ ember }) => {
   const navigate = useNavigate();
@@ -101,17 +196,54 @@ const EmberCarousel = ({ ember }) => {
   );
 };
 
-export default function Dashboard() {
+// Grid view component for embers
+const EmberGrid = ({ ember }) => {
+  const navigate = useNavigate();
+
+  const handleEmberClick = () => {
+    navigate(`/embers/${ember.id}`);
+  };
+
+  return (
+    <div 
+      className="rounded-xl bg-white shadow-sm cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
+      onClick={handleEmberClick}
+    >
+      <div className="aspect-square">
+        <img
+          src={ember.image_url}
+          alt="Ember"
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.src = '/placeholder-image.png';
+          }}
+        />
+      </div>
+      <div className="p-3">
+        <p className="text-sm text-gray-600 truncate">
+          {ember.message || 'No message'}
+        </p>
+        <p className="text-xs text-gray-400 mt-1">
+          {new Date(ember.created_at).toLocaleDateString()}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default function MyEmbers() {
   const { user, isLoading } = useStore();
   const [embers, setEmbers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [viewMode, setViewMode] = useState('scroll'); // 'scroll' or 'grid'
+  const [sortBy, setSortBy] = useState('newest');
 
   // Debug logging
-  console.log('Dashboard render - isLoading:', isLoading, 'user:', user ? 'exists' : 'null', 'loading:', loading);
+  console.log('MyEmbers render - isLoading:', isLoading, 'user:', user ? 'exists' : 'null', 'loading:', loading);
 
   useEffect(() => {
-    console.log('Dashboard useEffect triggered - user:', user ? user.id : 'null');
+    console.log('MyEmbers useEffect triggered - user:', user ? user.id : 'null');
     
     const fetchEmbers = async () => {
       if (!user) {
@@ -138,7 +270,23 @@ export default function Dashboard() {
     fetchEmbers();
   }, [user]);
 
-  console.log('Dashboard about to render - isLoading:', isLoading, 'loading:', loading);
+  // Sort embers based on selected sort option
+  const sortedEmbers = [...embers].sort((a, b) => {
+    switch (sortBy) {
+      case 'newest':
+        return new Date(b.created_at) - new Date(a.created_at);
+      case 'oldest':
+        return new Date(a.created_at) - new Date(b.created_at);
+      case 'alphabetical':
+        return (a.message || '').localeCompare(b.message || '');
+      case 'reverse-alphabetical':
+        return (b.message || '').localeCompare(a.message || '');
+      default:
+        return 0;
+    }
+  });
+
+  console.log('MyEmbers about to render - isLoading:', isLoading, 'loading:', loading);
 
   if (isLoading) {
     console.log('Rendering auth loading state');
@@ -201,10 +349,31 @@ export default function Dashboard() {
       )}
 
       {!loading && !error && embers.length > 0 && (
-        <div className="max-w-4xl mx-auto space-y-6">
-          {embers.map((ember) => (
-            <EmberCarousel key={ember.id} ember={ember} />
-          ))}
+        <div className="max-w-6xl mx-auto">
+          {/* Toolbar */}
+          <EmberToolbar
+            sectionName="My Embers"
+            totalEmbers={embers.length}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+          />
+
+          {/* Embers Display */}
+          {viewMode === 'scroll' ? (
+            <div className="space-y-6">
+              {sortedEmbers.map((ember) => (
+                <EmberCarousel key={ember.id} ember={ember} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {sortedEmbers.map((ember) => (
+                <EmberGrid key={ember.id} ember={ember} />
+              ))}
+            </div>
+          )}
           
           <div className="text-center mt-8">
             <Link to="/create">

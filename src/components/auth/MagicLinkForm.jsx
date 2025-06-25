@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,6 +7,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
 
 export default function MagicLinkForm({ onSwitchToLogin, onSwitchToSignup }) {
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/embers';
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -21,8 +24,8 @@ export default function MagicLinkForm({ onSwitchToLogin, onSwitchToSignup }) {
       const { error } = await supabase.auth.signInWithOtp({
         email: email,
         options: {
-          // Redirect to production domain after clicking the magic link
-          emailRedirectTo: 'https://askember.ai/auth/callback'
+          // Redirect to production domain after clicking the magic link, with redirect parameter
+          emailRedirectTo: `https://askember.ai/auth/callback?redirect=${encodeURIComponent(redirectTo)}`
         }
       });
 
@@ -61,7 +64,7 @@ export default function MagicLinkForm({ onSwitchToLogin, onSwitchToSignup }) {
 
           <Button 
             type="submit" 
-            className="w-full" 
+            className="w-full h-10" 
             disabled={isLoading || !email}
             variant="blue"
           >

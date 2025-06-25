@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function AuthCallback() {
   const [status, setStatus] = useState('processing');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/embers';
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -26,9 +28,9 @@ export default function AuthCallback() {
         if (data.session) {
           console.log('AuthCallback: User authenticated:', data.session.user.email);
           setStatus('success');
-          // Redirect to dashboard after successful auth
+          // Redirect to specified page or embers page after successful auth
           setTimeout(() => {
-            navigate('/dashboard');
+            navigate(redirectTo);
           }, 2000);
         } else {
           // Try to handle the hash fragment directly
@@ -75,7 +77,7 @@ export default function AuthCallback() {
           {status === 'success' && (
             <div>
               <p className="text-green-600 mb-4">Successfully authenticated!</p>
-              <p className="text-sm text-gray-600">Redirecting to dashboard...</p>
+              <p className="text-sm text-gray-600">Redirecting to your embers...</p>
             </div>
           )}
           {status === 'error' && (

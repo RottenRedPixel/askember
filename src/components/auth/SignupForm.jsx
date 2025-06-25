@@ -108,7 +108,7 @@ export default function SignupForm({ onSwitchToLogin, onSwitchToMagicLink }) {
 
           <Button 
             type="submit" 
-            className="w-full" 
+            className="w-full h-10" 
             disabled={isLoading || !email || !password || !confirmPassword}
             variant="blue"
           >

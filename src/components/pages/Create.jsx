@@ -134,7 +134,7 @@ export default function Create() {
 
       {/* Create Ember Form - Only show if user is logged in */}
       {!isLoading && user && (
-        <Card className="border-0">
+        <Card className="border-none shadow-none bg-transparent">
           <CardContent className="p-0">
             <form onSubmit={createEmberHandler} className="space-y-8">
               {/* File Upload Area */}
@@ -205,7 +205,7 @@ export default function Create() {
               <Button 
                 type="submit" 
                 disabled={uploading || !selectedImage} 
-                className="w-full h-12 text-base font-semibold"
+                className="w-full h-10 text-base font-semibold"
                 variant="blue"
               >
                 {uploading ? (
@@ -224,19 +224,10 @@ export default function Create() {
 
       {/* Message for non-logged-in users */}
       {!isLoading && !user && (
-        <Card className="border-0">
+        <Card className="border-none shadow-none bg-transparent">
           <CardContent className="p-8 text-center space-y-6">
-            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-              <Image className="w-8 h-8 text-blue-600" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-semibold text-gray-900">Ready to create?</h3>
-              <p className="text-gray-600">
-                Sign in to start creating and sharing your embers with the world.
-              </p>
-            </div>
-            <Link to="/login">
-              <Button variant="blue" className="px-8 h-12 text-base font-semibold">
+            <Link to="/login?redirect=/create">
+              <Button variant="blue" className="px-8 h-10 text-base font-semibold">
                 Sign In to Continue
               </Button>
             </Link>

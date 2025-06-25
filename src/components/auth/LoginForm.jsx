@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,8 @@ import { supabase } from '@/lib/supabase';
 
 export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/embers';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -35,8 +37,8 @@ export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
       }
 
       console.log('Login successful:', data);
-      // Success - redirect to embers
-      navigate('/embers');
+      // Success - redirect to specified page or default to embers
+      navigate(redirectTo);
     } catch (error) {
       console.error('Login failed:', error);
       
@@ -89,7 +91,7 @@ export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
 
           <Button 
             type="submit" 
-            className="w-full" 
+            className="w-full h-10" 
             disabled={isLoading || !email || !password}
             variant="blue"
           >
