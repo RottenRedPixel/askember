@@ -1,9 +1,21 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import useStore from '@/store';
 import { Badge } from '@/components/ui/badge';
 
 export default function Header() {
   const { user, userProfile, isAdmin, logout } = useStore();
+  const location = useLocation();
+  
+  // Helper function to determine if a link is active
+  const isActive = (path) => location.pathname === path;
+  
+  // Helper function to get link classes based on active state
+  const getLinkClasses = (path, baseClasses = "px-4 py-2 font-medium transition-colors") => {
+    const activeClasses = isActive(path) 
+      ? "text-blue-600 bg-blue-50 border-b-2 border-blue-600" 
+      : "text-gray-700 hover:text-blue-600";
+    return `${baseClasses} ${activeClasses}`;
+  };
 
   return (
     <header>
@@ -11,20 +23,20 @@ export default function Header() {
         <div className="flex gap-8">
           <Link 
             to="/" 
-            className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+            className={getLinkClasses("/")}
           >
             Home
           </Link>
           <Link 
             to="/about" 
-            className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+            className={getLinkClasses("/about")}
           >
             About
           </Link>
           {user && (
             <Link 
               to="/dashboard" 
-              className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+              className={getLinkClasses("/dashboard")}
             >
               Dashboard
             </Link>
@@ -32,7 +44,9 @@ export default function Header() {
           {isAdmin && (
             <Link 
               to="/admin" 
-              className="px-4 py-2 text-gray-700 hover:text-red-600 font-medium transition-colors flex items-center gap-2"
+              className={`${getLinkClasses("/admin", "px-4 py-2 font-medium transition-colors flex items-center gap-2")} ${
+                isActive("/admin") ? "hover:text-red-700" : "hover:text-red-600"
+              }`}
             >
               Admin
               <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">
