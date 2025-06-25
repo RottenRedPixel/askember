@@ -5,6 +5,7 @@ import Layout from './components/layout/Layout';
 import Home from './components/pages/Home';
 import About from './components/pages/About';
 import Dashboard from './components/pages/Dashboard';
+import Settings from './components/pages/Settings';
 import AdminDashboard from './components/pages/AdminDashboard';
 import AuthGuard from './components/auth/AuthGuard';
 import AdminGuard from './components/auth/AdminGuard';
@@ -30,6 +31,11 @@ export default function App() {
         <Route path="/dashboard" element={
           <AuthGuard>
             <Dashboard />
+          </AuthGuard>
+        } />
+        <Route path="/settings" element={
+          <AuthGuard>
+            <Settings />
           </AuthGuard>
         } />
         <Route path="/admin" element={

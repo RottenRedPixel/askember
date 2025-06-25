@@ -107,9 +107,9 @@ export default function Header() {
                     className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition-colors"
                   >
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src="" alt={user.email} />
+                      <AvatarImage src={userProfile?.avatar_url || ""} alt={user.email} />
                       <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
-                        {getUserInitials(user.email)}
+                        {getUserInitials(user.email, userProfile?.first_name, userProfile?.last_name)}
                       </AvatarFallback>
                     </Avatar>
                   </button>
@@ -121,6 +121,13 @@ export default function Header() {
                         <div className="px-4 py-2 text-sm text-gray-600 border-b border-gray-100">
                           {user.email}
                         </div>
+                        <Link
+                          to="/settings"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Settings
+                        </Link>
                         <button
                           onClick={() => {
                             logout();
@@ -210,9 +217,9 @@ export default function Header() {
                     <div className="px-4 py-3">
                       <div className="flex items-center gap-3 mb-3">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src="" alt={user.email} />
+                          <AvatarImage src={userProfile?.avatar_url || ""} alt={user.email} />
                           <AvatarFallback className="bg-blue-100 text-blue-800 text-sm">
-                            {getUserInitials(user.email)}
+                            {getUserInitials(user.email, userProfile?.first_name, userProfile?.last_name)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="text-sm text-gray-600">
