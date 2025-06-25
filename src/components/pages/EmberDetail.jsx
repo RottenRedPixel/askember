@@ -69,8 +69,8 @@ export default function EmberDetail() {
                 e.target.src = '/placeholder-image.png';
               }}
             />
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-              <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-3 py-4 rounded-full shadow-lg">
+            <div className="absolute right-4 bottom-4">
+              <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
                 <button 
                   onClick={() => navigate('/embers')}
                   className="p-1 hover:bg-white/50 rounded-full transition-colors"
