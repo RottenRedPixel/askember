@@ -15,13 +15,13 @@ import useStore from '@/store';
 
 // Icons for the toolbar (using simple SVG icons)
 const GridIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
   </svg>
 );
 
 const ScrollIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
   </svg>
 );
@@ -39,7 +39,7 @@ const ChevronDownIcon = () => (
 );
 
 const PlusIcon = () => (
-  <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
     <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 9a.75.75 0 00-1.5 0v2.25H9a.75.75 0 000 1.5h2.25V15a.75.75 0 001.5 0v-2.25H15a.75.75 0 000-1.5h-2.25V9z" clipRule="evenodd" />
   </svg>
 );
@@ -61,7 +61,7 @@ const EmberToolbar = ({
   ];
 
   return (
-    <div className="bg-white rounded-lg py-2">
+    <div className="bg-white rounded-lg py-2 -mt-6">
       <div className="flex items-center justify-between">
         {/* Left side: Create new ember */}
         <Link to="/create">
