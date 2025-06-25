@@ -60,11 +60,11 @@ export default function EmberDetail() {
       title: 'Photo',
       content: (
         <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
-          <div className="relative flex-1">
+          <div className="relative flex-shrink-0">
             <img
               src={ember.image_url}
               alt="Ember"
-              className="w-full h-auto md:rounded-t-xl"
+              className="w-full h-auto md:rounded-t-xl block"
               onError={(e) => {
                 e.target.src = '/placeholder-image.png';
               }}
@@ -85,11 +85,11 @@ export default function EmberDetail() {
               </div>
             </div>
           </div>
-          <div className="p-6 text-center space-y-4">
+          <div className="flex-1 p-6 text-center space-y-4 flex flex-col min-h-0">
             <p className="text-gray-700 text-lg font-bold">
               Hello there, I will be asking you questions here...
             </p>
-            <div className="max-w-md mx-auto relative">
+            <div className="w-4/5 mx-auto relative">
               <Input 
                 type="text" 
                 className="w-full bg-white h-20 pr-16"
@@ -157,20 +157,20 @@ export default function EmberDetail() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="md:min-h-screen bg-white">
       {/* Mobile Layout */}
-      <div className="md:hidden -m-[0.67rem] -mt-[0.67rem]">
+      <div className="md:hidden -m-[0.67rem] -mt-[0.67rem] h-screen overflow-hidden">
         <Carousel 
-          className="w-full"
+          className="w-full h-full [&>div]:h-full"
           opts={{
             startIndex: 0,
             loop: false
           }}
         >
-          <CarouselContent className="flex items-stretch">
+          <CarouselContent className="flex items-stretch h-full [&>div]:h-full">
             {cards.map((card) => (
-              <CarouselItem key={card.id} className="flex">
-                <Card className={`py-0 w-full ${card.id === 'photo' ? 'bg-gray-100' : ''} ${card.id === 'photo' ? 'rounded-none' : 'rounded-xl'}`}>
+              <CarouselItem key={card.id} className="flex h-full w-full">
+                <Card className={`py-0 w-full h-full ${card.id === 'photo' ? 'bg-gray-100' : ''} ${card.id === 'photo' ? 'rounded-none' : 'rounded-xl'}`}>
                   <CardContent className="p-0 h-full">
                     {card.content}
                   </CardContent>
