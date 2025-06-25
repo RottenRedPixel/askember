@@ -120,7 +120,13 @@ export default function EmberDetail() {
       <div className="container mx-auto px-1.5 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="rounded-lg bg-white shadow-sm">
-            <Carousel className="w-full">
+            <Carousel 
+              className="w-full"
+              opts={{
+                startIndex: 0,
+                loop: false
+              }}
+            >
               <CarouselContent className="flex items-stretch">
                 {cards.map((card) => (
                   <CarouselItem key={card.id} className="flex">

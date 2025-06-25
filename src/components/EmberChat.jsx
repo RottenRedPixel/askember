@@ -29,14 +29,14 @@ export default function EmberChat({ emberId }) {
     setExpandedQuestions(newExpanded);
   };
 
-  // Scroll to bottom when new messages arrive
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  // Scroll to bottom when new messages arrive (commented out to prevent auto-scroll)
+  // const scrollToBottom = () => {
+  //   messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [questions, comments]);
+  // useEffect(() => {
+  //   scrollToBottom();
+  // }, [questions, comments]);
 
   // Load chat messages
   useEffect(() => {
