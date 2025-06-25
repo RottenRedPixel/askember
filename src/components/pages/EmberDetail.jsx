@@ -9,7 +9,7 @@ import {
 import { getEmber } from '@/lib/database';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
-import { Flower, House, Microphone, Keyboard, CornersOut } from 'phosphor-react';
+import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats } from 'phosphor-react';
 
 export default function EmberDetail() {
   const { id } = useParams();
@@ -99,13 +99,13 @@ export default function EmberDetail() {
                 </button>
                 <div className="h-px w-6 bg-gray-300"></div>
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Flower size={24} className="text-pink-500" />
+                  <Aperture size={24} className="text-gray-700" />
                 </div>
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Flower size={24} className="text-pink-500" />
+                  <Flower size={24} className="text-gray-700" />
                 </div>
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Flower size={24} className="text-pink-500" />
+                  <Chats size={24} className="text-gray-700" />
                 </div>
               </div>
             </div>
@@ -128,6 +128,9 @@ export default function EmberDetail() {
                 </button>
                 <button className="p-1 hover:bg-gray-100 rounded transition-colors">
                   <Keyboard size={24} className="text-gray-500" />
+                </button>
+                <button className="p-1 hover:bg-gray-100 rounded transition-colors" aria-label="Submit">
+                  <ArrowCircleUp size={24} weight="fill" className="text-gray-500" />
                 </button>
               </div>
             </div>
