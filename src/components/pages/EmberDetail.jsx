@@ -9,7 +9,7 @@ import {
 import { getEmber } from '@/lib/database';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
-import { Flower, House, Microphone, Keyboard } from 'phosphor-react';
+import { Flower, House, Microphone, Keyboard, CornersOut } from 'phosphor-react';
 
 export default function EmberDetail() {
   const { id } = useParams();
@@ -60,47 +60,75 @@ export default function EmberDetail() {
       id: 'photo',
       title: 'Photo',
       content: (
-        <div
-          className="relative flex-shrink-0 h-[65vh] md:h-auto overflow-hidden"
-          onClick={() => setShowFullImage((prev) => !prev)}
-          onTouchEnd={() => setShowFullImage((prev) => !prev)}
-          style={{ cursor: 'pointer' }}
-          title={showFullImage ? 'Tap to crop' : 'Tap to view full image'}
-        >
-          {showFullImage && (
+        <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
+          {/* Photo area (with toggle, blurred bg, main image, icon bar) */}
+          <div className="relative flex-shrink-0 h-[65vh] md:h-auto overflow-hidden">
+            <button
+              className="absolute top-3 right-3 z-30 bg-white/50 backdrop-blur-sm hover:bg-white/70 rounded-full p-2 transition-colors"
+              onClick={() => setShowFullImage((prev) => !prev)}
+              aria-label={showFullImage ? 'Show cropped view' : 'Show full image with blur'}
+              type="button"
+            >
+              <CornersOut size={24} className="text-gray-700" />
+            </button>
+            {/* Blurred background with fade */}
             <img
               src={ember.image_url}
               alt="Ember blurred background"
-              className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 brightness-75"
+              className={`absolute inset-0 w-full h-full object-cover blur-lg scale-110 brightness-75 transition-opacity duration-300 ${showFullImage ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
               aria-hidden="true"
+              style={{ zIndex: 1 }}
             />
-          )}
-          <img
-            src={ember.image_url}
-            alt="Ember"
-            className={`relative w-full h-full z-10 ${showFullImage ? 'object-contain' : 'object-cover'}`}
-            onError={(e) => {
-              e.target.src = '/placeholder-image.png';
-            }}
-          />
-          <div className="absolute right-4 bottom-4 z-20">
-            <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
-              <button 
-                onClick={(e) => { e.stopPropagation(); navigate('/embers'); }}
-                className="p-1 hover:bg-white/50 rounded-full transition-colors"
-                aria-label="Go to My Embers"
-              >
-                <House size={24} className="text-gray-700" />
-              </button>
-              <div className="h-px w-6 bg-gray-300"></div>
-              <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                <Flower size={24} className="text-pink-500" />
+            {/* Main image with object-fit transition */}
+            <img
+              src={ember.image_url}
+              alt="Ember"
+              className={`relative w-full h-full z-10 transition-all duration-300 ${showFullImage ? 'object-contain' : 'object-cover'}`}
+              onError={(e) => {
+                e.target.src = '/placeholder-image.png';
+              }}
+            />
+            <div className="absolute right-4 bottom-4 z-20">
+              <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); navigate('/embers'); }}
+                  className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                  aria-label="Go to My Embers"
+                >
+                  <House size={24} className="text-gray-700" />
+                </button>
+                <div className="h-px w-6 bg-gray-300"></div>
+                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                  <Flower size={24} className="text-pink-500" />
+                </div>
+                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                  <Flower size={24} className="text-pink-500" />
+                </div>
+                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                  <Flower size={24} className="text-pink-500" />
+                </div>
               </div>
-              <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                <Flower size={24} className="text-pink-500" />
-              </div>
-              <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                <Flower size={24} className="text-pink-500" />
+            </div>
+          </div>
+          {/* Divider - only on mobile */}
+          <div className="h-px bg-gray-300 w-full md:hidden" />
+          {/* Content area (message + input box) */}
+          <div className="flex-1 p-6 text-center space-y-4 flex flex-col min-h-0">
+            <p className="text-gray-700 text-lg font-bold">
+              Hello there, I will be asking you questions here...
+            </p>
+            <div className="w-full relative">
+              <Input 
+                type="text" 
+                className="w-full bg-white h-20 pr-16"
+              />
+              <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                  <Microphone size={24} className="text-gray-500" />
+                </button>
+                <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                  <Keyboard size={24} className="text-gray-500" />
+                </button>
               </div>
             </div>
           </div>
