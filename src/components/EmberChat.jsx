@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getEmberChatMessages, addChatMessage } from '@/lib/database';
 import useStore from '@/store';
+import { Question, ChatCircle, CheckCircle, Plus, Minus } from 'phosphor-react';
 
 export default function EmberChat({ emberId }) {
   const { user } = useStore();
@@ -159,7 +160,7 @@ export default function EmberChat({ emberId }) {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-start gap-3">
-                        <span className="text-lg">🤔</span>
+                        <Question size={20} className="text-blue-600 mt-0.5" />
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-medium text-blue-900">{question.user_name || 'Anonymous'}</span>
@@ -171,9 +172,10 @@ export default function EmberChat({ emberId }) {
                           <p className="text-blue-800 text-sm">{question.message}</p>
                         </div>
                       </div>
-                      <span className="text-blue-600">
-                        {expandedQuestions.has(question.id) ? '−' : '+'}
-                      </span>
+                      {expandedQuestions.has(question.id) ? 
+                        <Minus size={16} className="text-blue-600" /> : 
+                        <Plus size={16} className="text-blue-600" />
+                      }
                     </div>
                   </CardHeader>
                   
@@ -183,7 +185,7 @@ export default function EmberChat({ emberId }) {
                         {question.answers.map((answer) => (
                           <div key={answer.id} className="bg-green-50 border-l-4 border-green-400 p-3 rounded-r">
                             <div className="flex items-start gap-3">
-                              <span className="text-sm">✅</span>
+                              <CheckCircle size={16} className="text-green-600 mt-0.5" />
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
                                   <span className="font-medium text-green-900">{answer.user_name || 'Anonymous'}</span>
@@ -204,7 +206,7 @@ export default function EmberChat({ emberId }) {
               {comments.map((comment) => (
                 <div key={comment.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <div className="flex items-start gap-3">
-                    <span className="text-lg">💬</span>
+                    <ChatCircle size={20} className="text-gray-600 mt-0.5" />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="font-medium text-gray-900">{comment.user_name || 'Anonymous'}</span>
@@ -251,8 +253,10 @@ export default function EmberChat({ emberId }) {
                 setAnsweringQuestion(null);
               }}
               size="sm"
+              className="flex items-center gap-2"
             >
-              🤔 Ask Question
+              <Question size={16} />
+              Ask Question
             </Button>
             <Button
               type="button"
@@ -262,8 +266,10 @@ export default function EmberChat({ emberId }) {
                 setAnsweringQuestion(null);
               }}
               size="sm"
+              className="flex items-center gap-2"
             >
-              💬 Add Comment
+              <ChatCircle size={16} />
+              Add Comment
             </Button>
           </div>
 
