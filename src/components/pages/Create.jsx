@@ -218,6 +218,18 @@ export default function Create() {
                 )}
               </Button>
             </form>
+
+            {/* Secondary Button */}
+            <div className="pt-4">
+              <Link to="/embers">
+                <Button 
+                  variant="outline" 
+                  className="w-full h-10 text-base font-semibold"
+                >
+                  View My Embers
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       )}

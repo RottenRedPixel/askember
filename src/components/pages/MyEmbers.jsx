@@ -62,8 +62,18 @@ const EmberToolbar = ({
 
   return (
     <div className="bg-white rounded-lg py-2">
-      <div className="flex items-center justify-end">
-        {/* Controls */}
+      <div className="flex items-center justify-between">
+        {/* Left side: Create new ember */}
+        <Link to="/create">
+          <button
+            className="p-1 text-blue-600 hover:text-blue-700 transition-colors rounded-md"
+            title="Create New Ember"
+          >
+            <PlusIcon />
+          </button>
+        </Link>
+
+        {/* Right side: Controls */}
         <div className="flex items-center space-x-4">
           {/* Sort dropdown */}
           <div className="relative">
@@ -108,16 +118,6 @@ const EmberToolbar = ({
               <GridIcon />
             </button>
           </div>
-
-          {/* Create new ember */}
-          <Link to="/create">
-            <button
-              className="p-1 text-blue-600 hover:text-blue-700 transition-colors rounded-md"
-              title="Create New Ember"
-            >
-              <PlusIcon />
-            </button>
-          </Link>
         </div>
       </div>
     </div>
