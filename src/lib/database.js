@@ -253,4 +253,138 @@ export const deleteEmber = async (emberId, userId) => {
     console.error('Error deleting ember:', error);
     throw error;
   }
+};
+
+/**
+ * Chat-related functions
+ */
+
+/**
+ * Get all chat messages for a specific ember, organized for Q&A structure
+ */
+export const getEmberChatMessages = async (emberId) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_chats')
+      .select('*')
+      .eq('ember_id', emberId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Organize messages into Q&A structure
+    const questions = [];
+    const answers = {};
+    const comments = [];
+
+    data.forEach(message => {
+      if (message.message_type === 'question') {
+        questions.push({
+          ...message,
+          answers: []
+        });
+      } else if (message.message_type === 'answer' && message.parent_id) {
+        if (!answers[message.parent_id]) {
+          answers[message.parent_id] = [];
+        }
+        answers[message.parent_id].push({
+          ...message,
+          comments: []
+        });
+      } else if (message.message_type === 'comment') {
+        if (message.parent_id) {
+          // Comment on an answer
+          if (!answers[message.parent_id]) {
+            answers[message.parent_id] = [];
+          }
+          // Find the answer to attach this comment to
+          // For now, add to the last answer of the parent question
+          // In a more complex system, you'd need another level of parent tracking
+        } else {
+          // Top-level comment
+          comments.push(message);
+        }
+      }
+    });
+
+    // Attach answers to questions
+    questions.forEach(question => {
+      question.answers = answers[question.id] || [];
+    });
+
+    return { questions, comments };
+  } catch (error) {
+    console.error('Error fetching chat messages:', error);
+    throw error;
+  }
+};
+
+/**
+ * Add a new chat message to an ember
+ */
+export const addChatMessage = async (chatData) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_chats')
+      .insert([chatData])
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error adding chat message:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update a chat message (only by the message author)
+ */
+export const updateChatMessage = async (messageId, newMessage, userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_chats')
+      .update({ message: newMessage, updated_at: new Date().toISOString() })
+      .eq('id', messageId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error updating chat message:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a chat message (only by the message author)
+ */
+export const deleteChatMessage = async (messageId, userId) => {
+  try {
+    const { error } = await supabase
+      .from('ember_chats')
+      .delete()
+      .eq('id', messageId)
+      .eq('user_id', userId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting chat message:', error);
+    throw error;
+  }
 }; 

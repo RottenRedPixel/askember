@@ -7,6 +7,7 @@ import {
   CarouselItem,
 } from '@/components/ui/carousel';
 import { getEmber } from '@/lib/database';
+import EmberChat from '@/components/EmberChat';
 
 export default function EmberDetail() {
   const { id } = useParams();
@@ -33,7 +34,7 @@ export default function EmberDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-pink-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-lg text-gray-500">Loading ember...</div>
       </div>
     );
@@ -41,7 +42,7 @@ export default function EmberDetail() {
 
   if (error || !ember) {
     return (
-      <div className="min-h-screen bg-pink-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Ember Not Found</h1>
           <p className="text-gray-600">This ember doesn't exist or may have been deleted.</p>
@@ -97,12 +98,17 @@ export default function EmberDetail() {
       id: 'story-circle',
       title: 'Story Circle',
       content: (
-        <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-50 to-violet-100 rounded-xl">
-          <div className="text-center p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Story Circle</h3>
-            <p className="text-sm text-gray-600">
-              The narrative and story elements of this ember will be displayed here.
-            </p>
+        <div className="h-full w-full bg-gradient-to-br from-purple-50 to-violet-100 rounded-xl p-4">
+          <div className="h-full flex flex-col">
+            <div className="text-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Story Circle</h3>
+              <p className="text-sm text-gray-600">
+                Discuss and explore the story behind this ember
+              </p>
+            </div>
+            <div className="flex-1 min-h-0">
+              <EmberChat emberId={ember.id} />
+            </div>
           </div>
         </div>
       )
@@ -110,7 +116,7 @@ export default function EmberDetail() {
   ];
 
   return (
-    <div className="min-h-screen bg-pink-50">
+    <div className="min-h-screen bg-white">
       <div className="container mx-auto px-1.5 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="rounded-lg bg-white shadow-sm">

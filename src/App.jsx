@@ -6,6 +6,7 @@ import About from './components/pages/About';
 import Create from './components/pages/Create';
 import Dashboard from './components/pages/Dashboard';
 import EmberDetail from './components/pages/EmberDetail';
+import Test from './components/pages/Test';
 import Settings from './components/pages/Settings';
 import AdminDashboard from './components/pages/AdminDashboard';
 import DevDashboard from './components/pages/DevDashboard';
@@ -34,6 +35,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<About />} />
             <Route path="/create" element={<Create />} />
+            <Route path="/test" element={<Test />} />
             <Route path="/login" element={<AuthPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/embers" element={
