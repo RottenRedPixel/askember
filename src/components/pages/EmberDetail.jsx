@@ -69,8 +69,8 @@ export default function EmberDetail() {
                 e.target.src = '/placeholder-image.png';
               }}
             />
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-              <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg">
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+              <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-3 py-4 rounded-full shadow-lg">
                 <button 
                   onClick={() => navigate('/embers')}
                   className="p-1 hover:bg-white/50 rounded-full transition-colors"
@@ -78,10 +78,16 @@ export default function EmberDetail() {
                 >
                   <House size={24} className="text-gray-700" />
                 </button>
-                <div className="w-px h-6 bg-gray-300"></div>
-                <Flower size={24} className="text-pink-500" />
-                <Flower size={24} className="text-pink-500" />
-                <Flower size={24} className="text-pink-500" />
+                <div className="h-px w-6 bg-gray-300"></div>
+                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                  <Flower size={24} className="text-pink-500" />
+                </div>
+                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                  <Flower size={24} className="text-pink-500" />
+                </div>
+                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                  <Flower size={24} className="text-pink-500" />
+                </div>
               </div>
             </div>
           </div>
@@ -89,7 +95,7 @@ export default function EmberDetail() {
             <p className="text-gray-700 text-lg font-bold">
               Hello there, I will be asking you questions here...
             </p>
-            <div className="w-4/5 mx-auto relative">
+            <div className="w-[90%] mx-auto relative">
               <Input 
                 type="text" 
                 className="w-full bg-white h-20 pr-16"
@@ -111,10 +117,10 @@ export default function EmberDetail() {
       id: 'wiki',
       title: 'Wiki',
       content: (
-        <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl">
-          <div className="text-center p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Wiki</h3>
-            <p className="text-sm text-gray-600">
+        <div className="h-full w-full bg-gray-100 rounded-xl p-6">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-gray-900 mb-6">Wiki</h1>
+            <p className="text-lg text-gray-600">
               Knowledge and information about this ember will appear here.
             </p>
           </div>
@@ -125,10 +131,10 @@ export default function EmberDetail() {
       id: 'discovery',
       title: 'Discovery',
       content: (
-        <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl">
-          <div className="text-center p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Discovery</h3>
-            <p className="text-sm text-gray-600">
+        <div className="h-full w-full bg-gray-100 rounded-xl p-6">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-gray-900 mb-6">Discovery</h1>
+            <p className="text-lg text-gray-600">
               Insights and discoveries related to this ember will be shown here.
             </p>
           </div>
@@ -139,11 +145,11 @@ export default function EmberDetail() {
       id: 'story-circle',
       title: 'Story Circle',
       content: (
-        <div className="h-full w-full bg-gradient-to-br from-purple-50 to-violet-100 rounded-xl p-4">
+        <div className="h-full w-full bg-gray-100 rounded-xl p-6">
           <div className="h-full flex flex-col">
-            <div className="text-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Story Circle</h3>
-              <p className="text-sm text-gray-600">
+            <div className="text-center mb-6">
+              <h1 className="text-4xl font-bold text-gray-900 mb-6">Story Circle</h1>
+              <p className="text-lg text-gray-600">
                 Discuss and explore the story behind this ember
               </p>
             </div>
