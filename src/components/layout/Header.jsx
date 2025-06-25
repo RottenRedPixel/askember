@@ -37,63 +37,71 @@ export default function Header() {
       <nav className="mb-6">
         {/* Desktop Navigation */}
         <div className="hidden md:flex justify-between items-center">
-          <div className="flex gap-8">
-            <Link 
-              to="/" 
-              className={getLinkClasses("/")}
-            >
-              Home
-            </Link>
-            <Link 
-              to="/about" 
-              className={getLinkClasses("/about")}
-            >
-              About
-            </Link>
-            {user && (
-              <Link 
-                to="/dashboard" 
-                className={getLinkClasses("/dashboard")}
-              >
-                Dashboard
-              </Link>
-            )}
-            {isAdmin && (
-              <Link 
-                to="/admin" 
-                className={`${getLinkClasses("/admin", "px-4 py-2 font-medium transition-colors flex items-center gap-2")} ${
-                  isActive("/admin") ? "hover:text-red-700" : "hover:text-red-600"
-                }`}
-              >
-                Admin
-                <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">
-                  {userProfile?.role === 'super_admin' ? 'SUPER' : 'ADMIN'}
-                </Badge>
-              </Link>
-            )}
-          </div>
+          {/* Left side - Brand */}
+          <Link to="/" className="text-xl font-bold text-gray-900">
+            ember
+          </Link>
           
-          <div className="flex items-center gap-4">
-            {user ? (
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600 hidden lg:block">
-                  Welcome, {user.email}
-                </span>
-                <button
-                  onClick={logout}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : (
+          {/* Right side - Navigation and User */}
+          <div className="flex items-center gap-8">
+            <div className="flex gap-8">
               <Link 
-                to="/login" 
-                className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+                to="/" 
+                className={getLinkClasses("/")}
               >
-                Login
+                Home
               </Link>
-            )}
+              <Link 
+                to="/about" 
+                className={getLinkClasses("/about")}
+              >
+                About
+              </Link>
+              {user && (
+                <Link 
+                  to="/dashboard" 
+                  className={getLinkClasses("/dashboard")}
+                >
+                  Dashboard
+                </Link>
+              )}
+              {isAdmin && (
+                <Link 
+                  to="/admin" 
+                  className={`${getLinkClasses("/admin", "px-4 py-2 font-medium transition-colors flex items-center gap-2")} ${
+                    isActive("/admin") ? "hover:text-red-700" : "hover:text-red-600"
+                  }`}
+                >
+                  Admin
+                  <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">
+                    {userProfile?.role === 'super_admin' ? 'SUPER' : 'ADMIN'}
+                  </Badge>
+                </Link>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-4">
+              {user ? (
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-gray-600 hidden lg:block">
+                    Welcome, {user.email}
+                  </span>
+                  <button
+                    onClick={logout}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <Link 
+                  to="/login" 
+                  className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+                >
+                  Login
+                </Link>
+              )}
+            </div>
           </div>
         </div>
 
@@ -101,7 +109,7 @@ export default function Header() {
         <div className="md:hidden">
           <div className="flex justify-between items-center">
             <Link to="/" className="text-xl font-bold text-gray-900">
-              ember.ai
+              ember
             </Link>
             
             <button
