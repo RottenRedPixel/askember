@@ -1,7 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import useStore from '@/store';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function Header() {
@@ -93,14 +92,9 @@ export default function Header() {
               {isAdmin && (
                 <Link 
                   to="/admin" 
-                  className={`${getLinkClasses("/admin", "px-4 py-2 font-medium transition-colors flex items-center gap-2")} ${
-                    isActive("/admin") ? "hover:text-red-700" : "hover:text-red-600"
-                  }`}
+                  className={getLinkClasses("/admin")}
                 >
                   Admin
-                  <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">
-                    ADMIN
-                  </Badge>
                 </Link>
               )}
             </div>
@@ -201,16 +195,13 @@ export default function Header() {
                     Dashboard
                   </Link>
                 )}
-                {isAdmin && (
+                                {isAdmin && (
                   <Link 
                     to="/admin" 
-                    className={`${getMobileLinkClasses("/admin")} flex items-center justify-between`}
+                    className={getMobileLinkClasses("/admin")}
                     onClick={handleMobileLinkClick}
                   >
-                    <span>Admin</span>
-                                         <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">
-                       ADMIN
-                     </Badge>
+                    Admin
                   </Link>
                 )}
                 
