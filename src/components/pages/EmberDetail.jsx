@@ -60,16 +60,25 @@ export default function EmberDetail() {
       title: 'Photo',
       content: (
         <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
-          <div className="relative flex-shrink-0">
+          {/* Mobile: fixed photo height at 65% of screen, with blurred background */}
+          <div className="relative flex-shrink-0 h-[65vh] md:h-auto overflow-hidden">
+            {/* Blurred background */}
+            <img
+              src={ember.image_url}
+              alt="Ember blurred background"
+              className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 brightness-75"
+              aria-hidden="true"
+            />
+            {/* Main image */}
             <img
               src={ember.image_url}
               alt="Ember"
-              className="w-full h-auto md:rounded-t-xl block"
+              className="relative w-full h-full object-contain z-10"
               onError={(e) => {
                 e.target.src = '/placeholder-image.png';
               }}
             />
-            <div className="absolute right-4 bottom-4">
+            <div className="absolute right-4 bottom-4 z-20">
               <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
                 <button 
                   onClick={() => navigate('/embers')}
@@ -91,6 +100,9 @@ export default function EmberDetail() {
               </div>
             </div>
           </div>
+          {/* Divider - only on mobile */}
+          <div className="h-px bg-gray-300 w-full md:hidden" />
+          {/* Content area fills the rest */}
           <div className="flex-1 p-6 text-center space-y-4 flex flex-col min-h-0">
             <p className="text-gray-700 text-lg font-bold">
               Hello there, I will be asking you questions here...
