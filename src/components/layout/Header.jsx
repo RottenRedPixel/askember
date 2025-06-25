@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import useStore from '@/store';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function Header() {
   const { user, userProfile, isAdmin, logout } = useStore();
@@ -30,6 +31,16 @@ export default function Header() {
   // Close mobile menu when clicking a link
   const handleMobileLinkClick = () => {
     setIsMobileMenuOpen(false);
+  };
+  
+  // Helper function to get user initials
+  const getUserInitials = (email) => {
+    if (!email) return 'U';
+    const parts = email.split('@')[0].split('.');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return email.substring(0, 2).toUpperCase();
   };
 
   return (
@@ -82,7 +93,13 @@ export default function Header() {
             
             <div className="flex items-center gap-4">
               {user ? (
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src="" alt={user.email} />
+                    <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
+                      {getUserInitials(user.email)}
+                    </AvatarFallback>
+                  </Avatar>
                   <span className="text-sm text-gray-600 hidden lg:block">
                     {user.email}
                   </span>
@@ -169,9 +186,17 @@ export default function Header() {
                 
                 <div className="border-t border-gray-200 mt-2 pt-2">
                   {user ? (
-                    <div className="px-4 py-2">
-                      <div className="text-sm text-gray-600 mb-3">
-                        {user.email}
+                    <div className="px-4 py-3">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src="" alt={user.email} />
+                          <AvatarFallback className="bg-blue-100 text-blue-800 text-sm">
+                            {getUserInitials(user.email)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="text-sm text-gray-600">
+                          {user.email}
+                        </div>
                       </div>
                       <button
                         onClick={() => {
