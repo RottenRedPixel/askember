@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -15,6 +15,11 @@ import useStore from '@/store';
 
 // Individual ember carousel component
 const EmberCarousel = ({ ember }) => {
+  const navigate = useNavigate();
+
+  const handleEmberClick = () => {
+    navigate(`/embers/${ember.id}`);
+  };
   const cards = [
     {
       id: 'photo',
@@ -75,7 +80,10 @@ const EmberCarousel = ({ ember }) => {
   ];
 
   return (
-    <div className="rounded-lg bg-white shadow-sm">
+    <div 
+      className="rounded-lg bg-white shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+      onClick={handleEmberClick}
+    >
       <Carousel className="w-full">
         <CarouselContent className="flex items-stretch">
           {cards.map((card) => (

@@ -212,6 +212,28 @@ export const getUserEmbers = async (userId) => {
 };
 
 /**
+ * Get a single ember by ID (for sharing - public access)
+ */
+export const getEmber = async (emberId) => {
+  try {
+    const { data, error } = await supabase
+      .from('embers')
+      .select('*')
+      .eq('id', emberId)
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching ember:', error);
+    throw error;
+  }
+};
+
+/**
  * Delete an ember (only if it belongs to the user)
  */
 export const deleteEmber = async (emberId, userId) => {
