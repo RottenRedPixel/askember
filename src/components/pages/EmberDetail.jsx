@@ -9,7 +9,7 @@ import {
 import { getEmber } from '@/lib/database';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
-import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats } from 'phosphor-react';
+import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley } from 'phosphor-react';
 
 export default function EmberDetail() {
   const { id } = useParams();
@@ -63,14 +63,25 @@ export default function EmberDetail() {
         <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
           {/* Photo area (with toggle, blurred bg, main image, icon bar) */}
           <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[65vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-auto overflow-hidden">
-            <button
-              className="absolute top-3 right-3 z-30 bg-white/50 backdrop-blur-sm hover:bg-white/70 rounded-full p-2 transition-colors"
-              onClick={() => setShowFullImage((prev) => !prev)}
-              aria-label={showFullImage ? 'Show cropped view' : 'Show full image with blur'}
-              type="button"
-            >
-              <CornersOut size={24} className="text-gray-700" />
-            </button>
+            {/* Top right vertical capsule: Home above blur/crop toggle */}
+            <div className="absolute top-4 right-4 z-30 flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
+              <button
+                className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                onClick={() => navigate('/embers')}
+                aria-label="Go to My Embers"
+                type="button"
+              >
+                <House size={24} className="text-gray-700" />
+              </button>
+              <button
+                className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                onClick={() => setShowFullImage((prev) => !prev)}
+                aria-label={showFullImage ? 'Show cropped view' : 'Show full image with blur'}
+                type="button"
+              >
+                <CornersOut size={24} className="text-gray-700" />
+              </button>
+            </div>
             {/* Blurred background with fade */}
             <img
               src={ember.image_url}
@@ -88,15 +99,12 @@ export default function EmberDetail() {
                 e.target.src = '/placeholder-image.png';
               }}
             />
+            {/* Bottom right capsule: Smile, divider, Aperture, Flower, Chats */}
             <div className="absolute right-4 bottom-4 z-20">
               <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); navigate('/embers'); }}
-                  className="p-1 hover:bg-white/50 rounded-full transition-colors"
-                  aria-label="Go to My Embers"
-                >
-                  <House size={24} className="text-gray-700" />
-                </button>
+                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                  <Smiley size={24} className="text-gray-700" />
+                </div>
                 <div className="h-px w-6 bg-gray-300"></div>
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
                   <Aperture size={24} className="text-gray-700" />
@@ -123,14 +131,14 @@ export default function EmberDetail() {
                 className="w-full bg-white h-20 pr-16"
               />
               <div className="absolute bottom-3 right-3 flex items-center gap-2">
-                <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                  <Microphone size={24} className="text-gray-500" />
+                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center w-10 h-10">
+                  <Microphone size={20} className="text-gray-500" />
                 </button>
-                <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                  <Keyboard size={24} className="text-gray-500" />
+                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center w-10 h-10">
+                  <Keyboard size={20} className="text-gray-500" />
                 </button>
-                <button className="p-1 hover:bg-gray-100 rounded transition-colors" aria-label="Submit">
-                  <ArrowCircleUp size={24} weight="fill" className="text-gray-500" />
+                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center w-10 h-10" aria-label="Submit">
+                  <ArrowCircleUp size={20} weight="fill" className="text-gray-500" />
                 </button>
               </div>
             </div>
