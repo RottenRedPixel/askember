@@ -81,7 +81,7 @@ const EmberCarousel = ({ ember }) => {
 
   return (
     <div 
-      className="rounded-lg bg-white shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+      className="rounded-xl bg-white shadow-sm cursor-pointer hover:shadow-md transition-shadow"
       onClick={handleEmberClick}
     >
       <Carousel className="w-full">
