@@ -20,23 +20,21 @@ const EmberCarousel = ({ ember }) => {
       id: 'photo',
       title: 'Photo',
       content: (
-        <div className="aspect-square">
-          <img
-            src={ember.image_url}
-            alt="Ember"
-            className="w-full h-full object-cover rounded-lg"
-            onError={(e) => {
-              e.target.src = '/placeholder-image.png';
-            }}
-          />
-        </div>
+        <img
+          src={ember.image_url}
+          alt="Ember"
+          className="w-full h-auto rounded-xl"
+          onError={(e) => {
+            e.target.src = '/placeholder-image.png';
+          }}
+        />
       )
     },
     {
       id: 'wiki',
       title: 'Wiki',
       content: (
-        <div className="aspect-square flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg">
+        <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl">
           <div className="text-center p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Wiki</h3>
             <p className="text-sm text-gray-600">
@@ -50,7 +48,7 @@ const EmberCarousel = ({ ember }) => {
       id: 'discovery',
       title: 'Discovery',
       content: (
-        <div className="aspect-square flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg">
+        <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl">
           <div className="text-center p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Discovery</h3>
             <p className="text-sm text-gray-600">
@@ -64,7 +62,7 @@ const EmberCarousel = ({ ember }) => {
       id: 'story-circle',
       title: 'Story Circle',
       content: (
-        <div className="aspect-square flex items-center justify-center bg-gradient-to-br from-purple-50 to-violet-100 rounded-lg">
+        <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-50 to-violet-100 rounded-xl">
           <div className="text-center p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Story Circle</h3>
             <p className="text-sm text-gray-600">
@@ -77,32 +75,19 @@ const EmberCarousel = ({ ember }) => {
   ];
 
   return (
-    <div className="border rounded-lg p-4 bg-white shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <p className="text-sm text-gray-500">
-            Created {new Date(ember.created_at).toLocaleDateString()}
-          </p>
-        </div>
-        <div className="text-xs text-gray-400">
-          {ember.id.slice(0, 8)}...
-        </div>
-      </div>
-      
+    <div className="rounded-lg bg-white shadow-sm">
       <Carousel className="w-full">
-        <CarouselContent>
+        <CarouselContent className="flex items-stretch">
           {cards.map((card) => (
-            <CarouselItem key={card.id}>
-              <Card>
-                <CardContent className="p-4">
+            <CarouselItem key={card.id} className="flex">
+              <Card className="py-0 w-full">
+                <CardContent className="p-0 h-full">
                   {card.content}
                 </CardContent>
               </Card>
             </CarouselItem>
           ))}
         </CarouselContent>
-        <CarouselPrevious />
-        <CarouselNext />
       </Carousel>
     </div>
   );
