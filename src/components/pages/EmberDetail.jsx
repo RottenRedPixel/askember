@@ -126,9 +126,10 @@ export default function EmberDetail() {
               Hello there, I will be asking you questions here...
             </p>
             <div className="w-full relative">
-              <Input 
-                type="text" 
-                className="w-full bg-white h-20 pr-16"
+              <textarea 
+                rows="3"
+                placeholder="Type your message here..."
+                className="w-full bg-white border border-gray-200 rounded-md p-3 pr-16 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <div className="absolute bottom-3 right-3 flex items-center gap-2">
                 <button className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center w-10 h-10">
