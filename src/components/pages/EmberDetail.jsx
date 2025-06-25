@@ -17,6 +17,7 @@ export default function EmberDetail() {
   const [ember, setEmber] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showFullImage, setShowFullImage] = useState(false);
 
   useEffect(() => {
     const fetchEmber = async () => {
@@ -59,66 +60,47 @@ export default function EmberDetail() {
       id: 'photo',
       title: 'Photo',
       content: (
-        <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
-          {/* Mobile: fixed photo height at 65% of screen, with blurred background */}
-          <div className="relative flex-shrink-0 h-[65vh] md:h-auto overflow-hidden">
-            {/* Blurred background */}
+        <div
+          className="relative flex-shrink-0 h-[65vh] md:h-auto overflow-hidden"
+          onClick={() => setShowFullImage((prev) => !prev)}
+          onTouchEnd={() => setShowFullImage((prev) => !prev)}
+          style={{ cursor: 'pointer' }}
+          title={showFullImage ? 'Tap to crop' : 'Tap to view full image'}
+        >
+          {showFullImage && (
             <img
               src={ember.image_url}
               alt="Ember blurred background"
               className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 brightness-75"
               aria-hidden="true"
             />
-            {/* Main image */}
-            <img
-              src={ember.image_url}
-              alt="Ember"
-              className="relative w-full h-full object-contain z-10"
-              onError={(e) => {
-                e.target.src = '/placeholder-image.png';
-              }}
-            />
-            <div className="absolute right-4 bottom-4 z-20">
-              <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
-                <button 
-                  onClick={() => navigate('/embers')}
-                  className="p-1 hover:bg-white/50 rounded-full transition-colors"
-                  aria-label="Go to My Embers"
-                >
-                  <House size={24} className="text-gray-700" />
-                </button>
-                <div className="h-px w-6 bg-gray-300"></div>
-                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Flower size={24} className="text-pink-500" />
-                </div>
-                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Flower size={24} className="text-pink-500" />
-                </div>
-                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Flower size={24} className="text-pink-500" />
-                </div>
+          )}
+          <img
+            src={ember.image_url}
+            alt="Ember"
+            className={`relative w-full h-full z-10 ${showFullImage ? 'object-contain' : 'object-cover'}`}
+            onError={(e) => {
+              e.target.src = '/placeholder-image.png';
+            }}
+          />
+          <div className="absolute right-4 bottom-4 z-20">
+            <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
+              <button 
+                onClick={(e) => { e.stopPropagation(); navigate('/embers'); }}
+                className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                aria-label="Go to My Embers"
+              >
+                <House size={24} className="text-gray-700" />
+              </button>
+              <div className="h-px w-6 bg-gray-300"></div>
+              <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                <Flower size={24} className="text-pink-500" />
               </div>
-            </div>
-          </div>
-          {/* Divider - only on mobile */}
-          <div className="h-px bg-gray-300 w-full md:hidden" />
-          {/* Content area fills the rest */}
-          <div className="flex-1 p-6 text-center space-y-4 flex flex-col min-h-0">
-            <p className="text-gray-700 text-lg font-bold">
-              Hello there, I will be asking you questions here...
-            </p>
-            <div className="w-full relative">
-              <Input 
-                type="text" 
-                className="w-full bg-white h-20 pr-16"
-              />
-              <div className="absolute bottom-3 right-3 flex items-center gap-2">
-                <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                  <Microphone size={24} className="text-gray-500" />
-                </button>
-                <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                  <Keyboard size={24} className="text-gray-500" />
-                </button>
+              <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                <Flower size={24} className="text-pink-500" />
+              </div>
+              <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                <Flower size={24} className="text-pink-500" />
               </div>
             </div>
           </div>
