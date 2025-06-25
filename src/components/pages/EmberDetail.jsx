@@ -59,12 +59,12 @@ export default function EmberDetail() {
       id: 'photo',
       title: 'Photo',
       content: (
-        <div className="h-full flex flex-col bg-gray-100 rounded-xl">
+        <div className="h-full flex flex-col bg-gray-100 rounded-xl overflow-hidden">
           <div className="relative flex-1">
             <img
               src={ember.image_url}
               alt="Ember"
-              className="w-full h-auto"
+              className="w-full h-auto rounded-t-xl"
               onError={(e) => {
                 e.target.src = '/placeholder-image.png';
               }}
@@ -92,15 +92,14 @@ export default function EmberDetail() {
             <div className="max-w-md mx-auto relative">
               <Input 
                 type="text" 
-                placeholder="Ask a question or make a comment..."
                 className="w-full bg-white h-20 pr-16"
               />
               <div className="absolute bottom-3 right-3 flex items-center gap-2">
                 <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                  <Microphone size={18} className="text-gray-500" />
+                  <Microphone size={24} className="text-gray-500" />
                 </button>
                 <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                  <Keyboard size={18} className="text-gray-500" />
+                  <Keyboard size={24} className="text-gray-500" />
                 </button>
               </div>
             </div>
