@@ -73,13 +73,13 @@ export default function Header() {
                 to="/" 
                 className={getLinkClasses("/")}
               >
-                Home
+                About
               </Link>
               <Link 
-                to="/about" 
-                className={getLinkClasses("/about")}
+                to="/create" 
+                className={getLinkClasses("/create")}
               >
-                About
+                Create
               </Link>
               {user && (
                 <Link 
@@ -184,14 +184,14 @@ export default function Header() {
                   className={getMobileLinkClasses("/")}
                   onClick={handleMobileLinkClick}
                 >
-                  Home
+                  About
                 </Link>
                 <Link 
-                  to="/about" 
-                  className={getMobileLinkClasses("/about")}
+                  to="/create" 
+                  className={getMobileLinkClasses("/create")}
                   onClick={handleMobileLinkClick}
                 >
-                  About
+                  Create
                 </Link>
                 {user && (
                   <Link 

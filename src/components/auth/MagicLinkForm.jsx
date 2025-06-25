@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
 
@@ -39,15 +38,14 @@ export default function MagicLinkForm({ onSwitchToLogin, onSwitchToSignup }) {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader className="text-center">
-        <CardTitle>Welcome to AskEmber</CardTitle>
-        <CardDescription>
+    <div className="w-full max-w-md mx-auto">
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">magic link</h1>
+        <p className="text-gray-600">
           Enter your email to get a magic link for instant access
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleMagicLink} className="space-y-4">
+        </p>
+      </div>
+      <form onSubmit={handleMagicLink} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -86,27 +84,26 @@ export default function MagicLinkForm({ onSwitchToLogin, onSwitchToSignup }) {
           </Alert>
         )}
 
-        <div className="mt-6 text-center space-y-2">
-          <div className="text-sm text-gray-600">
-            Prefer password login?{' '}
-            <button
-              onClick={onSwitchToLogin}
-              className="text-blue-600 hover:underline"
-            >
-              Sign in
-            </button>
-          </div>
-          <div className="text-sm text-gray-600">
-            Don't have an account?{' '}
-            <button
-              onClick={onSwitchToSignup}
-              className="text-blue-600 hover:underline"
-            >
-              Sign up
-            </button>
-          </div>
+      <div className="mt-6 text-center space-y-2">
+        <div className="text-sm text-gray-600">
+          Prefer password login?{' '}
+          <button
+            onClick={onSwitchToLogin}
+            className="text-blue-600 hover:underline"
+          >
+            Sign in
+          </button>
         </div>
-      </CardContent>
-    </Card>
+        <div className="text-sm text-gray-600">
+          Don't have an account?{' '}
+          <button
+            onClick={onSwitchToSignup}
+            className="text-blue-600 hover:underline"
+          >
+            Sign up
+          </button>
+        </div>
+      </div>
+    </div>
   );
 } 

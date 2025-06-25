@@ -2,8 +2,8 @@ import { Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import useStore from './store';
 import Layout from './components/layout/Layout';
-import Home from './components/pages/Home';
 import About from './components/pages/About';
+import Create from './components/pages/Create';
 import Dashboard from './components/pages/Dashboard';
 import Settings from './components/pages/Settings';
 import AdminDashboard from './components/pages/AdminDashboard';
@@ -24,8 +24,8 @@ export default function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/about" element={<About />} />
+        <Route path="/" element={<About />} />
+        <Route path="/create" element={<Create />} />
         <Route path="/login" element={<AuthPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/dashboard" element={

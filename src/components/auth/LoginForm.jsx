@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
 
@@ -54,15 +53,14 @@ export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader className="text-center">
-        <CardTitle>Welcome back</CardTitle>
-        <CardDescription>
+    <div className="w-full max-w-md mx-auto">
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">welcome back</h1>
+        <p className="text-gray-600">
           Sign in to your account
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleLogin} className="space-y-4">
+        </p>
+      </div>
+      <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -106,24 +104,23 @@ export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
           </Alert>
         )}
 
-        <div className="mt-6 text-center space-y-2">
+      <div className="mt-6 text-center space-y-2">
+        <button
+          onClick={onSwitchToMagicLink}
+          className="text-sm text-blue-600 hover:underline"
+        >
+          Prefer magic link instead?
+        </button>
+        <div className="text-sm text-gray-600">
+          Don't have an account?{' '}
           <button
-            onClick={onSwitchToMagicLink}
-            className="text-sm text-blue-600 hover:underline"
+            onClick={onSwitchToSignup}
+            className="text-blue-600 hover:underline"
           >
-            Prefer magic link instead?
+            Sign up
           </button>
-          <div className="text-sm text-gray-600">
-            Don't have an account?{' '}
-            <button
-              onClick={onSwitchToSignup}
-              className="text-blue-600 hover:underline"
-            >
-              Sign up
-            </button>
-          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 } 

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
 
@@ -60,15 +59,14 @@ export default function SignupForm({ onSwitchToLogin, onSwitchToMagicLink }) {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader className="text-center">
-        <CardTitle>Create account</CardTitle>
-        <CardDescription>
+    <div className="w-full max-w-md mx-auto">
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">create account</h1>
+        <p className="text-gray-600">
           Get started with your new account
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSignup} className="space-y-4">
+        </p>
+      </div>
+      <form onSubmit={handleSignup} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -133,24 +131,23 @@ export default function SignupForm({ onSwitchToLogin, onSwitchToMagicLink }) {
           </Alert>
         )}
 
-        <div className="mt-6 text-center space-y-2">
+      <div className="mt-6 text-center space-y-2">
+        <button
+          onClick={onSwitchToMagicLink}
+          className="text-sm text-blue-600 hover:underline"
+        >
+          Prefer magic link instead?
+        </button>
+        <div className="text-sm text-gray-600">
+          Already have an account?{' '}
           <button
-            onClick={onSwitchToMagicLink}
-            className="text-sm text-blue-600 hover:underline"
+            onClick={onSwitchToLogin}
+            className="text-blue-600 hover:underline"
           >
-            Prefer magic link instead?
+            Sign in
           </button>
-          <div className="text-sm text-gray-600">
-            Already have an account?{' '}
-            <button
-              onClick={onSwitchToLogin}
-              className="text-blue-600 hover:underline"
-            >
-              Sign in
-            </button>
-          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 } 

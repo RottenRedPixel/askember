@@ -76,17 +76,9 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            hello, I'm ember
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Your AI conversation companion
-          </p>
-        </div>
-
+    <div className="min-h-screen bg-white">
+      <div className="container mx-auto px-4 pt-2 pb-8">
+        <div className="w-full max-w-md mx-auto">
         <div className="relative overflow-hidden">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
@@ -104,6 +96,7 @@ export default function AuthPage() {
               {renderCurrentForm()}
             </motion.div>
           </AnimatePresence>
+        </div>
         </div>
       </div>
     </div>

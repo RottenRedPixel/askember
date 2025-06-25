@@ -2,13 +2,10 @@ import { motion } from 'framer-motion';
 
 export default function About() {
   return (
-    <motion.div initial={{ x: -100 }} animate={{ x: 0 }} className="max-w-2xl mx-auto">
-      <h1 className="text-4xl font-bold text-gray-900 mb-6">about ember</h1>
-      <div className="prose prose-lg">
-        <p className="text-gray-600 leading-relaxed">
-          Ember is a progressive web app that combines the power of AI with audio recording, 
-          image analysis, and voice synthesis to create compelling digital stories and experiences.
-        </p>
+    <motion.div initial={{ x: -100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="space-y-8">
+      <div className="text-center mt-2">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4 pt-2">hello, I'm ember</h1>
+        <p className="text-lg text-gray-600 mb-6">Your AI-powered audio and visual storytelling companion</p>
       </div>
     </motion.div>
   );
