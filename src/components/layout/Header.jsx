@@ -19,7 +19,7 @@ export default function Header() {
 
   return (
     <header>
-      <nav className="mb-8 flex justify-between items-center">
+      <nav className="mb-6 flex justify-between items-center">
         <div className="flex gap-8">
           <Link 
             to="/" 
