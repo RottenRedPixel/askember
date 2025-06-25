@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import useStore from '@/store';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -8,6 +8,20 @@ export default function Header() {
   const { user, userProfile, isAdmin, logout } = useStore();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+  
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   
   // Helper function to determine if a link is active
   const isActive = (path) => location.pathname === path;
@@ -93,19 +107,38 @@ export default function Header() {
             
             <div className="flex items-center gap-4">
               {user ? (
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src="" alt={user.email} />
-                    <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
-                      {getUserInitials(user.email)}
-                    </AvatarFallback>
-                  </Avatar>
+                <div className="relative" ref={userMenuRef}>
                   <button
-                    onClick={logout}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition-colors"
                   >
-                    Logout
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src="" alt={user.email} />
+                      <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
+                        {getUserInitials(user.email)}
+                      </AvatarFallback>
+                    </Avatar>
                   </button>
+                  
+                  {/* User dropdown menu */}
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                      <div className="py-2">
+                        <div className="px-4 py-2 text-sm text-gray-600 border-b border-gray-100">
+                          {user.email}
+                        </div>
+                        <button
+                          onClick={() => {
+                            logout();
+                            setIsUserMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <Link 
