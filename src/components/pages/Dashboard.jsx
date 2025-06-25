@@ -107,21 +107,30 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Debug logging
+  console.log('Dashboard render - isLoading:', isLoading, 'user:', user ? 'exists' : 'null', 'loading:', loading);
+
   useEffect(() => {
+    console.log('Dashboard useEffect triggered - user:', user ? user.id : 'null');
+    
     const fetchEmbers = async () => {
       if (!user) {
+        console.log('No user, setting loading to false');
         setLoading(false);
         return;
       }
 
       try {
+        console.log('Starting to fetch embers for user:', user.id);
         setLoading(true);
         const userEmbers = await getUserEmbers(user.id);
+        console.log('Embers fetched successfully:', userEmbers.length, 'embers');
         setEmbers(userEmbers);
       } catch (err) {
         console.error('Error fetching embers:', err);
         setError('Failed to load embers');
       } finally {
+        console.log('Setting loading to false');
         setLoading(false);
       }
     };
@@ -129,7 +138,10 @@ export default function Dashboard() {
     fetchEmbers();
   }, [user]);
 
+  console.log('Dashboard about to render - isLoading:', isLoading, 'loading:', loading);
+
   if (isLoading) {
+    console.log('Rendering auth loading state');
     return (
       <div className="flex items-center justify-center min-h-[200px]">
         <div className="text-lg text-gray-500">Loading...</div>

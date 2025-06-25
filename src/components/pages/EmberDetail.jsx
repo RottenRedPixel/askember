@@ -114,20 +114,6 @@ export default function EmberDetail() {
       )
     },
     {
-      id: 'wiki',
-      title: 'Wiki',
-      content: (
-        <div className="h-full w-full bg-gray-100 rounded-xl p-6">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-6">Wiki</h1>
-            <p className="text-lg text-gray-600">
-              Knowledge and information about this ember will appear here.
-            </p>
-          </div>
-        </div>
-      )
-    },
-    {
       id: 'discovery',
       title: 'Discovery',
       content: (
@@ -156,6 +142,34 @@ export default function EmberDetail() {
             <div className="flex-1 min-h-0">
               <EmberChat emberId={ember.id} />
             </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'wiki',
+      title: 'Wiki',
+      content: (
+        <div className="h-full w-full bg-gray-100 rounded-xl p-6">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-gray-900 mb-6">Wiki</h1>
+            <p className="text-lg text-gray-600">
+              Knowledge and information about this ember will appear here.
+            </p>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'features',
+      title: 'Features',
+      content: (
+        <div className="h-full w-full bg-gray-100 rounded-xl p-6">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-gray-900 mb-6">Features</h1>
+            <p className="text-lg text-gray-600">
+              Control the sharing and editing here.
+            </p>
           </div>
         </div>
       )

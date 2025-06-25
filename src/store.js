@@ -143,29 +143,41 @@ const useStore = create((set, get) => ({
 
   // Initialize auth state
   initializeAuth: async () => {
+    console.log('🔐 Starting auth initialization...');
     try {
+      console.log('🔐 Getting Supabase session...');
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user ?? null;
+      console.log('🔐 Session retrieved, user:', user ? user.id : 'null');
+      
       set({ user, isLoading: false });
+      console.log('🔐 Auth state updated - isLoading set to false');
 
       // Fetch user profile if user exists
       if (user) {
+        console.log('🔐 Fetching user profile...');
         await get().fetchUserProfile(user.id);
+        console.log('🔐 User profile fetch completed');
       }
 
       // Listen for auth changes
+      console.log('🔐 Setting up auth state listener...');
       supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('🔐 Auth state changed:', event, 'session:', session ? 'exists' : 'null');
         const newUser = session?.user ?? null;
         set({ user: newUser, isLoading: false });
         
         if (newUser) {
+          console.log('🔐 New user detected, fetching profile...');
           await get().fetchUserProfile(newUser.id);
         } else {
+          console.log('🔐 User signed out, clearing profile');
           set({ userProfile: null, isAdmin: false });
         }
       });
+      console.log('🔐 Auth initialization completed successfully');
     } catch (error) {
-      console.error('Error initializing auth:', error);
+      console.error('🔐 Error initializing auth:', error);
       set({ isLoading: false });
     }
   },
