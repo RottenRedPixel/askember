@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -167,12 +167,12 @@ export default function Create() {
           <p className="text-gray-600 mb-4">
             Log in to create your first ember with an image.
           </p>
-          <a
-            href="/login"
+          <Link
+            to="/login"
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
             Sign In
-          </a>
+          </Link>
         </div>
       )}
     </motion.div>
