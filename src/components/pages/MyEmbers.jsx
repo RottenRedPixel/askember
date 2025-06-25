@@ -32,6 +32,18 @@ const SortIcon = () => (
   </svg>
 );
 
+const ChevronDownIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+  </svg>
+);
+
+const PlusIcon = () => (
+  <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+    <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 9a.75.75 0 00-1.5 0v2.25H9a.75.75 0 000 1.5h2.25V15a.75.75 0 001.5 0v-2.25H15a.75.75 0 000-1.5h-2.25V9z" clipRule="evenodd" />
+  </svg>
+);
+
 // Toolbar component
 const EmberToolbar = ({ 
   sectionName, 
@@ -42,32 +54,23 @@ const EmberToolbar = ({
   setSortBy 
 }) => {
   const sortOptions = [
-    { value: 'newest', label: 'Newest First' },
-    { value: 'oldest', label: 'Oldest First' },
+    { value: 'newest', label: 'New' },
+    { value: 'oldest', label: 'Old' },
     { value: 'alphabetical', label: 'A-Z' },
     { value: 'reverse-alphabetical', label: 'Z-A' }
   ];
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-6">
-      <div className="flex items-center justify-between">
-        {/* Left side: Section name and count */}
-        <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-semibold text-gray-900">{sectionName}</h2>
-          <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-            {totalEmbers} ember{totalEmbers !== 1 ? 's' : ''}
-          </span>
-        </div>
-
-        {/* Right side: Controls */}
+    <div className="bg-white rounded-lg py-2">
+      <div className="flex items-center justify-end">
+        {/* Controls */}
         <div className="flex items-center space-x-4">
           {/* Sort dropdown */}
-          <div className="flex items-center space-x-2">
-            <SortIcon />
+          <div className="relative">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="text-sm border border-gray-300 rounded-full pl-3 pr-10 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white cursor-pointer"
             >
               {sortOptions.map(option => (
                 <option key={option.value} value={option.value}>
@@ -75,16 +78,19 @@ const EmberToolbar = ({
                 </option>
               ))}
             </select>
+            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+              <ChevronDownIcon />
+            </div>
           </div>
 
           {/* View toggle */}
-          <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
+          <div className="flex items-center space-x-2">
             <button
               onClick={() => setViewMode('scroll')}
-              className={`p-2 flex items-center justify-center transition-colors ${
+              className={`p-2 rounded-md transition-colors ${
                 viewMode === 'scroll' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                  ? 'text-blue-600' 
+                  : 'text-gray-400 hover:text-gray-600'
               }`}
               title="Scroll View"
             >
@@ -92,16 +98,26 @@ const EmberToolbar = ({
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 flex items-center justify-center transition-colors ${
+              className={`p-2 rounded-md transition-colors ${
                 viewMode === 'grid' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                  ? 'text-blue-600' 
+                  : 'text-gray-400 hover:text-gray-600'
               }`}
               title="Grid View"
             >
               <GridIcon />
             </button>
           </div>
+
+          {/* Create new ember */}
+          <Link to="/create">
+            <button
+              className="p-1 text-blue-600 hover:text-blue-700 transition-colors rounded-md"
+              title="Create New Ember"
+            >
+              <PlusIcon />
+            </button>
+          </Link>
         </div>
       </div>
     </div>
@@ -313,15 +329,6 @@ export default function MyEmbers() {
 
   return (
     <motion.div initial={{ x: -100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="space-y-8">
-      <div className="text-center mt-2">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4 pt-2">my embers</h1>
-        <p className="text-lg text-gray-600 mb-6">
-          {embers.length > 0 
-            ? `You have ${embers.length} ember${embers.length === 1 ? '' : 's'}`
-            : 'Create your first ember'
-          }
-        </p>
-      </div>
 
       {loading && (
         <div className="flex items-center justify-center min-h-[200px]">
@@ -352,7 +359,7 @@ export default function MyEmbers() {
         <div className="max-w-6xl mx-auto">
           {/* Toolbar */}
           <EmberToolbar
-            sectionName="My Embers"
+            sectionName="my embers"
             totalEmbers={embers.length}
             viewMode={viewMode}
             setViewMode={setViewMode}
@@ -368,18 +375,12 @@ export default function MyEmbers() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                         <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
               {sortedEmbers.map((ember) => (
                 <EmberGrid key={ember.id} ember={ember} />
               ))}
-            </div>
-          )}
-          
-          <div className="text-center mt-8">
-            <Link to="/create">
-              <Button variant="blue">Create Another Ember</Button>
-            </Link>
-          </div>
+                         </div>
+           )}
         </div>
       )}
     </motion.div>
