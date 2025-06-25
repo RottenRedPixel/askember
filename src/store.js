@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { supabase } from './lib/supabase';
 
+let authListener = null;
+
 const useStore = create((set, get) => ({
   // Counter state (existing)
   count: 0,
@@ -160,9 +162,15 @@ const useStore = create((set, get) => ({
         console.log('🔐 User profile fetch completed');
       }
 
-      // Listen for auth changes
+      // Unsubscribe previous listener if it exists
+      if (authListener && typeof authListener.unsubscribe === 'function') {
+        console.log('🔐 Unsubscribing previous auth listener');
+        authListener.unsubscribe();
+      }
+
+      // Set up the listener once
       console.log('🔐 Setting up auth state listener...');
-      supabase.auth.onAuthStateChange(async (event, session) => {
+      authListener = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('🔐 Auth state changed:', event, 'session:', session ? 'exists' : 'null');
         const newUser = session?.user ?? null;
         set({ user: newUser, isLoading: false });

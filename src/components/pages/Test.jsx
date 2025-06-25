@@ -347,19 +347,19 @@ export default function Test() {
       {/* Navigation Buttons */}
       <div className="flex justify-center gap-4 mb-8">
         <Button 
-          variant={activeSection === 'threaded' ? 'default' : 'outline'}
+          variant={activeSection === 'threaded' ? 'blue' : 'outline'}
           onClick={() => setActiveSection('threaded')}
         >
           Threaded
         </Button>
         <Button 
-          variant={activeSection === 'cards' ? 'default' : 'outline'}
+          variant={activeSection === 'cards' ? 'blue' : 'outline'}
           onClick={() => setActiveSection('cards')}
         >
           Card-Based
         </Button>
         <Button 
-          variant={activeSection === 'accordion' ? 'default' : 'outline'}
+          variant={activeSection === 'accordion' ? 'blue' : 'outline'}
           onClick={() => setActiveSection('accordion')}
         >
           Accordion

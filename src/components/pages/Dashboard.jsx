@@ -156,7 +156,7 @@ export default function Dashboard() {
           <h1 className="text-4xl font-bold text-gray-900 mb-4 pt-2">my embers</h1>
           <p className="text-lg text-gray-600 mb-6">Sign in to view your embers</p>
           <Link to="/login">
-            <Button>Sign In</Button>
+            <Button variant="blue">Sign In</Button>
           </Link>
         </div>
       </motion.div>
@@ -184,7 +184,7 @@ export default function Dashboard() {
       {error && (
         <div className="text-center py-8">
           <p className="text-red-600 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>Try Again</Button>
+          <Button variant="blue" onClick={() => window.location.reload()}>Try Again</Button>
         </div>
       )}
 
@@ -195,7 +195,7 @@ export default function Dashboard() {
             Create your first ember to get started.
           </p>
           <Link to="/create">
-            <Button>Create Ember</Button>
+            <Button variant="blue">Create Ember</Button>
           </Link>
         </div>
       )}
@@ -208,7 +208,7 @@ export default function Dashboard() {
           
           <div className="text-center mt-8">
             <Link to="/create">
-              <Button>Create Another Ember</Button>
+              <Button variant="blue">Create Another Ember</Button>
             </Link>
           </div>
         </div>

@@ -241,7 +241,7 @@ export default function EmberChat({ emberId }) {
           <div className="flex gap-2 flex-wrap">
             <Button
               type="button"
-              variant={messageType === 'question' ? 'default' : 'outline'}
+              variant={messageType === 'question' ? 'blue' : 'outline'}
               onClick={() => {
                 setMessageType('question');
                 setAnsweringQuestion(null);
@@ -254,7 +254,7 @@ export default function EmberChat({ emberId }) {
             </Button>
             <Button
               type="button"
-              variant={messageType === 'comment' ? 'default' : 'outline'}
+              variant={messageType === 'comment' ? 'blue' : 'outline'}
               onClick={() => {
                 setMessageType('comment');
                 setAnsweringQuestion(null);
@@ -281,7 +281,7 @@ export default function EmberChat({ emberId }) {
               disabled={sending}
               className="flex-1"
             />
-            <Button type="submit" disabled={sending || !newMessage.trim()}>
+            <Button type="submit" disabled={sending || !newMessage.trim()} variant="blue">
               {sending ? 'Sending...' : 
                messageType === 'question' ? 'Ask' :
                messageType === 'answer' ? 'Answer' : 'Comment'}

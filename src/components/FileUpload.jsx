@@ -115,6 +115,7 @@ export default function FileUpload({
           onClick={() => document.querySelector('input[type="file"]').click()}
           disabled={uploading}
           className="w-full"
+          variant="blue"
         >
           {uploading ? 'Uploading...' : 'Choose Files'}
         </Button>
