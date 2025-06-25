@@ -10,7 +10,9 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Get the session from the URL hash
+        console.log('AuthCallback: Processing URL:', window.location.href);
+        
+        // Handle hash-based auth (email confirmations, magic links)
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -19,14 +21,30 @@ export default function AuthCallback() {
           return;
         }
 
+        console.log('AuthCallback: Session data:', data);
+
         if (data.session) {
+          console.log('AuthCallback: User authenticated:', data.session.user.email);
           setStatus('success');
           // Redirect to dashboard after successful auth
           setTimeout(() => {
             navigate('/dashboard');
           }, 2000);
         } else {
-          setStatus('error');
+          // Try to handle the hash fragment directly
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const accessToken = hashParams.get('access_token');
+          
+          if (accessToken) {
+            console.log('AuthCallback: Found access token in hash, processing...');
+            // Let Supabase handle the session automatically
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          } else {
+            console.log('AuthCallback: No session or token found');
+            setStatus('error');
+          }
         }
       } catch (error) {
         console.error('Auth callback error:', error);

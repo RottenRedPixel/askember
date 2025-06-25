@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
 
 export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -34,7 +36,8 @@ export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
       }
 
       console.log('Login successful:', data);
-      // Success - user will be redirected by AuthGuard
+      // Success - redirect to dashboard
+      navigate('/dashboard');
     } catch (error) {
       console.error('Login failed:', error);
       
