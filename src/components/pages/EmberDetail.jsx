@@ -10,9 +10,12 @@ import { Button } from '@/components/ui/button';
 import { getEmber, updateEmberTitle } from '@/lib/database';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
-import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass } from 'phosphor-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire } from 'phosphor-react';
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
+import EmberRadialChart from '@/components/EmberRadialChart';
+import EmberNamesModal from '@/components/EmberNamesModal';
 import useStore from '@/store';
 
 export default function EmberDetail() {
@@ -23,10 +26,15 @@ export default function EmberDetail() {
   const [error, setError] = useState('');
   const [showFullImage, setShowFullImage] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showNamesModal, setShowNamesModal] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [message, setMessage] = useState(null);
   const { user } = useStore();
+  const [hasVoted, setHasVoted] = useState(false);
+  const [votingResults, setVotingResults] = useState([]);
+  const [totalVotes, setTotalVotes] = useState(0);
+  const [userVote, setUserVote] = useState(null);
 
   useEffect(() => {
     const fetchEmber = async () => {
@@ -177,16 +185,41 @@ export default function EmberDetail() {
                 </h1>
               </div>
             </div>
-            {/* Bottom right capsule: Smile, divider, Aperture, Flower, Chats */}
+            {/* Radial Chart - positioned at bottom left of photo */}
+            <div className="absolute left-4 bottom-4 z-20">
+              <EmberRadialChart size={46} />
+            </div>
+            {/* Bottom right capsule: Owner Avatar, divider, Aperture, Flower, Chats */}
             <div className="absolute right-4 bottom-4 z-20">
               <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Smiley size={24} className="text-gray-700" />
+                  {ember?.owner ? (
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage 
+                        src={ember.owner.avatar_url} 
+                        alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'} 
+                      />
+                      <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
+                        {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <Smiley size={24} className="text-gray-700" />
+                  )}
                 </div>
                 <div className="h-px w-6 bg-gray-300"></div>
-                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                <button 
+                  className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                  onClick={() => setShowNamesModal(true)}
+                  aria-label="Manage ember names"
+                  type="button"
+                >
                   <Aperture size={24} className="text-gray-700" />
+                </button>
+                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                  <Campfire size={24} className="text-gray-700" />
                 </div>
+
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
                   <Flower size={24} className="text-gray-700" />
                 </div>
@@ -410,6 +443,15 @@ export default function EmberDetail() {
           ember={ember} 
           isOpen={showShareModal} 
           onClose={() => setShowShareModal(false)} 
+        />
+      )}
+
+      {/* Ember Names Modal */}
+      {ember && (
+        <EmberNamesModal 
+          ember={ember} 
+          isOpen={showNamesModal} 
+          onClose={() => setShowNamesModal(false)} 
         />
       )}
     </div>

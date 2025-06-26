@@ -216,17 +216,33 @@ export const getUserEmbers = async (userId) => {
  */
 export const getEmber = async (emberId) => {
   try {
-    const { data, error } = await supabase
+    // First get the ember
+    const { data: ember, error: emberError } = await supabase
       .from('embers')
       .select('*')
       .eq('id', emberId)
       .single();
 
-    if (error) {
-      throw new Error(error.message);
+    if (emberError) {
+      throw new Error(emberError.message);
     }
 
-    return data;
+    // Then get the owner's profile information
+    const { data: owner, error: ownerError } = await supabase
+      .from('user_profiles')
+      .select('first_name, last_name, avatar_url')
+      .eq('user_id', ember.user_id)
+      .single();
+
+    // Don't throw error if owner profile doesn't exist, just return ember without owner info
+    if (ownerError && ownerError.code !== 'PGRST116') {
+      console.warn('Could not fetch owner profile:', ownerError.message);
+    }
+
+    return {
+      ...ember,
+      owner: owner || null
+    };
   } catch (error) {
     console.error('Error fetching ember:', error);
     throw error;
