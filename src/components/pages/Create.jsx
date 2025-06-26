@@ -13,7 +13,6 @@ import { Upload, Image, X } from 'lucide-react';
 export default function Create() {
   const { user, isLoading } = useStore();
   const navigate = useNavigate();
-  const [title, setTitle] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -95,7 +94,6 @@ export default function Create() {
       // Save ember to database
       const emberData = {
         user_id: user.id,
-        title: title,
         image_url: imageResult.url
       };
 
@@ -110,7 +108,6 @@ export default function Create() {
       // Reset form
       setSelectedImage(null);
       setImagePreview(null);
-      setTitle('');
 
       // Redirect to the newly created ember detail page after a short delay
       setTimeout(() => {
@@ -193,24 +190,6 @@ export default function Create() {
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* Title Input */}
-              <div className="space-y-2">
-                <Label htmlFor="title" className="text-gray-900 font-medium">Ember Title</Label>
-                <input
-                  id="title"
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  maxLength="45"
-                  placeholder="e.g., Summer vacation in Hawaii"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-                <p className="text-sm text-right text-gray-500">
-                  {45 - title.length} characters remaining
-                </p>
               </div>
 
               {/* Message */}
