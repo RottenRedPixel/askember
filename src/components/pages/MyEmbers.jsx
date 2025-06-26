@@ -254,6 +254,7 @@ export default function MyEmbers() {
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState('scroll'); // 'scroll' or 'grid'
   const [sortBy, setSortBy] = useState('newest');
+  const [initialViewModeSet, setInitialViewModeSet] = useState(false);
 
   // Debug logging
   console.log('MyEmbers render - isLoading:', isLoading, 'user:', user ? 'exists' : 'null', 'loading:', loading);
@@ -285,6 +286,16 @@ export default function MyEmbers() {
 
     fetchEmbers();
   }, [user]);
+
+  // Set initial view mode based on ember count (only once when embers first load)
+  useEffect(() => {
+    if (!loading && !initialViewModeSet && embers.length > 0) {
+      if (embers.length > 3) {
+        setViewMode('grid');
+      }
+      setInitialViewModeSet(true);
+    }
+  }, [embers.length, loading, initialViewModeSet]);
 
   // Sort embers based on selected sort option
   const sortedEmbers = [...embers].sort((a, b) => {
