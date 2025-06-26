@@ -10,6 +10,7 @@ import { getEmber } from '@/lib/database';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley } from 'phosphor-react';
+import FeaturesCard from '@/components/FeaturesCard';
 
 export default function EmberDetail() {
   const { id } = useParams();
@@ -198,13 +199,8 @@ export default function EmberDetail() {
       id: 'features',
       title: 'Features',
       content: (
-        <div className="h-full w-full bg-gray-100 rounded-xl p-6">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-6">Features</h1>
-            <p className="text-lg text-gray-600">
-              Control the sharing and editing here.
-            </p>
-          </div>
+        <div className="h-full w-full bg-white rounded-xl">
+          <FeaturesCard ember={ember} />
         </div>
       )
     }
