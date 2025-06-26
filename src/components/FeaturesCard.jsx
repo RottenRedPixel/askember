@@ -51,7 +51,7 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
   const [showShareForm, setShowShareForm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
 
   useEffect(() => {
     loadEmberWithSharing();
@@ -141,12 +141,6 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
   };
 
   const handleDeleteEmber = async () => {
-    if (deleteConfirmText !== 'delete') {
-      setMessage({ type: 'error', text: 'Please type "delete" to confirm' });
-      setTimeout(() => setMessage(null), 3000);
-      return;
-    }
-
     setIsDeleting(true);
     try {
       await deleteEmber(ember.id, user.id);
@@ -167,7 +161,6 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
 
   const resetDeleteConfirm = () => {
     setShowDeleteConfirm(false);
-    setDeleteConfirmText('');
     setIsDeleting(false);
   };
 
@@ -197,9 +190,11 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
       <CardContent className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Share className="w-5 h-5 text-blue-600" />
-            <h3 className="text-lg font-semibold">Sharing & Features</h3>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 text-left">Sharing & Features</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Manage privacy, share with others, and access advanced features.
+            </p>
           </div>
           {emberData?.userPermission && (
             <Badge className={getPermissionColor(emberData.userPermission)}>
@@ -442,20 +437,6 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
                 </ul>
               </div>
 
-              <div>
-                <Label htmlFor="deleteConfirm" className="text-sm font-medium text-gray-700">
-                  Type <strong>"delete"</strong> to confirm:
-                </Label>
-                <Input
-                  id="deleteConfirm"
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder="Type 'delete' to confirm"
-                  className="mt-1"
-                  disabled={isDeleting}
-                />
-              </div>
-
               <div className="flex gap-2 justify-end">
                 <Button
                   variant="outline"
@@ -467,7 +448,7 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
                 <Button
                   variant="destructive"
                   onClick={handleDeleteEmber}
-                  disabled={isDeleting || deleteConfirmText !== 'delete'}
+                  disabled={isDeleting}
                 >
                   {isDeleting ? 'Deleting...' : 'Delete Ember'}
                 </Button>

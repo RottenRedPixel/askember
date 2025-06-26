@@ -6,6 +6,7 @@ import {
   CarouselContent,
   CarouselItem,
 } from '@/components/ui/carousel';
+import { Button } from '@/components/ui/button';
 import { getEmber } from '@/lib/database';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
@@ -110,6 +111,14 @@ export default function EmberDetail() {
                 e.target.src = '/placeholder-image.png';
               }}
             />
+            {/* Title Overlay */}
+            {ember.title && (
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
+                <h1 className="text-white text-2xl font-bold truncate drop-shadow-md">
+                  {ember.title}
+                </h1>
+              </div>
+            )}
             {/* Bottom right capsule: Smile, divider, Aperture, Flower, Chats */}
             <div className="absolute right-4 bottom-4 z-20">
               <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
@@ -159,49 +168,101 @@ export default function EmberDetail() {
       )
     },
     {
-      id: 'discovery',
-      title: 'Discovery',
-      content: (
-        <div className="h-full w-full bg-gray-100 rounded-xl p-6">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-6">Discovery</h1>
-            <p className="text-lg text-gray-600">
-              Insights and discoveries related to this ember will be shown here.
-            </p>
-          </div>
-        </div>
-      )
-    },
-    {
       id: 'story-circle',
       title: 'Story Circle',
       content: (
-        <div className="h-full w-full bg-gray-100 rounded-xl p-6">
-          <div className="h-full flex flex-col">
-            <div className="text-center mb-6">
-              <h1 className="text-4xl font-bold text-gray-900 mb-6">Story Circle</h1>
-              <p className="text-lg text-gray-600">
-                Discuss and explore the story behind this ember
-              </p>
-            </div>
-            <div className="flex-1 min-h-0">
-              <EmberChat emberId={ember.id} />
-            </div>
-          </div>
+        <div className="h-full w-full bg-white rounded-xl">
+          <Card className="h-full">
+            <CardContent className="p-6 h-full flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 text-left">Story Circle</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Discuss and explore the story behind this ember
+                  </p>
+                </div>
+              </div>
+              {/* Chat Content */}
+              <div className="flex-1 min-h-0">
+                <EmberChat emberId={ember.id} />
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )
     },
     {
       id: 'wiki',
-      title: 'Wiki',
+      title: 'Ember Wiki',
       content: (
-        <div className="h-full w-full bg-gray-100 rounded-xl p-6">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-6">Wiki</h1>
-            <p className="text-lg text-gray-600">
-              Knowledge and information about this ember will appear here.
-            </p>
-          </div>
+        <div className="h-full w-full bg-white rounded-xl">
+          <Card className="h-full">
+            <CardContent className="p-6 space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 text-left">Ember Wiki</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Knowledge and information about this ember
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline">
+                    Edit
+                  </Button>
+                  <Button size="sm" variant="outline">
+                    Export
+                  </Button>
+                  <Button size="sm" variant="blue">
+                    Refresh Analysis
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Content Sections */}
+              <div className="space-y-4">
+                {/* Basic Info Section */}
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-900">Basic Information</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500">Title:</span>
+                      <span className="ml-2 text-gray-900">{ember.title || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Owner:</span>
+                      <span className="ml-2 text-gray-900">Coming soon...</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* EXIF Data Section */}
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-900">EXIF Data</h3>
+                  <div className="text-sm text-gray-600">
+                    Camera settings and metadata will appear here...
+                  </div>
+                </div>
+
+                {/* Location Section */}
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-900">Location</h3>
+                  <div className="text-sm text-gray-600">
+                    Geolocation data will appear here...
+                  </div>
+                </div>
+
+                {/* People & Analysis Section */}
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-900">Analysis & People</h3>
+                  <div className="text-sm text-gray-600">
+                    Deep image analysis and people tagging will appear here...
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )
     },
