@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { getEmber, updateEmberTitle } from '@/lib/database';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
-import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple } from 'phosphor-react';
+import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass } from 'phosphor-react';
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
 import useStore from '@/store';
@@ -33,6 +33,8 @@ export default function EmberDetail() {
       try {
         setLoading(true);
         const data = await getEmber(id);
+        console.log('Fetched ember data:', data);
+        console.log('Image URL:', data?.image_url);
         setEmber(data);
       } catch (err) {
         console.error('Error fetching ember:', err);
@@ -46,7 +48,7 @@ export default function EmberDetail() {
   }, [id]);
 
   const handleTitleEdit = () => {
-    setNewTitle(ember.title);
+    setNewTitle(ember.title || '');
     setIsEditingTitle(true);
   };
 
@@ -135,6 +137,10 @@ export default function EmberDetail() {
               className={`absolute inset-0 w-full h-full object-cover blur-lg scale-110 brightness-75 transition-opacity duration-300 ${showFullImage ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
               aria-hidden="true"
               style={{ zIndex: 1 }}
+              onError={(e) => {
+                console.error('Background image failed to load:', ember.image_url);
+                e.target.style.display = 'none';
+              }}
             />
             {/* Main image with object-fit transition */}
             <img
@@ -142,17 +148,31 @@ export default function EmberDetail() {
               alt="Ember"
               className={`relative w-full h-full z-10 transition-all duration-300 ${showFullImage ? 'object-contain' : 'object-cover'}`}
               onError={(e) => {
-                e.target.src = '/placeholder-image.png';
+                console.error('Image failed to load:', ember.image_url);
+                // Create a simple colored rectangle as fallback
+                e.target.style.backgroundColor = '#f3f4f6';
+                e.target.style.display = 'flex';
+                e.target.style.alignItems = 'center';
+                e.target.style.justifyContent = 'center';
+                e.target.alt = 'Image unavailable';
+                e.target.src = 'data:image/svg+xml;base64,' + btoa(`
+                  <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+                    <rect width="200" height="200" fill="#f3f4f6"/>
+                    <text x="100" y="100" text-anchor="middle" dy="0.3em" font-family="Arial, sans-serif" font-size="14" fill="#6b7280">
+                      Image unavailable
+                    </text>
+                  </svg>
+                `);
               }}
             />
             {/* Title Overlay */}
-            {ember.title && (
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
-                <h1 className="text-white text-2xl font-bold truncate drop-shadow-md">
-                  {ember.title}
+            <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none z-20">
+              <div className="container mx-auto max-w-4xl">
+                <h1 className="text-white text-2xl font-bold truncate drop-shadow-md text-left pl-2">
+                  {ember.title || 'Untitled Ember'}
                 </h1>
               </div>
-            )}
+            </div>
             {/* Bottom right capsule: Smile, divider, Aperture, Flower, Chats */}
             <div className="absolute right-4 bottom-4 z-20">
               <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
@@ -241,26 +261,15 @@ export default function EmberDetail() {
                     Knowledge and information about this ember
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline">
-                    Edit
-                  </Button>
-                  <Button size="sm" variant="outline">
-                    Export
-                  </Button>
-                  <Button size="sm" variant="blue">
-                    Refresh Analysis
-                  </Button>
-                </div>
               </div>
               
               {/* Content Sections */}
-              <div className="space-y-4">
+              <div className="space-y-4 text-left">
                 {/* Basic Info Section */}
                 <div className="space-y-3">
-                  <h3 className="font-medium text-gray-900">Basic Information</h3>
+                  <h3 className="font-medium text-gray-900 text-left">Basic Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-4 text-sm">
-                    <div className="space-y-2">
+                    <div className="space-y-2 text-left">
                       <span className="text-gray-500 font-medium">Title</span>
                       {isEditingTitle ? (
                         <div className="flex items-center gap-2">
@@ -283,7 +292,7 @@ export default function EmberDetail() {
                         </div>
                       )}
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 text-left">
                       <span className="text-gray-500 font-medium">Owner</span>
                       <span className="block text-gray-900">Coming soon...</span>
                     </div>
@@ -292,24 +301,24 @@ export default function EmberDetail() {
 
                 {/* EXIF Data Section */}
                 <div className="space-y-3">
-                  <h3 className="font-medium text-gray-900">EXIF Data</h3>
-                  <div className="text-sm text-gray-600">
+                  <h3 className="font-medium text-gray-900 text-left">EXIF Data</h3>
+                  <div className="text-sm text-gray-600 text-left">
                     Camera settings and metadata will appear here...
                   </div>
                 </div>
 
                 {/* Location Section */}
                 <div className="space-y-3">
-                  <h3 className="font-medium text-gray-900">Location</h3>
-                  <div className="text-sm text-gray-600">
+                  <h3 className="font-medium text-gray-900 text-left">Location</h3>
+                  <div className="text-sm text-gray-600 text-left">
                     Geolocation data will appear here...
                   </div>
                 </div>
 
                 {/* People & Analysis Section */}
                 <div className="space-y-3">
-                  <h3 className="font-medium text-gray-900">Analysis & People</h3>
-                  <div className="text-sm text-gray-600">
+                  <h3 className="font-medium text-gray-900 text-left">Analysis & People</h3>
+                  <div className="text-sm text-gray-600 text-left">
                     Deep image analysis and people tagging will appear here...
                   </div>
                 </div>

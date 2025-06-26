@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import useStore from '@/store';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import VersionDisplay from '@/components/VersionDisplay';
 
 export default function Header() {
   const { user, userProfile, isAdmin, logout } = useStore();
@@ -62,9 +63,15 @@ export default function Header() {
         {/* Desktop Navigation */}
         <div className="hidden md:flex justify-between items-center">
           {/* Left side - Brand */}
-          <Link to="/" className="text-2xl font-bold text-gray-900">
-            ember<span className="text-gray-200">.ai</span>
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link to="/" className="text-2xl font-bold text-gray-900">
+              ember<span className="text-gray-200">.ai</span>
+            </Link>
+            {/* Discrete version display for non-logged-in users */}
+            {!user && (
+              <VersionDisplay mobile={false} />
+            )}
+          </div>
           
           {/* Right side - Navigation and User */}
           <div className="flex items-center gap-8">
@@ -141,10 +148,17 @@ export default function Header() {
                             logout();
                             setIsUserMenuOpen(false);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          className="w-full text-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                         >
                           Logout
                         </button>
+                        
+                        {/* Version info in user menu */}
+                        <div className="border-t border-gray-100 pt-2">
+                          <div className="px-4 py-2">
+                            <VersionDisplay mobile={false} />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -263,6 +277,9 @@ export default function Header() {
                     </Link>
                   )}
                 </div>
+                
+                {/* Version Display - Discrete at bottom */}
+                <VersionDisplay mobile={true} />
               </div>
             </div>
           )}

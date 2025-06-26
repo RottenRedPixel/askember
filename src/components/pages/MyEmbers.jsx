@@ -235,13 +235,10 @@ const EmberGrid = ({ ember }) => {
           }}
         />
       </div>
-      <div className="p-3">
-        <p className="text-sm text-gray-600 truncate">
-          {ember.message || 'No message'}
-        </p>
-        <p className="text-xs text-gray-400 mt-1">
-          {new Date(ember.created_at).toLocaleDateString()}
-        </p>
+      <div className="p-3 bg-gray-50">
+        <h3 className="font-medium text-gray-900 truncate">
+          {ember.title || 'Untitled Ember'}
+        </h3>
       </div>
     </div>
   );
@@ -252,7 +249,7 @@ export default function MyEmbers() {
   const [embers, setEmbers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [viewMode, setViewMode] = useState('scroll'); // 'scroll' or 'grid'
+  const [viewMode, setViewMode] = useState('grid'); // 'scroll' or 'grid'
   const [sortBy, setSortBy] = useState('newest');
   const [initialViewModeSet, setInitialViewModeSet] = useState(false);
 
@@ -290,8 +287,10 @@ export default function MyEmbers() {
   // Set initial view mode based on ember count (only once when embers first load)
   useEffect(() => {
     if (!loading && !initialViewModeSet && embers.length > 0) {
-      if (embers.length > 3) {
-        setViewMode('grid');
+      if (embers.length === 1) {
+        setViewMode('scroll'); // Use stacked view for single ember
+      } else {
+        setViewMode('grid'); // Use grid view for multiple embers
       }
       setInitialViewModeSet(true);
     }

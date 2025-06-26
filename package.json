@@ -1,7 +1,7 @@
 {
   "name": "askember",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,14 @@
     "db:status": "npx supabase status",
     "db:reset": "npx supabase db reset",
     "db:diff": "npx supabase db diff",
-    "db:push": "npx supabase db push"
+    "db:push": "npx supabase db push",
+    "version:patch": "npm version patch",
+    "version:minor": "npm version minor",
+    "version:major": "npm version major",
+    "version:info": "node -p \"require('./package.json').version\"",
+    "release:patch": "npm run version:patch && git push --follow-tags",
+    "release:minor": "npm run version:minor && git push --follow-tags",
+    "release:major": "npm run version:major && git push --follow-tags"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",

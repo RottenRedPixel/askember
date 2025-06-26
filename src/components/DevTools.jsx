@@ -80,39 +80,61 @@ export default function DevTools() {
   const checkSharingSystem = async () => {
     setIsLoading(true);
     try {
-      // Check if sharing columns exist in embers table
-      const emberColumnsResult = await executeSQL(`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'embers' 
-        AND column_name IN ('is_public', 'allow_public_edit');
-      `);
-
-      // Check if ember_shares table exists
-      const sharesTableResult = await executeSQL(`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_name = 'ember_shares';
-      `);
-
-      // Check if the function exists
-      const functionResult = await executeSQL(`
-        SELECT routine_name 
-        FROM information_schema.routines 
-        WHERE routine_name = 'get_ember_permission';
-      `);
-
-      const emberColumns = emberColumnsResult.data?.length || 0;
-      const sharesTable = sharesTableResult.data?.length || 0;
-      const permissionFunction = functionResult.data?.length || 0;
-
-      if (emberColumns === 2 && sharesTable === 1 && permissionFunction === 1) {
-        addResult('success', 'Sharing system is fully set up and ready to use!');
+      const sql = `
+        SELECT EXISTS (
+          SELECT FROM information_schema.columns 
+          WHERE table_name = 'embers' AND column_name = 'is_public'
+        ) as has_is_public,
+        EXISTS (
+          SELECT FROM information_schema.columns 
+          WHERE table_name = 'embers' AND column_name = 'allow_public_edit'
+        ) as has_allow_public_edit,
+        EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'ember_shares'
+        ) as has_ember_shares_table;
+      `;
+      const result = await executeSQL(sql);
+      if (result.success) {
+        addResult('success', 'Sharing system check completed!', result.data);
       } else {
-        addResult('info', `Sharing system status: Ember columns (${emberColumns}/2), Shares table (${sharesTable}/1), Permission function (${permissionFunction}/1)`);
+        addResult('error', `Sharing system check failed: ${result.error}`);
       }
     } catch (error) {
       addResult('error', `Sharing system check error: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const refreshTitleColumn = async () => {
+    setIsLoading(true);
+    try {
+      const sql = `
+        -- Ensure title column exists and has correct type
+        DO $$ 
+        BEGIN 
+          IF NOT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_name = 'embers' AND column_name = 'title'
+          ) THEN
+            ALTER TABLE embers ADD COLUMN title VARCHAR(45);
+          ELSE
+            ALTER TABLE embers ALTER COLUMN title TYPE VARCHAR(45);
+          END IF;
+        END $$;
+
+        -- Refresh the schema cache
+        NOTIFY pgrst, 'reload schema';
+      `;
+      const result = await executeSQL(sql);
+      if (result.success) {
+        addResult('success', 'Title column refreshed successfully!', result.data);
+      } else {
+        addResult('error', `Title column refresh failed: ${result.error}`);
+      }
+    } catch (error) {
+      addResult('error', `Title column refresh error: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -264,7 +286,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
               Check Profiles
             </Button>
             <Button onClick={checkSharingSystem} disabled={isLoading} variant="blue">
-              Check Sharing
+              Check Sharing System
+            </Button>
+            <Button onClick={refreshTitleColumn} disabled={isLoading} variant="blue">
+              Refresh Title Column
             </Button>
             <Button onClick={runSharingSystemSetup} disabled={isLoading} variant="blue">
               Setup Sharing
