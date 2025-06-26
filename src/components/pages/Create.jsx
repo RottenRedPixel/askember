@@ -94,7 +94,8 @@ export default function Create() {
       // Save ember to database
       const emberData = {
         user_id: user.id,
-        image_url: imageResult.url
+        image_url: imageResult.url,
+        title: 'Untitled Ember'
       };
 
       const newEmber = await createEmber(emberData);

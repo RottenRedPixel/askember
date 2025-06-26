@@ -234,6 +234,29 @@ export const getEmber = async (emberId) => {
 };
 
 /**
+ * Update an ember's title
+ */
+export const updateEmberTitle = async (emberId, title, userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('embers')
+      .update({ title: title, updated_at: new Date().toISOString() })
+      .eq('id', emberId)
+      .eq('user_id', userId) // Ensure user owns the ember
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+    return data;
+  } catch (error) {
+    console.error('Error updating ember title:', error);
+    throw error;
+  }
+};
+
+/**
  * Delete an ember (only if it belongs to the user)
  */
 export const deleteEmber = async (emberId, userId) => {

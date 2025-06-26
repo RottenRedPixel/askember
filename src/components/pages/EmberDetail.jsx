@@ -7,12 +7,13 @@ import {
   CarouselItem,
 } from '@/components/ui/carousel';
 import { Button } from '@/components/ui/button';
-import { getEmber } from '@/lib/database';
+import { getEmber, updateEmberTitle } from '@/lib/database';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
-import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork } from 'phosphor-react';
+import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, Edit } from 'phosphor-react';
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
+import useStore from '@/store';
 
 export default function EmberDetail() {
   const { id } = useParams();
@@ -22,6 +23,10 @@ export default function EmberDetail() {
   const [error, setError] = useState('');
   const [showFullImage, setShowFullImage] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [message, setMessage] = useState(null);
+  const { user } = useStore();
 
   useEffect(() => {
     const fetchEmber = async () => {
@@ -39,6 +44,35 @@ export default function EmberDetail() {
 
     fetchEmber();
   }, [id]);
+
+  const handleTitleEdit = () => {
+    setNewTitle(ember.title);
+    setIsEditingTitle(true);
+  };
+
+  const handleTitleCancel = () => {
+    setIsEditingTitle(false);
+    setNewTitle('');
+  };
+
+  const handleTitleSave = async () => {
+    if (newTitle.trim() === '' || newTitle.trim() === ember.title) {
+      setIsEditingTitle(false);
+      return;
+    }
+
+    try {
+      const updatedEmber = await updateEmberTitle(ember.id, newTitle, user.id);
+      setEmber(updatedEmber);
+      setIsEditingTitle(false);
+      setMessage({ type: 'success', text: 'Title updated successfully!' });
+    } catch (error) {
+      console.error('Failed to update title', error);
+      setMessage({ type: 'error', text: 'Failed to update title.' });
+    } finally {
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
 
   if (loading) {
     return (
@@ -225,14 +259,33 @@ export default function EmberDetail() {
                 {/* Basic Info Section */}
                 <div className="space-y-3">
                   <h3 className="font-medium text-gray-900">Basic Information</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Title:</span>
-                      <span className="ml-2 text-gray-900">{ember.title || 'N/A'}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-4 text-sm">
+                    <div className="space-y-2">
+                      <span className="text-gray-500 font-medium">Title</span>
+                      {isEditingTitle ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="text"
+                            value={newTitle}
+                            onChange={(e) => setNewTitle(e.target.value)}
+                            maxLength="45"
+                            className="h-8"
+                          />
+                          <Button size="sm" variant="blue" onClick={handleTitleSave}>Save</Button>
+                          <Button size="sm" variant="outline" onClick={handleTitleCancel}>Cancel</Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-900">{ember.title || 'N/A'}</span>
+                          <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
+                            <Edit size={16} />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <span className="text-gray-500">Owner:</span>
-                      <span className="ml-2 text-gray-900">Coming soon...</span>
+                    <div className="space-y-2">
+                      <span className="text-gray-500 font-medium">Owner</span>
+                      <span className="block text-gray-900">Coming soon...</span>
                     </div>
                   </div>
                 </div>
