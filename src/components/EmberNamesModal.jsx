@@ -10,8 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Aperture, Plus, Check, BarChart, Users } from 'phosphor-react';
+import { Aperture, Plus, Check, ChartBar, Users } from 'phosphor-react';
 import { submitVote, getVotingResults, getUserVote } from '@/lib/voting';
+import { getEmberWithSharing } from '@/lib/sharing';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import useStore from '@/store';
 
 export default function EmberNamesModal({ isOpen, onClose, ember }) {
@@ -34,6 +36,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
   const [totalVotes, setTotalVotes] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const [emberParticipants, setEmberParticipants] = useState([]);
 
   useEffect(() => {
     if (isOpen && ember?.id) {
@@ -57,6 +60,57 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
       const results = await getVotingResults(ember.id);
       setVotingResults(results.results);
       setTotalVotes(results.totalVotes);
+
+      // Load ember participants (owner + shared users)
+      const emberData = await getEmberWithSharing(ember.id);
+      const participants = [];
+      
+      // Add owner - try multiple sources for owner data
+      let ownerData = null;
+      if (emberData.owner) {
+        ownerData = emberData.owner;
+      } else if (ember.owner) {
+        ownerData = ember.owner;
+      }
+      
+      if (ownerData) {
+        participants.push({
+          id: ownerData.id || ember.user_id,
+          email: ownerData.email || 'Owner',
+          first_name: ownerData.first_name || '',
+          last_name: ownerData.last_name || '',
+          avatar_url: ownerData.avatar_url || null,
+          role: 'owner'
+        });
+      } else {
+        // Fallback: add owner based on ember user_id
+        participants.push({
+          id: ember.user_id,
+          email: 'Owner',
+          first_name: '',
+          last_name: '',
+          avatar_url: null,
+          role: 'owner'
+        });
+      }
+      
+      // Add shared users
+      if (emberData.shares) {
+        emberData.shares.forEach(share => {
+          participants.push({
+            id: share.id,
+            email: share.shared_with_email,
+            first_name: share.shared_user?.first_name || '',
+            last_name: share.shared_user?.last_name || '',
+            avatar_url: share.shared_user?.avatar_url || null,
+            role: share.permission_level
+          });
+        });
+      }
+      
+      console.log('Ember data:', emberData);
+      console.log('Participants:', participants);
+      setEmberParticipants(participants);
 
     } catch (error) {
       console.error('Error loading voting data:', error);
@@ -133,27 +187,22 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
           </DialogDescription>
         </DialogHeader>
 
-        {/* Toggle View Mode Button */}
-        {totalVotes > 0 && (
-          <div className="flex justify-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleViewMode}
-              className="flex items-center gap-2"
-            >
-              {viewMode === 'voting' ? (
-                <>
-                  <BarChart size={16} />
-                  View Results
-                </>
-              ) : (
-                <>
-                  <Users size={16} />
-                  Back to Voting
-                </>
-              )}
-            </Button>
+        {/* Participants Display */}
+        {emberParticipants.length > 0 && (
+          <div className="flex justify-center gap-2 flex-wrap">
+            {emberParticipants.map((participant, index) => (
+              <div key={index} className="flex flex-col items-center">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage 
+                    src={participant.avatar_url} 
+                    alt={`${participant.first_name || ''} ${participant.last_name || ''}`.trim() || participant.email}
+                  />
+                  <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
+                    {participant.first_name?.[0] || participant.last_name?.[0] || participant.email?.[0]?.toUpperCase() || '?'}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+            ))}
           </div>
         )}
 
@@ -169,29 +218,29 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
         {/* Voting View */}
         {viewMode === 'voting' && (
           <div className="space-y-3">
-            {/* Suggested Names */}
-            {suggestedNames.map((name, index) => (
-              <Card 
-                key={index}
-                className={`transition-all h-6 flex items-center ${
-                  hasVoted 
-                    ? 'opacity-60 cursor-not-allowed' 
-                    : 'cursor-pointer hover:border-gray-300'
-                } ${
-                  selectedName === name 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : ''
-                }`}
-                onClick={() => handleSelectSuggestion(name)}
-              >
-                <CardContent className="px-3 py-0.5 flex items-center justify-between w-full">
-                  <span className="text-2xl font-bold">{name}</span>
-                  {selectedName === name && (
-                    <Check size={16} className="text-blue-500" />
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+                         {/* Suggested Names */}
+             {suggestedNames.map((name, index) => (
+               <Card 
+                 key={index}
+                 className={`transition-all cursor-pointer border ${
+                   hasVoted 
+                     ? 'opacity-60 cursor-not-allowed' 
+                     : 'hover:border-gray-300'
+                 } ${
+                   selectedName === name 
+                     ? 'border-blue-500 bg-blue-50' 
+                     : 'border-gray-200'
+                 }`}
+                 onClick={() => handleSelectSuggestion(name)}
+               >
+                 <CardContent className="px-3 py-2 flex items-center justify-between">
+                   <span className="text-xl font-bold">{name}</span>
+                   {selectedName === name && (
+                     <Check size={16} className="text-blue-500" />
+                   )}
+                 </CardContent>
+               </Card>
+             ))}
 
             {/* Custom Name Input */}
             {isAddingCustom ? (
@@ -224,7 +273,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
               <Button
                 variant="outline"
                 onClick={handleAddCustom}
-                className="w-full h-6 flex items-center justify-center gap-2"
+                className="w-full flex items-center justify-center gap-2 py-3 border-dashed"
                 disabled={hasVoted}
               >
                 <Plus size={16} />
@@ -232,11 +281,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
               </Button>
             )}
 
-            {hasVoted && userVote && (
-              <div className="text-center text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                Your vote: <strong>{userVote.suggested_name}</strong>
-              </div>
-            )}
+
           </div>
         )}
 
@@ -289,18 +334,45 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" onClick={onClose}>
-            {viewMode === 'results' ? 'Close' : 'Cancel'}
-          </Button>
-          {viewMode === 'voting' && !hasVoted && (
-            <Button 
-              onClick={handleSubmitVote}
-              disabled={!selectedName || isLoading || !user}
+        <div className="flex justify-between items-center pt-4">
+          {/* Toggle View Mode Button */}
+          {totalVotes > 0 ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleViewMode}
+              className="flex items-center gap-2"
             >
-              {isLoading ? 'Submitting...' : 'Submit Vote'}
+              {viewMode === 'voting' ? (
+                <>
+                  <ChartBar size={16} />
+                  View Results
+                </>
+              ) : (
+                <>
+                  <Users size={16} />
+                  Back to Voting
+                </>
+              )}
             </Button>
+          ) : (
+            <div></div>
           )}
+          
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>
+              {viewMode === 'results' ? 'Close' : 'Cancel'}
+            </Button>
+            {viewMode === 'voting' && !hasVoted && (
+              <Button 
+                onClick={handleSubmitVote}
+                disabled={!selectedName || isLoading || !user}
+              >
+                {isLoading ? 'Submitting...' : 'Submit Vote'}
+              </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

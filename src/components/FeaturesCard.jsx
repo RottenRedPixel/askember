@@ -24,6 +24,8 @@ import {
   updateSharePermission,
   getEmberSharingLink 
 } from '@/lib/sharing';
+import { getVotingResults, getAllVotes } from '@/lib/voting';
+import { supabase } from '@/lib/supabase';
 import { 
   Share, 
   Globe, 
@@ -37,7 +39,9 @@ import {
   Crown,
   Users,
   Link as LinkIcon,
-  AlertTriangle
+  AlertTriangle,
+  BarChart3,
+  Vote
 } from 'lucide-react';
 
 export default function FeaturesCard({ ember, onEmberUpdate }) {
@@ -51,6 +55,9 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
   const [showShareForm, setShowShareForm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [votingResults, setVotingResults] = useState([]);
+  const [totalVotes, setTotalVotes] = useState(0);
+  const [showVotingResults, setShowVotingResults] = useState(false);
 
 
   useEffect(() => {
@@ -162,6 +169,50 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
   const resetDeleteConfirm = () => {
     setShowDeleteConfirm(false);
     setIsDeleting(false);
+  };
+
+  const loadVotingResults = async () => {
+    try {
+      const results = await getVotingResults(ember.id);
+      setVotingResults(results.results);
+      setTotalVotes(results.totalVotes);
+    } catch (error) {
+      console.error('Error loading voting results:', error);
+      setMessage({ type: 'error', text: 'Failed to load voting results' });
+    }
+  };
+
+  const handleResetVoting = async () => {
+    if (!window.confirm('Are you sure you want to reset all votes? This action cannot be undone.')) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('ember_name_votes')
+        .delete()
+        .eq('ember_id', ember.id);
+
+      if (error) throw error;
+
+      setMessage({ type: 'success', text: 'All votes have been reset' });
+      setVotingResults([]);
+      setTotalVotes(0);
+      setShowVotingResults(false);
+    } catch (error) {
+      console.error('Error resetting votes:', error);
+      setMessage({ type: 'error', text: 'Failed to reset votes' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleViewVotingResults = async () => {
+    if (!showVotingResults) {
+      await loadVotingResults();
+    }
+    setShowVotingResults(!showVotingResults);
   };
 
   const getPermissionIcon = (permission) => {
@@ -371,6 +422,80 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Voting Management - Only for owners */}
+        {isOwner && (
+          <div className="space-y-3">
+            <h4 className="font-medium flex items-center gap-2">
+              <Vote className="w-4 h-4" />
+              Voting Management
+            </h4>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm">
+                    Total Votes: {totalVotes}
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleViewVotingResults}
+                  disabled={isLoading}
+                >
+                  {showVotingResults ? 'Hide Results' : 'View Results'}
+                </Button>
+              </div>
+              
+              {showVotingResults && votingResults.length > 0 && (
+                <div className="p-3 border rounded-lg bg-gray-50">
+                  <div className="space-y-2">
+                    {votingResults.map((result, index) => (
+                      <div key={index} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{result.suggested_name}</span>
+                          {result.is_custom && (
+                            <Badge variant="secondary" className="text-xs">Custom</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-500 h-2 rounded-full transition-all"
+                              style={{ width: `${result.percentage}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-gray-600">
+                            {result.percentage}% ({result.vote_count})
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {totalVotes > 0 && (
+                <div className="p-3 border border-orange-200 rounded-lg bg-orange-50">
+                  <p className="text-sm text-orange-700 mb-2">
+                    Reset all votes for this ember. This will permanently delete all voting data.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleResetVoting}
+                    disabled={isLoading}
+                    className="border-orange-300 text-orange-700 hover:bg-orange-100"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Reset All Votes
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

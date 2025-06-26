@@ -136,23 +136,23 @@ BEGIN
     WITH vote_counts AS (
         SELECT 
             env.suggested_name,
-            COUNT(*) as vote_count,
+            COUNT(*) as count_votes,
             env.is_custom
         FROM ember_name_votes env
         WHERE env.ember_id = ember_uuid
         GROUP BY env.suggested_name, env.is_custom
     ),
     total_votes AS (
-        SELECT SUM(vote_count) as total FROM vote_counts
+        SELECT SUM(count_votes) as total FROM vote_counts
     )
     SELECT 
         vc.suggested_name,
-        vc.vote_count,
+        vc.count_votes,
         vc.is_custom,
-        ROUND((vc.vote_count::NUMERIC / tv.total::NUMERIC) * 100, 1) as percentage
+        ROUND((vc.count_votes::NUMERIC / tv.total::NUMERIC) * 100, 1) as percentage
     FROM vote_counts vc
     CROSS JOIN total_votes tv
-    ORDER BY vc.vote_count DESC, vc.suggested_name;
+    ORDER BY vc.count_votes DESC, vc.suggested_name;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

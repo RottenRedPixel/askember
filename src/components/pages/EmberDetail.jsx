@@ -376,10 +376,12 @@ export default function EmberDetail() {
     }
   ];
 
-  // Filter cards based on ember's public status
-  // For public embers, only show the photo card (hide Story Circle, Wiki, and Features)
+  // Filter cards based on ember's public status and user permissions
+  // For public embers viewed by non-owners, only show the photo card (hide Story Circle, Wiki, and Features)
   // This provides a limited, privacy-focused view for publicly shared embers
-  const cards = ember?.is_public 
+  // Owners and private ember viewers see all cards
+  const isOwner = user && ember?.user_id === user.id;
+  const cards = (ember?.is_public && !isOwner)
     ? allCards.filter(card => card.id === 'photo')
     : allCards;
 
