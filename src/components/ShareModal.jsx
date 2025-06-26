@@ -161,13 +161,13 @@ export default function ShareModal({ ember, isOpen, onClose }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-white">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-gray-900">
             <Share className="w-5 h-5 text-blue-600" />
             Share Ember
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-gray-600">
             Share this ember with others or make it public
           </DialogDescription>
         </DialogHeader>
