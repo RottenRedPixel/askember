@@ -37,8 +37,10 @@ import {
   Twitter,
   Linkedin,
   MessageCircle,
-  Send
+  Send,
+  QrCode
 } from 'lucide-react';
+import QRCodeGenerator from '@/components/QRCodeGenerator';
 
 export default function ShareModal({ ember, isOpen, onClose }) {
   const [emberData, setEmberData] = useState(ember);
@@ -47,6 +49,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [showShareForm, setShowShareForm] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
 
   useEffect(() => {
     if (isOpen && ember) {
@@ -339,6 +342,34 @@ export default function ShareModal({ ember, isOpen, onClose }) {
                 <span className="hidden sm:inline">Email</span>
               </Button>
             </div>
+          </div>
+
+          {/* QR Code Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium flex items-center gap-2">
+                <QrCode className="w-4 h-4" />
+                QR Code
+              </h4>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowQRCode(!showQRCode)}
+                className="flex items-center gap-2"
+              >
+                {showQRCode ? 'Hide' : 'Generate'}
+              </Button>
+            </div>
+            
+            {showQRCode && (
+              <div className="mt-4">
+                <QRCodeGenerator 
+                  url={`${window.location.origin}/embers/${ember.id}`}
+                  title="Ember QR Code"
+                  size={180}
+                />
+              </div>
+            )}
           </div>
 
           <Separator />
