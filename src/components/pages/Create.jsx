@@ -126,7 +126,7 @@ export default function Create() {
     <motion.div initial={{ x: -100 }} animate={{ x: 0 }} className="max-w-2xl mx-auto space-y-0">
       {/* Header Section */}
       <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold text-gray-900">create an ember</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Create an Ember</h1>
         <p className="text-lg text-gray-600 leading-relaxed max-w-lg mx-auto">
           Enhance your treasured memories. Upload an image to create your first ember.
         </p>

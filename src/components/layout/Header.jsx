@@ -63,7 +63,7 @@ export default function Header() {
         <div className="hidden md:flex justify-between items-center">
           {/* Left side - Brand */}
           <Link to="/" className="text-2xl font-bold text-gray-900">
-            ember
+            ember<span className="text-gray-200">.ai</span>
           </Link>
           
           {/* Right side - Navigation and User */}
@@ -165,7 +165,7 @@ export default function Header() {
         <div className="md:hidden">
           <div className="flex justify-between items-center">
             <Link to="/" className="text-2xl font-bold text-gray-900">
-              ember
+              ember<span className="text-gray-200">.ai</span>
             </Link>
             
             <button
