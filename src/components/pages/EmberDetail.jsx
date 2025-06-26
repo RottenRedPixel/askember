@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { getEmber, updateEmberTitle } from '@/lib/database';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
-import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, Edit } from 'phosphor-react';
+import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple } from 'phosphor-react';
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
 import useStore from '@/store';
@@ -278,7 +278,7 @@ export default function EmberDetail() {
                         <div className="flex items-center gap-2">
                           <span className="text-gray-900">{ember.title || 'N/A'}</span>
                           <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
-                            <Edit size={16} />
+                            <PencilSimple size={16} />
                           </button>
                         </div>
                       )}
