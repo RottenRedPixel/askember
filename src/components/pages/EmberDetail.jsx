@@ -95,7 +95,8 @@ export default function EmberDetail() {
     );
   }
 
-  const cards = [
+  // Define all cards
+  const allCards = [
     {
       id: 'photo',
       title: 'Photo',
@@ -121,14 +122,17 @@ export default function EmberDetail() {
               >
                 <CornersOut size={24} className="text-gray-700" />
               </button>
-              <button
-                className="rounded-full p-1 hover:bg-white/70 transition-colors"
-                onClick={() => setShowShareModal(true)}
-                aria-label="Share ember"
-                type="button"
-              >
-                <ShareNetwork size={24} className="text-gray-700" />
-              </button>
+              {/* Only show share button for private embers or owned embers */}
+              {(!ember?.is_public || user) && (
+                <button
+                  className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                  onClick={() => setShowShareModal(true)}
+                  aria-label="Share ember"
+                  type="button"
+                >
+                  <ShareNetwork size={24} className="text-gray-700" />
+                </button>
+              )}
             </div>
             {/* Blurred background with fade */}
             <img
@@ -338,6 +342,13 @@ export default function EmberDetail() {
       )
     }
   ];
+
+  // Filter cards based on ember's public status
+  // For public embers, only show the photo card (hide Story Circle, Wiki, and Features)
+  // This provides a limited, privacy-focused view for publicly shared embers
+  const cards = ember?.is_public 
+    ? allCards.filter(card => card.id === 'photo')
+    : allCards;
 
   return (
     <div className="md:min-h-screen bg-white">
