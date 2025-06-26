@@ -111,7 +111,7 @@ export default function Create() {
 
       // Redirect to the newly created ember detail page after a short delay
       setTimeout(() => {
-        navigate(`/ember/${newEmber.id}`);
+        navigate(`/embers/${newEmber.id}`);
       }, 2000);
 
     } catch (error) {
