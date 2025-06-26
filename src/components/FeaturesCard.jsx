@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -145,8 +144,7 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
   const canEdit = ['owner', 'edit'].includes(emberData?.userPermission);
 
   return (
-    <Card className="h-full">
-      <CardContent className="p-6 space-y-6">
+    <div className="h-full space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -341,7 +339,7 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
             <div>• Templates</div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 } 

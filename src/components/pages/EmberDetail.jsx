@@ -199,7 +199,7 @@ export default function EmberDetail() {
       id: 'features',
       title: 'Features',
       content: (
-        <div className="h-full w-full bg-white rounded-xl">
+        <div className="h-full w-full bg-gray-100 rounded-xl p-6">
           <FeaturesCard ember={ember} />
         </div>
       )
