@@ -1,10 +1,21 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { deleteEmber } from '@/lib/database';
+import useStore from '@/store';
 import { 
   getEmberWithSharing, 
   shareEmber, 
@@ -25,16 +36,22 @@ import {
   Edit3,
   Crown,
   Users,
-  Link as LinkIcon
+  Link as LinkIcon,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function FeaturesCard({ ember, onEmberUpdate }) {
+  const navigate = useNavigate();
+  const { user } = useStore();
   const [emberData, setEmberData] = useState(ember);
   const [shareEmail, setShareEmail] = useState('');
   const [sharePermission, setSharePermission] = useState('view');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [showShareForm, setShowShareForm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   useEffect(() => {
     loadEmberWithSharing();
@@ -121,6 +138,37 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
       setMessage({ type: 'error', text: 'Failed to copy link' });
       setTimeout(() => setMessage(null), 3000);
     }
+  };
+
+  const handleDeleteEmber = async () => {
+    if (deleteConfirmText !== 'delete') {
+      setMessage({ type: 'error', text: 'Please type "delete" to confirm' });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteEmber(ember.id, user.id);
+      setMessage({ type: 'success', text: 'Ember deleted successfully. Redirecting...' });
+      
+      // Close the dialog and redirect after a short delay
+      setTimeout(() => {
+        setShowDeleteConfirm(false);
+        navigate('/embers');
+      }, 2000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to delete ember' });
+      setTimeout(() => setMessage(null), 3000);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const resetDeleteConfirm = () => {
+    setShowDeleteConfirm(false);
+    setDeleteConfirmText('');
+    setIsDeleting(false);
   };
 
   const getPermissionIcon = (permission) => {
@@ -331,6 +379,33 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
           </div>
         )}
 
+        {/* Danger Zone - Only for owners */}
+        {isOwner && (
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <h4 className="font-medium text-red-600 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Danger Zone
+              </h4>
+              <div className="p-3 border border-red-200 rounded-lg bg-red-50">
+                <p className="text-sm text-red-700 mb-3">
+                  Delete this ember permanently. This action cannot be undone and will remove all associated data including shares and chat messages.
+                </p>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={isLoading}
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Delete Ember
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Features Coming Soon */}
         <div className="space-y-3 pt-4 border-t">
           <h4 className="font-medium text-gray-600">Coming Soon</h4>
@@ -341,6 +416,65 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
             <div>• Templates</div>
           </div>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteConfirm} onOpenChange={resetDeleteConfirm}>
+          <DialogContent className="max-w-md bg-white">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="w-5 h-5" />
+                Delete Ember
+              </DialogTitle>
+              <DialogDescription className="text-gray-600">
+                This action cannot be undone. This will permanently delete the ember and all associated data.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="p-3 border border-yellow-200 rounded-lg bg-yellow-50">
+                <p className="text-sm text-yellow-800">
+                  <strong>Warning:</strong> This will also delete:
+                </p>
+                <ul className="text-sm text-yellow-700 mt-1 ml-4 list-disc">
+                  <li>All sharing permissions</li>
+                  <li>All chat messages and conversations</li>
+                  <li>The ember image and metadata</li>
+                </ul>
+              </div>
+
+              <div>
+                <Label htmlFor="deleteConfirm" className="text-sm font-medium text-gray-700">
+                  Type <strong>"delete"</strong> to confirm:
+                </Label>
+                <Input
+                  id="deleteConfirm"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Type 'delete' to confirm"
+                  className="mt-1"
+                  disabled={isDeleting}
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={resetDeleteConfirm}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteEmber}
+                  disabled={isDeleting || deleteConfirmText !== 'delete'}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete Ember'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
