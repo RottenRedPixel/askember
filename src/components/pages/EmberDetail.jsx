@@ -9,8 +9,9 @@ import {
 import { getEmber } from '@/lib/database';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
-import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley } from 'phosphor-react';
+import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork } from 'phosphor-react';
 import FeaturesCard from '@/components/FeaturesCard';
+import ShareModal from '@/components/ShareModal';
 
 export default function EmberDetail() {
   const { id } = useParams();
@@ -19,6 +20,7 @@ export default function EmberDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showFullImage, setShowFullImage] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     const fetchEmber = async () => {
@@ -64,7 +66,7 @@ export default function EmberDetail() {
         <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
           {/* Photo area (with toggle, blurred bg, main image, icon bar) */}
           <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[65vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-auto overflow-hidden">
-            {/* Top right vertical capsule: Home above blur/crop toggle */}
+            {/* Top right vertical capsule: Home above blur/crop toggle above share */}
             <div className="absolute top-4 right-4 z-30 flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
               <button
                 className="rounded-full p-1 hover:bg-white/70 transition-colors"
@@ -81,6 +83,14 @@ export default function EmberDetail() {
                 type="button"
               >
                 <CornersOut size={24} className="text-gray-700" />
+              </button>
+              <button
+                className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                onClick={() => setShowShareModal(true)}
+                aria-label="Share ember"
+                type="button"
+              >
+                <ShareNetwork size={24} className="text-gray-700" />
               </button>
             </div>
             {/* Blurred background with fade */}
@@ -199,7 +209,7 @@ export default function EmberDetail() {
       id: 'features',
       title: 'Features',
       content: (
-        <div className="h-full w-full bg-gray-100 rounded-xl p-6">
+        <div className="h-full w-full bg-white rounded-xl">
           <FeaturesCard ember={ember} />
         </div>
       )
@@ -259,6 +269,15 @@ export default function EmberDetail() {
           </div>
         </div>
       </div>
+
+      {/* Share Modal */}
+      {ember && (
+        <ShareModal 
+          ember={ember} 
+          isOpen={showShareModal} 
+          onClose={() => setShowShareModal(false)} 
+        />
+      )}
     </div>
   );
 } 
