@@ -32,7 +32,12 @@ import {
   Crown,
   Users,
   Link as LinkIcon,
-  Plus
+  Plus,
+  Facebook,
+  Twitter,
+  Linkedin,
+  MessageCircle,
+  Send
 } from 'lucide-react';
 
 export default function ShareModal({ ember, isOpen, onClose }) {
@@ -139,6 +144,66 @@ export default function ShareModal({ ember, isOpen, onClose }) {
     }
   };
 
+  const shareToSocialMedia = (platform) => {
+    const link = `${window.location.origin}/embers/${ember.id}`;
+    const title = ember.title || 'Check out this ember';
+    const description = ember.message || 'Shared from ember.ai';
+    
+    let shareUrl = '';
+    
+    switch (platform) {
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`;
+        break;
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(link)}&text=${encodeURIComponent(title)}`;
+        break;
+      case 'linkedin':
+        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}`;
+        break;
+      case 'whatsapp':
+        shareUrl = `https://wa.me/?text=${encodeURIComponent(`${title} ${link}`)}`;
+        break;
+      case 'telegram':
+        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(title)}`;
+        break;
+      case 'email':
+        shareUrl = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(`${description}\n\n${link}`)}`;
+        break;
+      default:
+        return;
+    }
+    
+    // Open in new window for social media, or use default for email
+    if (platform === 'email') {
+      window.location.href = shareUrl;
+    } else {
+      window.open(shareUrl, '_blank', 'width=600,height=400');
+    }
+    
+    setMessage({ type: 'success', text: `Shared to ${platform}` });
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: ember.title || 'Check out this ember',
+          text: ember.message || 'Shared from ember.ai',
+          url: `${window.location.origin}/embers/${ember.id}`,
+        });
+        setMessage({ type: 'success', text: 'Shared successfully' });
+        setTimeout(() => setMessage(null), 3000);
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          setMessage({ type: 'error', text: 'Failed to share' });
+          setTimeout(() => setMessage(null), 3000);
+        }
+      }
+    }
+  };
+
   const getPermissionIcon = (permission) => {
     switch (permission) {
       case 'owner': return <Crown className="w-4 h-4 text-yellow-500" />;
@@ -180,11 +245,25 @@ export default function ShareModal({ ember, isOpen, onClose }) {
             </Alert>
           )}
 
+          {/* Native Share (Mobile) */}
+          {typeof navigator !== 'undefined' && navigator.share && (
+            <div className="space-y-3">
+              <Button 
+                onClick={handleNativeShare} 
+                variant="blue" 
+                className="w-full flex items-center gap-2"
+              >
+                <Share className="w-4 h-4" />
+                Share Ember
+              </Button>
+            </div>
+          )}
+
           {/* Share Link */}
           <div className="space-y-3">
             <h4 className="font-medium flex items-center gap-2">
               <LinkIcon className="w-4 h-4" />
-              Share Link
+              {typeof navigator !== 'undefined' && navigator.share ? 'Or Copy Link' : 'Share Link'}
             </h4>
             <div className="flex gap-2">
               <Input
@@ -194,6 +273,70 @@ export default function ShareModal({ ember, isOpen, onClose }) {
               />
               <Button size="sm" onClick={copyShareLink} variant="blue">
                 <Copy className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Social Media Sharing */}
+          <div className="space-y-3">
+            <h4 className="font-medium flex items-center gap-2">
+              <Share className="w-4 h-4" />
+              Share to Social Media
+            </h4>
+            <div className="grid grid-cols-3 gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => shareToSocialMedia('facebook')}
+                className="flex items-center gap-2 justify-center"
+              >
+                <Facebook className="w-4 h-4 text-blue-600" />
+                <span className="hidden sm:inline">Facebook</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => shareToSocialMedia('twitter')}
+                className="flex items-center gap-2 justify-center"
+              >
+                <Twitter className="w-4 h-4 text-sky-500" />
+                <span className="hidden sm:inline">Twitter</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => shareToSocialMedia('linkedin')}
+                className="flex items-center gap-2 justify-center"
+              >
+                <Linkedin className="w-4 h-4 text-blue-700" />
+                <span className="hidden sm:inline">LinkedIn</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => shareToSocialMedia('whatsapp')}
+                className="flex items-center gap-2 justify-center"
+              >
+                <MessageCircle className="w-4 h-4 text-green-600" />
+                <span className="hidden sm:inline">WhatsApp</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => shareToSocialMedia('telegram')}
+                className="flex items-center gap-2 justify-center"
+              >
+                <Send className="w-4 h-4 text-blue-500" />
+                <span className="hidden sm:inline">Telegram</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => shareToSocialMedia('email')}
+                className="flex items-center gap-2 justify-center"
+              >
+                <Mail className="w-4 h-4 text-gray-600" />
+                <span className="hidden sm:inline">Email</span>
               </Button>
             </div>
           </div>
