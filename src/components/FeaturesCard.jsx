@@ -145,198 +145,136 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
 
   return (
     <div className="h-full space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Share className="w-5 h-5 text-blue-600" />
-            <h3 className="text-lg font-semibold">Sharing & Features</h3>
-          </div>
-          {emberData?.userPermission && (
-            <Badge className={getPermissionColor(emberData.userPermission)}>
-              <div className="flex items-center gap-1">
-                {getPermissionIcon(emberData.userPermission)}
-                {emberData.userPermission}
-              </div>
-            </Badge>
-          )}
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <span className="text-2xl">🚀</span>
+        <h3 className="text-lg font-semibold">Features & Sharing</h3>
+      </div>
+
+      {/* Message */}
+      {message && (
+        <Alert className={message.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}>
+          <AlertDescription>{message.text}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Share Link */}
+      <div className="space-y-3">
+        <h4 className="font-medium flex items-center gap-2">
+          <span className="text-lg">🔗</span>
+          Share This Ember
+        </h4>
+        <div className="flex gap-2">
+          <Input
+            value={`${window.location.origin}/embers/${ember.id}`}
+            readOnly
+            className="text-xs"
+          />
+          <Button size="sm" onClick={copyShareLink} variant="blue">
+            Copy
+          </Button>
         </div>
+      </div>
 
-        {/* Message */}
-        {message && (
-          <Alert className={message.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}>
-            <AlertDescription>{message.text}</AlertDescription>
-          </Alert>
-        )}
-
-        {/* Privacy Settings - Only for owners */}
-        {isOwner && (
-          <div className="space-y-3">
-            <h4 className="font-medium flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              Privacy Settings
-            </h4>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-2">
-                  {emberData?.is_public ? <Globe className="w-4 h-4 text-green-500" /> : <Lock className="w-4 h-4 text-gray-500" />}
-                  <span className="text-sm">
-                    {emberData?.is_public ? 'Public' : 'Private'}
-                  </span>
-                </div>
-                <Button
-                  size="sm"
-                  variant={emberData?.is_public ? "outline" : "blue"}
-                  onClick={() => handleUpdatePublicSettings(!emberData?.is_public)}
-                  disabled={isLoading}
-                >
-                  {emberData?.is_public ? 'Make Private' : 'Make Public'}
-                </Button>
-              </div>
-              
-              {emberData?.is_public && (
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-blue-50">
-                  <span className="text-sm">Allow public editing</span>
-                  <Button
-                    size="sm"
-                    variant={emberData?.allow_public_edit ? "outline" : "blue"}
-                    onClick={() => handleUpdatePublicSettings(true, !emberData?.allow_public_edit)}
-                    disabled={isLoading}
-                  >
-                    {emberData?.allow_public_edit ? 'View Only' : 'Allow Edit'}
-                  </Button>
-                </div>
-              )}
+      {/* Privacy Settings */}
+      <div className="space-y-3">
+        <h4 className="font-medium flex items-center gap-2">
+          <span className="text-lg">🔒</span>
+          Privacy
+        </h4>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between p-3 border rounded-lg">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Currently Private</span>
+              <Badge variant="outline">Owner Only</Badge>
             </div>
-          </div>
-        )}
-
-        {/* Share Link */}
-        <div className="space-y-3">
-          <h4 className="font-medium flex items-center gap-2">
-            <LinkIcon className="w-4 h-4" />
-            Share Link
-          </h4>
-          <div className="flex gap-2">
-            <Input
-              value={`${window.location.origin}/embers/${ember.id}`}
-              readOnly
-              className="text-xs"
-            />
-            <Button size="sm" onClick={copyShareLink} variant="blue">
-              Copy
+            <Button size="sm" variant="outline">
+              Make Public
             </Button>
           </div>
         </div>
+      </div>
 
-        {/* Individual Sharing - Only for owners */}
-        {isOwner && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Shared With ({emberData?.shares?.length || 0})
-              </h4>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowShareForm(!showShareForm)}
+      {/* Individual Sharing */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium flex items-center gap-2">
+            <span className="text-lg">👥</span>
+            Share with Others
+          </h4>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowShareForm(!showShareForm)}
+          >
+            Add Person
+          </Button>
+        </div>
+
+        {showShareForm && (
+          <div className="space-y-3 p-3 border rounded-lg bg-gray-50">
+            <div>
+              <Label htmlFor="shareEmail">Email Address</Label>
+              <Input
+                id="shareEmail"
+                type="email"
+                value={shareEmail}
+                onChange={(e) => setShareEmail(e.target.value)}
+                placeholder="Enter email address"
+              />
+            </div>
+            <div>
+              <Label htmlFor="sharePermission">Permission</Label>
+              <select
+                id="sharePermission"
+                className="w-full p-2 border border-gray-300 rounded-md"
               >
-                <Mail className="w-4 h-4 mr-1" />
+                <option value="view">View Only</option>
+                <option value="edit">Can Edit</option>
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="blue">
                 Share
               </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setShowShareForm(false)}
+              >
+                Cancel
+              </Button>
             </div>
-
-            {/* Share Form */}
-            {showShareForm && (
-              <form onSubmit={handleShareEmber} className="space-y-3 p-3 border rounded-lg bg-gray-50">
-                <div>
-                  <Label htmlFor="shareEmail">Email Address</Label>
-                  <Input
-                    id="shareEmail"
-                    type="email"
-                    value={shareEmail}
-                    onChange={(e) => setShareEmail(e.target.value)}
-                    placeholder="Enter email address"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="sharePermission">Permission</Label>
-                  <select
-                    id="sharePermission"
-                    value={sharePermission}
-                    onChange={(e) => setSharePermission(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="view">View Only</option>
-                    <option value="edit">Can Edit</option>
-                  </select>
-                </div>
-                <div className="flex gap-2">
-                  <Button type="submit" size="sm" disabled={isLoading}>
-                    Share
-                  </Button>
-                  <Button 
-                    type="button" 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => setShowShareForm(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            )}
-
-            {/* Existing Shares */}
-            {emberData?.shares?.length > 0 && (
-              <div className="space-y-2">
-                {emberData.shares.map((share) => (
-                  <div key={share.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm">{share.shared_with_email}</span>
-                      <Badge className={getPermissionColor(share.permission_level)}>
-                        <div className="flex items-center gap-1">
-                          {getPermissionIcon(share.permission_level)}
-                          {share.permission_level}
-                        </div>
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <select
-                        value={share.permission_level}
-                        onChange={(e) => handleUpdateSharePermission(share.id, e.target.value)}
-                        className="text-xs p-1 border rounded"
-                        disabled={isLoading}
-                      >
-                        <option value="view">View</option>
-                        <option value="edit">Edit</option>
-                      </select>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleRemoveShare(share.id)}
-                        disabled={isLoading}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
-        {/* Features Coming Soon */}
-        <div className="space-y-3 pt-4 border-t">
-          <h4 className="font-medium text-gray-600">Coming Soon</h4>
-          <div className="grid grid-cols-2 gap-2 text-sm text-gray-500">
-            <div>• Export to PDF</div>
-            <div>• Voice Notes</div>
-            <div>• Collaboration</div>
-            <div>• Templates</div>
+        <div className="text-sm text-gray-500">
+          No one else has access to this ember yet.
+        </div>
+      </div>
+
+      {/* Coming Soon Features */}
+      <div className="space-y-3 pt-4 border-t">
+        <h4 className="font-medium text-gray-600 flex items-center gap-2">
+          <span className="text-lg">✨</span>
+          Coming Soon
+        </h4>
+        <div className="grid grid-cols-2 gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2">
+            <span>📄</span>
+            Export to PDF
+          </div>
+          <div className="flex items-center gap-2">
+            <span>🎤</span>
+            Voice Notes
+          </div>
+          <div className="flex items-center gap-2">
+            <span>👥</span>
+            Real-time Collab
+          </div>
+          <div className="flex items-center gap-2">
+            <span>📋</span>
+            Templates
           </div>
         </div>
       </div>
