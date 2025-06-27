@@ -354,9 +354,6 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
                    <CardContent className="px-3 py-2 flex items-center justify-between h-10">
                                             <div className="flex items-center gap-2">
                          <span className="text-base font-bold">{name}</span>
-                       {isCustomName && (
-                         <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Custom</span>
-                       )}
                      </div>
                      {selectedName === name && (
                        <Check size={16} className="text-blue-500" />
@@ -441,9 +438,6 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-lg font-bold">{result.suggested_name}</span>
-                          {result.is_custom && (
-                            <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">Custom</span>
-                          )}
                           {userVote?.suggested_name === result.suggested_name && (
                             <Check size={16} className="text-blue-500" />
                           )}
