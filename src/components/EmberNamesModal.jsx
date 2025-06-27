@@ -340,7 +340,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
                return (
                  <Card 
                    key={index}
-                   className={`transition-all cursor-pointer border ${
+                   className={`transition-all cursor-pointer border py-0 rounded-md ${
                      hasVoted 
                        ? 'opacity-60 cursor-not-allowed' 
                        : 'hover:border-gray-300'
@@ -351,7 +351,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
                    }`}
                    onClick={() => handleSelectSuggestion(name)}
                  >
-                   <CardContent className="px-3 py-1 flex items-center justify-between">
+                   <CardContent className="px-3 py-2 flex items-center justify-between h-10">
                                             <div className="flex items-center gap-2">
                          <span className="text-base font-bold">{name}</span>
                        {isCustomName && (
@@ -430,13 +430,13 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
               votingResults.map((result, index) => (
                 <Card 
                   key={index}
-                  className={`h-auto ${
+                  className={`py-0 rounded-md ${
                     userVote?.suggested_name === result.suggested_name 
                       ? 'border-blue-500 bg-blue-50' 
                       : ''
                   }`}
                 >
-                  <CardContent className="px-3 py-2">
+                  <CardContent className="px-3 py-3">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
