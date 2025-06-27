@@ -18,7 +18,10 @@
     "version:info": "node -p \"require('./package.json').version\"",
     "release:patch": "npm run version:patch && git push --follow-tags",
     "release:minor": "npm run version:minor && git push --follow-tags",
-    "release:major": "npm run version:major && git push --follow-tags"
+    "release:major": "npm run version:major && git push --follow-tags",
+    "push": "git push --follow-tags",
+    "push:force": "git push --follow-tags --force",
+    "version:status": "git log --oneline --decorate -10"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",

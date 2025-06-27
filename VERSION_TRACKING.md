@@ -12,22 +12,40 @@ We follow [Semantic Versioning (SemVer)](https://semver.org/) with the format: `
 
 ## Version Management Commands
 
+### Automatic Versioning (Recommended)
+```bash
+# Push to main - automatically increments patch version
+git push
+
+# Or use the npm script
+npm run push
+```
+
+**How it works:**
+- Every push to `main` branch automatically increments the patch version
+- Creates a git tag (e.g., `v1.0.1`, `v1.0.2`, etc.)
+- Commits the version change with message: `chore: bump version to X.Y.Z [auto-versioning]`
+- Only runs on main branch (feature branches are unaffected)
+
 ### Manual Version Bumping
 ```bash
-# Patch version (1.0.0 → 1.0.1)
+# Patch version (1.0.0 → 1.0.1) - for bug fixes
 npm run version:patch
 
-# Minor version (1.0.0 → 1.1.0)
+# Minor version (1.0.0 → 1.1.0) - for new features  
 npm run version:minor
 
-# Major version (1.0.0 → 2.0.0)
+# Major version (1.0.0 → 2.0.0) - for breaking changes
 npm run version:major
 
 # Check current version
 npm run version:info
+
+# View recent version history
+npm run version:status
 ```
 
-### Release Commands (with Git tags)
+### Manual Release Commands (with Git tags)
 ```bash
 # Create patch release and push to origin
 npm run release:patch
@@ -37,6 +55,9 @@ npm run release:minor
 
 # Create major release and push to origin
 npm run release:major
+
+# Force push with tags (use carefully)
+npm run push:force
 ```
 
 ## Build Information
@@ -76,11 +97,37 @@ vite.config.js            # Build-time version injection
 
 ## Development Workflow
 
-### 1. Daily Development
+### Option 1: Auto-Versioning Workflow (Recommended)
+
+#### 1. Daily Development
+- Work on features/fixes normally on feature branches
+- Version automatically shows as `v1.0.0-dev` in development
+- Push feature branches normally (no auto-versioning on non-main branches)
+
+#### 2. Ready to Release
+```bash
+# Merge your feature to main
+git checkout main
+git merge feature/your-feature
+
+# Push to main - version automatically increments!
+git push
+```
+
+#### 3. For Major/Minor Releases
+```bash
+# When you need minor/major version bumps
+npm run release:minor  # For new features
+npm run release:major  # For breaking changes
+```
+
+### Option 2: Manual Versioning Workflow
+
+#### 1. Daily Development
 - Work on features/fixes normally
 - Version automatically shows as `v1.0.0-dev` in development
 
-### 2. Ready to Release
+#### 2. Ready to Release
 ```bash
 # For bug fixes
 npm run release:patch
@@ -92,10 +139,10 @@ npm run release:minor
 npm run release:major
 ```
 
-### 3. Git Tags
-- Each release automatically creates a git tag
-- Tags follow the format: `v1.0.0`, `v1.1.0`, etc.
-- Tags are pushed to origin repository
+### Git Tags (Both Workflows)
+- Each push to main creates a git tag automatically
+- Tags follow the format: `v1.0.0`, `v1.0.1`, `v1.1.0`, etc.
+- Tags are pushed to origin repository with `--follow-tags`
 
 ## Production Builds
 
