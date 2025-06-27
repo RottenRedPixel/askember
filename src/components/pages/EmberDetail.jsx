@@ -8,10 +8,11 @@ import {
 } from '@/components/ui/carousel';
 import { Button } from '@/components/ui/button';
 import { getEmber, updateEmberTitle } from '@/lib/database';
+import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear } from 'phosphor-react';
+import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear } from 'phosphor-react';
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
 
@@ -37,6 +38,7 @@ export default function EmberDetail() {
   const [votingResults, setVotingResults] = useState([]);
   const [totalVotes, setTotalVotes] = useState(0);
   const [userVote, setUserVote] = useState(null);
+  const [sharedUsers, setSharedUsers] = useState([]);
 
   const fetchEmber = async () => {
     try {
@@ -45,6 +47,34 @@ export default function EmberDetail() {
       console.log('Fetched ember data:', data);
       console.log('Image URL:', data?.image_url);
       setEmber(data);
+
+      // Also fetch sharing information to get invited users
+      try {
+        const sharingData = await getEmberWithSharing(id);
+        console.log('Sharing data:', sharingData);
+        if (sharingData.shares && sharingData.shares.length > 0) {
+          // Extract shared users with their profile information
+          const invitedUsers = sharingData.shares
+            .filter(share => share.shared_user) // Only include users with profiles
+            .map(share => ({
+              id: share.shared_user.id,
+              user_id: share.shared_user.user_id,
+              first_name: share.shared_user.first_name,
+              last_name: share.shared_user.last_name,
+              avatar_url: share.shared_user.avatar_url,
+              email: share.shared_with_email,
+              permission_level: share.permission_level
+            }));
+          setSharedUsers(invitedUsers);
+          console.log('Invited users:', invitedUsers);
+        } else {
+          setSharedUsers([]);
+        }
+      } catch (sharingError) {
+        console.error('Error fetching sharing data:', sharingError);
+        // Don't fail the whole component if sharing data fails
+        setSharedUsers([]);
+      }
     } catch (err) {
       console.error('Error fetching ember:', err);
       setError('Ember not found');
@@ -74,8 +104,9 @@ export default function EmberDetail() {
     }
 
     try {
-      const updatedEmber = await updateEmberTitle(ember.id, newTitle, user.id);
-      setEmber(updatedEmber);
+      await updateEmberTitle(ember.id, newTitle, user.id);
+      // Refetch complete ember data to preserve owner information
+      await fetchEmber();
       setIsEditingTitle(false);
       setMessage({ type: 'success', text: 'Title updated successfully!' });
     } catch (error) {
@@ -90,6 +121,9 @@ export default function EmberDetail() {
     // Refetch ember data when title is updated via modal
     await fetchEmber();
   };
+
+  // Check if current user is the owner of this ember
+  const isOwner = user && ember?.user_id === user.id;
 
   if (loading) {
     return (
@@ -119,36 +153,39 @@ export default function EmberDetail() {
         <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
           {/* Photo area (with toggle, blurred bg, main image, icon bar) */}
           <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[65vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-auto overflow-hidden">
-            {/* Top right vertical capsule: Home above blur/crop toggle above settings above share */}
-            <div className="absolute top-4 right-4 z-30 flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
+            {/* Top right vertical capsule: Owner Avatar and Invited Users */}
+            <div className="absolute top-4 right-4 z-30 flex flex-col items-center bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+              {/* Owner Avatar - clickable to go to My Embers */}
               <button
                 className="rounded-full p-1 hover:bg-white/70 transition-colors"
                 onClick={() => navigate('/embers')}
                 aria-label="Go to My Embers"
                 type="button"
               >
-                <House size={24} className="text-gray-700" />
+                {ember?.owner ? (
+                  <Avatar className="h-6 w-6">
+                    <AvatarImage 
+                      src={ember.owner.avatar_url} 
+                      alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'} 
+                    />
+                    <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
+                      {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || '?'}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <Smiley size={24} className="text-gray-700" />
+                )}
               </button>
-              <button
-                className="rounded-full p-1 hover:bg-white/70 transition-colors"
-                onClick={() => setShowFullImage((prev) => !prev)}
-                aria-label={showFullImage ? 'Show cropped view' : 'Show full image with blur'}
-                type="button"
-              >
-                <CornersOut size={24} className="text-gray-700" />
-              </button>
-              <button
-                className="rounded-full p-1 hover:bg-white/70 transition-colors"
-                onClick={() => setShowSettingsPanel(true)}
-                aria-label="Settings"
-                type="button"
-              >
-                <Gear size={24} className="text-gray-700" />
-              </button>
-              {/* Only show share button for private embers or owned embers */}
+              
+              {/* Horizontal divider below owner avatar */}
+              {sharedUsers.length > 0 && (
+                <div className="h-px w-6 bg-gray-300 my-2"></div>
+              )}
+              
+              {/* Share button - Only show for private embers or owned embers */}
               {(!ember?.is_public || user) && (
                 <button
-                  className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                  className="rounded-full p-1 hover:bg-white/70 transition-colors mb-2"
                   onClick={() => setShowShareModal(true)}
                   aria-label="Share ember"
                   type="button"
@@ -156,6 +193,29 @@ export default function EmberDetail() {
                   <ShareNetwork size={24} className="text-gray-700" />
                 </button>
               )}
+              
+              {/* Invited Users Avatars - Stacked with 16px overlap */}
+              {sharedUsers.map((sharedUser, index) => (
+                <div 
+                  key={sharedUser.id || index}
+                  className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                  style={{ 
+                    marginTop: index === 0 ? '0px' : '-16px',
+                    zIndex: 30 - index // Higher z-index for avatars that come first
+                  }}
+                  title={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
+                >
+                  <Avatar className="h-6 w-6 ring-1 ring-white">
+                    <AvatarImage 
+                      src={sharedUser.avatar_url} 
+                      alt={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email} 
+                    />
+                    <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
+                      {sharedUser.first_name?.[0] || sharedUser.last_name?.[0] || sharedUser.email?.[0]?.toUpperCase() || '?'}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              ))}
             </div>
             {/* Blurred background with fade */}
             <img
@@ -201,25 +261,34 @@ export default function EmberDetail() {
               </div>
             </div>
 
-            {/* Bottom right capsule: Owner Avatar, divider, Aperture, Flower, Chats */}
+            {/* Bottom right capsule: Action icons above horizontal divider above feature icons */}
             <div className="absolute right-4 bottom-4 z-20">
-              <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
-                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  {ember?.owner ? (
-                    <Avatar className="h-6 w-6">
-                      <AvatarImage 
-                        src={ember.owner.avatar_url} 
-                        alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'} 
-                      />
-                      <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
-                        {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || '?'}
-                      </AvatarFallback>
-                    </Avatar>
-                  ) : (
-                    <Smiley size={24} className="text-gray-700" />
-                  )}
-                </div>
+              <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+                {/* Action Icons */}
+                <button
+                  className="rounded-full p-1 hover:bg-white/50 transition-colors"
+                  onClick={() => setShowFullImage((prev) => !prev)}
+                  aria-label={showFullImage ? 'Show cropped view' : 'Show full image with blur'}
+                  type="button"
+                >
+                  <CornersOut size={24} className="text-gray-700" />
+                </button>
+                {/* Only show settings button for ember owner */}
+                {isOwner && (
+                  <button
+                    className="rounded-full p-1 hover:bg-white/50 transition-colors"
+                    onClick={() => setShowSettingsPanel(true)}
+                    aria-label="Settings"
+                    type="button"
+                  >
+                    <Gear size={24} className="text-gray-700" />
+                  </button>
+                )}
+                
+                {/* Horizontal divider */}
                 <div className="h-px w-6 bg-gray-300"></div>
+                
+                {/* Feature Icons */}
                 <button 
                   className="p-1 hover:bg-white/50 rounded-full transition-colors"
                   onClick={() => setShowNamesModal(true)}
@@ -390,7 +459,6 @@ export default function EmberDetail() {
 
   // Filter cards - now only show photo cards in carousel
   // Wiki, Story Circle, and Features are accessed through settings panel
-  const isOwner = user && ember?.user_id === user.id;
   const cards = allCardsDefinitions.filter(card => card.id === 'photo');
 
   return (
