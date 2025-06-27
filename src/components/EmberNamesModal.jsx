@@ -560,44 +560,52 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
         )}
 
         <div className="flex justify-between items-center pt-4">
-          {/* Toggle View Mode Button */}
-          {totalVotes > 0 ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleViewMode}
-              className="flex items-center gap-2"
-            >
-              {viewMode === 'voting' ? (
-                <>
-                  <ChartBar size={16} />
-                  View Results
-                </>
-              ) : (
-                <>
-                  <Users size={16} />
-                  Back to Voting
-                </>
-              )}
-            </Button>
-          ) : (
-            <div></div>
-          )}
-          
-          {/* Change Vote Button - only show when user has voted and is in results view */}
-          {hasVoted && viewMode === 'results' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleChangeVote}
-              disabled={isLoading}
-              className="flex items-center gap-2 text-orange-600 border-orange-300 hover:bg-orange-50"
-            >
-              <Check size={16} />
-              Change Vote
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Toggle View Mode Button */}
+            {totalVotes > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleViewMode}
+                className="flex items-center gap-2"
+              >
+                {viewMode === 'voting' ? (
+                  <>
+                    <ChartBar size={16} />
+                    View Results
+                  </>
+                ) : (
+                  <>
+                    <Users size={16} />
+                    Back to Voting
+                  </>
+                )}
+              </Button>
+            )}
+            
+            {/* Change Vote Button - only show when user has voted and is in results view */}
+            {hasVoted && viewMode === 'results' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleChangeVote}
+                disabled={isLoading}
+                className="flex items-center gap-2 text-orange-600 border-orange-300 hover:bg-orange-50"
+              >
+                <Check size={16} />
+                Change Vote
+              </Button>
+            )}
+          </div>
 
+          {/* Done Button */}
+          <Button
+            onClick={onClose}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            size="sm"
+          >
+            Done
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
