@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Aperture, Plus, Check, ChartBar, Users, Sparkle } from 'phosphor-react';
+import { Aperture, Plus, Check, ChartBar, Users, Sparkle, ArrowClockwise } from 'phosphor-react';
 import { submitVote, getVotingResults, getUserVote, getParticipantVotingStatus, deleteVote } from '@/lib/voting';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getEmberSuggestedNames, addSuggestedName, initializeDefaultSuggestedNames } from '@/lib/suggestedNames';
@@ -345,9 +345,19 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Aperture size={20} className="text-blue-500" />
-            Ember Title {totalVotes > 0 && <span className="text-sm text-gray-500">({totalVotes} votes)</span>}
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Aperture size={20} className="text-blue-500" />
+              Ember Title {totalVotes > 0 && <span className="text-sm text-gray-500">({totalVotes} votes)</span>}
+            </div>
+            <button
+              onClick={loadVotingData}
+              disabled={isLoading}
+              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              title="Refresh data"
+            >
+              <ArrowClockwise size={16} className="text-gray-400" />
+            </button>
           </DialogTitle>
           <DialogDescription>
             {viewMode === 'voting' 
