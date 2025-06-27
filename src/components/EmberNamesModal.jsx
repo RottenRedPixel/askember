@@ -14,10 +14,11 @@ import { Aperture, Plus, Check, ChartBar, Users, Sparkle, ArrowClockwise } from 
 import { submitVote, getVotingResults, getUserVote, getParticipantVotingStatus, deleteVote } from '@/lib/voting';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getEmberSuggestedNames, addSuggestedName, initializeDefaultSuggestedNames } from '@/lib/suggestedNames';
+import { updateEmberTitle } from '@/lib/database';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import useStore from '@/store';
 
-export default function EmberNamesModal({ isOpen, onClose, ember }) {
+export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate }) {
   const { user } = useStore();
 
   const [selectedName, setSelectedName] = useState('');
@@ -341,6 +342,38 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
     }
   };
 
+  const handleUseTitle = async () => {
+    if (votingResults.length === 0) return;
+    
+    // Get the winning title (first in results, which are sorted by vote count)
+    const winningTitle = votingResults[0].suggested_name;
+    
+    try {
+      setIsLoading(true);
+      await updateEmberTitle(ember.id, winningTitle, user.id);
+      
+      setMessage({ type: 'success', text: `Title updated to "${winningTitle}"!` });
+      
+      setTimeout(() => {
+        setMessage(null);
+        onClose(); // Close modal first
+        
+        // Then call the callback to update the parent component after modal is closed
+        if (onEmberUpdate) {
+          setTimeout(() => {
+            onEmberUpdate();
+          }, 100); // Small delay to ensure modal is fully closed
+        }
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Error updating ember title:', error);
+      setMessage({ type: 'error', text: 'Failed to update ember title' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
@@ -567,19 +600,8 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
                 variant="outline"
                 size="sm"
                 onClick={toggleViewMode}
-                className="flex items-center gap-2"
               >
-                {viewMode === 'voting' ? (
-                  <>
-                    <ChartBar size={16} />
-                    View Results
-                  </>
-                ) : (
-                  <>
-                    <Users size={16} />
-                    Back to Voting
-                  </>
-                )}
+                {viewMode === 'voting' ? 'View Results' : 'Back to Voting'}
               </Button>
             )}
             
@@ -590,10 +612,21 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
                 size="sm"
                 onClick={handleChangeVote}
                 disabled={isLoading}
-                className="flex items-center gap-2 text-orange-600 border-orange-300 hover:bg-orange-50"
+                className="text-orange-600 border-orange-300 hover:bg-orange-50"
               >
-                <Check size={16} />
                 Change Vote
+              </Button>
+            )}
+            
+            {/* Use This Title Button - only show for ember owner in results view */}
+            {viewMode === 'results' && votingResults.length > 0 && ember?.user_id === user?.id && (
+              <Button
+                onClick={handleUseTitle}
+                disabled={isLoading}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                size="sm"
+              >
+                Use This Title
               </Button>
             )}
           </div>

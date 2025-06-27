@@ -36,22 +36,22 @@ export default function EmberDetail() {
   const [totalVotes, setTotalVotes] = useState(0);
   const [userVote, setUserVote] = useState(null);
 
-  useEffect(() => {
-    const fetchEmber = async () => {
-      try {
-        setLoading(true);
-        const data = await getEmber(id);
-        console.log('Fetched ember data:', data);
-        console.log('Image URL:', data?.image_url);
-        setEmber(data);
-      } catch (err) {
-        console.error('Error fetching ember:', err);
-        setError('Ember not found');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchEmber = async () => {
+    try {
+      setLoading(true);
+      const data = await getEmber(id);
+      console.log('Fetched ember data:', data);
+      console.log('Image URL:', data?.image_url);
+      setEmber(data);
+    } catch (err) {
+      console.error('Error fetching ember:', err);
+      setError('Ember not found');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchEmber();
   }, [id]);
 
@@ -82,6 +82,11 @@ export default function EmberDetail() {
     } finally {
       setTimeout(() => setMessage(null), 3000);
     }
+  };
+
+  const handleEmberUpdate = async () => {
+    // Refetch ember data when title is updated via modal
+    await fetchEmber();
   };
 
   if (loading) {
@@ -453,7 +458,8 @@ export default function EmberDetail() {
         <EmberNamesModal 
           ember={ember} 
           isOpen={showNamesModal} 
-          onClose={() => setShowNamesModal(false)} 
+          onClose={() => setShowNamesModal(false)}
+          onEmberUpdate={handleEmberUpdate}
         />
       )}
     </div>
