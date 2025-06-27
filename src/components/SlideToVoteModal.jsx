@@ -78,17 +78,17 @@ export default function SlideToVoteModal({ isOpen, onClose, ember, onVoteSubmit 
     if (!container) return;
 
     const containerWidth = container.offsetWidth;
-    const sliderWidth = 60; // Width of the slider button
-    const maxDistance = containerWidth - sliderWidth;
+    const sliderWidth = 48; // Width of the slider button (w-12 = 48px)
+    const maxDistance = containerWidth - sliderWidth - 8; // Subtract padding (2 * 4px from top-1 left-1)
     
     const distance = Math.max(0, Math.min(maxDistance, currentX.current - startX.current));
     const progress = (distance / maxDistance) * 100;
     
     updateSlideState(name, { progress });
     
-    // Check if slide is completed (90% threshold)
-    if (progress >= 90) {
-      updateSlideState(name, { isCompleted: true, isSliding: false });
+    // Check if slide is completed (98% threshold to account for precision)
+    if (progress >= 98) {
+      updateSlideState(name, { isCompleted: true, isSliding: false, progress: 100 });
       setCompletedVote(name);
       isDragging.current = false;
       
@@ -193,7 +193,7 @@ export default function SlideToVoteModal({ isOpen, onClose, ember, onVoteSubmit 
                         isDisabled ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                       style={{ 
-                        transform: `translateX(${slideState.progress * 2.5}px)`,
+                        transform: `translateX(${(slideState.progress / 100) * (containerRefs.current[name]?.offsetWidth - 48 - 8 || 0)}px)`,
                         transition: slideState.isSliding ? 'none' : 'transform 0.3s ease-out'
                       }}
                       onMouseDown={(e) => !isDisabled && handleMouseDown(e, name)}
