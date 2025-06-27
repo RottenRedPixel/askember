@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Aperture, Plus, Check, ChartBar, Users } from 'phosphor-react';
+import { Aperture, Plus, Check, ChartBar, Users, Sparkle } from 'phosphor-react';
 import { submitVote, getVotingResults, getUserVote, getParticipantVotingStatus } from '@/lib/voting';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -190,11 +190,19 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
   const handleSelectCustom = async () => {
     if (customName.trim()) {
       const customNameValue = customName.trim();
-      setSelectedName(customNameValue);
+      
+      // Add the custom name to the suggested names list
+      if (!allSuggestedNames.includes(customNameValue)) {
+        setAllSuggestedNames(prev => [...prev, customNameValue]);
+      }
+      
+      // Reset the form
+      setCustomName('');
       setIsAddingCustom(false);
       
-      // Automatically submit the vote
-      await handleSubmitVote(customNameValue, true);
+      // Show success message
+      setMessage({ type: 'success', text: 'Title added to options!' });
+      setTimeout(() => setMessage(null), 2000);
     }
   };
 
@@ -335,7 +343,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
               isAddingCustom ? (
                 <div className="space-y-2">
                   <Input
-                    placeholder="Enter your custom name..."
+                    placeholder="Enter your custom title..."
                     value={customName}
                     onChange={(e) => setCustomName(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSelectCustom()}
@@ -346,7 +354,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
                       disabled={!customName.trim()}
                       size="sm"
                     >
-                      Select This Name
+                      Submit This Title
                     </Button>
                     <Button 
                       variant="outline" 
@@ -358,14 +366,24 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
                   </div>
                 </div>
               ) : (
-                <Button
-                  variant="outline"
-                  onClick={handleAddCustom}
-                  className="w-full flex items-center justify-center gap-2 py-3 border-dashed"
-                >
-                  <Plus size={16} />
-                  Add Your Own Name
-                </Button>
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleAddCustom}
+                    className="w-full flex items-center justify-center gap-2 py-3 border-dashed"
+                  >
+                    <Plus size={16} />
+                    Add Your Own Title
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {/* TODO: Add AI suggestion handler */}}
+                    className="w-full flex items-center justify-center gap-2 py-3"
+                  >
+                    <Sparkle size={16} />
+                    Let Ember Try
+                  </Button>
+                </div>
               )
             )}
 
@@ -447,15 +465,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
             <div></div>
           )}
           
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={onClose}>
-              Done
-            </Button>
-          </div>
+
         </div>
       </DialogContent>
     </Dialog>
