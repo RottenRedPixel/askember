@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Aperture, Plus, Check, ChartBar, Users, Sparkle } from 'phosphor-react';
-import { submitVote, getVotingResults, getUserVote, getParticipantVotingStatus } from '@/lib/voting';
+import { submitVote, getVotingResults, getUserVote, getParticipantVotingStatus, deleteVote } from '@/lib/voting';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import useStore from '@/store';
@@ -244,6 +244,34 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
     setViewMode(viewMode === 'voting' ? 'results' : 'voting');
   };
 
+  const handleChangeVote = async () => {
+    try {
+      setIsLoading(true);
+      setMessage(null);
+      
+      // Delete the current vote
+      await deleteVote(ember.id);
+      
+      // Reset voting state
+      setHasVoted(false);
+      setUserVote(null);
+      setSelectedName('');
+      
+      // Switch back to voting view
+      setViewMode('voting');
+      
+      // Reload voting data to update results
+      await loadVotingData();
+      
+      setMessage({ type: 'success', text: 'Your vote has been reset. You can now vote again.' });
+    } catch (error) {
+      console.error('Error changing vote:', error);
+      setMessage({ type: 'error', text: 'Failed to reset vote. Please try again.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
@@ -465,6 +493,19 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
             <div></div>
           )}
           
+          {/* Change Vote Button - only show when user has voted and is in results view */}
+          {hasVoted && viewMode === 'results' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleChangeVote}
+              disabled={isLoading}
+              className="flex items-center gap-2 text-orange-600 border-orange-300 hover:bg-orange-50"
+            >
+              <Check size={16} />
+              Change Vote
+            </Button>
+          )}
 
         </div>
       </DialogContent>
