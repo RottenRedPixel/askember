@@ -230,13 +230,16 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
       await submitVote(ember.id, nameToVote, isCustom);
       
       setHasVoted(true);
-      setMessage({ type: 'success', text: 'Vote submitted successfully!' });
       
       // Reload voting data to show updated results
       await loadVotingData();
       
       // Switch to results view
       setViewMode('results');
+      
+      // Show success message after view switches
+      setMessage({ type: 'success', text: 'Vote submitted successfully!' });
+      setTimeout(() => setMessage(null), 3000);
       
     } catch (error) {
       console.error('Error submitting vote:', error);
