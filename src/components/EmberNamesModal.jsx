@@ -33,6 +33,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
   const [message, setMessage] = useState(null);
   const [emberParticipants, setEmberParticipants] = useState([]);
   const [votedUserIds, setVotedUserIds] = useState([]);
+  const [aiSuggestedName, setAiSuggestedName] = useState(null);
 
   useEffect(() => {
     if (isOpen && ember?.id) {
@@ -281,6 +282,65 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
     }
   };
 
+  const handleAiSuggestion = async () => {
+    // Fake AI name suggestions - replace with real OpenAI integration later
+    const aiSuggestions = [
+      'Whispered Moments',
+      'Captured Serenity', 
+      'Timeless Echo',
+      'Dancing Light',
+      'Stolen Glances',
+      'Gentle Reverie',
+      'Fleeting Beauty',
+      'Sacred Pause',
+      'Luminous Memory',
+      'Tender Glimpse',
+      'Ethereal Instant',
+      'Quiet Wonder',
+      'Radiant Pause',
+      'Soft Embrace',
+      'Dreamy Interlude'
+    ];
+    
+    // Simulate AI thinking time
+    setIsLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Select a random suggestion that's not already in the list
+    const availableSuggestions = aiSuggestions.filter(name => !allSuggestedNames.includes(name));
+    if (availableSuggestions.length > 0) {
+      const randomName = availableSuggestions[Math.floor(Math.random() * availableSuggestions.length)];
+      setAiSuggestedName(randomName);
+    } else {
+      setMessage({ type: 'error', text: 'No more AI suggestions available' });
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleSelectAiSuggestion = async () => {
+    if (aiSuggestedName) {
+      try {
+        // Add the AI suggested name to the database
+        await addSuggestedName(ember.id, aiSuggestedName, true);
+        
+        // Add to local state
+        setAllSuggestedNames(prev => [...prev, aiSuggestedName]);
+        
+        // Clear the AI suggestion
+        setAiSuggestedName(null);
+        
+        // Show success message
+        setMessage({ type: 'success', text: 'AI suggestion added to options!' });
+        setTimeout(() => setMessage(null), 2000);
+        
+      } catch (error) {
+        console.error('Error adding AI suggestion:', error);
+        setMessage({ type: 'error', text: 'Failed to add AI suggestion' });
+      }
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
@@ -408,13 +468,34 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
                     <Plus size={16} />
                     Add Your Own Title
                   </Button>
+                  
+                  {/* AI Suggested Name Card */}
+                  {aiSuggestedName && (
+                    <Card className="py-0 rounded-md border-blue-200 bg-blue-50">
+                      <CardContent className="px-3 py-2 flex items-center justify-between h-10">
+                        <div className="flex items-center gap-2">
+                          <Sparkle size={16} className="text-blue-600" />
+                          <span className="text-base font-bold text-blue-900">{aiSuggestedName}</span>
+                          <span className="text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded">AI</span>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={handleSelectAiSuggestion}
+                          className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 h-6"
+                        >
+                          Add
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                  
                   <Button
-                    variant="outline"
-                    onClick={() => {/* TODO: Add AI suggestion handler */}}
-                    className="w-full flex items-center justify-center gap-2 py-3"
+                    onClick={handleAiSuggestion}
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     <Sparkle size={16} />
-                    Let Ember Try
+                    {isLoading ? 'Ember is thinking...' : 'Let Ember Try'}
                   </Button>
                 </div>
               )
