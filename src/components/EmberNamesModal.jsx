@@ -476,7 +476,6 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
                         <div className="flex items-center gap-2">
                           <Sparkle size={16} className="text-blue-600" />
                           <span className="text-base font-bold text-blue-900">{aiSuggestedName}</span>
-                          <span className="text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded">AI</span>
                         </div>
                         <Button
                           size="sm"
