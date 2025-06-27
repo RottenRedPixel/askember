@@ -23,7 +23,8 @@ import {
   Camera,
   MapPin,
   Eye,
-  Users
+  Users,
+  Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import EmberChat from '@/components/EmberChat';
@@ -314,31 +315,37 @@ export default function EmberSettingsPanel({
                     </h3>
                     <div className="grid grid-cols-1 gap-y-4 gap-x-4 text-sm">
                       <div className="space-y-2 text-left">
-                        <span className="text-gray-500 font-medium">Title</span>
                         {isEditingTitle ? (
-                                                     <div className="flex items-center gap-2">
-                             <Input
-                               type="text"
-                               value={newTitle}
-                               onChange={(e) => setNewTitle(e.target.value)}
-                               maxLength="45"
-                               className="h-8"
-                             />
-                             <Button size="sm" variant="blue" onClick={handleTitleSave}>Save</Button>
-                             <Button size="sm" variant="outline" onClick={handleTitleCancel}>Cancel</Button>
-                           </div>
+                          <div className="space-y-2">
+                            <span className="text-gray-500 font-medium">Title</span>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="text"
+                                value={newTitle}
+                                onChange={(e) => setNewTitle(e.target.value)}
+                                maxLength="45"
+                                className="h-8"
+                              />
+                              <Button size="sm" variant="blue" onClick={handleTitleSave}>Save</Button>
+                              <Button size="sm" variant="outline" onClick={handleTitleCancel}>Cancel</Button>
+                            </div>
+                          </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-900">{ember.title || 'N/A'}</span>
-                                                         <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
-                               <PencilSimple size={16} />
-                             </button>
+                            <span className="text-gray-900"><span className="font-medium">Title:</span> {ember.title || 'N/A'}</span>
+                            <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
+                              <PencilSimple size={16} />
+                            </button>
                           </div>
                         )}
                       </div>
                       <div className="space-y-2 text-left">
-                        <span className="text-gray-500 font-medium">Owner</span>
-                        <span className="block text-gray-900">Coming soon...</span>
+                        <span className="text-gray-900">
+                          <span className="font-medium">Owner:</span> {ember?.owner 
+                            ? `${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || ember.owner.email || 'Owner'
+                            : 'N/A'
+                          }
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -365,14 +372,36 @@ export default function EmberSettingsPanel({
                     </div>
                   </div>
 
-                  {/* People & Analysis Section */}
+                  {/* Image Analysis Section */}
                   <div className="space-y-3">
                     <h3 className="font-medium text-gray-900 text-left flex items-center gap-2">
                       <Eye className="w-4 h-4" />
-                      Analysis & People
+                      Image Analysis
                     </h3>
                     <div className="text-sm text-gray-600 text-left">
-                      Deep image analysis and people tagging will appear here...
+                      Deep image analysis will appear here...
+                    </div>
+                  </div>
+
+                  {/* Objects Section */}
+                  <div className="space-y-3">
+                    <h3 className="font-medium text-gray-900 text-left flex items-center gap-2">
+                      <Package className="w-4 h-4" />
+                      Objects
+                    </h3>
+                    <div className="text-sm text-gray-600 text-left">
+                      Object detection and recognition will appear here...
+                    </div>
+                  </div>
+
+                  {/* People Section */}
+                  <div className="space-y-3">
+                    <h3 className="font-medium text-gray-900 text-left flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      People
+                    </h3>
+                    <div className="text-sm text-gray-600 text-left">
+                      People tagging will appear here...
                     </div>
                   </div>
 

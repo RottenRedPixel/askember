@@ -415,12 +415,8 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
         {/* Participants Display */}
         <div className="flex justify-center gap-2 flex-wrap min-h-[48px]">
           {isLoading ? (
-            // Show skeleton avatars while loading to prevent jumping
-            <div className="flex gap-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-12 w-12 bg-gray-200 rounded-full border-4 border-gray-300 animate-pulse"></div>
-              ))}
-            </div>
+            // Show single skeleton avatar while loading to prevent jumping
+            <div className="h-12 w-12 bg-gray-200 rounded-full border-4 border-gray-300 animate-pulse"></div>
           ) : emberParticipants.length > 0 ? (
             emberParticipants.map((participant, index) => {
               const hasVotedStatus = participant.user_id && votedUserIds.includes(participant.user_id);

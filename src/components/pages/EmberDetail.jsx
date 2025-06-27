@@ -15,6 +15,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear } from 'phosphor-react';
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
+import { EmberAgent } from '@/components/agent';
 
 import EmberNamesModal from '@/components/EmberNamesModal';
 import EmberSettingsPanel from '@/components/EmberSettingsPanel';
@@ -311,29 +312,25 @@ export default function EmberDetail() {
           </div>
           {/* Divider - only on mobile */}
           <div className="h-px bg-gray-300 w-full md:hidden" />
-          {/* Content area (message + input box) */}
-          <div className="flex-1 p-6 text-center space-y-4 flex flex-col min-h-0">
-            <p className="text-gray-700 text-lg font-bold">
-              Hello there, I will be asking you questions here...
-            </p>
-            <div className="w-full relative">
-              <textarea 
-                rows="3"
-                placeholder="Type your message here..."
-                className="w-full bg-white border border-gray-200 rounded-md p-3 pr-16 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <div className="absolute bottom-3 right-3 flex items-center gap-2">
-                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center w-10 h-10">
-                  <Microphone size={20} className="text-gray-500" />
-                </button>
-                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center w-10 h-10">
-                  <Keyboard size={20} className="text-gray-500" />
-                </button>
-                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center w-10 h-10" aria-label="Submit">
-                  <ArrowCircleUp size={20} weight="fill" className="text-gray-500" />
-                </button>
-              </div>
-            </div>
+          {/* EmberAgent - New AI Agent Interface */}
+          <div className="flex-1 min-h-0 flex flex-col">
+            <EmberAgent 
+              emberId={ember.id}
+              participants={sharedUsers}
+              permissions={{
+                isOwner: isOwner,
+                canEdit: isOwner || sharedUsers.some(user => user.permission_level === 'contributor')
+              }}
+              onWikiUpdate={(suggestion) => {
+                // Handle wiki updates when agent suggests changes
+                console.log('Wiki update suggested:', suggestion);
+                // In the future, this could automatically update the wiki or show user confirmation
+              }}
+              onStoryUpdate={(storyData) => {
+                // Handle story updates
+                console.log('Story update:', storyData);
+              }}
+            />
           </div>
         </div>
       )
