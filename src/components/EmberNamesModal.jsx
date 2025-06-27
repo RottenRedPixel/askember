@@ -345,11 +345,9 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Aperture size={20} className="text-blue-500" />
-              Ember Title {totalVotes > 0 && <span className="text-sm text-gray-500">({totalVotes} votes)</span>}
-            </div>
+          <DialogTitle className="flex items-center gap-2">
+            <Aperture size={20} className="text-blue-500" />
+            Ember Title
             <button
               onClick={loadVotingData}
               disabled={isLoading}
@@ -358,6 +356,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
             >
               <ArrowClockwise size={16} className="text-gray-400" />
             </button>
+            {totalVotes > 0 && <span className="text-sm text-gray-500">({totalVotes} votes)</span>}
           </DialogTitle>
           <DialogDescription>
             {viewMode === 'voting' 
