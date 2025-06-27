@@ -13,21 +13,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Aperture, Plus, Check, ChartBar, Users, Sparkle } from 'phosphor-react';
 import { submitVote, getVotingResults, getUserVote, getParticipantVotingStatus, deleteVote } from '@/lib/voting';
 import { getEmberWithSharing } from '@/lib/sharing';
+import { getEmberSuggestedNames, addSuggestedName, initializeDefaultSuggestedNames } from '@/lib/suggestedNames';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import useStore from '@/store';
 
 export default function EmberNamesModal({ isOpen, onClose, ember }) {
   const { user } = useStore();
-  
-  // Base suggested names
-  const baseSuggestedNames = [
-    'Sunset Memory',
-    'Golden Hour',
-    'Perfect Moment'
-  ];
 
   const [selectedName, setSelectedName] = useState('');
-  const [allSuggestedNames, setAllSuggestedNames] = useState(baseSuggestedNames);
+  const [allSuggestedNames, setAllSuggestedNames] = useState([]);
   const [customName, setCustomName] = useState('');
   const [isAddingCustom, setIsAddingCustom] = useState(false);
   const [viewMode, setViewMode] = useState('voting'); // 'voting' or 'results'
@@ -82,14 +76,17 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
       setVotingResults(results.results);
       setTotalVotes(results.totalVotes);
 
-      // Build dynamic suggested names list (base names + custom names that have been voted on)
-      const customNamesFromVotes = results.results
-        .filter(result => result.is_custom)
-        .map(result => result.suggested_name);
+      // Load suggested names from dedicated table
+      const suggestedNames = await getEmberSuggestedNames(ember.id);
       
-      const uniqueCustomNames = [...new Set(customNamesFromVotes)];
-      const updatedSuggestedNames = [...baseSuggestedNames, ...uniqueCustomNames];
-      setAllSuggestedNames(updatedSuggestedNames);
+      // If no suggested names exist, initialize with defaults
+      if (suggestedNames.length === 0) {
+        await initializeDefaultSuggestedNames(ember.id);
+        const defaultNames = await getEmberSuggestedNames(ember.id);
+        setAllSuggestedNames(defaultNames.map(name => name.suggested_name));
+      } else {
+        setAllSuggestedNames(suggestedNames.map(name => name.suggested_name));
+      }
 
       // Load voting status for all participants
       const votedIds = await getParticipantVotingStatus(ember.id);
@@ -191,17 +188,27 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
     if (customName.trim()) {
       const customNameValue = customName.trim();
       
-      // Add the custom name to the suggested names list locally
-      if (!allSuggestedNames.includes(customNameValue)) {
-        setAllSuggestedNames(prev => [...prev, customNameValue]);
+      try {
+        // Add the custom name to the database
+        await addSuggestedName(ember.id, customNameValue, true);
+        
+        // Add to local state if not already there
+        if (!allSuggestedNames.includes(customNameValue)) {
+          setAllSuggestedNames(prev => [...prev, customNameValue]);
+        }
+        
+        // Reset the form
+        setCustomName('');
+        setIsAddingCustom(false);
+        
+        // Show success message
+        setMessage({ type: 'success', text: 'Custom title added!' });
+        setTimeout(() => setMessage(null), 2000);
+        
+      } catch (error) {
+        console.error('Error adding custom name:', error);
+        setMessage({ type: 'error', text: 'Failed to add custom title' });
       }
-      
-      // Reset the form
-      setCustomName('');
-      setIsAddingCustom(false);
-      
-      // Automatically submit the vote for the custom name to persist it
-      await handleSubmitVote(customNameValue, true);
     }
   };
 
@@ -335,7 +342,6 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
           <div className="space-y-3">
                          {/* Suggested Names */}
              {allSuggestedNames.map((name, index) => {
-               const isCustomName = !baseSuggestedNames.includes(name);
                return (
                  <Card 
                    key={index}
