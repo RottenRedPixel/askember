@@ -133,10 +133,11 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
         });
       }
       
-      // Add shared users
+      // Add shared users - only those who have created accounts
       if (emberData.shares) {
         emberData.shares.forEach(share => {
-          if (share.shared_user) {
+          // Only include users who have actually created accounts (have user_id)
+          if (share.shared_user && share.shared_user.user_id) {
             participants.push({
               id: share.shared_user.id,
               user_id: share.shared_user.user_id,
@@ -146,18 +147,8 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
               avatar_url: share.shared_user.avatar_url || null,
               role: share.permission_level
             });
-          } else {
-            // Fallback for shared users without profile
-            participants.push({
-              id: share.id,
-              user_id: null, // No user_id available for users without profiles
-              email: share.shared_with_email,
-              first_name: '',
-              last_name: '',
-              avatar_url: null,
-              role: share.permission_level
-            });
           }
+          // Note: Users without accounts (email-only invitations) are excluded from voting
         });
       }
       

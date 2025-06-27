@@ -54,8 +54,9 @@ export default function EmberDetail() {
         console.log('Sharing data:', sharingData);
         if (sharingData.shares && sharingData.shares.length > 0) {
           // Extract shared users with their profile information
+          // Only include users who have actually created accounts (have user_id)
           const invitedUsers = sharingData.shares
-            .filter(share => share.shared_user) // Only include users with profiles
+            .filter(share => share.shared_user && share.shared_user.user_id) // Must have actual user account
             .map(share => ({
               id: share.shared_user.id,
               user_id: share.shared_user.user_id,
@@ -178,21 +179,7 @@ export default function EmberDetail() {
               </button>
               
               {/* Horizontal divider below owner avatar */}
-              {sharedUsers.length > 0 && (
-                <div className="h-px w-6 bg-gray-300 my-2"></div>
-              )}
-              
-              {/* Share button - Only show for private embers or owned embers */}
-              {(!ember?.is_public || user) && (
-                <button
-                  className="rounded-full p-1 hover:bg-white/70 transition-colors mb-2"
-                  onClick={() => setShowShareModal(true)}
-                  aria-label="Share ember"
-                  type="button"
-                >
-                  <ShareNetwork size={24} className="text-gray-700" />
-                </button>
-              )}
+              <div className="h-px w-6 bg-gray-300 my-2"></div>
               
               {/* Invited Users Avatars - Stacked with 16px overlap */}
               {sharedUsers.map((sharedUser, index) => (
@@ -216,6 +203,18 @@ export default function EmberDetail() {
                   </Avatar>
                 </div>
               ))}
+              
+              {/* Share button - Only show for private embers or owned embers */}
+              {(!ember?.is_public || user) && (
+                <button
+                  className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                  onClick={() => setShowShareModal(true)}
+                  aria-label="Share ember"
+                  type="button"
+                >
+                  <ShareNetwork size={24} className="text-gray-700" />
+                </button>
+              )}
             </div>
             {/* Blurred background with fade */}
             <img
@@ -440,6 +439,76 @@ export default function EmberDetail() {
                     Deep image analysis and people tagging will appear here...
                   </div>
                 </div>
+
+                {/* Contributors Section */}
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-900 text-left">Contributors</h3>
+                  <div className="space-y-3">
+                    {/* Owner */}
+                    {ember?.owner && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage 
+                            src={ember.owner.avatar_url} 
+                            alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'} 
+                          />
+                          <AvatarFallback className="text-sm bg-gray-200 text-gray-700">
+                            {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900">
+                              {`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
+                            </span>
+                            <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">Owner</span>
+                          </div>
+                          <p className="text-sm text-gray-600">Created this ember</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Invited Contributors */}
+                    {sharedUsers.length > 0 ? (
+                      sharedUsers.map((contributor, index) => (
+                        <div key={contributor.id || index} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage 
+                              src={contributor.avatar_url} 
+                              alt={`${contributor.first_name || ''} ${contributor.last_name || ''}`.trim() || contributor.email} 
+                            />
+                            <AvatarFallback className="text-sm bg-gray-200 text-gray-700">
+                              {contributor.first_name?.[0] || contributor.last_name?.[0] || contributor.email?.[0]?.toUpperCase() || '?'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900">
+                                {`${contributor.first_name || ''} ${contributor.last_name || ''}`.trim() || contributor.email}
+                              </span>
+                              <span className={`px-2 py-1 text-xs rounded-full ${
+                                contributor.permission_level === 'contributor' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {contributor.permission_level === 'contributor' ? 'Contributor' : 'Viewer'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600">
+                              {contributor.permission_level === 'contributor' 
+                                ? 'Can edit and contribute to this ember' 
+                                : 'Can view this ember'}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-gray-500 text-left p-3 rounded-lg bg-gray-50">
+                        No other contributors have been invited to this ember yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -548,6 +617,7 @@ export default function EmberDetail() {
           handleTitleCancel={handleTitleCancel}
           handleTitleEdit={handleTitleEdit}
           message={message}
+          onRefresh={fetchEmber}
         />
       )}
     </div>

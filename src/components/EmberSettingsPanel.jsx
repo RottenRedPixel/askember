@@ -13,12 +13,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { X, Info, Chats, ShareNetwork, PencilSimple, Gear } from 'phosphor-react';
+import { X, Info, Chats, ShareNetwork, PencilSimple, Gear, ArrowClockwise } from 'phosphor-react';
 import { 
   BarChart3,
   Vote,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  FileText,
+  Camera,
+  MapPin,
+  Eye,
+  Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import EmberChat from '@/components/EmberChat';
@@ -26,6 +31,7 @@ import FeaturesCard from '@/components/FeaturesCard';
 import { deleteEmber } from '@/lib/database';
 import { getVotingResults } from '@/lib/voting';
 import { supabase } from '@/lib/supabase';
+import { getEmberWithSharing } from '@/lib/sharing';
 import useStore from '@/store';
 
 const tabs = [
@@ -62,11 +68,38 @@ export default function EmberSettingsPanel({
   handleTitleSave,
   handleTitleCancel,
   handleTitleEdit,
-  message
+  message,
+  onRefresh
 }) {
   const navigate = useNavigate();
   const { user } = useStore();
-  const [activeTab, setActiveTab] = useState("story-circle");
+  
+  // Store active tab in localStorage to persist through refreshes
+  const getStoredActiveTab = () => {
+    if (ember?.id) {
+      const stored = localStorage.getItem(`ember-settings-tab-${ember.id}`);
+      return stored || "story-circle";
+    }
+    return "story-circle";
+  };
+  
+  const [activeTab, setActiveTab] = useState(getStoredActiveTab);
+  
+  // Update stored tab when activeTab changes
+  const handleSetActiveTab = (tab) => {
+    setActiveTab(tab);
+    if (ember?.id) {
+      localStorage.setItem(`ember-settings-tab-${ember.id}`, tab);
+    }
+  };
+  
+  // Update activeTab when ember changes to get the stored tab for the new ember
+  useEffect(() => {
+    if (ember?.id) {
+      const storedTab = getStoredActiveTab();
+      setActiveTab(storedTab);
+    }
+  }, [ember?.id]);
   
   // Settings tab state
   const [votingResults, setVotingResults] = useState([]);
@@ -76,6 +109,9 @@ export default function EmberSettingsPanel({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [sharedUsers, setSharedUsers] = useState([]); // Users with accounts
+  const [emailOnlyInvites, setEmailOnlyInvites] = useState([]); // Email-only invites
 
   // Voting management functions
   const loadVotingResults = async () => {
@@ -148,6 +184,93 @@ export default function EmberSettingsPanel({
     setIsDeleting(false);
   };
 
+  // Refresh function
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      // Refresh ember data from parent component
+      if (onRefresh) {
+        await onRefresh();
+      }
+      
+      // Refresh tab-specific data
+      switch (activeTab) {
+        case 'settings':
+          if (showVotingResults) {
+            await loadVotingResults();
+          }
+          break;
+        case 'story-circle':
+          // Chat data will refresh automatically when ember data refreshes
+          break;
+        case 'wiki':
+          // Wiki data will refresh automatically when ember data refreshes
+          await fetchSharedUsers();
+          break;
+        case 'sharing':
+          // Sharing data will refresh automatically when ember data refreshes
+          break;
+      }
+      
+      setSettingsMessage({ type: 'success', text: 'Data refreshed successfully' });
+      setTimeout(() => setSettingsMessage(null), 2000);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      setSettingsMessage({ type: 'error', text: 'Failed to refresh data' });
+      setTimeout(() => setSettingsMessage(null), 3000);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Fetch shared users for Contributors section
+  const fetchSharedUsers = async () => {
+    try {
+      const sharingData = await getEmberWithSharing(ember.id);
+      console.log('Sharing data for settings panel:', sharingData);
+      
+      if (sharingData.shares && sharingData.shares.length > 0) {
+        // Separate users with accounts from email-only invites
+        const usersWithAccounts = sharingData.shares
+          .filter(share => share.shared_user && share.shared_user.user_id)
+          .map(share => ({
+            id: share.shared_user.id,
+            user_id: share.shared_user.user_id,
+            first_name: share.shared_user.first_name,
+            last_name: share.shared_user.last_name,
+            email: share.shared_with_email,
+            permission_level: share.permission_level
+          }));
+          
+        const emailOnlyInvites = sharingData.shares
+          .filter(share => !share.shared_user || !share.shared_user.user_id)
+          .map(share => ({
+            email: share.shared_with_email,
+            permission_level: share.permission_level
+          }));
+          
+        setSharedUsers(usersWithAccounts);
+        setEmailOnlyInvites(emailOnlyInvites);
+        console.log('Users with accounts:', usersWithAccounts);
+        console.log('Email-only invites:', emailOnlyInvites);
+      } else {
+        setSharedUsers([]);
+        setEmailOnlyInvites([]);
+      }
+    } catch (error) {
+      console.error('Error fetching shared users:', error);
+      setSharedUsers([]);
+      setEmailOnlyInvites([]);
+    }
+  };
+
+  // Load shared users when component mounts or ember changes
+  useEffect(() => {
+    if (ember?.id) {
+      fetchSharedUsers();
+    }
+  }, [ember?.id]);
+
   // Check if user is owner
   const isOwner = user && ember.user_id === user.id;
 
@@ -161,7 +284,20 @@ export default function EmberSettingsPanel({
                 {/* Header */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 text-left">Ember Wiki</h2>
+                    <h2 className="text-xl font-bold text-gray-900 text-left flex items-center gap-2">
+                      Ember Wiki
+                      <button
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                        title="Refresh wiki data"
+                      >
+                        <ArrowClockwise 
+                          size={16} 
+                          className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
+                        />
+                      </button>
+                    </h2>
                     <p className="text-sm text-gray-600 mt-1">
                       Knowledge and information about this ember
                     </p>
@@ -172,7 +308,10 @@ export default function EmberSettingsPanel({
                 <div className="space-y-4 text-left">
                   {/* Basic Info Section */}
                   <div className="space-y-3">
-                    <h3 className="font-medium text-gray-900 text-left">Basic Information</h3>
+                    <h3 className="font-medium text-gray-900 text-left flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Basic Information
+                    </h3>
                     <div className="grid grid-cols-1 gap-y-4 gap-x-4 text-sm">
                       <div className="space-y-2 text-left">
                         <span className="text-gray-500 font-medium">Title</span>
@@ -206,7 +345,10 @@ export default function EmberSettingsPanel({
 
                   {/* EXIF Data Section */}
                   <div className="space-y-3">
-                    <h3 className="font-medium text-gray-900 text-left">EXIF Data</h3>
+                    <h3 className="font-medium text-gray-900 text-left flex items-center gap-2">
+                      <Camera className="w-4 h-4" />
+                      EXIF Data
+                    </h3>
                     <div className="text-sm text-gray-600 text-left">
                       Camera settings and metadata will appear here...
                     </div>
@@ -214,7 +356,10 @@ export default function EmberSettingsPanel({
 
                   {/* Location Section */}
                   <div className="space-y-3">
-                    <h3 className="font-medium text-gray-900 text-left">Location</h3>
+                    <h3 className="font-medium text-gray-900 text-left flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      Location
+                    </h3>
                     <div className="text-sm text-gray-600 text-left">
                       Geolocation data will appear here...
                     </div>
@@ -222,9 +367,88 @@ export default function EmberSettingsPanel({
 
                   {/* People & Analysis Section */}
                   <div className="space-y-3">
-                    <h3 className="font-medium text-gray-900 text-left">Analysis & People</h3>
+                    <h3 className="font-medium text-gray-900 text-left flex items-center gap-2">
+                      <Eye className="w-4 h-4" />
+                      Analysis & People
+                    </h3>
                     <div className="text-sm text-gray-600 text-left">
                       Deep image analysis and people tagging will appear here...
+                    </div>
+                  </div>
+
+                  {/* Contributors Section */}
+                  <div className="space-y-3">
+                    <h3 className="font-medium text-gray-900 text-left flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Contributors
+                    </h3>
+                    <div className="space-y-4">
+                      
+                      {/* Owner Section */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-gray-700">Owner</h4>
+                        {ember?.owner ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-900">
+                              {`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
+                            </span>
+                            <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">Owner</span>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500">
+                            Owner information not available
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Invited (Accounts Created) Section */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-gray-700">Invited (Accounts Created)</h4>
+                        {sharedUsers.length > 0 ? (
+                          <div className="space-y-1">
+                            {sharedUsers.map((contributor, index) => (
+                              <div key={contributor.id || index} className="flex items-center gap-2">
+                                <span className="text-gray-900">
+                                  {`${contributor.first_name || ''} ${contributor.last_name || ''}`.trim() || contributor.email}
+                                </span>
+                                <span className={`px-2 py-1 text-xs rounded-full ${
+                                  contributor.permission_level === 'contributor' 
+                                    ? 'bg-blue-100 text-blue-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {contributor.permission_level === 'contributor' ? 'Contributor' : 'Viewer'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500">
+                            No users with accounts have been invited yet
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Invited (Accounts Not Created Yet) Section */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-gray-700">Invited (Accounts Not Created Yet)</h4>
+                        {emailOnlyInvites.length > 0 ? (
+                          <div className="space-y-1">
+                            {emailOnlyInvites.map((invite, index) => (
+                              <div key={index} className="flex items-center gap-2">
+                                <span className="text-gray-900">{invite.email}</span>
+                                <span className={`px-2 py-1 text-xs rounded-full ${
+                                  invite.permission_level === 'contributor' 
+                                    ? 'bg-blue-100 text-blue-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {invite.permission_level === 'contributor' ? 'Contributor' : 'Viewer'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                      
                     </div>
                   </div>
                 </div>
@@ -241,7 +465,20 @@ export default function EmberSettingsPanel({
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 text-left">Story Circle</h2>
+                    <h2 className="text-xl font-bold text-gray-900 text-left flex items-center gap-2">
+                      Story Circle
+                      <button
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                        title="Refresh story circle data"
+                      >
+                        <ArrowClockwise 
+                          size={16} 
+                          className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
+                        />
+                      </button>
+                    </h2>
                     <p className="text-sm text-gray-600 mt-1">
                       Discuss and explore the story behind this ember
                     </p>
@@ -259,7 +496,11 @@ export default function EmberSettingsPanel({
       case 'sharing':
         return (
           <div className="h-full overflow-auto">
-            <FeaturesCard ember={ember} />
+            <FeaturesCard 
+              ember={ember} 
+              onRefresh={handleRefresh}
+              isRefreshing={isRefreshing}
+            />
           </div>
         );
 
@@ -271,7 +512,20 @@ export default function EmberSettingsPanel({
                 {/* Header */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 text-left">Ember Settings</h2>
+                    <h2 className="text-xl font-bold text-gray-900 text-left flex items-center gap-2">
+                      Ember Settings
+                      <button
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                        title="Refresh settings data"
+                      >
+                        <ArrowClockwise 
+                          size={16} 
+                          className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
+                        />
+                      </button>
+                    </h2>
                     <p className="text-sm text-gray-600 mt-1">
                       Manage voting, advanced settings, and ember deletion
                     </p>
@@ -449,7 +703,7 @@ export default function EmberSettingsPanel({
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleSetActiveTab(tab.id)}
                 className={cn(
                   "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
                   activeTab === tab.id
@@ -464,13 +718,22 @@ export default function EmberSettingsPanel({
           </div>
         </div>
 
-        {/* Success/Error Message */}
+        {/* Success/Error Messages */}
         {message && (
           <div className={cn(
             "mx-4 mt-4 p-3 rounded-md text-sm",
             message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
           )}>
             {message.text}
+          </div>
+        )}
+        
+        {settingsMessage && (
+          <div className={cn(
+            "mx-4 mt-4 p-3 rounded-md text-sm",
+            settingsMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+          )}>
+            {settingsMessage.text}
           </div>
         )}
 

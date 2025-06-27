@@ -38,10 +38,10 @@ import {
   Crown,
   Users,
   Link as LinkIcon,
-
 } from 'lucide-react';
+import { ArrowClockwise } from 'phosphor-react';
 
-export default function FeaturesCard({ ember, onEmberUpdate }) {
+export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefreshing }) {
   const navigate = useNavigate();
   const { user } = useStore();
   const [emberData, setEmberData] = useState(ember);
@@ -169,7 +169,22 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 text-left">Sharing & Features</h2>
+            <h2 className="text-xl font-bold text-gray-900 text-left flex items-center gap-2">
+              Sharing & Features
+              {onRefresh && (
+                <button
+                  onClick={onRefresh}
+                  disabled={isRefreshing}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                  title="Refresh sharing data"
+                >
+                  <ArrowClockwise 
+                    size={16} 
+                    className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
+                  />
+                </button>
+              )}
+            </h2>
             <p className="text-sm text-gray-600 mt-1">
               Manage privacy, share with others, and access advanced features.
             </p>
@@ -356,16 +371,7 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
 
 
 
-        {/* Features Coming Soon */}
-        <div className="space-y-3 pt-4 border-t">
-          <h4 className="font-medium text-gray-600">Coming Soon</h4>
-          <div className="grid grid-cols-2 gap-2 text-sm text-gray-500">
-            <div>• Export to PDF</div>
-            <div>• Voice Notes</div>
-            <div>• Collaboration</div>
-            <div>• Templates</div>
-          </div>
-        </div>
+
 
 
       </CardContent>
