@@ -428,7 +428,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
                             />
                           </div>
                           <span className="text-sm text-gray-600">
-                            {result.percentage}% ({result.vote_count})
+                            {result.vote_count} votes
                           </span>
                         </div>
                       </div>

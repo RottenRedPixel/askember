@@ -218,7 +218,7 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
   const getPermissionIcon = (permission) => {
     switch (permission) {
       case 'owner': return <Crown className="w-4 h-4 text-yellow-500" />;
-      case 'edit': return <Edit3 className="w-4 h-4 text-blue-500" />;
+      case 'contributor': return <Edit3 className="w-4 h-4 text-blue-500" />;
       case 'view': return <Eye className="w-4 h-4 text-gray-500" />;
       default: return null;
     }
@@ -227,14 +227,14 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
   const getPermissionColor = (permission) => {
     switch (permission) {
       case 'owner': return 'bg-yellow-100 text-yellow-800';
-      case 'edit': return 'bg-blue-100 text-blue-800';
+      case 'contributor': return 'bg-blue-100 text-blue-800';
       case 'view': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const isOwner = emberData?.userPermission === 'owner';
-  const canEdit = ['owner', 'edit'].includes(emberData?.userPermission);
+  const canEdit = ['owner', 'contributor'].includes(emberData?.userPermission);
 
   return (
     <Card className="h-full">
@@ -365,7 +365,7 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
                     className="w-full p-2 border border-gray-300 rounded-md"
                   >
                     <option value="view">View Only</option>
-                    <option value="edit">Can Edit</option>
+                    <option value="contributor">Can Edit</option>
                   </select>
                 </div>
                 <div className="flex gap-2">
@@ -407,7 +407,7 @@ export default function FeaturesCard({ ember, onEmberUpdate }) {
                         disabled={isLoading}
                       >
                         <option value="view">View</option>
-                        <option value="edit">Edit</option>
+                        <option value="contributor">Edit</option>
                       </select>
                       <Button
                         size="sm"

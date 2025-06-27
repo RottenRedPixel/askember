@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS ember_shares (
     ember_id UUID NOT NULL REFERENCES embers(id) ON DELETE CASCADE,
     shared_by_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     shared_with_email TEXT NOT NULL,
-    permission_level TEXT NOT NULL CHECK (permission_level IN ('view', 'edit')),
+    permission_level TEXT NOT NULL CHECK (permission_level IN ('view', 'contributor')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     expires_at TIMESTAMP WITH TIME ZONE,
     is_active BOOLEAN DEFAULT true,
@@ -91,7 +91,7 @@ BEGIN
     -- Check if ember is public
     IF ember_record.is_public THEN
         IF ember_record.allow_public_edit THEN
-            RETURN 'edit';
+            RETURN 'contributor';
         ELSE
             RETURN 'view';
         END IF;
