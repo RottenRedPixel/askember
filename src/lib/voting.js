@@ -119,4 +119,25 @@ export async function deleteVote(emberId) {
     console.error('Error deleting vote:', error);
     throw error;
   }
+}
+
+/**
+ * Get voting status for all participants of an ember
+ */
+export async function getParticipantVotingStatus(emberId) {
+  try {
+    // Get all votes for this ember
+    const { data: votes, error } = await supabase
+      .from('ember_name_votes')
+      .select('user_id')
+      .eq('ember_id', emberId);
+
+    if (error) throw error;
+    
+    // Return array of user IDs who have voted
+    return votes.map(vote => vote.user_id);
+  } catch (error) {
+    console.error('Error fetching participant voting status:', error);
+    throw error;
+  }
 } 

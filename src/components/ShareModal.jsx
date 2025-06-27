@@ -50,6 +50,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
   const [message, setMessage] = useState(null);
   const [showShareForm, setShowShareForm] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
     if (isOpen && ember) {
@@ -64,6 +65,8 @@ export default function ShareModal({ ember, isOpen, onClose }) {
     } catch (error) {
       console.error('Error loading ember sharing data:', error);
       setMessage({ type: 'error', text: 'Failed to load sharing information' });
+    } finally {
+      setIsInitialLoading(false);
     }
   };
 
@@ -266,7 +269,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
           <div className="space-y-3">
             <h4 className="font-medium flex items-center gap-2">
               <LinkIcon className="w-4 h-4" />
-              {typeof navigator !== 'undefined' && navigator.share ? 'Or Copy Link' : 'Share Link'}
+              Share with a Link
             </h4>
             <div className="flex gap-2">
               <Input
@@ -280,76 +283,14 @@ export default function ShareModal({ ember, isOpen, onClose }) {
             </div>
           </div>
 
-          {/* Social Media Sharing */}
-          <div className="space-y-3">
-            <h4 className="font-medium flex items-center gap-2">
-              <Share className="w-4 h-4" />
-              Share to Social Media
-            </h4>
-            <div className="grid grid-cols-3 gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => shareToSocialMedia('facebook')}
-                className="flex items-center gap-2 justify-center"
-              >
-                <Facebook className="w-4 h-4 text-blue-600" />
-                <span className="hidden sm:inline">Facebook</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => shareToSocialMedia('twitter')}
-                className="flex items-center gap-2 justify-center"
-              >
-                <Twitter className="w-4 h-4 text-sky-500" />
-                <span className="hidden sm:inline">Twitter</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => shareToSocialMedia('linkedin')}
-                className="flex items-center gap-2 justify-center"
-              >
-                <Linkedin className="w-4 h-4 text-blue-700" />
-                <span className="hidden sm:inline">LinkedIn</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => shareToSocialMedia('whatsapp')}
-                className="flex items-center gap-2 justify-center"
-              >
-                <MessageCircle className="w-4 h-4 text-green-600" />
-                <span className="hidden sm:inline">WhatsApp</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => shareToSocialMedia('telegram')}
-                className="flex items-center gap-2 justify-center"
-              >
-                <Send className="w-4 h-4 text-blue-500" />
-                <span className="hidden sm:inline">Telegram</span>
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => shareToSocialMedia('email')}
-                className="flex items-center gap-2 justify-center"
-              >
-                <Mail className="w-4 h-4 text-gray-600" />
-                <span className="hidden sm:inline">Email</span>
-              </Button>
-            </div>
-          </div>
+
 
           {/* QR Code Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="font-medium flex items-center gap-2">
                 <QrCode className="w-4 h-4" />
-                QR Code
+                Share with QR Code
               </h4>
               <Button
                 variant="outline"
@@ -361,21 +302,33 @@ export default function ShareModal({ ember, isOpen, onClose }) {
               </Button>
             </div>
             
-            {showQRCode && (
-              <div className="mt-4">
-                <QRCodeGenerator 
-                  url={`${window.location.origin}/embers/${ember.id}`}
-                  title="Ember QR Code"
-                  size={180}
-                />
-              </div>
-            )}
+            {/* Fixed height container to prevent jumping */}
+            <div className={`transition-all duration-200 overflow-hidden ${showQRCode ? 'h-[240px]' : 'h-0'}`}>
+              {showQRCode && (
+                <div className="mt-4">
+                  <QRCodeGenerator 
+                    url={`${window.location.origin}/embers/${ember.id}`}
+                    title="Ember QR Code"
+                    size={180}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
-          <Separator />
-
           {/* Privacy Settings - Only for owners */}
-          {isOwner && (
+          {isInitialLoading ? (
+            // Skeleton for privacy settings
+            <div className="space-y-3">
+              <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                  <div className="h-8 bg-gray-200 rounded w-20 animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+          ) : isOwner ? (
             <>
               <div className="space-y-3">
                 <h4 className="font-medium flex items-center gap-2">
@@ -418,10 +371,19 @@ export default function ShareModal({ ember, isOpen, onClose }) {
 
               <Separator />
             </>
-          )}
+          ) : null}
 
           {/* Individual Sharing - Only for owners */}
-          {isOwner && (
+          {isInitialLoading ? (
+            // Skeleton for sharing section
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
+                <div className="h-8 bg-gray-200 rounded w-20 animate-pulse"></div>
+              </div>
+              <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+          ) : isOwner ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium flex items-center gap-2">
@@ -438,47 +400,49 @@ export default function ShareModal({ ember, isOpen, onClose }) {
                 </Button>
               </div>
 
-              {/* Share Form */}
-              {showShareForm && (
-                <form onSubmit={handleShareEmber} className="space-y-3 p-3 border rounded-lg bg-gray-50">
-                  <div>
-                    <Label htmlFor="shareEmail">Email Address</Label>
-                    <Input
-                      id="shareEmail"
-                      type="email"
-                      value={shareEmail}
-                      onChange={(e) => setShareEmail(e.target.value)}
-                      placeholder="Enter email address"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="sharePermission">Permission</Label>
-                    <select
-                      id="sharePermission"
-                      value={sharePermission}
-                      onChange={(e) => setSharePermission(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="view">View Only</option>
-                      <option value="edit">Can Edit</option>
-                    </select>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="submit" size="sm" disabled={isLoading} variant="blue">
-                      Share
-                    </Button>
-                    <Button 
-                      type="button" 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => setShowShareForm(false)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              )}
+              {/* Share Form - Fixed height container */}
+              <div className={`transition-all duration-200 overflow-hidden ${showShareForm ? 'h-[200px]' : 'h-0'}`}>
+                {showShareForm && (
+                  <form onSubmit={handleShareEmber} className="space-y-3 p-3 border rounded-lg bg-gray-50">
+                    <div>
+                      <Label htmlFor="shareEmail">Email Address</Label>
+                      <Input
+                        id="shareEmail"
+                        type="email"
+                        value={shareEmail}
+                        onChange={(e) => setShareEmail(e.target.value)}
+                        placeholder="Enter email address"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="sharePermission">Permission</Label>
+                      <select
+                        id="sharePermission"
+                        value={sharePermission}
+                        onChange={(e) => setSharePermission(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      >
+                        <option value="view">View Only</option>
+                        <option value="edit">Can Edit</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="submit" size="sm" disabled={isLoading} variant="blue">
+                        Share
+                      </Button>
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => setShowShareForm(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </div>
 
               {/* Existing Shares */}
               {emberData?.shares?.length > 0 && (
@@ -525,7 +489,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
                 </div>
               )}
             </div>
-          )}
+          ) : null}
 
           {/* For non-owners, show current permission */}
           {!isOwner && emberData?.userPermission && (

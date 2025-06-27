@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Aperture, Plus, Check, ChartBar, Users } from 'phosphor-react';
-import { submitVote, getVotingResults, getUserVote } from '@/lib/voting';
+import { submitVote, getVotingResults, getUserVote, getParticipantVotingStatus } from '@/lib/voting';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import useStore from '@/store';
@@ -19,14 +19,15 @@ import useStore from '@/store';
 export default function EmberNamesModal({ isOpen, onClose, ember }) {
   const { user } = useStore();
   
-  // Suggested names
-  const suggestedNames = [
+  // Base suggested names
+  const baseSuggestedNames = [
     'Sunset Memory',
     'Golden Hour',
     'Perfect Moment'
   ];
 
   const [selectedName, setSelectedName] = useState('');
+  const [allSuggestedNames, setAllSuggestedNames] = useState(baseSuggestedNames);
   const [customName, setCustomName] = useState('');
   const [isAddingCustom, setIsAddingCustom] = useState(false);
   const [viewMode, setViewMode] = useState('voting'); // 'voting' or 'results'
@@ -37,12 +38,32 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [emberParticipants, setEmberParticipants] = useState([]);
+  const [votedUserIds, setVotedUserIds] = useState([]);
 
   useEffect(() => {
     if (isOpen && ember?.id) {
       loadVotingData();
     }
   }, [isOpen, ember?.id]);
+
+  // Preload avatar images to prevent modal jumping
+  const preloadAvatars = async (participants) => {
+    const promises = participants
+      .filter(participant => participant.avatar_url)
+      .map(participant => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = resolve;
+          img.onerror = resolve; // Resolve even on error to not block loading
+          img.src = participant.avatar_url;
+          // Timeout after 2 seconds to not block indefinitely
+          setTimeout(resolve, 2000);
+        });
+      });
+    
+    // Wait for all images to load (or timeout)
+    await Promise.all(promises);
+  };
 
   const loadVotingData = async () => {
     try {
@@ -61,31 +82,50 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
       setVotingResults(results.results);
       setTotalVotes(results.totalVotes);
 
+      // Build dynamic suggested names list (base names + custom names that have been voted on)
+      const customNamesFromVotes = results.results
+        .filter(result => result.is_custom)
+        .map(result => result.suggested_name);
+      
+      const uniqueCustomNames = [...new Set(customNamesFromVotes)];
+      const updatedSuggestedNames = [...baseSuggestedNames, ...uniqueCustomNames];
+      setAllSuggestedNames(updatedSuggestedNames);
+
+      // Load voting status for all participants
+      const votedIds = await getParticipantVotingStatus(ember.id);
+      setVotedUserIds(votedIds);
+
       // Load ember participants (owner + shared users)
       const emberData = await getEmberWithSharing(ember.id);
       const participants = [];
       
-      // Add owner - try multiple sources for owner data
-      let ownerData = null;
+      // Add owner - use owner data from sharing function
       if (emberData.owner) {
-        ownerData = emberData.owner;
-      } else if (ember.owner) {
-        ownerData = ember.owner;
-      }
-      
-      if (ownerData) {
         participants.push({
-          id: ownerData.id || ember.user_id,
-          email: ownerData.email || 'Owner',
-          first_name: ownerData.first_name || '',
-          last_name: ownerData.last_name || '',
-          avatar_url: ownerData.avatar_url || null,
+          id: emberData.owner.id,
+          user_id: emberData.owner.user_id,
+          email: emberData.owner.email || 'Owner',
+          first_name: emberData.owner.first_name || '',
+          last_name: emberData.owner.last_name || '',
+          avatar_url: emberData.owner.avatar_url || null,
+          role: 'owner'
+        });
+      } else if (ember.owner) {
+        // Fallback to ember prop owner data
+        participants.push({
+          id: ember.owner.id,
+          user_id: ember.owner.user_id || ember.owner.id,
+          email: ember.owner.email || 'Owner',
+          first_name: ember.owner.first_name || '',
+          last_name: ember.owner.last_name || '',
+          avatar_url: ember.owner.avatar_url || null,
           role: 'owner'
         });
       } else {
-        // Fallback: add owner based on ember user_id
+        // Final fallback: add owner based on ember user_id
         participants.push({
           id: ember.user_id,
+          user_id: ember.user_id,
           email: 'Owner',
           first_name: '',
           last_name: '',
@@ -97,19 +137,36 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
       // Add shared users
       if (emberData.shares) {
         emberData.shares.forEach(share => {
-          participants.push({
-            id: share.id,
-            email: share.shared_with_email,
-            first_name: share.shared_user?.first_name || '',
-            last_name: share.shared_user?.last_name || '',
-            avatar_url: share.shared_user?.avatar_url || null,
-            role: share.permission_level
-          });
+          if (share.shared_user) {
+            participants.push({
+              id: share.shared_user.id,
+              user_id: share.shared_user.user_id,
+              email: share.shared_with_email,
+              first_name: share.shared_user.first_name || '',
+              last_name: share.shared_user.last_name || '',
+              avatar_url: share.shared_user.avatar_url || null,
+              role: share.permission_level
+            });
+          } else {
+            // Fallback for shared users without profile
+            participants.push({
+              id: share.id,
+              user_id: null, // No user_id available for users without profiles
+              email: share.shared_with_email,
+              first_name: '',
+              last_name: '',
+              avatar_url: null,
+              role: share.permission_level
+            });
+          }
         });
       }
       
       console.log('Ember data:', emberData);
       console.log('Participants:', participants);
+      
+      // Preload avatar images before setting participants
+      await preloadAvatars(participants);
       setEmberParticipants(participants);
 
     } catch (error) {
@@ -120,17 +177,24 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
     }
   };
 
-  const handleSelectSuggestion = (name) => {
+  const handleSelectSuggestion = async (name) => {
     if (hasVoted) return; // Prevent selection if already voted
     setSelectedName(name);
     setCustomName('');
     setIsAddingCustom(false);
+    
+    // Automatically submit the vote
+    await handleSubmitVote(name, false);
   };
 
-  const handleSelectCustom = () => {
+  const handleSelectCustom = async () => {
     if (customName.trim()) {
-      setSelectedName(customName.trim());
+      const customNameValue = customName.trim();
+      setSelectedName(customNameValue);
       setIsAddingCustom(false);
+      
+      // Automatically submit the vote
+      await handleSubmitVote(customNameValue, true);
     }
   };
 
@@ -140,15 +204,16 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
     setSelectedName('');
   };
 
-  const handleSubmitVote = async () => {
-    if (!selectedName || !user) return;
+  const handleSubmitVote = async (voteName = null, isCustomVote = null) => {
+    const nameToVote = voteName || selectedName;
+    if (!nameToVote || !user || hasVoted) return;
 
     try {
       setIsLoading(true);
       setMessage(null);
 
-      const isCustom = !suggestedNames.includes(selectedName);
-      await submitVote(ember.id, selectedName, isCustom);
+      const isCustom = isCustomVote !== null ? isCustomVote : !allSuggestedNames.includes(nameToVote);
+      await submitVote(ember.id, nameToVote, isCustom);
       
       setHasVoted(true);
       setMessage({ type: 'success', text: 'Vote submitted successfully!' });
@@ -188,23 +253,38 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
         </DialogHeader>
 
         {/* Participants Display */}
-        {emberParticipants.length > 0 && (
-          <div className="flex justify-center gap-2 flex-wrap">
-            {emberParticipants.map((participant, index) => (
-              <div key={index} className="flex flex-col items-center">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage 
-                    src={participant.avatar_url} 
-                    alt={`${participant.first_name || ''} ${participant.last_name || ''}`.trim() || participant.email}
-                  />
-                  <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
-                    {participant.first_name?.[0] || participant.last_name?.[0] || participant.email?.[0]?.toUpperCase() || '?'}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="flex justify-center gap-2 flex-wrap min-h-[48px]">
+          {isLoading ? (
+            // Show skeleton avatars while loading to prevent jumping
+            <div className="flex gap-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-12 w-12 bg-gray-200 rounded-full border-4 border-gray-300 animate-pulse"></div>
+              ))}
+            </div>
+          ) : emberParticipants.length > 0 ? (
+            emberParticipants.map((participant, index) => {
+              const hasVotedStatus = participant.user_id && votedUserIds.includes(participant.user_id);
+              const borderColor = hasVotedStatus ? 'border-green-500' : 'border-gray-300';
+              
+              return (
+                <div key={index} className="flex flex-col items-center">
+                  <Avatar className={`h-12 w-12 border-4 ${borderColor} transition-colors`}>
+                    <AvatarImage 
+                      src={participant.avatar_url} 
+                      alt={`${participant.first_name || ''} ${participant.last_name || ''}`.trim() || participant.email}
+                    />
+                    <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
+                      {participant.first_name?.[0] || participant.last_name?.[0] || participant.email?.[0]?.toUpperCase() || '?'}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              );
+            })
+          ) : (
+            // Show single skeleton if no participants loaded yet
+            <div className="h-12 w-12 bg-gray-200 rounded-full border-4 border-gray-300 animate-pulse"></div>
+          )}
+        </div>
 
         {/* Message Display */}
         {message && (
@@ -219,66 +299,74 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
         {viewMode === 'voting' && (
           <div className="space-y-3">
                          {/* Suggested Names */}
-             {suggestedNames.map((name, index) => (
-               <Card 
-                 key={index}
-                 className={`transition-all cursor-pointer border ${
-                   hasVoted 
-                     ? 'opacity-60 cursor-not-allowed' 
-                     : 'hover:border-gray-300'
-                 } ${
-                   selectedName === name 
-                     ? 'border-blue-500 bg-blue-50' 
-                     : 'border-gray-200'
-                 }`}
-                 onClick={() => handleSelectSuggestion(name)}
-               >
-                 <CardContent className="px-3 py-2 flex items-center justify-between">
-                   <span className="text-xl font-bold">{name}</span>
-                   {selectedName === name && (
-                     <Check size={16} className="text-blue-500" />
-                   )}
-                 </CardContent>
-               </Card>
-             ))}
+             {allSuggestedNames.map((name, index) => {
+               const isCustomName = !baseSuggestedNames.includes(name);
+               return (
+                 <Card 
+                   key={index}
+                   className={`transition-all cursor-pointer border ${
+                     hasVoted 
+                       ? 'opacity-60 cursor-not-allowed' 
+                       : 'hover:border-gray-300'
+                   } ${
+                     selectedName === name 
+                       ? 'border-blue-500 bg-blue-50' 
+                       : 'border-gray-200'
+                   }`}
+                   onClick={() => handleSelectSuggestion(name)}
+                 >
+                   <CardContent className="px-3 py-1 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                         <span className="text-base font-bold">{name}</span>
+                       {isCustomName && (
+                         <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Custom</span>
+                       )}
+                     </div>
+                     {selectedName === name && (
+                       <Check size={16} className="text-blue-500" />
+                     )}
+                   </CardContent>
+                 </Card>
+               );
+             })}
 
             {/* Custom Name Input */}
-            {isAddingCustom ? (
-              <div className="space-y-2">
-                <Input
-                  placeholder="Enter your custom name..."
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSelectCustom()}
-                  disabled={hasVoted}
-                />
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={handleSelectCustom}
-                    disabled={!customName.trim() || hasVoted}
-                    size="sm"
-                  >
-                    Select This Name
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setIsAddingCustom(false)}
-                    size="sm"
-                  >
-                    Cancel
-                  </Button>
+            {!hasVoted && (
+              isAddingCustom ? (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Enter your custom name..."
+                    value={customName}
+                    onChange={(e) => setCustomName(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSelectCustom()}
+                  />
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={handleSelectCustom}
+                      disabled={!customName.trim()}
+                      size="sm"
+                    >
+                      Select This Name
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsAddingCustom(false)}
+                      size="sm"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                onClick={handleAddCustom}
-                className="w-full flex items-center justify-center gap-2 py-3 border-dashed"
-                disabled={hasVoted}
-              >
-                <Plus size={16} />
-                Add Your Own Name
-              </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={handleAddCustom}
+                  className="w-full flex items-center justify-center gap-2 py-3 border-dashed"
+                >
+                  <Plus size={16} />
+                  Add Your Own Name
+                </Button>
+              )
             )}
 
 
@@ -362,16 +450,11 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
           {/* Action Buttons */}
           <div className="flex gap-2">
             <Button variant="outline" onClick={onClose}>
-              {viewMode === 'results' ? 'Close' : 'Cancel'}
+              Cancel
             </Button>
-            {viewMode === 'voting' && !hasVoted && (
-              <Button 
-                onClick={handleSubmitVote}
-                disabled={!selectedName || isLoading || !user}
-              >
-                {isLoading ? 'Submitting...' : 'Submit Vote'}
-              </Button>
-            )}
+            <Button onClick={onClose}>
+              Done
+            </Button>
           </div>
         </div>
       </DialogContent>

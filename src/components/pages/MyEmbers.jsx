@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import {
   Carousel,
   CarouselContent,
@@ -11,6 +12,7 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import { getUserEmbers } from '@/lib/database';
+import { getSharedEmbers } from '@/lib/sharing';
 import useStore from '@/store';
 
 // Icons for the toolbar (using simple SVG icons)
@@ -44,8 +46,8 @@ const PlusIcon = () => (
   </svg>
 );
 
-// Toolbar component
-const EmberToolbar = ({ 
+// My Embers Toolbar component
+const MyEmbersToolbar = ({ 
   sectionName, 
   totalEmbers, 
   viewMode, 
@@ -61,17 +63,99 @@ const EmberToolbar = ({
   ];
 
   return (
-    <div className="bg-white rounded-lg py-2 -mt-6">
+    <div className="bg-white rounded-none py-2 -mt-6 sticky top-0 z-10 md:static md:z-auto">
       <div className="flex items-center justify-between">
-        {/* Left side: Create new ember */}
-        <Link to="/create">
-          <button
-            className="p-1 text-blue-600 hover:text-blue-700 transition-colors rounded-md"
-            title="Create New Ember"
-          >
-            <PlusIcon />
-          </button>
-        </Link>
+        {/* Left side: Badge and Create new ember */}
+        <div className="flex items-center gap-0">
+                      <div className="bg-white text-gray-700 text-sm px-3 py-1 rounded-full font-medium h-8 flex items-center border border-gray-300">
+              My Embers
+            </div>
+          <Link to="/create">
+            <button
+              className="p-1 text-blue-600 hover:text-blue-700 transition-colors rounded-md"
+              title="Create New Ember"
+            >
+              <PlusIcon />
+            </button>
+          </Link>
+        </div>
+
+        {/* Right side: Controls */}
+        <div className="flex items-center space-x-4">
+          {/* Sort dropdown */}
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="text-sm border border-gray-300 rounded-full pl-3 pr-10 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white cursor-pointer"
+            >
+              {sortOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+              <ChevronDownIcon />
+            </div>
+          </div>
+
+          {/* View toggle */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setViewMode('scroll')}
+              className={`p-2 rounded-md transition-colors ${
+                viewMode === 'scroll' 
+                  ? 'text-blue-600' 
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+              title="Scroll View"
+            >
+              <ScrollIcon />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 rounded-md transition-colors ${
+                viewMode === 'grid' 
+                  ? 'text-blue-600' 
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+              title="Grid View"
+            >
+              <GridIcon />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Shared Embers Toolbar component
+const SharedEmbersToolbar = ({ 
+  sectionName, 
+  totalEmbers, 
+  viewMode, 
+  setViewMode, 
+  sortBy, 
+  setSortBy 
+}) => {
+  const sortOptions = [
+    { value: 'newest', label: 'New' },
+    { value: 'oldest', label: 'Old' },
+    { value: 'alphabetical', label: 'A-Z' },
+    { value: 'reverse-alphabetical', label: 'Z-A' }
+  ];
+
+  return (
+    <div className="bg-white rounded-none py-2 -mt-6 sticky top-0 z-10 md:static md:z-auto">
+      <div className="flex items-center justify-between">
+        {/* Left side: Badge */}
+        <div className="flex items-center gap-0">
+          <div className="bg-white text-gray-700 text-sm px-3 py-1 rounded-full font-medium h-8 flex items-center border border-gray-300">
+            Shared with Me
+          </div>
+        </div>
 
         {/* Right side: Controls */}
         <div className="flex items-center space-x-4">
@@ -247,11 +331,16 @@ const EmberGrid = ({ ember }) => {
 export default function MyEmbers() {
   const { user, isLoading } = useStore();
   const [embers, setEmbers] = useState([]);
+  const [sharedEmbers, setSharedEmbers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sharedLoading, setSharedLoading] = useState(true);
   const [error, setError] = useState('');
+  const [sharedError, setSharedError] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'scroll' or 'grid'
   const [sortBy, setSortBy] = useState('newest');
   const [initialViewModeSet, setInitialViewModeSet] = useState(false);
+  const [sharedViewMode, setSharedViewMode] = useState('grid'); // 'scroll' or 'grid'
+  const [sharedSortBy, setSharedSortBy] = useState('newest');
 
   // Debug logging
   console.log('MyEmbers render - isLoading:', isLoading, 'user:', user ? 'exists' : 'null', 'loading:', loading);
@@ -263,21 +352,38 @@ export default function MyEmbers() {
       if (!user) {
         console.log('No user, setting loading to false');
         setLoading(false);
+        setSharedLoading(false);
         return;
       }
 
       try {
         console.log('Starting to fetch embers for user:', user.id);
         setLoading(true);
+        setSharedLoading(true);
+        
+        // Fetch user's own embers
         const userEmbers = await getUserEmbers(user.id);
         console.log('Embers fetched successfully:', userEmbers.length, 'embers');
         setEmbers(userEmbers);
+        setLoading(false);
+        
+        // Fetch shared embers
+        try {
+          const shared = await getSharedEmbers();
+          console.log('Shared embers fetched successfully:', shared.length, 'embers');
+          setSharedEmbers(shared);
+        } catch (sharedErr) {
+          console.error('Error fetching shared embers:', sharedErr);
+          setSharedError('Failed to load shared embers');
+        } finally {
+          setSharedLoading(false);
+        }
+        
       } catch (err) {
         console.error('Error fetching embers:', err);
         setError('Failed to load embers');
-      } finally {
-        console.log('Setting loading to false');
         setLoading(false);
+        setSharedLoading(false);
       }
     };
 
@@ -299,6 +405,22 @@ export default function MyEmbers() {
   // Sort embers based on selected sort option
   const sortedEmbers = [...embers].sort((a, b) => {
     switch (sortBy) {
+      case 'newest':
+        return new Date(b.created_at) - new Date(a.created_at);
+      case 'oldest':
+        return new Date(a.created_at) - new Date(b.created_at);
+      case 'alphabetical':
+        return (a.message || '').localeCompare(b.message || '');
+      case 'reverse-alphabetical':
+        return (b.message || '').localeCompare(a.message || '');
+      default:
+        return 0;
+    }
+  });
+
+  // Sort shared embers based on selected sort option
+  const sortedSharedEmbers = [...sharedEmbers].sort((a, b) => {
+    switch (sharedSortBy) {
       case 'newest':
         return new Date(b.created_at) - new Date(a.created_at);
       case 'oldest':
@@ -368,7 +490,7 @@ export default function MyEmbers() {
       {!loading && !error && embers.length > 0 && (
         <div className="max-w-6xl mx-auto">
           {/* Toolbar */}
-          <EmberToolbar
+          <MyEmbersToolbar
             sectionName="my embers"
             totalEmbers={embers.length}
             viewMode={viewMode}
@@ -391,6 +513,63 @@ export default function MyEmbers() {
               ))}
                          </div>
            )}
+        </div>
+      )}
+
+      {/* Shared Embers Section */}
+      {!loading && !error && user && (
+        <div className="max-w-6xl mx-auto">
+          <Separator className="my-8" />
+
+          {sharedLoading && (
+            <div className="flex items-center justify-center min-h-[100px]">
+              <div className="text-lg text-gray-500">Loading shared embers...</div>
+            </div>
+          )}
+
+          {sharedError && (
+            <div className="text-center py-4">
+              <p className="text-red-600">{sharedError}</p>
+            </div>
+          )}
+
+          {!sharedLoading && !sharedError && sharedEmbers.length === 0 && (
+            <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No shared embers</h3>
+              <p className="text-gray-600">
+                When others share embers with you, they'll appear here.
+              </p>
+            </div>
+          )}
+
+          {!sharedLoading && !sharedError && sharedEmbers.length > 0 && (
+            <>
+              {/* Shared Embers Toolbar */}
+              <SharedEmbersToolbar
+                sectionName="shared with me"
+                totalEmbers={sharedEmbers.length}
+                viewMode={sharedViewMode}
+                setViewMode={setSharedViewMode}
+                sortBy={sharedSortBy}
+                setSortBy={setSharedSortBy}
+              />
+
+              {/* Shared Embers Display */}
+              {sharedViewMode === 'scroll' ? (
+                <div className="space-y-6">
+                  {sortedSharedEmbers.map((ember) => (
+                    <EmberCarousel key={ember.id} ember={ember} />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
+                  {sortedSharedEmbers.map((ember) => (
+                    <EmberGrid key={ember.id} ember={ember} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </motion.div>
