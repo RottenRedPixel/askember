@@ -11,11 +11,12 @@ import { getEmber, updateEmberTitle } from '@/lib/database';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire } from 'phosphor-react';
+import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear } from 'phosphor-react';
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
 import EmberRadialChart from '@/components/EmberRadialChart';
 import EmberNamesModal from '@/components/EmberNamesModal';
+import EmberSettingsPanel from '@/components/EmberSettingsPanel';
 import useStore from '@/store';
 
 export default function EmberDetail() {
@@ -27,6 +28,7 @@ export default function EmberDetail() {
   const [showFullImage, setShowFullImage] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showNamesModal, setShowNamesModal] = useState(false);
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [message, setMessage] = useState(null);
@@ -108,8 +110,8 @@ export default function EmberDetail() {
     );
   }
 
-  // Define all cards
-  const allCards = [
+  // Define all cards (keep full definitions for potential future use)
+  const allCardsDefinitions = [
     {
       id: 'photo',
       title: 'Photo',
@@ -117,7 +119,7 @@ export default function EmberDetail() {
         <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
           {/* Photo area (with toggle, blurred bg, main image, icon bar) */}
           <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[65vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-auto overflow-hidden">
-            {/* Top right vertical capsule: Home above blur/crop toggle above share */}
+            {/* Top right vertical capsule: Home above blur/crop toggle above settings above share */}
             <div className="absolute top-4 right-4 z-30 flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
               <button
                 className="rounded-full p-1 hover:bg-white/70 transition-colors"
@@ -134,6 +136,14 @@ export default function EmberDetail() {
                 type="button"
               >
                 <CornersOut size={24} className="text-gray-700" />
+              </button>
+              <button
+                className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                onClick={() => setShowSettingsPanel(true)}
+                aria-label="Settings"
+                type="button"
+              >
+                <Gear size={24} className="text-gray-700" />
               </button>
               {/* Only show share button for private embers or owned embers */}
               {(!ember?.is_public || user) && (
@@ -381,14 +391,10 @@ export default function EmberDetail() {
     }
   ];
 
-  // Filter cards based on ember's public status and user permissions
-  // For public embers viewed by non-owners, only show the photo card (hide Story Circle, Wiki, and Features)
-  // This provides a limited, privacy-focused view for publicly shared embers
-  // Owners and private ember viewers see all cards
+  // Filter cards - now only show photo cards in carousel
+  // Wiki, Story Circle, and Features are accessed through settings panel
   const isOwner = user && ember?.user_id === user.id;
-  const cards = (ember?.is_public && !isOwner)
-    ? allCards.filter(card => card.id === 'photo')
-    : allCards;
+  const cards = allCardsDefinitions.filter(card => card.id === 'photo');
 
   return (
     <div className="md:min-h-screen bg-white">
@@ -460,6 +466,23 @@ export default function EmberDetail() {
           isOpen={showNamesModal} 
           onClose={() => setShowNamesModal(false)}
           onEmberUpdate={handleEmberUpdate}
+        />
+      )}
+
+      {/* Settings Panel */}
+      {ember && (
+        <EmberSettingsPanel
+          ember={ember}
+          isOpen={showSettingsPanel}
+          onClose={() => setShowSettingsPanel(false)}
+          isEditingTitle={isEditingTitle}
+          setIsEditingTitle={setIsEditingTitle}
+          newTitle={newTitle}
+          setNewTitle={setNewTitle}
+          handleTitleSave={handleTitleSave}
+          handleTitleCancel={handleTitleCancel}
+          handleTitleEdit={handleTitleEdit}
+          message={message}
         />
       )}
     </div>

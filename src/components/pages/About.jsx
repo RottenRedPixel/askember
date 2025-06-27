@@ -56,7 +56,7 @@ export default function About() {
     <motion.div initial={{ x: -100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="max-w-4xl mx-auto space-y-16">
       {/* Hero Section */}
       <div className="text-center space-y-6">
-        <h1 className="text-3xl font-bold text-gray-900">Hello, this is Ember</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Hi, this is Ember</h1>
         <p className="text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto">
           An AI-guided companion that helps you preserve memories through shared, thoughtful conversations with friends and family.
         </p>

@@ -257,15 +257,24 @@ export default function Header() {
                           {user.email}
                         </div>
                       </div>
-                      <button
-                        onClick={() => {
-                          logout();
-                          handleMobileLinkClick();
-                        }}
-                        className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                      >
-                        Logout
-                      </button>
+                      <div className="space-y-2">
+                        <Link
+                          to="/settings"
+                          className="block w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-center"
+                          onClick={handleMobileLinkClick}
+                        >
+                          Settings
+                        </Link>
+                        <button
+                          onClick={() => {
+                            logout();
+                            handleMobileLinkClick();
+                          }}
+                          className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                        >
+                          Logout
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <Link 

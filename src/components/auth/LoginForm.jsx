@@ -57,7 +57,7 @@ export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
   return (
     <div className="w-full max-w-md mx-auto">
       <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">welcome back</h1>
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">hello there</h1>
         <p className="text-gray-600">
           Sign in to your account
         </p>

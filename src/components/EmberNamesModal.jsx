@@ -10,10 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Aperture, Plus, Check, ChartBar, Users, Sparkle, ArrowClockwise } from 'phosphor-react';
+import { Aperture, Plus, Check, ChartBar, Users, Sparkle, ArrowClockwise, XCircle } from 'phosphor-react';
 import { submitVote, getVotingResults, getUserVote, getParticipantVotingStatus, deleteVote } from '@/lib/voting';
 import { getEmberWithSharing } from '@/lib/sharing';
-import { getEmberSuggestedNames, addSuggestedName, initializeDefaultSuggestedNames } from '@/lib/suggestedNames';
+import { getEmberSuggestedNames, addSuggestedName, initializeDefaultSuggestedNames, deleteSuggestedName } from '@/lib/suggestedNames';
 import { updateEmberTitle } from '@/lib/database';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import useStore from '@/store';
@@ -22,7 +22,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
   const { user } = useStore();
 
   const [selectedName, setSelectedName] = useState('');
-  const [allSuggestedNames, setAllSuggestedNames] = useState([]);
+  const [allSuggestedNames, setAllSuggestedNames] = useState([]); // Will store full objects with id and suggested_name
   const [customName, setCustomName] = useState('');
   const [isAddingCustom, setIsAddingCustom] = useState(false);
   const [viewMode, setViewMode] = useState('voting'); // 'voting' or 'results'
@@ -85,9 +85,9 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
       if (suggestedNames.length === 0) {
         await initializeDefaultSuggestedNames(ember.id);
         const defaultNames = await getEmberSuggestedNames(ember.id);
-        setAllSuggestedNames(defaultNames.map(name => name.suggested_name));
+        setAllSuggestedNames(defaultNames); // Store full objects with id and suggested_name
       } else {
-        setAllSuggestedNames(suggestedNames.map(name => name.suggested_name));
+        setAllSuggestedNames(suggestedNames); // Store full objects with id and suggested_name
       }
 
       // Load voting status for all participants
@@ -194,10 +194,9 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
         // Add the custom name to the database
         await addSuggestedName(ember.id, customNameValue, true);
         
-        // Add to local state if not already there
-        if (!allSuggestedNames.includes(customNameValue)) {
-          setAllSuggestedNames(prev => [...prev, customNameValue]);
-        }
+        // Refetch suggested names to get the new name with its ID
+        const updatedSuggestedNames = await getEmberSuggestedNames(ember.id);
+        setAllSuggestedNames(updatedSuggestedNames);
         
         // Reset the form
         setCustomName('');
@@ -308,7 +307,8 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     // Select a random suggestion that's not already in the list
-    const availableSuggestions = aiSuggestions.filter(name => !allSuggestedNames.includes(name));
+    const existingNames = allSuggestedNames.map(nameObj => nameObj.suggested_name);
+    const availableSuggestions = aiSuggestions.filter(name => !existingNames.includes(name));
     if (availableSuggestions.length > 0) {
       const randomName = availableSuggestions[Math.floor(Math.random() * availableSuggestions.length)];
       setAiSuggestedName(randomName);
@@ -325,8 +325,9 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
         // Add the AI suggested name to the database
         await addSuggestedName(ember.id, aiSuggestedName, true);
         
-        // Add to local state
-        setAllSuggestedNames(prev => [...prev, aiSuggestedName]);
+        // Refetch suggested names to get the new name with its ID
+        const updatedSuggestedNames = await getEmberSuggestedNames(ember.id);
+        setAllSuggestedNames(updatedSuggestedNames);
         
         // Clear the AI suggestion
         setAiSuggestedName(null);
@@ -374,9 +375,30 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
     }
   };
 
+  const handleDeleteSuggestedName = async (nameId, suggestedName) => {
+    try {
+      setIsLoading(true);
+      await deleteSuggestedName(nameId);
+      
+      // Refetch suggested names to update the list
+      const updatedSuggestedNames = await getEmberSuggestedNames(ember.id);
+      setAllSuggestedNames(updatedSuggestedNames);
+      
+      // Show success message
+      setMessage({ type: 'success', text: `"${suggestedName}" deleted!` });
+      setTimeout(() => setMessage(null), 2000);
+      
+    } catch (error) {
+      console.error('Error deleting suggested name:', error);
+      setMessage({ type: 'error', text: 'Failed to delete title' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-white">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Aperture size={20} className="text-blue-500" />
@@ -446,28 +468,44 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
         {viewMode === 'voting' && (
           <div className="space-y-3">
                          {/* Suggested Names */}
-             {allSuggestedNames.map((name, index) => {
+             {allSuggestedNames.map((nameObj, index) => {
+               const isOwner = ember?.user_id === user?.id;
                return (
                  <Card 
                    key={index}
-                   className={`transition-all cursor-pointer border py-0 rounded-md ${
+                   className={`transition-all border py-0 rounded-md ${
                      hasVoted 
                        ? 'opacity-60 cursor-not-allowed' 
-                       : 'hover:border-gray-300'
+                       : 'hover:border-gray-300 cursor-pointer'
                    } ${
-                     selectedName === name 
+                     selectedName === nameObj.suggested_name 
                        ? 'border-blue-500 bg-blue-50' 
                        : 'border-gray-200'
                    }`}
-                   onClick={() => handleSelectSuggestion(name)}
+                   onClick={() => !hasVoted && handleSelectSuggestion(nameObj.suggested_name)}
                  >
                    <CardContent className="px-3 py-2 flex items-center justify-between h-10">
-                                            <div className="flex items-center gap-2">
-                         <span className="text-base font-bold">{name}</span>
+                     <div className="flex items-center gap-2">
+                       <span className="text-base font-bold">{nameObj.suggested_name}</span>
                      </div>
-                     {selectedName === name && (
-                       <Check size={16} className="text-blue-500" />
-                     )}
+                     <div className="flex items-center gap-2">
+                       {selectedName === nameObj.suggested_name && (
+                         <Check size={16} className="text-blue-500" />
+                       )}
+                       {isOwner && (
+                         <button
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             handleDeleteSuggestedName(nameObj.id, nameObj.suggested_name);
+                           }}
+                           className="p-1 hover:bg-red-100 rounded transition-colors"
+                           disabled={isLoading}
+                           title={`Delete "${nameObj.suggested_name}"`}
+                         >
+                           <XCircle size={16} className="text-red-500 hover:text-red-700" />
+                         </button>
+                       )}
+                     </div>
                    </CardContent>
                  </Card>
                );
@@ -601,7 +639,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
                 size="sm"
                 onClick={toggleViewMode}
               >
-                {viewMode === 'voting' ? 'View Results' : 'Back to Voting'}
+                {viewMode === 'voting' ? 'View Results' : 'Back'}
               </Button>
             )}
             
