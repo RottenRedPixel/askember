@@ -14,7 +14,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Flower, House, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear } from 'phosphor-react';
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
-import EmberRadialChart from '@/components/EmberRadialChart';
+
 import EmberNamesModal from '@/components/EmberNamesModal';
 import EmberSettingsPanel from '@/components/EmberSettingsPanel';
 import useStore from '@/store';
@@ -200,10 +200,7 @@ export default function EmberDetail() {
                 </h1>
               </div>
             </div>
-            {/* Radial Chart - positioned at bottom left of photo */}
-            <div className="absolute left-4 bottom-4 z-20">
-              <EmberRadialChart size={46} />
-            </div>
+
             {/* Bottom right capsule: Owner Avatar, divider, Aperture, Flower, Chats */}
             <div className="absolute right-4 bottom-4 z-20">
               <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-4 rounded-full shadow-lg">
