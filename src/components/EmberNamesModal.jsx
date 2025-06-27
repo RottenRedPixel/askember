@@ -191,7 +191,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
     if (customName.trim()) {
       const customNameValue = customName.trim();
       
-      // Add the custom name to the suggested names list
+      // Add the custom name to the suggested names list locally
       if (!allSuggestedNames.includes(customNameValue)) {
         setAllSuggestedNames(prev => [...prev, customNameValue]);
       }
@@ -200,9 +200,8 @@ export default function EmberNamesModal({ isOpen, onClose, ember }) {
       setCustomName('');
       setIsAddingCustom(false);
       
-      // Show success message
-      setMessage({ type: 'success', text: 'Title added to options!' });
-      setTimeout(() => setMessage(null), 2000);
+      // Automatically submit the vote for the custom name to persist it
+      await handleSubmitVote(customNameValue, true);
     }
   };
 
