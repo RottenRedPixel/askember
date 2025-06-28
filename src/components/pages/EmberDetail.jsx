@@ -404,10 +404,10 @@ export default function EmberDetail() {
                        >
                          <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                            <div>
-                             <div className="flex justify-center items-center mb-2 relative">
+                             <div className="flex justify-center items-center relative">
                                <PenNib size={22} className="text-blue-600" />
                                {isComplete && (
-                                 <CheckCircle size={20} className="text-green-500 absolute -top-1 -right-1 bg-white rounded-full" />
+                                 <CheckCircle size={20} className="text-green-500 absolute right-0" />
                                )}
                              </div>
                              
@@ -440,7 +440,7 @@ export default function EmberDetail() {
                    <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <div className="flex justify-center items-center mb-2 relative">
+                         <div className="flex justify-center items-center relative">
                            <MapPin size={22} className="text-blue-600" />
                          </div>
                          <h3 className="font-semibold text-gray-900 mb-1 text-center">Location</h3>
@@ -454,7 +454,7 @@ export default function EmberDetail() {
                    <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <div className="flex justify-center items-center mb-2 relative">
+                         <div className="flex justify-center items-center relative">
                            <Clock size={22} className="text-blue-600" />
                          </div>
                          <h3 className="font-semibold text-gray-900 mb-1 text-center">Time & Date</h3>
@@ -468,7 +468,7 @@ export default function EmberDetail() {
                    <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <div className="flex justify-center items-center mb-2 relative">
+                         <div className="flex justify-center items-center relative">
                            <BookOpen size={22} className="text-blue-600" />
                          </div>
                          <h3 className="font-semibold text-gray-900 mb-1 text-center">The Story</h3>
@@ -482,7 +482,7 @@ export default function EmberDetail() {
                    <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <div className="flex justify-center items-center mb-2 relative">
+                         <div className="flex justify-center items-center relative">
                            <Question size={22} className="text-blue-600" />
                          </div>
                          <h3 className="font-semibold text-gray-900 mb-1 text-center">The Why</h3>
@@ -496,7 +496,7 @@ export default function EmberDetail() {
                    <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <div className="flex justify-center items-center mb-2 relative">
+                         <div className="flex justify-center items-center relative">
                            <Heart size={22} className="text-blue-600" />
                          </div>
                          <h3 className="font-semibold text-gray-900 mb-1 text-center">The Feelings</h3>
@@ -510,7 +510,7 @@ export default function EmberDetail() {
                    <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <div className="flex justify-center items-center mb-2 relative">
+                         <div className="flex justify-center items-center relative">
                            <MagnifyingGlass size={22} className="text-blue-600" />
                          </div>
                          <h3 className="font-semibold text-gray-900 mb-1 text-center">Image Analysis</h3>
@@ -524,7 +524,7 @@ export default function EmberDetail() {
                    <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <div className="flex justify-center items-center mb-2 relative">
+                         <div className="flex justify-center items-center relative">
                            <Package size={22} className="text-blue-600" />
                          </div>
                          <h3 className="font-semibold text-gray-900 mb-1 text-center">Tagged Objects</h3>
@@ -538,7 +538,7 @@ export default function EmberDetail() {
                    <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <div className="flex justify-center items-center mb-2 relative">
+                         <div className="flex justify-center items-center relative">
                            <Users size={22} className="text-blue-600" />
                          </div>
                          <h3 className="font-semibold text-gray-900 mb-1 text-center">Tagged People</h3>
@@ -552,7 +552,7 @@ export default function EmberDetail() {
                    <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <div className="flex justify-center items-center mb-2 relative">
+                         <div className="flex justify-center items-center relative">
                            <UsersThree size={22} className="text-blue-600" />
                          </div>
                          <h3 className="font-semibold text-gray-900 mb-1 text-center">Contributors</h3>
