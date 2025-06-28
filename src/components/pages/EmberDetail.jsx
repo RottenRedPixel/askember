@@ -15,7 +15,6 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear } from 'phosphor-react';
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
-import { EmberAgent } from '@/components/agent';
 
 import EmberNamesModal from '@/components/EmberNamesModal';
 import EmberSettingsPanel from '@/components/EmberSettingsPanel';
@@ -154,7 +153,7 @@ export default function EmberDetail() {
       content: (
         <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
           {/* Photo area (with toggle, blurred bg, main image, icon bar) */}
-          <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[65vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-auto overflow-hidden">
+          <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[70vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-auto overflow-hidden">
             {/* Top right vertical capsule: Owner Avatar and Invited Users */}
             <div className="absolute top-4 right-4 z-30 flex flex-col items-center bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
               {/* Owner Avatar - clickable to go to My Embers */}
@@ -312,25 +311,26 @@ export default function EmberDetail() {
           </div>
           {/* Divider - only on mobile */}
           <div className="h-px bg-gray-300 w-full md:hidden" />
-          {/* EmberAgent - New AI Agent Interface */}
-          <div className="flex-1 min-h-0 flex flex-col">
-            <EmberAgent 
-              emberId={ember.id}
-              participants={sharedUsers}
-              permissions={{
-                isOwner: isOwner,
-                canEdit: isOwner || sharedUsers.some(user => user.permission_level === 'contributor')
-              }}
-              onWikiUpdate={(suggestion) => {
-                // Handle wiki updates when agent suggests changes
-                console.log('Wiki update suggested:', suggestion);
-                // In the future, this could automatically update the wiki or show user confirmation
-              }}
-              onStoryUpdate={(storyData) => {
-                // Handle story updates
-                console.log('Story update:', storyData);
-              }}
-            />
+          {/* Content area - 4 buttons */}
+          <div className="flex-1 p-6 flex items-center justify-center">
+            <div className="grid grid-cols-4 gap-4 w-full max-w-2xl">
+              <button className="flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                <Camera size={24} className="text-gray-600 mb-2" />
+                <span className="text-sm font-medium text-gray-700">Button 1</span>
+              </button>
+              <button className="flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                <MapPin size={24} className="text-gray-600 mb-2" />
+                <span className="text-sm font-medium text-gray-700">Button 2</span>
+              </button>
+              <button className="flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                <MagnifyingGlass size={24} className="text-gray-600 mb-2" />
+                <span className="text-sm font-medium text-gray-700">Button 3</span>
+              </button>
+              <button className="flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                <Info size={24} className="text-gray-600 mb-2" />
+                <span className="text-sm font-medium text-gray-700">Button 4</span>
+              </button>
+            </div>
           </div>
         </div>
       )
