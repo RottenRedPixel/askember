@@ -362,9 +362,9 @@ export default function EmberDetail() {
           
           {/* Wiki Progress Bar - Full Width Capsule */}
           <div className="w-full px-4 pt-3 pb-1.5 md:px-6">
-            <div className="w-full bg-gray-200 rounded-full h-6">
+            <div className="w-full bg-gray-200 rounded-full h-4">
               <div 
-                className="bg-blue-500 h-6 rounded-full transition-all duration-300 ease-out"
+                className="bg-blue-500 h-4 rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${wikiProgress.percentage}%` }}
               />
             </div>
