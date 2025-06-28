@@ -12,7 +12,7 @@ import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle } from 'phosphor-react';
+import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree } from 'phosphor-react';
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
 
@@ -371,14 +371,14 @@ export default function EmberDetail() {
           </div>
           
           {/* Progress Message */}
-          <div className="w-full px-4 pt-2 pb-1.5 md:px-6">
+          <div className="w-full px-4 pt-2 pb-2 md:px-6">
             <p className="text-lg font-bold text-gray-800 text-center">
               {userProfile?.first_name || 'User'}, we have to complete all these cards...
             </p>
           </div>
           
           {/* Content area - Card Carousel */}
-          <div className="flex-1 flex flex-col justify-center pb-1 md:pb-8">
+          <div className="flex-1 flex flex-col justify-start pb-1 md:pb-8">
             <Carousel 
               className="w-full"
               opts={{
@@ -397,14 +397,14 @@ export default function EmberDetail() {
                      
                      return (
                        <Card 
-                         className={`h-40 bg-white border-gray-200 transition-shadow ${
+                         className={`h-32 bg-white border-gray-200 transition-shadow ${
                            !isComplete ? 'cursor-pointer hover:shadow-md' : ''
                          }`}
                          onClick={!isComplete ? () => setShowNamesModal(true) : undefined}
                        >
-                         <CardContent className="px-4 pt-2 pb-2 h-full flex flex-col justify-between">
+                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                            <div>
-                             <div className="flex justify-center items-center mb-3 relative">
+                             <div className="flex justify-center items-center mb-2 relative">
                                <PenNib size={22} className="text-blue-600" />
                                {isComplete && (
                                  <CheckCircle size={20} className="text-green-500 absolute -top-1 -right-1 bg-white rounded-full" />
@@ -429,9 +429,7 @@ export default function EmberDetail() {
                              )}
                            </div>
                            
-                           {!isComplete && (
-                             <div className="text-xs text-blue-600 font-medium text-center">Tap to open</div>
-                           )}
+
                          </CardContent>
                        </Card>
                      );
@@ -439,49 +437,127 @@ export default function EmberDetail() {
                  </CarouselItem>
                  
                  <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-40 bg-white border-gray-200">
-                     <CardContent className="p-4 h-full flex flex-col justify-between">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <h3 className="font-semibold text-gray-900 mb-1">Stories</h3>
-                         <p className="text-sm text-gray-600">Share your experiences</p>
+                         <div className="flex justify-center items-center mb-2 relative">
+                           <MapPin size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 mb-1 text-center">Location</h3>
+                         <p className="text-sm text-gray-600 text-center">Where this moment happened</p>
                        </div>
-                       <div className="text-xs text-gray-500">Tap to explore</div>
                      </CardContent>
                    </Card>
                  </CarouselItem>
                  
                  <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-40 bg-white border-gray-200">
-                     <CardContent className="p-4 h-full flex flex-col justify-between">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <h3 className="font-semibold text-gray-900 mb-1">Connections</h3>
-                         <p className="text-sm text-gray-600">Build meaningful relationships</p>
+                         <div className="flex justify-center items-center mb-2 relative">
+                           <Clock size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 mb-1 text-center">Time & Date</h3>
+                         <p className="text-sm text-gray-600 text-center">When this moment occurred</p>
                        </div>
-                       <div className="text-xs text-gray-500">Tap to explore</div>
                      </CardContent>
                    </Card>
                  </CarouselItem>
                  
                  <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-40 bg-white border-gray-200">
-                     <CardContent className="p-4 h-full flex flex-col justify-between">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <h3 className="font-semibold text-gray-900 mb-1">Insights</h3>
-                         <p className="text-sm text-gray-600">Discover hidden patterns</p>
+                         <div className="flex justify-center items-center mb-2 relative">
+                           <BookOpen size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 mb-1 text-center">The Story</h3>
+                         <p className="text-sm text-gray-600 text-center">The narrative behind this ember</p>
                        </div>
-                       <div className="text-xs text-gray-500">Tap to explore</div>
                      </CardContent>
                    </Card>
                  </CarouselItem>
                  
                  <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-40 bg-white border-gray-200">
-                     <CardContent className="p-4 h-full flex flex-col justify-between">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <h3 className="font-semibold text-gray-900 mb-1">Reflections</h3>
-                         <p className="text-sm text-gray-600">Deep thoughts and insights</p>
+                         <div className="flex justify-center items-center mb-2 relative">
+                           <Question size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 mb-1 text-center">The Why</h3>
+                         <p className="text-sm text-gray-600 text-center">Why this moment was captured</p>
                        </div>
-                       <div className="text-xs text-gray-500">Tap to explore</div>
+                     </CardContent>
+                   </Card>
+                 </CarouselItem>
+                 
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center mb-2 relative">
+                           <Heart size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 mb-1 text-center">The Feelings</h3>
+                         <p className="text-sm text-gray-600 text-center">Emotions in this moment</p>
+                       </div>
+                     </CardContent>
+                   </Card>
+                 </CarouselItem>
+                 
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center mb-2 relative">
+                           <MagnifyingGlass size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 mb-1 text-center">Image Analysis</h3>
+                         <p className="text-sm text-gray-600 text-center">Deep analysis of this image</p>
+                       </div>
+                     </CardContent>
+                   </Card>
+                 </CarouselItem>
+                 
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center mb-2 relative">
+                           <Package size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 mb-1 text-center">Tagged Objects</h3>
+                         <p className="text-sm text-gray-600 text-center">Objects identified in this image</p>
+                       </div>
+                     </CardContent>
+                   </Card>
+                 </CarouselItem>
+                 
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center mb-2 relative">
+                           <Users size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 mb-1 text-center">Tagged People</h3>
+                         <p className="text-sm text-gray-600 text-center">People identified in this image</p>
+                       </div>
+                     </CardContent>
+                   </Card>
+                 </CarouselItem>
+                 
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center mb-2 relative">
+                           <UsersThree size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 mb-1 text-center">Contributors</h3>
+                         <p className="text-sm text-gray-600 text-center">People who contributed to this ember</p>
+                       </div>
                      </CardContent>
                    </Card>
                  </CarouselItem>
