@@ -164,7 +164,7 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
   const canEdit = ['owner', 'contributor'].includes(emberData?.userPermission);
 
   return (
-    <Card className="h-full">
+    <Card className="h-full rounded-none">
       <CardContent className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

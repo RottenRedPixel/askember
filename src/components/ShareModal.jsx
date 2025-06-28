@@ -232,7 +232,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-white">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-md rounded-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-gray-900">
             <Share className="w-5 h-5 text-blue-600" />
@@ -243,7 +243,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 overflow-x-hidden">
           {/* Message */}
           {message && (
             <Alert className={message.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}>
@@ -251,19 +251,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
             </Alert>
           )}
 
-          {/* Native Share (Mobile) */}
-          {typeof navigator !== 'undefined' && navigator.share && (
-            <div className="space-y-3">
-              <Button 
-                onClick={handleNativeShare} 
-                variant="blue" 
-                className="w-full flex items-center gap-2"
-              >
-                <Share className="w-4 h-4" />
-                Share Ember
-              </Button>
-            </div>
-          )}
+
 
           {/* Share Link */}
           <div className="space-y-3">
@@ -275,9 +263,9 @@ export default function ShareModal({ ember, isOpen, onClose }) {
               <Input
                 value={`${window.location.origin}/embers/${ember.id}`}
                 readOnly
-                className="text-xs"
+                className="text-xs min-w-0 flex-1"
               />
-              <Button size="sm" onClick={copyShareLink} variant="blue">
+              <Button size="sm" onClick={copyShareLink} variant="blue" className="flex-shrink-0">
                 <Copy className="w-4 h-4" />
               </Button>
             </div>
@@ -500,6 +488,20 @@ export default function ShareModal({ ember, isOpen, onClose }) {
                   You have {emberData.userPermission} access
                 </div>
               </Badge>
+            </div>
+          )}
+
+          {/* Native Share Button - Bottom */}
+          {typeof navigator !== 'undefined' && navigator.share && (
+            <div className="mt-6 pt-4 border-t">
+              <Button 
+                onClick={handleNativeShare} 
+                variant="blue" 
+                className="w-full flex items-center gap-2"
+              >
+                <Share className="w-4 h-4" />
+                Share Ember
+              </Button>
             </div>
           )}
         </div>

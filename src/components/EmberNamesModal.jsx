@@ -389,7 +389,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-white">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md bg-white sm:w-full sm:max-w-md rounded-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Aperture size={20} className="text-blue-500" />

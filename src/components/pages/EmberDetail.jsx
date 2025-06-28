@@ -12,7 +12,7 @@ import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear } from 'phosphor-react';
+import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle } from 'phosphor-react';
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
 
@@ -33,7 +33,7 @@ export default function EmberDetail() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [message, setMessage] = useState(null);
-  const { user } = useStore();
+  const { user, userProfile } = useStore();
   const [hasVoted, setHasVoted] = useState(false);
   const [votingResults, setVotingResults] = useState([]);
   const [totalVotes, setTotalVotes] = useState(0);
@@ -123,8 +123,66 @@ export default function EmberDetail() {
     await fetchEmber();
   };
 
+  const handleTitleDelete = async () => {
+    try {
+      await updateEmberTitle(ember.id, '', user.id);
+      // Refetch complete ember data to preserve owner information
+      await fetchEmber();
+      setMessage({ type: 'success', text: 'Title deleted successfully!' });
+    } catch (error) {
+      console.error('Failed to delete title', error);
+      setMessage({ type: 'error', text: 'Failed to delete title.' });
+    } finally {
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
   // Check if current user is the owner of this ember
   const isOwner = user && ember?.user_id === user.id;
+
+  // Calculate wiki progress (10 sections total)
+  const calculateWikiProgress = (ember, sharedUsers = []) => {
+    const sections = [
+      'title',
+      'location', 
+      'time-date',
+      'story',
+      'why',
+      'feelings',
+      'analysis',
+      'objects',
+      'people',
+      'contributors'
+    ];
+
+    const getSectionStatus = (sectionType) => {
+      switch (sectionType) {
+        case 'title':
+          return ember?.title && ember.title.trim() !== '' && ember.title !== 'Untitled Ember';
+        case 'contributors':
+          return ember?.owner || sharedUsers.length > 0;
+        case 'location':
+        case 'time-date':
+        case 'story':
+        case 'why':
+        case 'feelings':
+        case 'analysis':
+        case 'objects':
+        case 'people':
+        default:
+          return false; // Placeholder - will be true when data exists
+      }
+    };
+
+    const completedSections = sections.filter(section => getSectionStatus(section));
+    return {
+      completed: completedSections.length,
+      total: sections.length,
+      percentage: Math.round((completedSections.length / sections.length) * 100)
+    };
+  };
+
+  const wikiProgress = calculateWikiProgress(ember, sharedUsers);
 
   if (loading) {
     return (
@@ -288,20 +346,12 @@ export default function EmberDetail() {
                 <div className="h-px w-6 bg-gray-300"></div>
                 
                 {/* Feature Icons */}
-                <button 
-                  className="p-1 hover:bg-white/50 rounded-full transition-colors"
-                  onClick={() => setShowNamesModal(true)}
-                  aria-label="Manage ember names"
-                  type="button"
-                >
-                  <Aperture size={24} className="text-gray-700" />
-                </button>
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Campfire size={24} className="text-gray-700" />
+                  <Aperture size={24} className="text-gray-700" />
                 </div>
 
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Flower size={24} className="text-gray-700" />
+                  <Campfire size={24} className="text-gray-700" />
                 </div>
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
                   <Chats size={24} className="text-gray-700" />
@@ -309,28 +359,134 @@ export default function EmberDetail() {
               </div>
             </div>
           </div>
-          {/* Divider - only on mobile */}
-          <div className="h-px bg-gray-300 w-full md:hidden" />
-          {/* Content area - 4 buttons */}
-          <div className="flex-1 p-6 flex items-center justify-center">
-            <div className="grid grid-cols-4 gap-4 w-full max-w-2xl">
-              <button className="flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                <Camera size={24} className="text-gray-600 mb-2" />
-                <span className="text-sm font-medium text-gray-700">Button 1</span>
-              </button>
-              <button className="flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                <MapPin size={24} className="text-gray-600 mb-2" />
-                <span className="text-sm font-medium text-gray-700">Button 2</span>
-              </button>
-              <button className="flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                <MagnifyingGlass size={24} className="text-gray-600 mb-2" />
-                <span className="text-sm font-medium text-gray-700">Button 3</span>
-              </button>
-              <button className="flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-                <Info size={24} className="text-gray-600 mb-2" />
-                <span className="text-sm font-medium text-gray-700">Button 4</span>
-              </button>
+          
+          {/* Wiki Progress Bar - Full Width Capsule */}
+          <div className="w-full px-4 pt-3 pb-1.5 md:px-6">
+            <div className="w-full bg-gray-200 rounded-full h-6">
+              <div 
+                className="bg-blue-500 h-6 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${wikiProgress.percentage}%` }}
+              />
             </div>
+          </div>
+          
+          {/* Progress Message */}
+          <div className="w-full px-4 pt-2 pb-1.5 md:px-6">
+            <p className="text-lg font-bold text-gray-800 text-center">
+              {userProfile?.first_name || 'User'}, we have to complete all these cards...
+            </p>
+          </div>
+          
+          {/* Content area - Card Carousel */}
+          <div className="flex-1 flex flex-col justify-center pb-1 md:pb-8">
+            <Carousel 
+              className="w-full"
+              opts={{
+                align: "center",
+                loop: false,
+                skipSnaps: false,
+                dragFree: true
+              }}
+            >
+                             <CarouselContent className="pl-4 md:pl-6 -ml-2 md:-ml-4">
+                                 {/* Title Card - Dynamic States */}
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   {(() => {
+                     const isComplete = ember?.title && ember.title.trim() !== '' && ember.title !== 'Untitled Ember';
+                     const userName = userProfile?.first_name || 'User';
+                     
+                     return (
+                       <Card 
+                         className={`h-40 bg-white border-gray-200 transition-shadow ${
+                           !isComplete ? 'cursor-pointer hover:shadow-md' : ''
+                         }`}
+                         onClick={!isComplete ? () => setShowNamesModal(true) : undefined}
+                       >
+                         <CardContent className="px-4 pt-2 pb-2 h-full flex flex-col justify-between">
+                           <div>
+                             <div className="flex justify-center items-center mb-3 relative">
+                               <PenNib size={22} className="text-blue-600" />
+                               {isComplete && (
+                                 <CheckCircle size={20} className="text-green-500 absolute -top-1 -right-1 bg-white rounded-full" />
+                               )}
+                             </div>
+                             
+                             {!isComplete ? (
+                               <>
+                                 <h3 className="font-semibold text-gray-900 mb-1 text-center">
+                                   help pick a perfect title for this ember.
+                                 </h3>
+                               </>
+                             ) : (
+                               <>
+                                 <h3 className="font-semibold text-gray-900 mb-1 text-center">
+                                   {ember.title}
+                                 </h3>
+                                 <p className="text-sm text-gray-600 text-center">
+                                   This was the title that was chosen.
+                                 </p>
+                               </>
+                             )}
+                           </div>
+                           
+                           {!isComplete && (
+                             <div className="text-xs text-blue-600 font-medium text-center">Tap to open</div>
+                           )}
+                         </CardContent>
+                       </Card>
+                     );
+                   })()}
+                 </CarouselItem>
+                 
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-40 bg-white border-gray-200">
+                     <CardContent className="p-4 h-full flex flex-col justify-between">
+                       <div>
+                         <h3 className="font-semibold text-gray-900 mb-1">Stories</h3>
+                         <p className="text-sm text-gray-600">Share your experiences</p>
+                       </div>
+                       <div className="text-xs text-gray-500">Tap to explore</div>
+                     </CardContent>
+                   </Card>
+                 </CarouselItem>
+                 
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-40 bg-white border-gray-200">
+                     <CardContent className="p-4 h-full flex flex-col justify-between">
+                       <div>
+                         <h3 className="font-semibold text-gray-900 mb-1">Connections</h3>
+                         <p className="text-sm text-gray-600">Build meaningful relationships</p>
+                       </div>
+                       <div className="text-xs text-gray-500">Tap to explore</div>
+                     </CardContent>
+                   </Card>
+                 </CarouselItem>
+                 
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-40 bg-white border-gray-200">
+                     <CardContent className="p-4 h-full flex flex-col justify-between">
+                       <div>
+                         <h3 className="font-semibold text-gray-900 mb-1">Insights</h3>
+                         <p className="text-sm text-gray-600">Discover hidden patterns</p>
+                       </div>
+                       <div className="text-xs text-gray-500">Tap to explore</div>
+                     </CardContent>
+                   </Card>
+                 </CarouselItem>
+                 
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-40 bg-white border-gray-200">
+                     <CardContent className="p-4 h-full flex flex-col justify-between">
+                       <div>
+                         <h3 className="font-semibold text-gray-900 mb-1">Reflections</h3>
+                         <p className="text-sm text-gray-600">Deep thoughts and insights</p>
+                       </div>
+                       <div className="text-xs text-gray-500">Tap to explore</div>
+                     </CardContent>
+                   </Card>
+                 </CarouselItem>
+              </CarouselContent>
+            </Carousel>
           </div>
         </div>
       )
@@ -341,19 +497,15 @@ export default function EmberDetail() {
       content: (
         <div className="h-full w-full bg-white rounded-xl">
           <Card className="h-full">
-            <CardContent className="p-6 h-full flex flex-col">
+            <CardContent className="p-6">
               {/* Header */}
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900 text-left">Story Circle</h2>
                   <p className="text-sm text-gray-600 mt-1">
                     Discuss and explore the story behind this ember
                   </p>
                 </div>
-              </div>
-              {/* Chat Content */}
-              <div className="flex-1 min-h-0">
-                <EmberChat emberId={ember.id} />
               </div>
             </CardContent>
           </Card>
@@ -413,19 +565,27 @@ export default function EmberDetail() {
                   </div>
                 </div>
 
-                {/* EXIF Data Section */}
-                <div className="space-y-3">
-                  <h3 className="font-medium text-gray-900 text-left">EXIF Data</h3>
-                  <div className="text-sm text-gray-600 text-left">
-                    Camera settings and metadata will appear here...
-                  </div>
-                </div>
-
                 {/* Location Section */}
                 <div className="space-y-3">
                   <h3 className="font-medium text-gray-900 text-left">Location</h3>
                   <div className="text-sm text-gray-600 text-left">
                     Geolocation data will appear here...
+                  </div>
+                </div>
+
+                {/* The Why Section */}
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-900 text-left">The Why</h3>
+                  <div className="text-sm text-gray-600 text-left">
+                    The story behind why this moment was captured will appear here...
+                  </div>
+                </div>
+
+                {/* The Feelings Section */}
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-900 text-left">The Feelings</h3>
+                  <div className="text-sm text-gray-600 text-left">
+                    Emotions and feelings associated with this moment will appear here...
                   </div>
                 </div>
 
@@ -523,33 +683,17 @@ export default function EmberDetail() {
     }
   ];
 
-  // Filter cards - now only show photo cards in carousel
-  // Wiki, Story Circle, and Features are accessed through settings panel
-  const cards = allCardsDefinitions.filter(card => card.id === 'photo');
+
 
   return (
     <div className="md:min-h-screen bg-white">
       {/* Mobile Layout */}
       <div className="md:hidden -m-[0.67rem] -mt-[0.67rem] h-screen overflow-hidden">
-        <Carousel 
-          className="w-full h-full [&>div]:h-full"
-          opts={{
-            startIndex: 0,
-            loop: false
-          }}
-        >
-          <CarouselContent className="flex items-stretch h-full [&>div]:h-full">
-            {cards.map((card) => (
-              <CarouselItem key={card.id} className="flex h-full w-full">
-                <Card className={`py-0 w-full h-full ${card.id === 'photo' ? 'bg-gray-100' : ''} ${card.id === 'photo' ? 'rounded-none' : 'rounded-xl'}`}>
-                  <CardContent className="p-0 h-full">
-                    {card.content}
-                  </CardContent>
-                </Card>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
+        <Card className="py-0 w-full h-full bg-gray-100 rounded-none">
+          <CardContent className="p-0 h-full">
+            {allCardsDefinitions[0].content}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Desktop Layout */}
@@ -557,25 +701,11 @@ export default function EmberDetail() {
         <div className="container mx-auto px-1.5 py-8">
           <div className="max-w-4xl mx-auto">
             <div className="rounded-lg bg-white shadow-sm">
-              <Carousel 
-                className="w-full"
-                opts={{
-                  startIndex: 0,
-                  loop: false
-                }}
-              >
-                <CarouselContent className="flex items-stretch">
-                  {cards.map((card) => (
-                    <CarouselItem key={card.id} className="flex">
-                      <Card className={`py-0 w-full ${card.id === 'photo' ? 'bg-gray-100' : ''}`}>
-                        <CardContent className="p-0 h-full">
-                          {card.content}
-                        </CardContent>
-                      </Card>
-                    </CarouselItem>
-                  ))}
-                </CarouselContent>
-              </Carousel>
+              <Card className="py-0 w-full bg-gray-100">
+                <CardContent className="p-0 h-full">
+                  {allCardsDefinitions[0].content}
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
@@ -613,6 +743,7 @@ export default function EmberDetail() {
           handleTitleSave={handleTitleSave}
           handleTitleCancel={handleTitleCancel}
           handleTitleEdit={handleTitleEdit}
+          handleTitleDelete={handleTitleDelete}
           message={message}
           onRefresh={fetchEmber}
         />
