@@ -615,19 +615,20 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
       )}
 
       {/* Footer Actions */}
-      <div className="flex justify-between items-center pt-4">
-        <div className="flex items-center gap-2">
-          {/* Toggle View Mode Button */}
-          {totalVotes > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleViewMode}
-            >
-              {viewMode === 'voting' ? 'View Results' : 'Back'}
-            </Button>
-          )}
-          
+      <div className="space-y-3 pt-4">
+        {/* Toggle View Mode Button - Full Width and Blue when showing View Results */}
+        {totalVotes > 0 && (
+          <Button
+            variant={viewMode === 'voting' ? 'blue' : 'outline'}
+            className={viewMode === 'voting' ? 'w-full bg-blue-600 hover:bg-blue-700 text-white' : ''}
+            size="sm"
+            onClick={toggleViewMode}
+          >
+            {viewMode === 'voting' ? 'View Results' : 'Back'}
+          </Button>
+        )}
+        
+        <div className="flex items-center justify-center gap-2">
           {/* Change Vote Button - only show when user has voted and is in results view */}
           {hasVoted && viewMode === 'results' && (
             <Button
