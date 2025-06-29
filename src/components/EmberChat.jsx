@@ -281,7 +281,7 @@ export default function EmberChat({ emberId }) {
               disabled={sending}
               className="flex-1"
             />
-            <Button type="submit" disabled={sending || !newMessage.trim()} variant="blue">
+            <Button type="submit" size="lg" disabled={sending || !newMessage.trim()} variant="blue">
               {sending ? 'Sending...' : 
                messageType === 'question' ? 'Ask' :
                messageType === 'answer' ? 'Answer' : 'Comment'}

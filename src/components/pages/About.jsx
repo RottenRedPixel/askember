@@ -100,7 +100,7 @@ export default function About() {
       {/* Get Started Button - Bottom */}
       <div className="text-center pt-8">
         <Link to="/create">
-          <Button variant="blue" className="px-8 h-12 text-lg font-semibold">
+                      <Button size="lg" variant="blue" className="px-8 text-lg font-semibold">
             Get Started Now
           </Button>
         </Link>

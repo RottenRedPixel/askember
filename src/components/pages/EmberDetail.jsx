@@ -7,12 +7,15 @@ import {
   CarouselItem,
 } from '@/components/ui/carousel';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
+import { Label } from '@/components/ui/label';
 import { getEmber, updateEmberTitle } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix } from 'phosphor-react';
+import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix, FilmSlate } from 'phosphor-react';
 
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
@@ -40,7 +43,243 @@ export default function EmberDetail() {
   const [totalVotes, setTotalVotes] = useState(0);
   const [userVote, setUserVote] = useState(null);
   const [sharedUsers, setSharedUsers] = useState([]);
+  const [showStoryCutCreator, setShowStoryCutCreator] = useState(false);
+  const [showStoryCuts, setShowStoryCuts] = useState(false);
+  const [emberLength, setEmberLength] = useState(30);
+  const [selectedVoices, setSelectedVoices] = useState([]);
 
+  // Media query hook for responsive design
+  const useMediaQuery = (query) => {
+    const [matches, setMatches] = useState(false);
+    
+    useEffect(() => {
+      const media = window.matchMedia(query);
+      if (media.matches !== matches) {
+        setMatches(media.matches);
+      }
+      const listener = () => setMatches(media.matches);
+      media.addListener(listener);
+      return () => media.removeListener(listener);
+    }, [matches, query]);
+    
+    return matches;
+  };
+
+  const isMobile = useMediaQuery('(max-width: 768px)');
+
+  // Handle voice selection
+  const toggleVoiceSelection = (userId) => {
+    setSelectedVoices(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const StoryModalContent = () => (
+    <div className="space-y-6">
+      {/* User Editor Info */}
+      <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
+        <Avatar className="h-8 w-8">
+          <AvatarImage 
+            src={userProfile?.avatar_url} 
+            alt={`${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || 'User'} 
+          />
+          <AvatarFallback className="text-sm bg-gray-200 text-gray-700">
+            {userProfile?.first_name?.[0] || userProfile?.last_name?.[0] || 'U'}
+          </AvatarFallback>
+        </Avatar>
+        <div>
+          <p className="text-sm font-medium text-gray-900">
+            {`${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || 'User'}
+          </p>
+          <p className="text-xs text-gray-500">
+            Editing this ember
+          </p>
+        </div>
+      </div>
+
+      {/* Story Title */}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+          <PenNib size={16} className="text-blue-600" />
+          Story Title
+        </Label>
+        <Input
+          type="text"
+          defaultValue={ember?.title || 'Untitled Ember'}
+          placeholder="Enter story title..."
+          className="w-full h-10"
+        />
+      </div>
+
+      {/* Ember Length Slider */}
+      <div className="space-y-4">
+        <Label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+          <Sliders size={16} className="text-blue-600" />
+          Ember Length
+        </Label>
+        
+        <div className="space-y-3">
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <Label className="text-xs text-gray-600">Duration</Label>
+              <span className="text-xs text-blue-600 font-medium">{emberLength} seconds</span>
+            </div>
+            <input 
+              type="range" 
+              min="5" 
+              max="60" 
+              step="5" 
+              value={emberLength}
+              onChange={(e) => setEmberLength(Number(e.target.value))}
+              className="w-full mt-1" 
+            />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>5s</span>
+              <span>20s</span>
+              <span>35s</span>
+              <span>50s</span>
+              <span>60s</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Voices Section */}
+      <div className="space-y-4">
+        <Label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+          <Users size={16} className="text-blue-600" />
+          Voices
+        </Label>
+        
+        <div className="grid grid-cols-3 gap-3 md:space-y-3 md:grid-cols-1">
+          {/* Owner */}
+          {ember?.owner && (
+            <div 
+              onClick={() => toggleVoiceSelection(ember.owner.user_id)}
+              className="flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
+              style={{
+                borderColor: selectedVoices.includes(ember.owner.user_id) ? '#2563eb' : '#e5e7eb',
+                backgroundColor: selectedVoices.includes(ember.owner.user_id) ? '#eff6ff' : 'white'
+              }}
+            >
+              <div className="relative">
+                <Avatar className="h-8 w-8 md:h-10 md:w-10">
+                  <AvatarImage 
+                    src={ember.owner.avatar_url} 
+                    alt={ember.owner.first_name || 'Owner'} 
+                  />
+                  <AvatarFallback className="text-xs md:text-sm bg-gray-200 text-gray-700">
+                    {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || 'O'}
+                  </AvatarFallback>
+                </Avatar>
+                {selectedVoices.includes(ember.owner.user_id) && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 md:w-4 md:h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs md:text-sm font-medium text-gray-900 truncate">
+                  {ember.owner.first_name || 'Owner'}
+                </div>
+                <div className="text-xs text-amber-600 bg-amber-100 px-1 md:px-2 py-0.5 md:py-1 rounded-full inline-block mt-0.5 md:mt-1">
+                  Owner
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Shared Users */}
+          {sharedUsers.map((user) => (
+            <div 
+              key={user.user_id}
+              onClick={() => toggleVoiceSelection(user.user_id)}
+              className="flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
+              style={{
+                borderColor: selectedVoices.includes(user.user_id) ? '#2563eb' : '#e5e7eb',
+                backgroundColor: selectedVoices.includes(user.user_id) ? '#eff6ff' : 'white'
+              }}
+            >
+              <div className="relative">
+                <Avatar className="h-8 w-8 md:h-10 md:w-10">
+                  <AvatarImage 
+                    src={user.avatar_url} 
+                    alt={user.first_name || 'User'} 
+                  />
+                  <AvatarFallback className="text-xs md:text-sm bg-gray-200 text-gray-700">
+                    {user.first_name?.[0] || user.last_name?.[0] || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                {selectedVoices.includes(user.user_id) && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 md:w-4 md:h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs md:text-sm font-medium text-gray-900 truncate">
+                  {user.first_name || 'User'}
+                </div>
+                <div className={`text-xs px-1 md:px-2 py-0.5 md:py-1 rounded-full inline-block mt-0.5 md:mt-1 ${
+                  user.permission_level === 'contributor' 
+                    ? 'text-blue-600 bg-blue-100' 
+                    : 'text-gray-600 bg-gray-100'
+                }`}>
+                  {user.permission_level === 'contributor' ? 'Contributor' : 'Viewer'}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* No users message */}
+          {!ember?.owner && sharedUsers.length === 0 && (
+            <div className="col-span-3 md:col-span-1 text-center text-gray-500 text-sm py-4">
+              No users invited to this ember yet
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Dropdown Sections */}
+      <div className="space-y-4">
+        <div>
+          <Label className="text-sm font-medium text-gray-900 mb-2 flex items-center gap-2">
+            <Package size={16} className="text-blue-600" />
+            Story Style
+          </Label>
+          <select className="w-full p-2 border border-gray-300 rounded-md text-sm h-10">
+            <option>Select story style...</option>
+            <option>News Hour</option>
+            <option>Movie Trailer</option>
+            <option>Public Television</option>
+            <option>Docu Drama</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Story Focus */}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+          <Eye size={16} className="text-blue-600" />
+          Story Focus
+        </Label>
+        <Input
+          type="text"
+          placeholder="What should this story focus on? (e.g., emotions, setting, characters, action...)"
+          className="w-full h-10"
+        />
+      </div>
+
+      {/* Action Buttons */}
+      <div className="mt-6 pt-4">
+        <Button size="lg" className="w-full">
+          Generate New Story Cut
+        </Button>
+      </div>
+    </div>
+  );
 
   const fetchEmber = async () => {
     try {
@@ -352,12 +591,14 @@ export default function EmberDetail() {
                 <div className="h-px w-6 bg-gray-300"></div>
                 
                 {/* Feature Icons */}
-                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                <button
+                  className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                  onClick={() => setShowStoryCuts(true)}
+                  aria-label="Story Cuts"
+                  type="button"
+                >
                   <CirclesFour size={24} className="text-gray-700" />
-                </div>
-                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Sliders size={24} className="text-gray-700" />
-                </div>
+                </button>
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
                   <PlayCircle size={24} className="text-gray-700" />
                 </div>
@@ -394,6 +635,26 @@ export default function EmberDetail() {
               }}
             >
                              <CarouselContent className="pl-4 md:pl-6 -ml-2 md:-ml-4">
+                {/* Story Cuts Square Card - New 1:1 Aspect Ratio Style */}
+                <CarouselItem className="pl-2 md:pl-4 basis-auto flex-shrink-0">
+                  <Card 
+                    className="w-32 h-32 bg-blue-600 border-blue-700 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => setShowStoryCutCreator(true)}
+                  >
+                    <CardContent className="p-2 h-full flex flex-col justify-center items-center">
+                      <div className="flex justify-center items-center mb-1">
+                        <FilmSlate size={18} className="text-white" />
+                      </div>
+                      <h4 className="text-xs font-medium text-white text-center leading-tight">
+                        Story Cuts
+                      </h4>
+                      <p className="text-xs text-blue-100 text-center leading-tight mt-0.5">
+                        Edit & create
+                      </p>
+                    </CardContent>
+                  </Card>
+                </CarouselItem>
+                
                                  {/* Title Card - Dynamic States */}
                  <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
                    {(() => {
@@ -625,9 +886,9 @@ export default function EmberDetail() {
                             value={newTitle}
                             onChange={(e) => setNewTitle(e.target.value)}
                             maxLength="45"
-                            className="h-8"
+                            className="h-10"
                           />
-                          <Button size="sm" variant="blue" onClick={handleTitleSave}>Save</Button>
+                          <Button size="lg" variant="blue" onClick={handleTitleSave}>Save</Button>
                           <Button size="sm" variant="outline" onClick={handleTitleCancel}>Cancel</Button>
                         </div>
                       ) : (
@@ -830,7 +1091,81 @@ export default function EmberDetail() {
         />
       )}
 
+      {/* Story Cuts Panel */}
+      {ember && showStoryCuts && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50" onClick={() => setShowStoryCuts(false)}>
+          <div 
+            className="fixed right-0 top-0 h-full w-80 bg-white shadow-xl transform transition-transform duration-300 ease-in-out"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CirclesFour size={24} className="text-blue-600" />
+                  <h2 className="text-xl font-bold text-gray-900">Story Cuts</h2>
+                </div>
+                <button
+                  onClick={() => setShowStoryCuts(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="py-8 text-center text-gray-500">
+                This is where all the different cuts are displayed
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Story Cut Creator - Responsive Modal/Drawer */}
+      {ember && (
+        <>
+          {isMobile ? (
+            <Drawer open={showStoryCutCreator} onOpenChange={setShowStoryCutCreator}>
+              <DrawerContent className="bg-white">
+                <DrawerHeader className="bg-white">
+                                  <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+                  <FilmSlate size={20} className="text-blue-600" />
+                  Story Cuts Creator
+                </DrawerTitle>
+                <DrawerDescription className="text-left text-gray-600">
+                  Create a custom version of this ember with your chosen style and focus
+                </DrawerDescription>
+                </DrawerHeader>
+                <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
+                  <StoryModalContent />
+                </div>
+              </DrawerContent>
+            </Drawer>
+          ) : (
+            <Dialog open={showStoryCutCreator} onOpenChange={setShowStoryCutCreator}>
+              <DialogContent className="w-[calc(100%-2rem)] max-w-md max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-md rounded-2xl">
+                <DialogHeader>
+                                      <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+                      <FilmSlate size={20} className="text-blue-600" />
+                      Story Cuts Creator
+                    </DialogTitle>
+                  <DialogDescription className="text-gray-600">
+                    Create a custom version of this ember with your chosen style and focus
+                  </DialogDescription>
+                </DialogHeader>
+                <StoryModalContent />
+              </DialogContent>
+            </Dialog>
+          )}
+        </>
+      )}
+
 
     </div>
   );
-} 
+}
+
+ 

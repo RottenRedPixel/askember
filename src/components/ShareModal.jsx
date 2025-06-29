@@ -277,9 +277,9 @@ export default function ShareModal({ ember, isOpen, onClose }) {
           <Input
             value={`${window.location.origin}/embers/${ember.id}`}
             readOnly
-            className="text-xs min-w-0 flex-1"
+            className="text-xs min-w-0 flex-1 h-10"
           />
-          <Button size="sm" onClick={copyShareLink} variant="blue" className="flex-shrink-0">
+                          <Button size="lg" onClick={copyShareLink} variant="blue" className="flex-shrink-0">
             <Copy className="w-4 h-4" />
           </Button>
         </div>
@@ -294,7 +294,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
           </h4>
           <Button
             variant="outline"
-            size="sm"
+            size="lg"
             onClick={() => setShowQRCode(!showQRCode)}
             className="flex items-center gap-2"
           >
@@ -344,7 +344,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
                   </span>
                 </div>
                 <Button
-                  size="sm"
+                  size="lg"
                   variant={emberData?.is_public ? "outline" : "blue"}
                   onClick={() => handleUpdatePublicSettings(!emberData?.is_public)}
                   disabled={isLoading}
@@ -357,7 +357,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
                 <div className="flex items-center justify-between p-3 border rounded-xl bg-blue-50">
                   <span className="text-sm">Allow public editing</span>
                   <Button
-                    size="sm"
+                    size="lg"
                     variant={emberData?.allow_public_edit ? "outline" : "blue"}
                     onClick={() => handleUpdatePublicSettings(true, !emberData?.allow_public_edit)}
                     disabled={isLoading}
@@ -391,7 +391,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
               Shared With ({emberData?.shares?.length || 0})
             </h4>
             <Button
-              size="sm"
+              size="lg"
               variant="outline"
               onClick={() => setShowShareForm(!showShareForm)}
             >
@@ -412,6 +412,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
                     value={shareEmail}
                     onChange={(e) => setShareEmail(e.target.value)}
                     placeholder="Enter email address"
+                    className="h-10"
                     required
                   />
                 </div>
@@ -421,19 +422,19 @@ export default function ShareModal({ ember, isOpen, onClose }) {
                     id="sharePermission"
                     value={sharePermission}
                     onChange={(e) => setSharePermission(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
+                    className="w-full p-2 border border-gray-300 rounded-md h-10"
                   >
                     <option value="view">View Only</option>
                     <option value="edit">Can Edit</option>
                   </select>
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit" size="sm" disabled={isLoading} variant="blue">
+                  <Button type="submit" size="lg" disabled={isLoading} variant="blue">
                     Share
                   </Button>
                   <Button 
                     type="button" 
-                    size="sm" 
+                    size="lg" 
                     variant="outline"
                     onClick={() => setShowShareForm(false)}
                   >
@@ -509,7 +510,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
           <Button 
             onClick={handleNativeShare} 
             variant="blue" 
-            size="sm"
+            size="lg"
             className="w-full flex items-center gap-2"
           >
             <Share className="w-4 h-4" />
@@ -526,11 +527,11 @@ export default function ShareModal({ ember, isOpen, onClose }) {
       <Drawer open={isOpen} onOpenChange={onClose}>
         <DrawerContent className="bg-white">
           <DrawerHeader className="bg-white">
-            <DrawerTitle className="flex items-center gap-2 text-gray-900">
+            <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
               <Share className="w-5 h-5 text-blue-600" />
               Share Ember
             </DrawerTitle>
-            <DrawerDescription className="text-gray-600">
+            <DrawerDescription className="text-left text-gray-600">
               Share this ember with others or make it public
             </DrawerDescription>
           </DrawerHeader>
@@ -547,7 +548,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-[calc(100%-2rem)] max-w-md max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-md rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-gray-900">
+          <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
             <Share className="w-5 h-5 text-blue-600" />
             Share Ember
           </DialogTitle>

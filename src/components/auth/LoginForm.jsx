@@ -89,11 +89,12 @@ export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
             />
           </div>
 
-          <Button 
-            type="submit" 
-            className="w-full h-10" 
-            disabled={isLoading || !email || !password}
-            variant="blue"
+                      <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isLoading || !email || !password}
+              size="lg"
+              variant="blue"
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
           </Button>

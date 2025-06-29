@@ -106,11 +106,12 @@ export default function SignupForm({ onSwitchToLogin, onSwitchToMagicLink }) {
             />
           </div>
 
-          <Button 
-            type="submit" 
-            className="w-full h-10" 
-            disabled={isLoading || !email || !password || !confirmPassword}
-            variant="blue"
+                      <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isLoading || !email || !password || !confirmPassword}
+              size="lg"
+              variant="blue"
           >
             {isLoading ? 'Creating account...' : 'Create Account'}
           </Button>

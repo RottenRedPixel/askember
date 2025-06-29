@@ -452,7 +452,7 @@ export default function MyEmbers() {
           <h1 className="text-4xl font-bold text-gray-900 mb-4 pt-2">my embers</h1>
           <p className="text-lg text-gray-600 mb-6">Sign in to view your embers</p>
           <Link to="/login">
-            <Button variant="blue">Sign In</Button>
+            <Button size="lg" variant="blue">Sign In</Button>
           </Link>
         </div>
       </motion.div>
@@ -471,7 +471,7 @@ export default function MyEmbers() {
       {error && (
         <div className="text-center py-8">
           <p className="text-red-600 mb-4">{error}</p>
-          <Button variant="blue" onClick={() => window.location.reload()}>Try Again</Button>
+          <Button size="lg" variant="blue" onClick={() => window.location.reload()}>Try Again</Button>
         </div>
       )}
 
@@ -482,7 +482,7 @@ export default function MyEmbers() {
             Create your first ember to get started.
           </p>
           <Link to="/create">
-            <Button variant="blue">Create Ember</Button>
+            <Button size="lg" variant="blue">Create Ember</Button>
           </Link>
         </div>
       )}

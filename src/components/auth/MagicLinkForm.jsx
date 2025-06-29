@@ -62,11 +62,12 @@ export default function MagicLinkForm({ onSwitchToLogin, onSwitchToSignup }) {
             />
           </div>
 
-          <Button 
-            type="submit" 
-            className="w-full h-10" 
-            disabled={isLoading || !email}
-            variant="blue"
+                      <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isLoading || !email}
+              size="lg"
+              variant="blue"
           >
             {isLoading ? 'Sending...' : 'Send Magic Link'}
           </Button>

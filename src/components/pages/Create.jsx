@@ -206,7 +206,8 @@ export default function Create() {
               <Button 
                 type="submit" 
                 disabled={uploading || !selectedImage} 
-                className="w-full h-10 text-base font-semibold"
+                className="w-full text-base font-semibold"
+                size="lg"
                 variant="blue"
               >
                 {uploading ? (
@@ -240,7 +241,7 @@ export default function Create() {
         <Card className="border-none shadow-none bg-transparent">
           <CardContent className="p-8 text-center space-y-6">
             <Link to="/login?redirect=/create">
-              <Button variant="blue" className="px-8 h-10 text-base font-semibold">
+              <Button size="lg" variant="blue" className="px-8 text-base font-semibold">
                 Sign In to Continue
               </Button>
             </Link>

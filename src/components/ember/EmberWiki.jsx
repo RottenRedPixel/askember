@@ -177,9 +177,9 @@ export default function EmberWiki({
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     maxLength="45"
-                    className="h-8"
+                    className="h-10"
                   />
-                  <Button size="sm" variant="blue" onClick={handleTitleSave}>Save</Button>
+                  <Button size="lg" variant="blue" onClick={handleTitleSave}>Save</Button>
                   <Button size="sm" variant="outline" onClick={handleTitleCancel}>Cancel</Button>
                 </div>
               ) : (

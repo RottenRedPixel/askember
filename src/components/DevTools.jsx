@@ -279,22 +279,22 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
         <CardContent className="space-y-4 pt-6">
           {/* Quick Actions */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-            <Button onClick={runHealthCheck} disabled={isLoading} variant="blue">
+            <Button onClick={runHealthCheck} disabled={isLoading} size="lg" variant="blue">
               Health Check
             </Button>
-            <Button onClick={() => checkTable('user_profiles')} disabled={isLoading} variant="blue">
+            <Button onClick={() => checkTable('user_profiles')} disabled={isLoading} size="lg" variant="blue">
               Check Profiles
             </Button>
-            <Button onClick={checkSharingSystem} disabled={isLoading} variant="blue">
+            <Button onClick={checkSharingSystem} disabled={isLoading} size="lg" variant="blue">
               Check Sharing System
             </Button>
-            <Button onClick={refreshTitleColumn} disabled={isLoading} variant="blue">
+            <Button onClick={refreshTitleColumn} disabled={isLoading} size="lg" variant="blue">
               Refresh Title Column
             </Button>
-            <Button onClick={runSharingSystemSetup} disabled={isLoading} variant="blue">
+            <Button onClick={runSharingSystemSetup} disabled={isLoading} size="lg" variant="blue">
               Setup Sharing
             </Button>
-            <Button onClick={clearAllResults} variant="blue">
+            <Button onClick={clearAllResults} size="lg" variant="blue">
               Clear All
             </Button>
           </div>

@@ -506,21 +506,16 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSelectCustom()}
+                  className="h-10"
                 />
-                <div className="flex gap-2">
+                <div>
                   <Button 
                     onClick={handleSelectCustom}
                     disabled={!customName.trim()}
-                    size="sm"
+                    size="lg"
+                    className="w-full"
                   >
                     Submit This Title
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setIsAddingCustom(false)}
-                    size="sm"
-                  >
-                    Cancel
                   </Button>
                 </div>
               </div>
@@ -528,7 +523,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
               <div className="space-y-2">
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="lg"
                   onClick={handleAddCustom}
                   className="w-full flex items-center justify-center gap-2 border-dashed"
                 >
@@ -558,7 +553,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
                 <Button
                   onClick={handleAiSuggestion}
                   disabled={isLoading}
-                  size="sm"
+                  size="lg"
                   className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Sparkle size={16} />
@@ -616,48 +611,51 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
         </div>
       )}
 
-      {/* Footer Actions */}
-      <div className="space-y-3 pt-4">
-        {/* View Results Button - Only show when in voting mode */}
-        {totalVotes > 0 && viewMode === 'voting' && (
-          <Button
-            variant="blue"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            size="sm"
-            onClick={toggleViewMode}
-          >
-            View Results
-          </Button>
-        )}
-        
-        <div className="flex items-center justify-center gap-2">
-          {/* Change Vote Button - only show when user has voted and is in results view */}
-          {hasVoted && viewMode === 'results' && (
+      {/* Footer Actions - Only render when there are actual actions to show */}
+      {((totalVotes > 0 && viewMode === 'voting') || 
+        (hasVoted && viewMode === 'results') || 
+        (viewMode === 'results' && votingResults.length > 0 && ember?.user_id === user?.id)) && (
+        <div className="space-y-3 mt-6 pt-4">
+          {/* View Results Button - Only show when in voting mode */}
+          {totalVotes > 0 && viewMode === 'voting' && (
             <Button
-              variant="outline"
-              size="sm"
-              onClick={handleChangeVote}
-              disabled={isLoading}
-              className="text-orange-600 border-orange-300 hover:bg-orange-50"
+              variant="blue"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              size="lg"
+              onClick={toggleViewMode}
             >
-              Change Vote
+              View Results
             </Button>
           )}
           
-          {/* Use This Title Button - only show for ember owner in results view */}
-          {viewMode === 'results' && votingResults.length > 0 && ember?.user_id === user?.id && (
-            <Button
-              onClick={handleUseTitle}
-              disabled={isLoading}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              size="sm"
-            >
-              Use This Title
-            </Button>
-          )}
+          <div className="flex items-center justify-center gap-2">
+            {/* Change Vote Button - only show when user has voted and is in results view */}
+            {hasVoted && viewMode === 'results' && (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleChangeVote}
+                disabled={isLoading}
+                className="text-orange-600 border-orange-300 hover:bg-orange-50"
+              >
+                Change Vote
+              </Button>
+            )}
+            
+            {/* Use This Title Button - only show for ember owner in results view */}
+            {viewMode === 'results' && votingResults.length > 0 && ember?.user_id === user?.id && (
+              <Button
+                onClick={handleUseTitle}
+                disabled={isLoading}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                size="lg"
+              >
+                Use This Title
+              </Button>
+            )}
+          </div>
         </div>
-
-      </div>
+      )}
     </div>
   );
 
@@ -667,8 +665,8 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
       <Drawer open={isOpen} onOpenChange={onClose}>
         <DrawerContent className="bg-white">
           <DrawerHeader className="bg-white">
-            <DrawerTitle className="flex items-center gap-2">
-              <Aperture size={20} className="text-blue-500" />
+            <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+              <Aperture size={20} className="text-blue-600" />
               Ember Title
               <button
                 onClick={loadVotingData}
@@ -680,14 +678,14 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
               </button>
               {totalVotes > 0 && <span className="text-sm text-gray-500">({totalVotes} votes)</span>}
             </DrawerTitle>
-            <DrawerDescription>
+            <DrawerDescription className="text-left text-gray-600">
               {viewMode === 'voting' 
                 ? (hasVoted ? 'You have voted! Switch to results to see how others voted.' : 'Pick the best name for this memory!')
                 : 'See how everyone voted on the ember title'
               }
             </DrawerDescription>
           </DrawerHeader>
-          <div className="px-4 pb-4 bg-white">
+          <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
             <ModalContent />
           </div>
         </DrawerContent>
@@ -698,10 +696,10 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
   // Desktop Dialog
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-md bg-white sm:w-full sm:max-w-md rounded-2xl">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-md rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Aperture size={20} className="text-blue-500" />
+          <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+            <Aperture size={20} className="text-blue-600" />
             Ember Title
             <button
               onClick={loadVotingData}
@@ -713,16 +711,14 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
             </button>
             {totalVotes > 0 && <span className="text-sm text-gray-500">({totalVotes} votes)</span>}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-gray-600">
             {viewMode === 'voting' 
               ? (hasVoted ? 'You have voted! Switch to results to see how others voted.' : 'Pick the best name for this memory!')
               : 'See how everyone voted on the ember title'
             }
           </DialogDescription>
         </DialogHeader>
-        <div className="px-4 pb-4">
-          <ModalContent />
-        </div>
+        <ModalContent />
       </DialogContent>
     </Dialog>
   );

@@ -260,7 +260,7 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
               readOnly
               className="text-xs"
             />
-            <Button size="sm" onClick={copyShareLink} variant="blue">
+                          <Button size="lg" onClick={copyShareLink} variant="blue">
               Copy
             </Button>
           </div>
