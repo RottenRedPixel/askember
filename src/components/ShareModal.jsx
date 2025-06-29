@@ -516,19 +516,6 @@ export default function ShareModal({ ember, isOpen, onClose }) {
           </Button>
         </div>
       )}
-
-      {/* Done Button - only show for drawer (mobile) */}
-      {isMobile && (
-        <div className="pt-4">
-          <Button
-            onClick={onClose}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            size="sm"
-          >
-            Done
-          </Button>
-        </div>
-      )}
     </div>
   );
 
