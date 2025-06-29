@@ -654,16 +654,6 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
           )}
         </div>
 
-        {/* Done Button - only show for drawer (mobile) */}
-        {isMobile && (
-          <Button
-            onClick={onClose}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-            size="sm"
-          >
-            Done
-          </Button>
-        )}
       </div>
     </div>
   );
