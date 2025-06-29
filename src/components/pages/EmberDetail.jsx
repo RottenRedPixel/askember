@@ -12,7 +12,17 @@ import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree } from 'phosphor-react';
+import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix } from 'phosphor-react';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer';
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
 
@@ -39,6 +49,7 @@ export default function EmberDetail() {
   const [totalVotes, setTotalVotes] = useState(0);
   const [userVote, setUserVote] = useState(null);
   const [sharedUsers, setSharedUsers] = useState([]);
+  const [showTestDrawer, setShowTestDrawer] = useState(false);
 
   const fetchEmber = async () => {
     try {
@@ -338,7 +349,7 @@ export default function EmberDetail() {
                     aria-label="Settings"
                     type="button"
                   >
-                    <Gear size={24} className="text-gray-700" />
+                    <GearSix size={24} className="text-gray-700" />
                   </button>
                 )}
                 
@@ -346,15 +357,19 @@ export default function EmberDetail() {
                 <div className="h-px w-6 bg-gray-300"></div>
                 
                 {/* Feature Icons */}
+                <button
+                  className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                  onClick={() => setShowTestDrawer(true)}
+                  aria-label="Open test drawer"
+                  type="button"
+                >
+                  <CirclesFour size={24} className="text-gray-700" />
+                </button>
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Aperture size={24} className="text-gray-700" />
+                  <Sliders size={24} className="text-gray-700" />
                 </div>
-
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Campfire size={24} className="text-gray-700" />
-                </div>
-                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                  <Chats size={24} className="text-gray-700" />
+                  <PlayCircle size={24} className="text-gray-700" />
                 </div>
               </div>
             </div>
@@ -413,13 +428,13 @@ export default function EmberDetail() {
                              
                              {!isComplete ? (
                                <>
-                                 <h3 className="font-semibold text-gray-900 mb-1 text-center">
+                                 <h3 className="font-semibold text-gray-900 my-1 text-center">
                                    help pick a perfect title for this ember.
                                  </h3>
                                </>
                              ) : (
                                <>
-                                 <h3 className="font-semibold text-gray-900 mb-1 text-center">
+                                 <h3 className="font-semibold text-gray-900 my-1 text-center">
                                    {ember.title}
                                  </h3>
                                  <p className="text-sm text-gray-600 text-center">
@@ -443,7 +458,7 @@ export default function EmberDetail() {
                          <div className="flex justify-center items-center relative">
                            <MapPin size={22} className="text-blue-600" />
                          </div>
-                         <h3 className="font-semibold text-gray-900 mb-1 text-center">Location</h3>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Location</h3>
                          <p className="text-sm text-gray-600 text-center">Where this moment happened</p>
                        </div>
                      </CardContent>
@@ -457,7 +472,7 @@ export default function EmberDetail() {
                          <div className="flex justify-center items-center relative">
                            <Clock size={22} className="text-blue-600" />
                          </div>
-                         <h3 className="font-semibold text-gray-900 mb-1 text-center">Time & Date</h3>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Time & Date</h3>
                          <p className="text-sm text-gray-600 text-center">When this moment occurred</p>
                        </div>
                      </CardContent>
@@ -471,7 +486,7 @@ export default function EmberDetail() {
                          <div className="flex justify-center items-center relative">
                            <BookOpen size={22} className="text-blue-600" />
                          </div>
-                         <h3 className="font-semibold text-gray-900 mb-1 text-center">The Story</h3>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">The Story</h3>
                          <p className="text-sm text-gray-600 text-center">The narrative behind this ember</p>
                        </div>
                      </CardContent>
@@ -485,7 +500,7 @@ export default function EmberDetail() {
                          <div className="flex justify-center items-center relative">
                            <Question size={22} className="text-blue-600" />
                          </div>
-                         <h3 className="font-semibold text-gray-900 mb-1 text-center">The Why</h3>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">The Why</h3>
                          <p className="text-sm text-gray-600 text-center">Why this moment was captured</p>
                        </div>
                      </CardContent>
@@ -499,7 +514,7 @@ export default function EmberDetail() {
                          <div className="flex justify-center items-center relative">
                            <Heart size={22} className="text-blue-600" />
                          </div>
-                         <h3 className="font-semibold text-gray-900 mb-1 text-center">The Feelings</h3>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">The Feelings</h3>
                          <p className="text-sm text-gray-600 text-center">Emotions in this moment</p>
                        </div>
                      </CardContent>
@@ -513,7 +528,7 @@ export default function EmberDetail() {
                          <div className="flex justify-center items-center relative">
                            <MagnifyingGlass size={22} className="text-blue-600" />
                          </div>
-                         <h3 className="font-semibold text-gray-900 mb-1 text-center">Image Analysis</h3>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Image Analysis</h3>
                          <p className="text-sm text-gray-600 text-center">Deep analysis of this image</p>
                        </div>
                      </CardContent>
@@ -527,7 +542,7 @@ export default function EmberDetail() {
                          <div className="flex justify-center items-center relative">
                            <Package size={22} className="text-blue-600" />
                          </div>
-                         <h3 className="font-semibold text-gray-900 mb-1 text-center">Tagged Objects</h3>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Tagged Objects</h3>
                          <p className="text-sm text-gray-600 text-center">Objects identified in this image</p>
                        </div>
                      </CardContent>
@@ -541,7 +556,7 @@ export default function EmberDetail() {
                          <div className="flex justify-center items-center relative">
                            <Users size={22} className="text-blue-600" />
                          </div>
-                         <h3 className="font-semibold text-gray-900 mb-1 text-center">Tagged People</h3>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Tagged People</h3>
                          <p className="text-sm text-gray-600 text-center">People identified in this image</p>
                        </div>
                      </CardContent>
@@ -555,7 +570,7 @@ export default function EmberDetail() {
                          <div className="flex justify-center items-center relative">
                            <UsersThree size={22} className="text-blue-600" />
                          </div>
-                         <h3 className="font-semibold text-gray-900 mb-1 text-center">Contributors</h3>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Contributors</h3>
                          <p className="text-sm text-gray-600 text-center">People who contributed to this ember</p>
                        </div>
                      </CardContent>
@@ -824,6 +839,39 @@ export default function EmberDetail() {
           onRefresh={fetchEmber}
         />
       )}
+
+      {/* Test Drawer */}
+      <Drawer open={showTestDrawer} onOpenChange={setShowTestDrawer}>
+        <DrawerContent className="bg-white border-gray-200 shadow-xl">
+          <DrawerHeader className="bg-white">
+            <DrawerTitle className="text-gray-900">Test Drawer</DrawerTitle>
+            <DrawerDescription className="text-gray-600">
+              This is a test drawer that slides up from the bottom.
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 pb-4 bg-white">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="test-input" className="text-sm font-medium text-gray-700">
+                  Test Input
+                </label>
+                <Input
+                  id="test-input"
+                  type="text"
+                  placeholder="Enter some text..."
+                  className="w-full bg-white"
+                />
+              </div>
+            </div>
+          </div>
+          <DrawerFooter className="bg-white">
+            <Button type="submit">Save</Button>
+            <DrawerClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 } 
