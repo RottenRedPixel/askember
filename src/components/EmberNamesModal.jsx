@@ -718,7 +718,9 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
             }
           </DialogDescription>
         </DialogHeader>
-        <ModalContent />
+        <div className="px-4 pb-4">
+          <ModalContent />
+        </div>
       </DialogContent>
     </Dialog>
   );
