@@ -528,8 +528,9 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
               <div className="space-y-2">
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={handleAddCustom}
-                  className="w-full flex items-center justify-center gap-2 py-3 border-dashed"
+                  className="w-full flex items-center justify-center gap-2 border-dashed"
                 >
                   <Plus size={16} />
                   Add Your Own Title
@@ -546,7 +547,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
                       <Button
                         size="sm"
                         onClick={handleSelectAiSuggestion}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 h-6"
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2"
                       >
                         Add
                       </Button>
@@ -557,7 +558,8 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
                 <Button
                   onClick={handleAiSuggestion}
                   disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Sparkle size={16} />
                   {isLoading ? 'Ember is thinking...' : 'Let Ember Try'}
@@ -616,15 +618,15 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
 
       {/* Footer Actions */}
       <div className="space-y-3 pt-4">
-        {/* Toggle View Mode Button - Full Width and Blue when showing View Results */}
-        {totalVotes > 0 && (
+        {/* View Results Button - Only show when in voting mode */}
+        {totalVotes > 0 && viewMode === 'voting' && (
           <Button
-            variant={viewMode === 'voting' ? 'blue' : 'outline'}
-            className={viewMode === 'voting' ? 'w-full bg-blue-600 hover:bg-blue-700 text-white' : ''}
+            variant="blue"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             size="sm"
             onClick={toggleViewMode}
           >
-            {viewMode === 'voting' ? 'View Results' : 'Back'}
+            View Results
           </Button>
         )}
         

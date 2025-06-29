@@ -336,7 +336,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
               Privacy Settings
             </h4>
             <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 border rounded-lg">
+              <div className="flex items-center justify-between p-3 border rounded-xl">
                 <div className="flex items-center gap-2">
                   {emberData?.is_public ? <Globe className="w-4 h-4 text-green-500" /> : <Lock className="w-4 h-4 text-gray-500" />}
                   <span className="text-sm">
@@ -354,7 +354,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
               </div>
               
               {emberData?.is_public && (
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-blue-50">
+                <div className="flex items-center justify-between p-3 border rounded-xl bg-blue-50">
                   <span className="text-sm">Allow public editing</span>
                   <Button
                     size="sm"
@@ -403,7 +403,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
           {/* Share Form - Fixed height container */}
           <div className={`transition-all duration-200 overflow-hidden ${showShareForm ? 'h-[200px]' : 'h-0'}`}>
             {showShareForm && (
-              <form onSubmit={handleShareEmber} className="space-y-3 p-3 border rounded-lg bg-gray-50">
+              <form onSubmit={handleShareEmber} className="space-y-3 p-3 border rounded-xl bg-gray-50">
                 <div>
                   <Label htmlFor="shareEmail">Email Address</Label>
                   <Input
@@ -448,7 +448,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
           {emberData?.shares?.length > 0 && (
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {emberData.shares.map((share) => (
-                <div key={share.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div key={share.id} className="flex items-center justify-between p-3 border rounded-xl">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <span className="text-sm truncate">{share.shared_with_email}</span>
@@ -509,6 +509,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
           <Button 
             onClick={handleNativeShare} 
             variant="blue" 
+            size="sm"
             className="w-full flex items-center gap-2"
           >
             <Share className="w-4 h-4" />

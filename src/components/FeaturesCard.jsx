@@ -214,7 +214,7 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
               Privacy Settings
             </h4>
             <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 border rounded-lg">
+              <div className="flex items-center justify-between p-3 border rounded-xl">
                 <div className="flex items-center gap-2">
                   {emberData?.is_public ? <Globe className="w-4 h-4 text-green-500" /> : <Lock className="w-4 h-4 text-gray-500" />}
                   <span className="text-sm">
@@ -232,7 +232,7 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
               </div>
               
               {emberData?.is_public && (
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-blue-50">
+                <div className="flex items-center justify-between p-3 border rounded-xl bg-blue-50">
                   <span className="text-sm">Allow public editing</span>
                   <Button
                     size="sm"
@@ -286,7 +286,7 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
 
             {/* Share Form */}
             {showShareForm && (
-              <form onSubmit={handleShareEmber} className="space-y-3 p-3 border rounded-lg bg-gray-50">
+              <form onSubmit={handleShareEmber} className="space-y-3 p-3 border rounded-xl bg-gray-50">
                 <div>
                   <Label htmlFor="shareEmail">Email Address</Label>
                   <Input
@@ -330,7 +330,7 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
             {emberData?.shares?.length > 0 && (
               <div className="space-y-2">
                 {emberData.shares.map((share) => (
-                  <div key={share.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div key={share.id} className="flex items-center justify-between p-3 border rounded-xl">
                     <div className="flex items-center gap-2">
                       <Mail className="w-4 h-4 text-gray-400" />
                       <span className="text-sm">{share.shared_with_email}</span>

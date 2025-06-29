@@ -13,16 +13,7 @@ import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix } from 'phosphor-react';
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from '@/components/ui/drawer';
+
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
 
@@ -49,7 +40,7 @@ export default function EmberDetail() {
   const [totalVotes, setTotalVotes] = useState(0);
   const [userVote, setUserVote] = useState(null);
   const [sharedUsers, setSharedUsers] = useState([]);
-  const [showTestDrawer, setShowTestDrawer] = useState(false);
+
 
   const fetchEmber = async () => {
     try {
@@ -151,7 +142,7 @@ export default function EmberDetail() {
   // Check if current user is the owner of this ember
   const isOwner = user && ember?.user_id === user.id;
 
-  // Calculate wiki progress (10 sections total)
+  // Calculate wiki progress (12 sections total)
   const calculateWikiProgress = (ember, sharedUsers = []) => {
     const sections = [
       'title',
@@ -163,7 +154,9 @@ export default function EmberDetail() {
       'analysis',
       'objects',
       'people',
-      'contributors'
+      'contributors',
+      'comments-observations',
+      'supporting-media'
     ];
 
     const getSectionStatus = (sectionType) => {
@@ -180,6 +173,8 @@ export default function EmberDetail() {
         case 'analysis':
         case 'objects':
         case 'people':
+        case 'comments-observations':
+        case 'supporting-media':
         default:
           return false; // Placeholder - will be true when data exists
       }
@@ -357,14 +352,9 @@ export default function EmberDetail() {
                 <div className="h-px w-6 bg-gray-300"></div>
                 
                 {/* Feature Icons */}
-                <button
-                  className="p-1 hover:bg-white/50 rounded-full transition-colors"
-                  onClick={() => setShowTestDrawer(true)}
-                  aria-label="Open test drawer"
-                  type="button"
-                >
+                <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
                   <CirclesFour size={24} className="text-gray-700" />
-                </button>
+                </div>
                 <div className="p-1 hover:bg-white/50 rounded-full transition-colors">
                   <Sliders size={24} className="text-gray-700" />
                 </div>
@@ -694,7 +684,7 @@ export default function EmberDetail() {
                   <div className="space-y-3">
                     {/* Owner */}
                     {ember?.owner && (
-                      <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
                         <Avatar className="h-10 w-10">
                           <AvatarImage 
                             src={ember.owner.avatar_url} 
@@ -719,7 +709,7 @@ export default function EmberDetail() {
                     {/* Invited Contributors */}
                     {sharedUsers.length > 0 ? (
                       sharedUsers.map((contributor, index) => (
-                        <div key={contributor.id || index} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
+                        <div key={contributor.id || index} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
                           <Avatar className="h-10 w-10">
                             <AvatarImage 
                               src={contributor.avatar_url} 
@@ -751,7 +741,7 @@ export default function EmberDetail() {
                         </div>
                       ))
                     ) : (
-                      <div className="text-sm text-gray-500 text-left p-3 rounded-lg bg-gray-50">
+                      <div className="text-sm text-gray-500 text-left p-3 rounded-xl bg-gray-50">
                         No other contributors have been invited to this ember yet.
                       </div>
                     )}
@@ -791,7 +781,7 @@ export default function EmberDetail() {
       <div className="hidden md:block">
         <div className="container mx-auto px-1.5 py-8">
           <div className="max-w-4xl mx-auto">
-            <div className="rounded-lg bg-white shadow-sm">
+            <div className="rounded-xl bg-white shadow-sm">
               <Card className="py-0 w-full bg-gray-100">
                 <CardContent className="p-0 h-full">
                   {allCardsDefinitions[0].content}
@@ -840,38 +830,7 @@ export default function EmberDetail() {
         />
       )}
 
-      {/* Test Drawer */}
-      <Drawer open={showTestDrawer} onOpenChange={setShowTestDrawer}>
-        <DrawerContent className="bg-white border-gray-200 shadow-xl">
-          <DrawerHeader className="bg-white">
-            <DrawerTitle className="text-gray-900">Test Drawer</DrawerTitle>
-            <DrawerDescription className="text-gray-600">
-              This is a test drawer that slides up from the bottom.
-            </DrawerDescription>
-          </DrawerHeader>
-          <div className="px-4 pb-4 bg-white">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="test-input" className="text-sm font-medium text-gray-700">
-                  Test Input
-                </label>
-                <Input
-                  id="test-input"
-                  type="text"
-                  placeholder="Enter some text..."
-                  className="w-full bg-white"
-                />
-              </div>
-            </div>
-          </div>
-          <DrawerFooter className="bg-white">
-            <Button type="submit">Save</Button>
-            <DrawerClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DrawerClose>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+
     </div>
   );
 } 

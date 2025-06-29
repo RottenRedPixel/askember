@@ -13,7 +13,9 @@ import {
   HelpCircle,
   Heart,
   Clock,
-  BookOpen
+  BookOpen,
+  MessageCircle,
+  Image
 } from 'lucide-react';
 import { getEmberWithSharing } from '@/lib/sharing';
 
@@ -60,6 +62,10 @@ export default function EmberWiki({
         return false; // Placeholder - will be true when tagged objects exist
       case 'people':
         return false; // Placeholder - will be true when tagged people exist
+      case 'comments-observations':
+        return false; // Placeholder - will be true when comments/observations exist
+      case 'supporting-media':
+        return false; // Placeholder - will be true when supporting media exists
       case 'contributors':
         return ember?.owner || sharedUsers.length > 0 || emailOnlyInvites.length > 0;
       default:
@@ -301,6 +307,34 @@ export default function EmberWiki({
             </h3>
             <div className="text-sm text-gray-600 text-left">
               People tagging will appear here...
+            </div>
+          </div>
+
+          {/* Comments & Observations Section */}
+          <div className="space-y-3">
+            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="w-4 h-4" />
+                Comments & Observations
+              </div>
+              <StatusBadge isComplete={getSectionStatus('comments-observations')} />
+            </h3>
+            <div className="text-sm text-gray-600 text-left">
+              Comments and observations about this ember will appear here...
+            </div>
+          </div>
+
+          {/* Supporting Media Section */}
+          <div className="space-y-3">
+            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Image className="w-4 h-4" />
+                Supporting Media
+              </div>
+              <StatusBadge isComplete={getSectionStatus('supporting-media')} />
+            </h3>
+            <div className="text-sm text-gray-600 text-left">
+              Additional photos, videos, and media related to this ember will appear here...
             </div>
           </div>
 

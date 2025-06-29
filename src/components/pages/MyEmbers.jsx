@@ -476,7 +476,7 @@ export default function MyEmbers() {
       )}
 
       {!loading && !error && embers.length === 0 && (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+        <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
           <h3 className="text-lg font-medium text-gray-900 mb-2">No embers yet</h3>
           <p className="text-gray-600 mb-4">
             Create your first ember to get started.
@@ -534,7 +534,7 @@ export default function MyEmbers() {
           )}
 
           {!sharedLoading && !sharedError && sharedEmbers.length === 0 && (
-            <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+            <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
               <h3 className="text-lg font-medium text-gray-900 mb-2">No shared embers</h3>
               <p className="text-gray-600">
                 When others share embers with you, they'll appear here.
