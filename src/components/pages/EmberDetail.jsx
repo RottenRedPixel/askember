@@ -21,6 +21,8 @@ import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
 import InviteModal from '@/components/InviteModal';
 import StoryModal from '@/components/StoryModal';
+import LocationModal from '@/components/LocationModal';
+import TimeDateModal from '@/components/TimeDateModal';
 
 import EmberNamesModal from '@/components/EmberNamesModal';
 import EmberSettingsPanel from '@/components/EmberSettingsPanel';
@@ -49,6 +51,8 @@ export default function EmberDetail() {
   const [showStoryCutCreator, setShowStoryCutCreator] = useState(false);
   const [showStoryCuts, setShowStoryCuts] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showTimeDateModal, setShowTimeDateModal] = useState(false);
   const [emberLength, setEmberLength] = useState(30);
   const [selectedVoices, setSelectedVoices] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -66,7 +70,7 @@ export default function EmberDetail() {
       const listener = () => setMatches(media.matches);
       media.addListener(listener);
       return () => media.removeListener(listener);
-    }, [matches, query]);
+    }, [query]);
     
     return matches;
   };
@@ -394,9 +398,33 @@ export default function EmberDetail() {
 
   // Check if current user is the owner of this ember
   const isOwner = user && ember?.user_id === user.id;
-  
+
   // Check if user can edit (owner or contributor)
   const canEdit = isOwner || userPermission === 'edit' || userPermission === 'contributor';
+
+  // Helper function to determine section completion status
+    const getSectionStatus = (sectionType) => {
+      switch (sectionType) {
+        case 'title':
+          return ember?.title && ember.title.trim() !== '' && ember.title !== 'Untitled Ember';
+        case 'contributors':
+          return ember?.owner || sharedUsers.length > 0;
+        case 'location':
+          return !!(ember?.latitude && ember?.longitude) || !!ember?.manual_location;
+        case 'time-date':
+          return !!ember?.ember_timestamp || !!ember?.manual_datetime;
+        case 'story':
+        case 'why':
+        case 'feelings':
+        case 'analysis':
+        case 'objects':
+        case 'people':
+        case 'comments-observations':
+        case 'supporting-media':
+        default:
+          return false; // Placeholder - will be true when data exists
+      }
+    };
 
   // Calculate wiki progress (12 sections total)
   const calculateWikiProgress = (ember, sharedUsers = []) => {
@@ -414,27 +442,6 @@ export default function EmberDetail() {
       'supporting-media',
       'analysis'
     ];
-
-    const getSectionStatus = (sectionType) => {
-      switch (sectionType) {
-        case 'title':
-          return ember?.title && ember.title.trim() !== '' && ember.title !== 'Untitled Ember';
-        case 'contributors':
-          return ember?.owner || sharedUsers.length > 0;
-        case 'location':
-        case 'time-date':
-        case 'story':
-        case 'why':
-        case 'feelings':
-        case 'analysis':
-        case 'objects':
-        case 'people':
-        case 'comments-observations':
-        case 'supporting-media':
-        default:
-          return false; // Placeholder - will be true when data exists
-      }
-    };
 
     const completedSections = sections.filter(section => getSectionStatus(section));
     return {
@@ -475,7 +482,7 @@ export default function EmberDetail() {
           {/* Photo area (with toggle, blurred bg, main image, icon bar) */}
           <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[65vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-auto overflow-hidden">
             {/* Top right vertical capsule: Owner Avatar and Invited Users */}
-            <div className="absolute top-4 right-4 z-30 flex flex-col items-center gap-3 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+            <div className="absolute top-4 right-4 z-30 flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
               {/* Home Icon - clickable to go to My Embers */}
               <button
                 className="rounded-full p-1 hover:bg-white/70 transition-colors"
@@ -517,7 +524,7 @@ export default function EmberDetail() {
                   key={sharedUser.id || index}
                   className="p-1 hover:bg-white/70 rounded-full transition-colors"
                   style={{ 
-                    marginTop: ember?.owner ? '-28px' : (index === 0 ? '-12px' : '-28px'),
+                    marginTop: ember?.owner ? '-24px' : (index === 0 ? '-8px' : '-24px'),
                     zIndex: ember?.owner ? (34 - index) : (30 - index) // Adjust z-index if owner is present
                   }}
                   title={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
@@ -546,18 +553,6 @@ export default function EmberDetail() {
                   type="button"
                 >
                   <ShareNetwork size={24} className="text-gray-700" />
-                </button>
-              )}
-              
-              {/* Invite Contributors button - Only for owners */}
-              {isOwner && (
-                <button
-                  className="rounded-full p-1 hover:bg-white/70 transition-colors"
-                  onClick={() => setShowInviteModal(true)}
-                  aria-label="Invite contributors"
-                  type="button"
-                >
-                  <UserCirclePlus size={24} className="text-gray-700" />
                 </button>
               )}
               
@@ -619,7 +614,7 @@ export default function EmberDetail() {
 
             {/* Bottom right capsule: Action icons above horizontal divider above feature icons */}
             <div className="absolute right-4 bottom-4 z-20">
-              <div className="flex flex-col items-center gap-3 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+              <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
                 {/* Action Icons */}
                 <button
                   className="rounded-full p-1 hover:bg-white/50 transition-colors"
@@ -698,209 +693,159 @@ export default function EmberDetail() {
                   </Card>
                 </CarouselItem>
                 
-                                 {/* Title Card - Dynamic States */}
-                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
                    {(() => {
-                     const isComplete = ember?.title && ember.title.trim() !== '' && ember.title !== 'Untitled Ember';
-                     const userName = userProfile?.first_name || 'User';
-                     
-                     return (
-                       <Card 
-                         className={`h-32 bg-white border-gray-200 transition-shadow ${
-                           !isComplete ? 'cursor-pointer hover:shadow-md' : ''
-                         }`}
-                         onClick={!isComplete ? () => setShowNamesModal(true) : undefined}
-                       >
-                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                           <div>
-                             <div className="flex justify-center items-center relative">
-                               <PenNib size={22} className="text-blue-600" />
-                               {isComplete && (
-                                 <CheckCircle size={20} className="text-green-500 absolute right-0" />
-                               )}
-                             </div>
-                             
-                             {!isComplete ? (
-                               <>
-                                 <h3 className="font-semibold text-gray-900 my-1 text-center">
-                                   help pick a perfect title for this ember.
-                                 </h3>
-                               </>
-                             ) : (
-                               <>
-                                 <h3 className="font-semibold text-gray-900 my-1 text-center">
-                                   {ember.title}
-                                 </h3>
-                                 <p className="text-sm text-gray-600 text-center">
-                                   This was the title that was chosen.
-                                 </p>
-                               </>
-                             )}
-                           </div>
-                           
+                  // Define all carousel cards with their configuration
+                  const carouselCards = [
+                    {
+                      id: 'title',
+                      sectionType: 'title',
+                      icon: PenNib,
+                      title: () => 'Title',
+                      description: (isComplete) => (!isComplete ? 'help pick a perfect title for this ember.' : ember.title),
+                      onClick: () => () => setShowNamesModal(true)
+                    },
+                    {
+                      id: 'location',
+                      sectionType: 'location',
+                      icon: MapPin,
+                      title: () => 'Location',
+                      description: () => 'Where this moment happened',
+                      onClick: () => () => setShowLocationModal(true)
+                    },
+                    {
+                      id: 'time-date',
+                      sectionType: 'time-date',
+                      icon: Clock,
+                      title: () => 'Time & Date',
+                      description: () => 'When this moment occurred',
+                      onClick: () => () => setShowTimeDateModal(true)
+                    },
+                    {
+                      id: 'story',
+                      sectionType: 'story',
+                      icon: BookOpen,
+                      title: () => 'The Story',
+                      description: () => 'The narrative behind this ember',
+                      onClick: () => () => setShowStoryModal(true)
+                    },
+                    {
+                      id: 'why',
+                      sectionType: 'why',
+                      icon: Question,
+                      title: () => 'The Why',
+                      description: () => 'Why this moment was captured',
+                      onClick: () => () => console.log('The Why modal coming soon')
+                    },
+                    {
+                      id: 'feelings',
+                      sectionType: 'feelings',
+                      icon: Heart,
+                      title: () => 'The Feelings',
+                      description: () => 'Emotions in this moment',
+                      onClick: () => () => console.log('The Feelings modal coming soon')
+                    },
+                    {
+                      id: 'comments',
+                      sectionType: 'comments-observations',
+                      icon: ChatCircle,
+                      title: () => 'Comments',
+                      description: () => 'Comments about this ember',
+                      onClick: () => () => console.log('Comments modal coming soon')
+                    },
+                    {
+                      id: 'objects',
+                      sectionType: 'objects',
+                      icon: Package,
+                      title: () => 'Tagged Objects',
+                      description: () => 'Objects identified in this image',
+                      onClick: () => () => console.log('Tagged Objects modal coming soon')
+                    },
+                    {
+                      id: 'people',
+                      sectionType: 'people',
+                      icon: Users,
+                      title: () => 'Tagged People',
+                      description: () => 'People identified in this image',
+                      onClick: () => () => console.log('Tagged People modal coming soon')
+                    },
+                    {
+                      id: 'supporting-media',
+                      sectionType: 'supporting-media',
+                      icon: ImageSquare,
+                      title: () => 'Supporting Media',
+                      description: () => 'Additional photos and videos',
+                      onClick: () => () => console.log('Supporting Media modal coming soon')
+                    },
+                    {
+                      id: 'analysis',
+                      sectionType: 'analysis',
+                      icon: Eye,
+                      title: () => 'Image Analysis',
+                      description: () => 'Deep analysis of this image',
+                      onClick: () => () => console.log('Image Analysis modal coming soon')
+                    },
+                    {
+                      id: 'contributors',
+                      sectionType: 'contributors',
+                      icon: UserCirclePlus,
+                      title: () => 'Contributors',
+                      description: (isComplete) => (!isComplete ? 'Invite people to edit and contribute' : `${sharedUsers.length} contributor${sharedUsers.length !== 1 ? 's' : ''} invited`),
+                      onClick: () => () => setShowInviteModal(true)
+                    }
+                  ];
 
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
-                 </CarouselItem>
-                 
-                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
-                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                       <div>
-                         <div className="flex justify-center items-center relative">
-                           <MapPin size={22} className="text-blue-600" />
-                         </div>
-                         <h3 className="font-semibold text-gray-900 my-1 text-center">Location</h3>
-                         <p className="text-sm text-gray-600 text-center">Where this moment happened</p>
-                       </div>
-                     </CardContent>
-                   </Card>
-                 </CarouselItem>
-                 
-                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
-                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                       <div>
-                         <div className="flex justify-center items-center relative">
-                           <Clock size={22} className="text-blue-600" />
-                         </div>
-                         <h3 className="font-semibold text-gray-900 my-1 text-center">Time & Date</h3>
-                         <p className="text-sm text-gray-600 text-center">When this moment occurred</p>
-                       </div>
-                     </CardContent>
-                   </Card>
-                 </CarouselItem>
-                 
-                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                  // Sort cards: Not Done first, Done last
+                  const sortedCards = carouselCards.sort((a, b) => {
+                    const aComplete = getSectionStatus(a.sectionType);
+                    const bComplete = getSectionStatus(b.sectionType);
+                    
+                    // If completion status is the same, maintain original order
+                    if (aComplete === bComplete) return 0;
+                    
+                    // Not Done (false) comes first, Done (true) comes last
+                    return aComplete - bComplete;
+                  });
+
+                  return sortedCards.map((card) => {
+                    const isComplete = getSectionStatus(card.sectionType);
+                    const IconComponent = card.icon;
+                    
+                    return (
+                      <CarouselItem key={card.id} className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
                    <Card 
-                     className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
-                     onClick={() => setShowStoryModal(true)}
+                          className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-all duration-200"
+                          onClick={card.onClick()}
                    >
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
-                         <div className="flex justify-center items-center relative">
-                           <BookOpen size={22} className="text-blue-600" />
+                              {/* Header with icon and status badge */}
+                              <div className="flex justify-center items-center relative mb-2">
+                                <IconComponent size={22} className="text-blue-600" />
+                                <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
+                                  isComplete 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {isComplete ? 'Done' : 'Not Done'}
                          </div>
-                         <h3 className="font-semibold text-gray-900 my-1 text-center">The Story</h3>
-                         <p className="text-sm text-gray-600 text-center">The narrative behind this ember</p>
+                       </div>
+
+                              {/* Wiki Title */}
+                              <h3 className="font-semibold text-gray-900 text-center mb-1">
+                                {card.title(isComplete)}
+                              </h3>
+
+                              {/* Dynamic Content */}
+                              <p className="text-sm text-gray-600 text-center">
+                                {card.description(isComplete)}
+                              </p>
                        </div>
                      </CardContent>
                    </Card>
                  </CarouselItem>
-                 
-                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
-                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                       <div>
-                         <div className="flex justify-center items-center relative">
-                           <Question size={22} className="text-blue-600" />
-                         </div>
-                         <h3 className="font-semibold text-gray-900 my-1 text-center">The Why</h3>
-                         <p className="text-sm text-gray-600 text-center">Why this moment was captured</p>
-                       </div>
-                     </CardContent>
-                   </Card>
-                 </CarouselItem>
-                 
-                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
-                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                       <div>
-                         <div className="flex justify-center items-center relative">
-                           <Heart size={22} className="text-blue-600" />
-                         </div>
-                         <h3 className="font-semibold text-gray-900 my-1 text-center">The Feelings</h3>
-                         <p className="text-sm text-gray-600 text-center">Emotions in this moment</p>
-                       </div>
-                     </CardContent>
-                   </Card>
-                 </CarouselItem>
-                 
-                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
-                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                       <div>
-                         <div className="flex justify-center items-center relative">
-                           <ChatCircle size={22} className="text-blue-600" />
-                         </div>
-                         <h3 className="font-semibold text-gray-900 my-1 text-center">Comments & Observations</h3>
-                         <p className="text-sm text-gray-600 text-center">Comments about this ember</p>
-                       </div>
-                     </CardContent>
-                   </Card>
-                 </CarouselItem>
-                 
-                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
-                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                       <div>
-                         <div className="flex justify-center items-center relative">
-                           <Package size={22} className="text-blue-600" />
-                         </div>
-                         <h3 className="font-semibold text-gray-900 my-1 text-center">Tagged Objects</h3>
-                         <p className="text-sm text-gray-600 text-center">Objects identified in this image</p>
-                       </div>
-                     </CardContent>
-                   </Card>
-                 </CarouselItem>
-                 
-                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
-                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                       <div>
-                         <div className="flex justify-center items-center relative">
-                           <Users size={22} className="text-blue-600" />
-                         </div>
-                         <h3 className="font-semibold text-gray-900 my-1 text-center">Tagged People</h3>
-                         <p className="text-sm text-gray-600 text-center">People identified in this image</p>
-                       </div>
-                     </CardContent>
-                   </Card>
-                 </CarouselItem>
-                 
-                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
-                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                       <div>
-                         <div className="flex justify-center items-center relative">
-                           <ImageSquare size={22} className="text-blue-600" />
-                         </div>
-                         <h3 className="font-semibold text-gray-900 my-1 text-center">Supporting Media</h3>
-                         <p className="text-sm text-gray-600 text-center">Additional photos and videos</p>
-                       </div>
-                     </CardContent>
-                   </Card>
-                 </CarouselItem>
-                 
-                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
-                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                       <div>
-                         <div className="flex justify-center items-center relative">
-                           <Eye size={22} className="text-blue-600" />
-                         </div>
-                         <h3 className="font-semibold text-gray-900 my-1 text-center">Image Analysis</h3>
-                         <p className="text-sm text-gray-600 text-center">Deep analysis of this image</p>
-                       </div>
-                     </CardContent>
-                   </Card>
-                 </CarouselItem>
-                 
-                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
-                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                       <div>
-                         <div className="flex justify-center items-center relative">
-                           <Users size={22} className="text-blue-600" />
-                         </div>
-                         <h3 className="font-semibold text-gray-900 my-1 text-center">Contributors</h3>
-                         <p className="text-sm text-gray-600 text-center">People who contributed to this ember</p>
-                       </div>
-                     </CardContent>
-                   </Card>
-                 </CarouselItem>
+                    );
+                  });
+                })()}
               </CarouselContent>
             </Carousel>
           </div>
@@ -969,9 +914,9 @@ export default function EmberDetail() {
                         <div className="flex items-center gap-2">
                           <span className="text-gray-900">{ember.title || 'N/A'}</span>
                           {canEdit && (
-                            <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
-                              <PencilSimple size={16} />
-                            </button>
+                          <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
+                            <PencilSimple size={16} />
+                          </button>
                           )}
                         </div>
                       )}
@@ -1189,6 +1134,28 @@ export default function EmberDetail() {
           handleTitleEdit={handleTitleEdit}
           handleTitleDelete={handleTitleDelete}
           message={message}
+          onRefresh={fetchEmber}
+        />
+      )}
+
+      {/* Location Modal */}
+      {ember && (
+        <LocationModal 
+          ember={ember} 
+          isOpen={showLocationModal} 
+          onClose={() => setShowLocationModal(false)}
+          isMobile={isMobile}
+          onRefresh={fetchEmber}
+        />
+      )}
+
+      {/* Time & Date Modal */}
+      {ember && (
+        <TimeDateModal 
+          ember={ember} 
+          isOpen={showTimeDateModal} 
+          onClose={() => setShowTimeDateModal(false)}
+          isMobile={isMobile}
           onRefresh={fetchEmber}
         />
       )}

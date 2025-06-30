@@ -47,9 +47,9 @@ export default function EmberWiki({
       case 'title':
         return ember?.title && ember.title.trim() !== '' && ember.title !== 'Untitled Ember';
       case 'location':
-        return false; // Placeholder - will be true when location data exists
+        return !!(ember?.latitude && ember?.longitude) || !!ember?.manual_location;
       case 'time-date':
-        return false; // Placeholder - will be true when time/date data exists
+        return !!ember?.ember_timestamp || !!ember?.manual_datetime;
       case 'story':
         return false; // Placeholder - will be true when story data exists
       case 'why':
@@ -207,8 +207,41 @@ export default function EmberWiki({
               </div>
               <StatusBadge isComplete={getSectionStatus('location')} />
             </h3>
-            <div className="text-sm text-gray-600 text-left">
-              Geolocation data will appear here...
+            <div className="text-sm text-gray-600 text-left space-y-3">
+              {ember?.latitude && ember?.longitude ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin size={16} className="text-blue-600" />
+                    <span className="text-sm font-medium text-blue-900">GPS Location</span>
+                  </div>
+                  <div className="text-gray-900 font-medium">
+                    {ember.address || `${ember.latitude.toFixed(6)}°, ${ember.longitude.toFixed(6)}°`}
+                  </div>
+                  {ember.city && (
+                    <div className="text-gray-600 mt-1">
+                      {ember.city}{ember.state ? `, ${ember.state}` : ''} • {ember.country}
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-500 mt-2">
+                    Source: Photo GPS data
+                  </div>
+                </div>
+              ) : null}
+              
+              {ember?.manual_location ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin size={16} className="text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">Manual Location</span>
+                  </div>
+                  <div className="text-gray-900 font-medium">{ember.manual_location}</div>
+                  <div className="text-xs text-gray-500 mt-2">Source: Manual entry</div>
+                </div>
+              ) : null}
+              
+              {!ember?.latitude && !ember?.longitude && !ember?.manual_location && (
+                <div className="text-gray-500">No location data available</div>
+              )}
             </div>
           </div>
 
@@ -221,8 +254,59 @@ export default function EmberWiki({
               </div>
               <StatusBadge isComplete={getSectionStatus('time-date')} />
             </h3>
-            <div className="text-sm text-gray-600 text-left">
-              Timestamp and date information will appear here...
+            <div className="text-sm text-gray-600 text-left space-y-3">
+              {ember?.ember_timestamp ? (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock size={16} className="text-orange-600" />
+                    <span className="text-sm font-medium text-orange-900">Photo Timestamp</span>
+                  </div>
+                  <div className="text-gray-900 font-medium">
+                    {new Date(ember.ember_timestamp).toLocaleString('en-US', {
+                      weekday: 'short',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Source: {ember.datetime_source === 'photo' ? 'Photo EXIF data' : 'Manual entry'}
+                  </div>
+                  {ember.camera_make && ember.camera_model && (
+                    <div className="mt-2 text-xs text-orange-800">
+                      <strong>Camera:</strong> {ember.camera_make} {ember.camera_model}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+              
+              {ember?.manual_datetime ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock size={16} className="text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">Manual Date & Time</span>
+                  </div>
+                  <div className="text-gray-900 font-medium">
+                    {new Date(ember.manual_datetime).toLocaleString('en-US', {
+                      weekday: 'short',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">Source: Manual entry</div>
+                </div>
+              ) : null}
+              
+              {!ember?.ember_timestamp && !ember?.manual_datetime && (
+                <div className="text-gray-500">No date & time data available</div>
+              )}
             </div>
           </div>
 

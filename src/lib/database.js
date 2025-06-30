@@ -273,6 +273,62 @@ export const updateEmberTitle = async (emberId, title, userId) => {
 };
 
 /**
+ * Update an ember's location data
+ */
+export const updateEmberLocation = async (emberId, locationData, userId) => {
+  try {
+    const updateData = {
+      ...locationData,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('embers')
+      .update(updateData)
+      .eq('id', emberId)
+      .eq('user_id', userId) // Ensure user owns the ember
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+    return data;
+  } catch (error) {
+    console.error('Error updating ember location:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update an ember's date/time data
+ */
+export const updateEmberDateTime = async (emberId, dateTimeData, userId) => {
+  try {
+    const updateData = {
+      ...dateTimeData,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('embers')
+      .update(updateData)
+      .eq('id', emberId)
+      .eq('user_id', userId) // Ensure user owns the ember
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+    return data;
+  } catch (error) {
+    console.error('Error updating ember date/time:', error);
+    throw error;
+  }
+};
+
+/**
  * Delete an ember (only if it belongs to the user)
  */
 export const deleteEmber = async (emberId, userId) => {

@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { uploadToBlob, validateFile, getFileCategory } from '@/lib/storage';
+import { uploadImageWithExif } from '@/lib/photos';
 import { createEmber } from '@/lib/database';
 import useStore from '@/store';
 import { Upload, Image, X } from 'lucide-react';
@@ -88,7 +89,7 @@ export default function Create() {
     setMessage({ type: '', text: '' });
 
     try {
-      // Upload image to Vercel Blob
+      // Upload image to Vercel Blob (for the ember's main image)
       const imageResult = await uploadToBlob(selectedImage, 'images', user.id);
       
       // Save ember to database
@@ -100,6 +101,16 @@ export default function Create() {
 
       const newEmber = await createEmber(emberData);
       console.log('Ember created:', newEmber);
+
+      // Upload the same image with EXIF data and associate it with the ember
+      try {
+        console.log('Uploading image with EXIF data...');
+        const photoResult = await uploadImageWithExif(selectedImage, user.id, newEmber.id);
+        console.log('Photo with EXIF data uploaded:', photoResult);
+      } catch (exifError) {
+        console.warn('Failed to upload image with EXIF data:', exifError);
+        // Don't fail the entire ember creation if EXIF extraction fails
+      }
       
       setMessage({ 
         type: 'success', 

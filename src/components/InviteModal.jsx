@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -62,6 +62,9 @@ export default function InviteModal({ ember, isOpen, onClose, onUpdate }) {
   const [message, setMessage] = useState(null);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  
+  // Use ref to maintain focus and prevent cursor jumping
+  const inviteEmailRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && ember) {
@@ -163,6 +166,11 @@ export default function InviteModal({ ember, isOpen, onClose, onUpdate }) {
     }
   };
 
+  // Handle email input change with proper focus preservation
+  const handleEmailChange = (e) => {
+    setInviteEmail(e.target.value);
+  };
+
   const ModalContent = () => (
     <div className="space-y-6 overflow-x-hidden">
       {/* Message */}
@@ -205,11 +213,13 @@ export default function InviteModal({ ember, isOpen, onClose, onUpdate }) {
                 <Label htmlFor="inviteEmail">Email Address</Label>
                 <Input
                   id="inviteEmail"
+                  ref={inviteEmailRef}
                   type="email"
                   value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
+                  onChange={handleEmailChange}
                   placeholder="Enter email address"
                   className="h-10"
+                  autoComplete="off"
                   required
                 />
               </div>
