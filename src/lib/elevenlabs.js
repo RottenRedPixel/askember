@@ -17,16 +17,25 @@ const getApiKey = () => {
  */
 export const speechToText = async (audioBlob) => {
   const apiKey = getApiKey();
+  console.log('🔑 API Key check:', apiKey ? 'Found' : 'Missing');
+  
   if (!apiKey) {
     throw new Error('ElevenLabs API key not configured');
   }
 
   try {
+    console.log('📤 Preparing STT request...');
+    console.log('🎵 Audio blob:', {
+      size: audioBlob.size,
+      type: audioBlob.type
+    });
+
     // Convert blob to FormData
     const formData = new FormData();
     formData.append('file', audioBlob, 'recording.webm');
     formData.append('model_id', 'scribe_v1'); // Using ElevenLabs Scribe model
 
+    console.log('🌐 Making request to ElevenLabs STT API...');
     const response = await fetch(`${ELEVENLABS_BASE_URL}/speech-to-text`, {
       method: 'POST',
       headers: {
@@ -35,16 +44,25 @@ export const speechToText = async (audioBlob) => {
       body: formData,
     });
 
+    console.log('📡 Response status:', response.status, response.statusText);
+    console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('ElevenLabs STT Error Response:', errorText);
-      throw new Error(`STT failed: ${response.status} ${response.statusText}`);
+      console.error('❌ ElevenLabs STT Error Response:', errorText);
+      throw new Error(`STT failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const result = await response.json();
-    return result.text || '';
+    console.log('📋 Raw API response:', result);
+    
+    const transcribedText = result.text || '';
+    console.log('📝 Final transcribed text:', transcribedText);
+    
+    return transcribedText;
   } catch (error) {
-    console.error('Speech-to-text error:', error);
+    console.error('❌ Speech-to-text detailed error:', error);
+    console.error('❌ Error stack:', error.stack);
     throw error;
   }
 };

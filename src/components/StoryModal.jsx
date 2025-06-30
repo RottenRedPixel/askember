@@ -3,8 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { BookOpen, Mic, MicOff, Play, Pause, Settings, Send } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { BookOpen, Mic, MicOff, Play, Pause, Settings, Send, User, Sparkles, Check, ChevronsUpDown } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import { uploadToBlob } from '../lib/storage';
 import useStore from '../store';
 import { 
@@ -13,6 +16,7 @@ import {
   getStoryConversationWithMessages,
   completeStoryConversation
 } from '../lib/database';
+import { speechToText, storeVoiceTraining } from '../lib/elevenlabs';
 
 // Media query hook
 function useMediaQuery(query) {
@@ -30,6 +34,66 @@ function useMediaQuery(query) {
   
   return matches;
 }
+
+// Microphone Combobox Component
+const MicrophoneCombobox = ({ microphones, selectedMicrophone, onSelectMicrophone, disabled }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          size="sm"
+          disabled={disabled}
+          className={cn(
+            "h-9 w-9 p-0",
+            selectedMicrophone && "border-blue-500 bg-blue-50"
+          )}
+          title="Select microphone"
+        >
+          <Settings 
+            size={16} 
+            className={cn(
+              "transition-colors",
+              selectedMicrophone ? "text-blue-600" : "text-gray-500"
+            )} 
+          />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg rounded-md" align="start">
+        <Command>
+          <CommandInput placeholder="Search microphones..." className="h-9" />
+          <CommandList>
+            <CommandEmpty>No microphone found.</CommandEmpty>
+            <CommandGroup heading="Available Microphones">
+              {microphones.map((mic) => (
+                <CommandItem
+                  key={mic.deviceId}
+                  value={mic.deviceId}
+                  onSelect={() => {
+                    onSelectMicrophone(mic.deviceId);
+                    setOpen(false);
+                  }}
+                >
+                  {mic.label || `Microphone ${mic.deviceId.slice(0, 8)}...`}
+                  <Check
+                    className={cn(
+                      "ml-auto h-4 w-4",
+                      selectedMicrophone === mic.deviceId ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const ModalContent = ({ 
   messages,
@@ -50,7 +114,10 @@ const ModalContent = ({
   currentQuestion,
   messagesEndRef,
   onClose,
-  isLoading
+  isLoading,
+  ember,
+  user,
+  userProfile
 }) => (
   <div className="space-y-4">
     {isLoading ? (
@@ -61,30 +128,70 @@ const ModalContent = ({
     ) : (
       <>
         {/* Chat Messages */}
-        <div className="space-y-3 max-h-60 overflow-y-auto">
+        <div className="space-y-4 max-h-60 overflow-y-auto">
           {messages.map((message, index) => (
             <div
               key={index}
-              className={`flex w-full ${
+              className={`flex w-full gap-3 ${
                 message.sender === 'ember' ? 'justify-start' : 'justify-end'
               }`}
             >
+              {/* Avatar - only show on left side for ember messages */}
+              {message.sender === 'ember' && (
+                <Avatar className="h-8 w-8 flex-shrink-0">
+                  <AvatarImage src="/ember-ai-avatar.png" alt="Ember AI" />
+                  <AvatarFallback className="bg-blue-500 text-white">
+                    <Sparkles size={16} />
+                  </AvatarFallback>
+                </Avatar>
+              )}
+
               <div
-                className={`max-w-[80%] p-3 rounded-lg ${
-                  message.sender === 'ember'
-                    ? 'bg-blue-100 text-blue-900'
-                    : 'bg-white border text-gray-900'
+                className={`max-w-[75%] ${
+                  message.sender === 'ember' ? 'order-2' : 'order-1'
                 }`}
               >
-                <p className="text-sm">{message.content}</p>
-                <p className="text-xs opacity-70 mt-1">{message.timestamp}</p>
-                {message.hasVoiceRecording && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-xs">Voice recording</span>
-                  </div>
-                )}
+                {/* Sender name */}
+                <div className={`flex items-center gap-2 mb-1 ${
+                  message.sender === 'ember' ? 'justify-start' : 'justify-end'
+                }`}>
+                  <span className={`text-xs font-medium ${
+                    message.sender === 'ember' ? 'text-blue-700' : 'text-gray-600'
+                  }`}>
+                    {message.sender === 'ember' ? 'Ember AI' : (userProfile?.first_name || user?.email?.split('@')[0] || 'You')}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {message.timestamp}
+                  </span>
+                </div>
+
+                {/* Message bubble */}
+                <div
+                  className={`p-3 rounded-lg ${
+                    message.sender === 'ember'
+                      ? 'bg-blue-100 text-blue-900 rounded-tl-none'
+                      : 'bg-gray-100 text-gray-900 rounded-tr-none'
+                  }`}
+                >
+                  <p className="text-sm">{message.content}</p>
+                  {message.hasVoiceRecording && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs opacity-70">Audio message</span>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Avatar - only show on right side for user messages */}
+              {message.sender === 'user' && (
+                <Avatar className="h-8 w-8 flex-shrink-0">
+                  <AvatarImage src={userProfile?.avatar_url} alt={userProfile?.first_name || user?.email || 'User'} />
+                  <AvatarFallback className="bg-gray-500 text-white">
+                    <User size={16} />
+                  </AvatarFallback>
+                </Avatar>
+              )}
             </div>
           ))}
           <div ref={messagesEndRef} />
@@ -92,36 +199,47 @@ const ModalContent = ({
 
         {/* Current Question */}
         {currentQuestion && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-900 font-medium">
-              {currentQuestion}
-            </p>
+          <div className="flex w-full gap-3 justify-start">
+            <Avatar className="h-8 w-8 flex-shrink-0">
+              <AvatarImage src="/ember-ai-avatar.png" alt="Ember AI" />
+              <AvatarFallback className="bg-blue-500 text-white">
+                <Sparkles size={16} />
+              </AvatarFallback>
+            </Avatar>
+            
+            <div className="max-w-[75%]">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-medium text-blue-700">
+                  Ember AI
+                </span>
+                <span className="text-xs text-gray-400">
+                  now
+                </span>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg rounded-tl-none p-3">
+                <p className="text-sm text-blue-900 font-medium">
+                  {currentQuestion}
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Response Input */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">Your Response</span>
-            
-            {/* Microphone Selection */}
-            {availableMicrophones.length > 1 && (
-              <div className="flex items-center gap-2">
-                <Settings size={16} className="text-gray-500" />
-                <Select value={selectedMicrophone} onValueChange={setSelectedMicrophone}>
-                  <SelectTrigger className="w-40 h-8 text-xs">
-                    <SelectValue placeholder="Select microphone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableMicrophones.map((mic) => (
-                      <SelectItem key={mic.deviceId} value={mic.deviceId}>
-                        {mic.label || `Microphone ${mic.deviceId.slice(0, 8)}...`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Avatar className="h-6 w-6">
+                <AvatarImage src={userProfile?.avatar_url} alt={userProfile?.first_name || user?.email || 'User'} />
+                <AvatarFallback className="bg-gray-500 text-white text-xs">
+                  <User size={12} />
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium text-gray-700">
+                {userProfile?.first_name || user?.email?.split('@')[0] || 'Your'} Response
+              </span>
+            </div>
           </div>
 
           <Textarea
@@ -155,6 +273,16 @@ const ModalContent = ({
               )}
             </Button>
 
+            {/* Microphone Selection Combobox */}
+            {availableMicrophones.length > 1 && (
+              <MicrophoneCombobox 
+                microphones={availableMicrophones}
+                selectedMicrophone={selectedMicrophone}
+                onSelectMicrophone={setSelectedMicrophone}
+                disabled={isProcessing}
+              />
+            )}
+
             {hasRecording && (
               <Button
                 type="button"
@@ -177,7 +305,7 @@ const ModalContent = ({
               className="flex items-center gap-2"
             >
               <Send size={16} />
-              {isProcessing ? 'Sending...' : 'Send Response'}
+              {isProcessing ? (hasRecording ? 'Processing Audio...' : 'Sending...') : 'Send Response'}
             </Button>
           </div>
         </div>
@@ -187,7 +315,7 @@ const ModalContent = ({
 );
 
 export default function StoryModal({ isOpen, onClose, ember, question, onSubmit }) {
-  const { user } = useStore();
+  const { user, userProfile } = useStore();
   const isMobile = useMediaQuery('(max-width: 768px)');
   
   // State
@@ -336,31 +464,72 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
 
   const startRecording = async () => {
     try {
+      console.log('🎤 Starting recording...');
+      console.log('🎛️ Selected microphone:', selectedMicrophone);
+      
       // Use selected microphone or default audio constraints
       const audioConstraints = selectedMicrophone 
-        ? { deviceId: { exact: selectedMicrophone } }
-        : true;
+        ? { 
+            deviceId: { exact: selectedMicrophone },
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100,
+          }
+        : {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100,
+          };
+      
+      console.log('📋 Audio constraints:', audioConstraints);
         
       const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
-      const mediaRecorder = new MediaRecorder(stream);
+      console.log('✅ Microphone stream obtained');
+      console.log('📊 Stream settings:', stream.getAudioTracks()[0]?.getSettings());
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
+      console.log('🎬 MediaRecorder created');
+      console.log('📝 MIME type:', mediaRecorder.mimeType);
+      console.log('📈 State:', mediaRecorder.state);
+      
       mediaRecorderRef.current = mediaRecorder;
 
       const audioChunks = [];
       
       mediaRecorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
+        console.log('📦 Data available:', event.data.size, 'bytes');
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
       };
 
       mediaRecorder.onstop = () => {
+        console.log('⏹️ Recording stopped');
+        console.log('📊 Total chunks:', audioChunks.length);
+        
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        console.log('🎵 Audio blob created:', {
+          size: audioBlob.size,
+          type: audioBlob.type
+        });
+        
         setAudioBlob(audioBlob);
         setHasRecording(true);
         
         // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
+        console.log('✅ Recording processing complete');
+      };
+
+      mediaRecorder.onerror = (error) => {
+        console.error('❌ MediaRecorder error:', error);
       };
 
       mediaRecorder.start();
+      console.log('🔴 Recording started');
+      
       setIsRecording(true);
       setRecordingDuration(0);
 
@@ -370,8 +539,15 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
       }, 1000);
 
     } catch (error) {
-      console.error('Error starting recording:', error);
-      alert('Could not start recording. Please check microphone permissions.');
+      console.error('❌ Error starting recording:', error);
+      console.error('❌ Error details:', error.message);
+      if (error.name === 'NotAllowedError') {
+        alert('Microphone access denied. Please allow microphone permissions and try again.');
+      } else if (error.name === 'NotFoundError') {
+        alert('No microphone found. Please connect a microphone and try again.');
+      } else {
+        alert('Could not start recording. Please check microphone permissions.');
+      }
     }
   };
 
@@ -455,10 +631,51 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
       let audioDurationSeconds = null;
       let audioSizeBytes = null;
       let transcriptionText = currentAnswer.trim();
+      let sttTranscription = '';
+      let sttConfidence = 0;
 
-      // Handle audio upload if available
+      // Handle audio upload and speech-to-text if available
       if (hasRecording && audioBlob) {
         try {
+          // First, run speech-to-text on the recording
+          try {
+            // Check if API key is available
+            const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+            if (!apiKey) {
+              console.error('❌ VITE_ELEVENLABS_API_KEY not found in environment variables');
+              console.error('💡 Add VITE_ELEVENLABS_API_KEY=your_api_key to your .env file');
+              throw new Error('ElevenLabs API key not configured');
+            }
+            
+            console.log('🎤 Running speech-to-text via ElevenLabs...');
+            console.log('📄 Audio blob details:', {
+              size: audioBlob.size,
+              type: audioBlob.type
+            });
+            
+            sttTranscription = await speechToText(audioBlob);
+            sttConfidence = 1.0; // ElevenLabs doesn't return confidence, assume high
+            
+            console.log('✅ Speech-to-text completed successfully!');
+            console.log(`📝 Transcribed text: "${sttTranscription}"`);
+            console.log(`📊 Text length: ${sttTranscription.length} characters`);
+            
+            // Store for voice training data
+            if (sttTranscription && user?.id) {
+              console.log('💾 Storing voice training data...');
+              await storeVoiceTraining(audioBlob, sttTranscription, user.id);
+            }
+          } catch (sttError) {
+            console.error('❌ Speech-to-text error:', sttError);
+            console.error('❌ Error details:', sttError.message);
+            console.error('💡 Possible issues:');
+            console.error('   - API key not set or invalid');
+            console.error('   - Network connection issue');
+            console.error('   - Audio format not supported');
+            console.error('   - ElevenLabs service temporarily unavailable');
+            // Continue without STT if it fails
+          }
+
           // Convert WebM to WebM for now (in production, convert to MP3)
           const audioFile = new File([audioBlob], `story-${Date.now()}.webm`, { 
             type: 'audio/webm' 
@@ -471,12 +688,21 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
           audioSizeBytes = audioFile.size;
           audioDurationSeconds = recordingDuration;
 
-          // Use transcription if no text was provided
-          if (!transcriptionText) {
+          // Use STT transcription if available, otherwise use manual text or fallback
+          if (sttTranscription && sttTranscription.trim()) {
+            // If user typed text AND we have STT, combine them
+            if (transcriptionText && transcriptionText.trim()) {
+              transcriptionText = `${transcriptionText}\n\n[Voice transcription: ${sttTranscription}]`;
+            } else {
+              // Use STT as the primary text
+              transcriptionText = sttTranscription;
+            }
+          } else if (!transcriptionText || !transcriptionText.trim()) {
+            // Fallback if no text and no STT
             transcriptionText = '[Voice Response]';
           }
         } catch (error) {
-          console.error('Error uploading audio:', error);
+          console.error('Error processing audio:', error);
           // Continue without audio if upload fails
         }
       }
@@ -492,7 +718,8 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
         audioFilename,
         audioDurationSeconds,
         audioSizeBytes,
-        transcriptionStatus: hasRecording ? 'completed' : 'none'
+        transcriptionStatus: hasRecording ? (sttTranscription ? 'completed' : 'failed') : 'none',
+        transcriptionConfidence: hasRecording ? sttConfidence : null
       });
 
       // Add user's response to UI
@@ -602,6 +829,9 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
               messagesEndRef={messagesEndRef}
               onClose={onClose}
               isLoading={isLoading}
+              ember={ember}
+              user={user}
+              userProfile={userProfile}
             />
           </div>
         </DrawerContent>
@@ -642,6 +872,9 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
           messagesEndRef={messagesEndRef}
           onClose={onClose}
           isLoading={isLoading}
+          ember={ember}
+          user={user}
+          userProfile={userProfile}
         />
         <audio ref={audioRef} style={{ display: 'none' }} />
       </DialogContent>

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import useStore from '../../store';
 import { supabase } from '../../lib/supabase';
 import { 
@@ -9,12 +10,15 @@ import {
   addStoryMessage, 
   getStoryConversationWithMessages 
 } from '../../lib/database';
+import { speechToText } from '../../lib/elevenlabs';
 
 export default function Test() {
   const { user } = useStore();
   const [activeSection, setActiveSection] = useState('threaded');
   const [expandedQuestions, setExpandedQuestions] = useState(new Set([1, 5]));
   const [testResults, setTestResults] = useState([]);
+  const [availableMicrophones, setAvailableMicrophones] = useState([]);
+  const [selectedMicrophone, setSelectedMicrophone] = useState(null);
 
   const toggleQuestion = (id) => {
     const newExpanded = new Set(expandedQuestions);
@@ -25,6 +29,29 @@ export default function Test() {
     }
     setExpandedQuestions(newExpanded);
   };
+
+  const getAvailableMicrophones = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const microphones = devices.filter(device => device.kind === 'audioinput');
+      setAvailableMicrophones(microphones);
+      
+      // Set first microphone as default if none selected
+      if (microphones.length > 0 && !selectedMicrophone) {
+        setSelectedMicrophone(microphones[0].deviceId);
+      }
+      
+      return microphones;
+    } catch (error) {
+      console.error('Error getting microphones:', error);
+      return [];
+    }
+  };
+
+  // Load microphones on component mount
+  useEffect(() => {
+    getAvailableMicrophones();
+  }, []);
 
   const testStoryConversations = async () => {
     if (!user) {
@@ -573,6 +600,40 @@ export default function Test() {
       {/* Story Conversations Test */}
       <div className="max-w-4xl mx-auto mt-12">
         <h2 className="text-xl font-semibold mb-4">Story Conversations Test</h2>
+        
+        {/* Microphone Selection */}
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+          <h3 className="font-semibold mb-2 text-gray-700">🎤 Microphone Selection</h3>
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium text-gray-600">Select Microphone:</label>
+            <Select 
+              value={selectedMicrophone || ''} 
+              onValueChange={(value) => setSelectedMicrophone(value)}
+            >
+              <SelectTrigger className="w-80">
+                <SelectValue placeholder="Choose microphone..." />
+              </SelectTrigger>
+              <SelectContent>
+                {availableMicrophones.map((mic) => (
+                  <SelectItem key={mic.deviceId} value={mic.deviceId}>
+                    {mic.label || `Microphone ${mic.deviceId.slice(0, 8)}...`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button
+              onClick={getAvailableMicrophones}
+              className="px-3 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
+            >
+              Refresh
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            {availableMicrophones.length} microphone(s) detected. 
+            {!selectedMicrophone && availableMicrophones.length > 0 && " Please select one for testing."}
+          </p>
+        </div>
+        
         <div className="flex gap-4 mb-4">
           <button
             onClick={testStoryConversations}
@@ -608,6 +669,149 @@ export default function Test() {
           >
             Check Migration Method
           </button>
+          <button
+            onClick={async () => {
+              setTestResults(prev => [...prev, '🎤 Testing ElevenLabs integration...']);
+              
+              // Check if API key is configured
+              const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+              if (!apiKey) {
+                setTestResults(prev => [...prev, '❌ VITE_ELEVENLABS_API_KEY environment variable not set']);
+                setTestResults(prev => [...prev, '💡 Add VITE_ELEVENLABS_API_KEY=your_api_key to your .env file']);
+                setTestResults(prev => [...prev, '💡 Create a .env file in your project root with:']);
+                setTestResults(prev => [...prev, '   VITE_ELEVENLABS_API_KEY=sk_your_actual_api_key_here']);
+                return;
+              }
+              
+              setTestResults(prev => [...prev, '✅ ElevenLabs API key is configured']);
+              setTestResults(prev => [...prev, `🔑 API key preview: ${apiKey.substring(0, 10)}...`]);
+              
+              // Test basic API connectivity
+              try {
+                setTestResults(prev => [...prev, '🌐 Testing ElevenLabs API connectivity...']);
+                
+                const response = await fetch('https://api.elevenlabs.io/v1/voices', {
+                  headers: {
+                    'xi-api-key': apiKey,
+                  },
+                });
+                
+                if (response.ok) {
+                  setTestResults(prev => [...prev, '✅ ElevenLabs API is accessible']);
+                  setTestResults(prev => [...prev, '💡 To test speech-to-text, record audio in the Story Modal']);
+                } else {
+                  const errorText = await response.text();
+                  setTestResults(prev => [...prev, `❌ API error: ${response.status} ${response.statusText}`]);
+                  setTestResults(prev => [...prev, `❌ Error details: ${errorText}`]);
+                }
+              } catch (error) {
+                setTestResults(prev => [...prev, `❌ Network error: ${error.message}`]);
+                setTestResults(prev => [...prev, '💡 Check your internet connection and API key']);
+              }
+            }}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          >
+            Test ElevenLabs Setup
+          </button>
+          <button
+            onClick={async () => {
+              setTestResults(prev => [...prev, '🎙️ Testing microphone recording...']);
+              
+              // Check if microphone is selected
+              if (!selectedMicrophone) {
+                setTestResults(prev => [...prev, '❌ Please select a microphone first']);
+                return;
+              }
+              
+              // Check if API key is configured
+              const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+              if (!apiKey) {
+                setTestResults(prev => [...prev, '❌ VITE_ELEVENLABS_API_KEY not configured']);
+                return;
+              }
+
+              try {
+                // Test microphone access
+                setTestResults(prev => [...prev, '🎤 Requesting microphone access...']);
+                setTestResults(prev => [...prev, `🎛️ Using microphone: ${selectedMicrophone ? availableMicrophones.find(m => m.deviceId === selectedMicrophone)?.label || 'Selected mic' : 'Default'}`]);
+                
+                const audioConstraints = {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  sampleRate: 44100,
+                };
+                
+                if (selectedMicrophone) {
+                  audioConstraints.deviceId = { exact: selectedMicrophone };
+                }
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                  audio: audioConstraints
+                });
+                
+                setTestResults(prev => [...prev, '✅ Microphone access granted']);
+                setTestResults(prev => [...prev, `📊 Stream track settings: ${JSON.stringify(stream.getAudioTracks()[0]?.getSettings())}`]);
+                
+                // Test MediaRecorder
+                const mediaRecorder = new MediaRecorder(stream, {
+                  mimeType: 'audio/webm;codecs=opus'
+                });
+                
+                setTestResults(prev => [...prev, `✅ MediaRecorder created with mimeType: ${mediaRecorder.mimeType}`]);
+                
+                const audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                  if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                  }
+                };
+                
+                mediaRecorder.onstop = async () => {
+                  try {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    setTestResults(prev => [...prev, `✅ Recording completed: ${audioBlob.size} bytes`]);
+                    
+                    // Test the speech-to-text function with real audio
+                    setTestResults(prev => [...prev, '🌐 Testing speech-to-text with recorded audio...']);
+                    
+                    const result = await speechToText(audioBlob);
+                    
+                    if (result && result.trim()) {
+                      setTestResults(prev => [...prev, `✅ Speech-to-text successful!`]);
+                      setTestResults(prev => [...prev, `📝 Transcribed: "${result}"`]);
+                    } else {
+                      setTestResults(prev => [...prev, `⚠️ Speech-to-text returned empty (no speech detected or very quiet)`]);
+                    }
+                    
+                  } catch (error) {
+                    setTestResults(prev => [...prev, `❌ Speech-to-text error: ${error.message}`]);
+                  } finally {
+                    // Clean up
+                    stream.getTracks().forEach(track => track.stop());
+                  }
+                };
+                
+                // Record for 3 seconds
+                mediaRecorder.start();
+                setTestResults(prev => [...prev, '🔴 Recording for 3 seconds... Please say something!']);
+                
+                setTimeout(() => {
+                  mediaRecorder.stop();
+                  setTestResults(prev => [...prev, '⏹️ Recording stopped, processing...']);
+                }, 3000);
+                
+              } catch (error) {
+                setTestResults(prev => [...prev, `❌ Recording test failed: ${error.message}`]);
+                if (error.name === 'NotAllowedError') {
+                  setTestResults(prev => [...prev, '💡 Please allow microphone access and try again']);
+                }
+              }
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Test Recording + STT
+          </button>
         </div>
         
         {testResults.length > 0 && (
@@ -620,6 +824,28 @@ export default function Test() {
             ))}
           </div>
         )}
+
+        <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <h3 className="font-semibold mb-2 text-blue-900">📝 Setup Notes:</h3>
+          <div className="text-sm text-blue-800 space-y-2">
+            <p><strong>Environment Variables Needed:</strong></p>
+            <ul className="list-disc ml-4 space-y-1">
+              <li><code>VITE_SUPABASE_URL</code> - Your Supabase project URL</li>
+              <li><code>VITE_SUPABASE_ANON_KEY</code> - Your Supabase anonymous key</li>
+              <li><code>BLOB_READ_WRITE_TOKEN</code> - Vercel Blob storage token</li>
+              <li><code>VITE_ELEVENLABS_API_KEY</code> - ElevenLabs API key for speech-to-text</li>
+            </ul>
+            <p className="mt-3"><strong>Story Q&A Feature Testing:</strong></p>
+            <ul className="list-disc ml-4 space-y-1">
+              <li>Select your preferred microphone from the dropdown above</li>
+              <li>Use "Test Recording + STT" to verify your microphone and transcription</li>
+              <li>When you record audio, it's automatically transcribed via ElevenLabs</li>
+              <li>Original audio files are preserved for future voice cloning</li>
+              <li>Both text and audio are saved to the database</li>
+              <li>Conversations are persistent and can be resumed</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </motion.div>
   );

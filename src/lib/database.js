@@ -497,7 +497,8 @@ export const addStoryMessage = async (messageData) => {
         audio_filename: messageData.audioFilename || null,
         audio_duration_seconds: messageData.audioDurationSeconds || null,
         audio_size_bytes: messageData.audioSizeBytes || null,
-        transcription_status: messageData.transcriptionStatus || 'none'
+        transcription_status: messageData.transcriptionStatus || 'none',
+        transcription_confidence: messageData.transcriptionConfidence || null
       }])
       .select()
       .single();
