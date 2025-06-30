@@ -112,6 +112,14 @@ export default function Header() {
                   Dev
                 </Link>
               )}
+              {isAdmin && (
+                <Link 
+                  to="/eleven" 
+                  className={getLinkClasses("/eleven")}
+                >
+                  ElevenLabs
+                </Link>
+              )}
             </div>
             
             <div className="flex items-center gap-4">
@@ -240,6 +248,15 @@ export default function Header() {
                     onClick={handleMobileLinkClick}
                   >
                     Dev
+                  </Link>
+                )}
+                {isAdmin && (
+                  <Link 
+                    to="/eleven" 
+                    className={getMobileLinkClasses("/eleven")}
+                    onClick={handleMobileLinkClick}
+                  >
+                    ElevenLabs
                   </Link>
                 )}
                 

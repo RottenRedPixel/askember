@@ -7,6 +7,7 @@ import Create from './components/pages/Create';
 import MyEmbers from './components/pages/MyEmbers';
 import EmberDetail from './components/pages/EmberDetail';
 import Test from './components/pages/Test';
+import ElevenLabsTest from './components/pages/ElevenLabsTest';
 import Sandbox from './components/pages/Sandbox';
 import Settings from './components/pages/Settings';
 import AdminDashboard from './components/pages/AdminDashboard';
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/" element={<About />} />
             <Route path="/create" element={<Create />} />
             <Route path="/test" element={<Test />} />
+            <Route path="/eleven" element={<ElevenLabsTest />} />
             <Route path="/sandbox" element={<Sandbox />} />
             <Route path="/login" element={<AuthPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
