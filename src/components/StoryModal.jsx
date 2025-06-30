@@ -462,24 +462,61 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
     }
   };
 
+  // Helper function to detect mobile devices
+  const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
+
+  // Helper function to get supported audio MIME type
+  const getSupportedMimeType = () => {
+    const types = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/wav',
+      'audio/ogg;codecs=opus',
+      'audio/ogg'
+    ];
+
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        console.log('📝 Using supported MIME type:', type);
+        return type;
+      }
+    }
+    
+    console.warn('⚠️ No supported audio MIME types found, using default');
+    return 'audio/webm'; // Fallback
+  };
+
   const startRecording = async () => {
     try {
       console.log('🎤 Starting recording...');
+      console.log('📱 Mobile device:', isMobileDevice());
       console.log('🎛️ Selected microphone:', selectedMicrophone);
       
-      // Use selected microphone or default audio constraints
+      // Mobile-optimized audio constraints
+      const baseConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+
+      // Add mobile-specific optimizations
+      if (isMobileDevice()) {
+        // Use lower sample rate for mobile to reduce file size and improve compatibility
+        baseConstraints.sampleRate = 16000; // Lower for mobile networks
+        baseConstraints.channelCount = 1; // Mono for smaller files
+      } else {
+        baseConstraints.sampleRate = 44100;
+      }
+
       const audioConstraints = selectedMicrophone 
         ? { 
             deviceId: { exact: selectedMicrophone },
-            echoCancellation: true,
-            noiseSuppression: true,
-            sampleRate: 44100,
+            ...baseConstraints
           }
-        : {
-            echoCancellation: true,
-            noiseSuppression: true,
-            sampleRate: 44100,
-          };
+        : baseConstraints;
       
       console.log('📋 Audio constraints:', audioConstraints);
         
@@ -487,8 +524,11 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
       console.log('✅ Microphone stream obtained');
       console.log('📊 Stream settings:', stream.getAudioTracks()[0]?.getSettings());
       
+      // Get the best supported MIME type for this device
+      const mimeType = getSupportedMimeType();
+      
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
+        mimeType: mimeType
       });
       console.log('🎬 MediaRecorder created');
       console.log('📝 MIME type:', mediaRecorder.mimeType);
@@ -509,11 +549,18 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
         console.log('⏹️ Recording stopped');
         console.log('📊 Total chunks:', audioChunks.length);
         
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        // Use the same MIME type that was used for recording
+        const audioBlob = new Blob(audioChunks, { type: mimeType });
         console.log('🎵 Audio blob created:', {
           size: audioBlob.size,
-          type: audioBlob.type
+          type: audioBlob.type,
+          sizeMB: (audioBlob.size / 1024 / 1024).toFixed(2)
         });
+        
+        // Check file size for mobile optimization
+        if (isMobileDevice() && audioBlob.size > 5 * 1024 * 1024) { // 5MB limit for mobile
+          console.warn('⚠️ Large audio file detected on mobile:', audioBlob.size, 'bytes');
+        }
         
         setAudioBlob(audioBlob);
         setHasRecording(true);
@@ -541,12 +588,25 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
     } catch (error) {
       console.error('❌ Error starting recording:', error);
       console.error('❌ Error details:', error.message);
+      
+      // Mobile-specific error handling
       if (error.name === 'NotAllowedError') {
-        alert('Microphone access denied. Please allow microphone permissions and try again.');
+        const message = isMobileDevice() 
+          ? 'Microphone access denied. On mobile, please:\n1. Refresh the page\n2. Allow microphone when prompted\n3. Check your browser settings'
+          : 'Microphone access denied. Please allow microphone permissions and try again.';
+        alert(message);
       } else if (error.name === 'NotFoundError') {
-        alert('No microphone found. Please connect a microphone and try again.');
+        const message = isMobileDevice()
+          ? 'No microphone found. Please check that your device has a microphone and try again.'
+          : 'No microphone found. Please connect a microphone and try again.';
+        alert(message);
+      } else if (error.name === 'NotSupportedError') {
+        alert('Audio recording is not supported on this device or browser. Please try using a different browser.');
       } else {
-        alert('Could not start recording. Please check microphone permissions.');
+        const message = isMobileDevice()
+          ? 'Could not start recording. Please ensure you\'re using HTTPS and a supported mobile browser (Chrome, Safari, Firefox).'
+          : 'Could not start recording. Please check microphone permissions.';
+        alert(message);
       }
     }
   };
@@ -650,8 +710,14 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
             console.log('🎤 Running speech-to-text via ElevenLabs...');
             console.log('📄 Audio blob details:', {
               size: audioBlob.size,
-              type: audioBlob.type
+              type: audioBlob.type,
+              mobile: isMobileDevice()
             });
+            
+            // Note about mobile format compatibility with ElevenLabs
+            if (isMobileDevice() && !audioBlob.type.includes('webm')) {
+              console.warn('⚠️ Mobile audio format detected:', audioBlob.type, '- ElevenLabs prefers WebM but should handle this format');
+            }
             
             sttTranscription = await speechToText(audioBlob);
             sttConfidence = 1.0; // ElevenLabs doesn't return confidence, assume high
@@ -676,9 +742,25 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
             // Continue without STT if it fails
           }
 
-          // Convert WebM to WebM for now (in production, convert to MP3)
-          const audioFile = new File([audioBlob], `story-${Date.now()}.webm`, { 
-            type: 'audio/webm' 
+          // Create audio file with proper extension based on recorded format
+          const getFileExtension = (mimeType) => {
+            if (mimeType.includes('webm')) return 'webm';
+            if (mimeType.includes('mp4')) return 'm4a';
+            if (mimeType.includes('ogg')) return 'ogg';
+            if (mimeType.includes('wav')) return 'wav';
+            return 'webm'; // fallback
+          };
+
+          const extension = getFileExtension(audioBlob.type);
+          const audioFile = new File([audioBlob], `story-${Date.now()}.${extension}`, { 
+            type: audioBlob.type 
+          });
+          
+          console.log('📁 Audio file created:', {
+            name: audioFile.name,
+            type: audioFile.type,
+            size: audioFile.size,
+            mobile: isMobileDevice()
           });
 
           // Upload to blob storage

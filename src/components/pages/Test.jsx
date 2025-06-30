@@ -20,6 +20,11 @@ export default function Test() {
   const [availableMicrophones, setAvailableMicrophones] = useState([]);
   const [selectedMicrophone, setSelectedMicrophone] = useState(null);
 
+  // Helper function to detect mobile devices
+  const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
+
   const toggleQuestion = (id) => {
     const newExpanded = new Set(expandedQuestions);
     if (newExpanded.has(id)) {
@@ -844,6 +849,27 @@ export default function Test() {
               <li>Both text and audio are saved to the database</li>
               <li>Conversations are persistent and can be resumed</li>
             </ul>
+            
+            {isMobileDevice() ? (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm font-medium text-blue-800 mb-2">📱 Mobile Device Detected:</p>
+                <ul className="text-sm text-blue-700 space-y-1 list-disc ml-4">
+                  <li>Using optimized settings for mobile recording</li>
+                  <li>Audio format: {navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome') ? 'MP4 (iOS Safari)' : 'WebM or MP4'}</li>
+                  <li>Quality: 16kHz mono for better network performance</li>
+                  <li>Make sure to allow microphone access when prompted</li>
+                </ul>
+              </div>
+            ) : (
+              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm font-medium text-green-800 mb-2">💻 Desktop Device Detected:</p>
+                <ul className="text-sm text-green-700 space-y-1 list-disc ml-4">
+                  <li>Using high-quality settings for desktop recording</li>
+                  <li>Audio format: WebM with Opus codec (preferred)</li>
+                  <li>Quality: 44.1kHz stereo for best quality</li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </div>
