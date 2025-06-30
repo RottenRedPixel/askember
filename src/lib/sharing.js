@@ -24,11 +24,11 @@ export async function getEmberWithSharing(emberId) {
     // Separate owner and shared users
     const owner = participants?.find(p => p.is_owner) || null;
     const shares = participants?.filter(p => !p.is_owner).map(p => ({
-      id: p.id,
+      id: p.share_id, // Use share_id (ember_shares.id) instead of user profile id
       shared_with_email: p.email,
       permission_level: p.role,
       shared_user: {
-        id: p.id,
+        id: p.id, // Keep user profile id here for user info
         user_id: p.user_id,
         first_name: p.first_name,
         last_name: p.last_name,
