@@ -583,6 +583,12 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
         setAudioBlob(audioBlob);
         setHasRecording(true);
         
+        console.log('📋 Setting audio blob state:', {
+          blobSet: true,
+          hasRecordingSet: true,
+          blobSize: audioBlob.size
+        });
+        
         // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
         console.log('✅ Recording processing complete');
@@ -642,12 +648,23 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
   };
 
   const playRecording = async () => {
+    console.log('🎵 playRecording called', {
+      hasAudioBlob: !!audioBlob,
+      audioBlobSize: audioBlob?.size,
+      hasAudioRef: !!audioRef.current,
+      isPlaying,
+      hasRecording
+    });
+    
     if (audioBlob && audioRef.current) {
       try {
         if (isPlaying) {
+          console.log('⏸️ Pausing audio');
           audioRef.current.pause();
           setIsPlaying(false);
         } else {
+          console.log('▶️ Starting audio playback');
+          
           // Clean up any existing object URL
           if (audioRef.current.src && audioRef.current.src.startsWith('blob:')) {
             URL.revokeObjectURL(audioRef.current.src);
@@ -655,9 +672,11 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
           
           // Set up new audio source
           audioRef.current.src = URL.createObjectURL(audioBlob);
+          console.log('🎵 Audio source set:', audioRef.current.src);
           
           // Set up event handlers before playing
           audioRef.current.onended = () => {
+            console.log('🏁 Audio playback ended');
             setIsPlaying(false);
           };
           
@@ -671,7 +690,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
           await audioRef.current.play();
           setIsPlaying(true);
           
-          console.log('🔊 Playing recorded audio');
+          console.log('🔊 Playing recorded audio successfully');
         }
       } catch (error) {
         console.error('❌ Error playing audio:', error);
@@ -687,7 +706,12 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
         }
       }
     } else {
-      console.warn('⚠️ No audio blob or audio element available');
+      console.warn('⚠️ No audio blob or audio element available', {
+        hasAudioBlob: !!audioBlob,
+        audioBlobSize: audioBlob?.size,
+        hasAudioRef: !!audioRef.current,
+        audioRefCurrent: audioRef.current
+      });
       alert('No recording available to play.');
     }
   };
@@ -967,6 +991,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
               user={user}
               userProfile={userProfile}
             />
+            <audio ref={audioRef} style={{ display: 'none' }} />
           </div>
         </DrawerContent>
       </Drawer>
