@@ -251,58 +251,59 @@ const ModalContent = ({
           />
 
           {/* Recording Controls */}
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant={isRecording ? "destructive" : "outline"}
-              size="sm"
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={isProcessing}
-              className="flex items-center gap-2"
-            >
-              {isRecording ? (
-                <>
-                  <MicOff size={16} />
-                  Stop ({recordingDuration}s)
-                </>
-              ) : (
-                <>
-                  <Mic size={16} />
-                  Record
-                </>
-              )}
-            </Button>
-
-            {/* Microphone Selection Combobox */}
-            {availableMicrophones.length > 1 && (
-              <MicrophoneCombobox 
-                microphones={availableMicrophones}
-                selectedMicrophone={selectedMicrophone}
-                onSelectMicrophone={setSelectedMicrophone}
-                disabled={isProcessing}
-              />
-            )}
-
-            {hasRecording && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
               <Button
                 type="button"
-                variant="outline"
+                variant={isRecording ? "destructive" : "outline"}
                 size="sm"
-                onClick={playRecording}
+                onClick={isRecording ? stopRecording : startRecording}
                 disabled={isProcessing}
                 className="flex items-center gap-2"
               >
-                {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-                {isPlaying ? 'Pause' : 'Play'}
+                {isRecording ? (
+                  <>
+                    <MicOff size={16} />
+                    Stop ({recordingDuration}s)
+                  </>
+                ) : (
+                  <>
+                    <Mic size={16} />
+                    Record
+                  </>
+                )}
               </Button>
-            )}
 
-            <div className="flex-1" />
+              {/* Microphone Selection Combobox */}
+              {availableMicrophones.length > 1 && (
+                <MicrophoneCombobox 
+                  microphones={availableMicrophones}
+                  selectedMicrophone={selectedMicrophone}
+                  onSelectMicrophone={setSelectedMicrophone}
+                  disabled={isProcessing}
+                />
+              )}
 
+              {hasRecording && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={playRecording}
+                  disabled={isProcessing || isPlaying}
+                  className="flex items-center gap-2"
+                >
+                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                  {isPlaying ? 'Pause' : 'Play'}
+                </Button>
+              )}
+            </div>
+            
+            {/* Submit Response Button - Full Width */}
             <Button
               onClick={handleSubmit}
               disabled={(!currentAnswer.trim() && !hasRecording) || isProcessing}
-              className="flex items-center gap-2"
+              className="w-full flex items-center justify-center gap-2"
             >
               <Send size={16} />
               {isProcessing ? (hasRecording ? 'Processing Audio...' : 'Sending...') : 'Submit Response'}
@@ -640,20 +641,54 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
     }
   };
 
-  const playRecording = () => {
+  const playRecording = async () => {
     if (audioBlob && audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        audioRef.current.src = URL.createObjectURL(audioBlob);
-        audioRef.current.play();
-        setIsPlaying(true);
-        
-        audioRef.current.onended = () => {
+      try {
+        if (isPlaying) {
+          audioRef.current.pause();
           setIsPlaying(false);
-        };
+        } else {
+          // Clean up any existing object URL
+          if (audioRef.current.src && audioRef.current.src.startsWith('blob:')) {
+            URL.revokeObjectURL(audioRef.current.src);
+          }
+          
+          // Set up new audio source
+          audioRef.current.src = URL.createObjectURL(audioBlob);
+          
+          // Set up event handlers before playing
+          audioRef.current.onended = () => {
+            setIsPlaying(false);
+          };
+          
+          audioRef.current.onerror = (e) => {
+            console.error('Audio playback error:', e);
+            setIsPlaying(false);
+            alert('Could not play audio recording. Please try recording again.');
+          };
+          
+          // Play audio (returns a Promise)
+          await audioRef.current.play();
+          setIsPlaying(true);
+          
+          console.log('🔊 Playing recorded audio');
+        }
+      } catch (error) {
+        console.error('❌ Error playing audio:', error);
+        setIsPlaying(false);
+        
+        // Handle specific play() errors
+        if (error.name === 'NotSupportedError') {
+          alert('Audio format not supported for playback on this device.');
+        } else if (error.name === 'NotAllowedError') {
+          alert('Audio playback not allowed. Please check your browser settings.');
+        } else {
+          alert('Could not play audio. Please try again.');
+        }
       }
+    } else {
+      console.warn('⚠️ No audio blob or audio element available');
+      alert('No recording available to play.');
     }
   };
 
