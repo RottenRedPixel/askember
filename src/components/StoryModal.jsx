@@ -305,7 +305,7 @@ const ModalContent = ({
               className="flex items-center gap-2"
             >
               <Send size={16} />
-              {isProcessing ? (hasRecording ? 'Processing Audio...' : 'Sending...') : 'Send Response'}
+              {isProcessing ? (hasRecording ? 'Processing Audio...' : 'Sending...') : 'Submit Response'}
             </Button>
           </div>
         </div>
