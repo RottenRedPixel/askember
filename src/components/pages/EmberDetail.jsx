@@ -15,7 +15,7 @@ import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix, FilmSlate, ChatCircle, ImageSquare } from 'phosphor-react';
+import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix, FilmSlate, ChatCircle, ImageSquare, House } from 'phosphor-react';
 
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
@@ -464,30 +464,40 @@ export default function EmberDetail() {
           <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[65vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-auto overflow-hidden">
             {/* Top right vertical capsule: Owner Avatar and Invited Users */}
             <div className="absolute top-4 right-4 z-30 flex flex-col items-center bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
-              {/* Owner Avatar - clickable to go to My Embers */}
+              {/* Home Icon - clickable to go to My Embers */}
               <button
                 className="rounded-full p-1 hover:bg-white/70 transition-colors"
                 onClick={() => navigate('/embers')}
                 aria-label="Go to My Embers"
                 type="button"
               >
-                {ember?.owner ? (
-                  <Avatar className="h-6 w-6">
+                <House size={24} className="text-gray-700" />
+              </button>
+              
+              {/* Horizontal divider below home icon */}
+              <div className="h-px w-6 bg-gray-300 my-2"></div>
+              
+              {/* Owner Avatar - Always at the top of the stack */}
+              {ember?.owner && (
+                <div 
+                  className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                  style={{ 
+                    marginTop: '0px',
+                    zIndex: 35 // Highest z-index to appear on top
+                  }}
+                  title={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
+                >
+                  <Avatar className="h-6 w-6 ring-2 ring-amber-400">
                     <AvatarImage 
                       src={ember.owner.avatar_url} 
                       alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'} 
                     />
-                    <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
-                      {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || '?'}
+                    <AvatarFallback className="text-xs bg-amber-100 text-amber-700">
+                      {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || 'O'}
                     </AvatarFallback>
                   </Avatar>
-                ) : (
-                  <Smiley size={24} className="text-gray-700" />
-                )}
-              </button>
-              
-              {/* Horizontal divider below owner avatar */}
-              <div className="h-px w-6 bg-gray-300 my-2"></div>
+                </div>
+              )}
               
               {/* Invited Users Avatars - Stacked with 16px overlap */}
               {sharedUsers.map((sharedUser, index) => (
@@ -495,8 +505,8 @@ export default function EmberDetail() {
                   key={sharedUser.id || index}
                   className="p-1 hover:bg-white/70 rounded-full transition-colors"
                   style={{ 
-                    marginTop: index === 0 ? '0px' : '-16px',
-                    zIndex: 30 - index // Higher z-index for avatars that come first
+                    marginTop: ember?.owner ? '-16px' : (index === 0 ? '0px' : '-16px'),
+                    zIndex: ember?.owner ? (34 - index) : (30 - index) // Adjust z-index if owner is present
                   }}
                   title={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
                 >
