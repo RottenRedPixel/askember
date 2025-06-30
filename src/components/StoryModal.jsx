@@ -405,6 +405,8 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
 
   // Check if current user is ember owner
   const isEmberOwner = ember?.user_id === user?.id;
+  
+
 
   // Cleanup on unmount
   useEffect(() => {
@@ -1147,10 +1149,131 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   // Responsive render: Drawer on mobile, Dialog on desktop
   if (isMobile) {
     return (
-      <Drawer open={isOpen} onOpenChange={onClose}>
-        <DrawerContent className="bg-white focus:outline-none">
-          <DrawerHeader className="bg-white">
-            <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+      <>
+        <Drawer open={isOpen} onOpenChange={onClose}>
+          <DrawerContent className="bg-white focus:outline-none">
+            <DrawerHeader className="bg-white">
+              <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+                <BookOpen size={20} className="text-blue-600" />
+                The Story
+                {onRefresh && (
+                  <button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                    title="Refresh story data"
+                  >
+                    <ArrowClockwise 
+                      size={16} 
+                      className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
+                    />
+                  </button>
+                )}
+                {isEmberOwner && (
+                  <button
+                    onClick={() => setShowClearConfirm(true)}
+                    className="p-1 hover:bg-red-50 rounded transition-colors text-red-600 hover:text-red-700"
+                    title="Clear all stories (Owner only)"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </DrawerTitle>
+              <DrawerDescription className="text-left text-gray-600">
+                Share the story behind this moment
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
+              <ModalContent 
+                messages={messages}
+                currentAnswer={currentAnswer}
+                setCurrentAnswer={setCurrentAnswer}
+                currentQuestion={currentQuestion}
+                isRecording={isRecording}
+                startRecording={startRecording}
+                stopRecording={stopRecording}
+                isProcessing={isProcessing}
+                handleSubmit={handleSubmit}
+                recordingDuration={recordingDuration}
+                hasRecording={hasRecording}
+                playRecording={playRecording}
+                isPlaying={isPlaying}
+                availableMicrophones={availableMicrophones}
+                selectedMicrophone={selectedMicrophone}
+                setSelectedMicrophone={setSelectedMicrophone}
+                messagesEndRef={messagesEndRef}
+                onClose={onClose}
+                isLoading={isLoading}
+                ember={ember}
+                user={user}
+                userProfile={userProfile}
+                isEmberOwner={isEmberOwner}
+                onDeleteMessage={handleDeleteMessage}
+              />
+              <audio ref={audioRef} style={{ display: 'none' }} />
+            </div>
+          </DrawerContent>
+        </Drawer>
+
+        {/* Clear Stories Confirmation Dialog - Mobile version moved outside drawer */}
+        <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+          <DialogContent className="max-w-md bg-white focus:outline-none">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <Trash2 size={20} />
+                Clear All Stories
+              </DialogTitle>
+              <DialogDescription className="text-gray-600">
+                Are you sure you want to clear all story conversations and messages for this ember? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-3 mt-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-sm text-yellow-800">
+                  <strong>Warning:</strong> This will permanently delete all story responses from all users who have contributed to this ember's story.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowClearConfirm(false)}
+                  disabled={isClearing}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleClearAllStories}
+                  disabled={isClearing}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {isClearing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Clearing...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={16} className="mr-2" />
+                      Clear All Stories
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  // Desktop Dialog
+  return (
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-lg max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-lg rounded-2xl focus:outline-none">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
               <BookOpen size={20} className="text-blue-600" />
               The Story
               {onRefresh && (
@@ -1175,110 +1298,42 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
                   <Trash2 size={16} />
                 </button>
               )}
-            </DrawerTitle>
-            <DrawerDescription className="text-left text-gray-600">
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
               Share the story behind this moment
-            </DrawerDescription>
-          </DrawerHeader>
-          <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
-            <ModalContent 
-              messages={messages}
-              currentAnswer={currentAnswer}
-              setCurrentAnswer={setCurrentAnswer}
-              currentQuestion={currentQuestion}
-              isRecording={isRecording}
-              startRecording={startRecording}
-              stopRecording={stopRecording}
-              isProcessing={isProcessing}
-              handleSubmit={handleSubmit}
-              recordingDuration={recordingDuration}
-              hasRecording={hasRecording}
-              playRecording={playRecording}
-              isPlaying={isPlaying}
-              availableMicrophones={availableMicrophones}
-              selectedMicrophone={selectedMicrophone}
-              setSelectedMicrophone={setSelectedMicrophone}
-              messagesEndRef={messagesEndRef}
-              onClose={onClose}
-              isLoading={isLoading}
-              ember={ember}
-              user={user}
-              userProfile={userProfile}
-              isEmberOwner={isEmberOwner}
-              onDeleteMessage={handleDeleteMessage}
-            />
-            <audio ref={audioRef} style={{ display: 'none' }} />
-          </div>
-        </DrawerContent>
-      </Drawer>
-    );
-  }
+            </DialogDescription>
+          </DialogHeader>
+          <ModalContent 
+            messages={messages}
+            currentAnswer={currentAnswer}
+            setCurrentAnswer={setCurrentAnswer}
+            currentQuestion={currentQuestion}
+            isRecording={isRecording}
+            startRecording={startRecording}
+            stopRecording={stopRecording}
+            isProcessing={isProcessing}
+            handleSubmit={handleSubmit}
+            recordingDuration={recordingDuration}
+            hasRecording={hasRecording}
+            playRecording={playRecording}
+            isPlaying={isPlaying}
+            availableMicrophones={availableMicrophones}
+            selectedMicrophone={selectedMicrophone}
+            setSelectedMicrophone={setSelectedMicrophone}
+            messagesEndRef={messagesEndRef}
+            onClose={onClose}
+            isLoading={isLoading}
+            ember={ember}
+            user={user}
+            userProfile={userProfile}
+            isEmberOwner={isEmberOwner}
+            onDeleteMessage={handleDeleteMessage}
+          />
+          <audio ref={audioRef} style={{ display: 'none' }} />
+        </DialogContent>
+      </Dialog>
 
-  // Desktop Dialog
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-lg max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-lg rounded-2xl focus:outline-none">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-            <BookOpen size={20} className="text-blue-600" />
-            The Story
-            {onRefresh && (
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-                title="Refresh story data"
-              >
-                <ArrowClockwise 
-                  size={16} 
-                  className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
-                />
-              </button>
-            )}
-            {isEmberOwner && (
-              <button
-                onClick={() => setShowClearConfirm(true)}
-                className="p-1 hover:bg-red-50 rounded transition-colors text-red-600 hover:text-red-700"
-                title="Clear all stories (Owner only)"
-              >
-                <Trash2 size={16} />
-              </button>
-            )}
-          </DialogTitle>
-          <DialogDescription className="text-gray-600">
-            Share the story behind this moment
-          </DialogDescription>
-        </DialogHeader>
-        <ModalContent 
-          messages={messages}
-          currentAnswer={currentAnswer}
-          setCurrentAnswer={setCurrentAnswer}
-          currentQuestion={currentQuestion}
-          isRecording={isRecording}
-          startRecording={startRecording}
-          stopRecording={stopRecording}
-          isProcessing={isProcessing}
-          handleSubmit={handleSubmit}
-          recordingDuration={recordingDuration}
-          hasRecording={hasRecording}
-          playRecording={playRecording}
-          isPlaying={isPlaying}
-          availableMicrophones={availableMicrophones}
-          selectedMicrophone={selectedMicrophone}
-          setSelectedMicrophone={setSelectedMicrophone}
-          messagesEndRef={messagesEndRef}
-          onClose={onClose}
-          isLoading={isLoading}
-          ember={ember}
-          user={user}
-          userProfile={userProfile}
-          isEmberOwner={isEmberOwner}
-          onDeleteMessage={handleDeleteMessage}
-        />
-        <audio ref={audioRef} style={{ display: 'none' }} />
-      </DialogContent>
-
-      {/* Clear Stories Confirmation Dialog */}
+      {/* Clear Stories Confirmation Dialog - Moved outside main dialog */}
       <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
         <DialogContent className="max-w-md bg-white focus:outline-none">
           <DialogHeader>
@@ -1326,6 +1381,6 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           </div>
         </DialogContent>
       </Dialog>
-    </Dialog>
+    </>
   );
 } 
