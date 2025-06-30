@@ -492,62 +492,93 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   // Load existing conversation or create new one
   const loadConversation = async () => {
     if (!ember?.id || !user?.id) {
-      console.log('loadConversation: Missing ember.id or user.id');
+      console.log('🚫 [UI] loadConversation: Missing ember.id or user.id', { ember: ember?.id, user: user?.id });
       return;
     }
 
     try {
       setIsLoading(true);
-      console.log('loadConversation: Creating/getting conversation for ember:', ember.id, 'user:', user.id);
+      console.log('🔄 [UI] loadConversation: Starting load for ember:', ember.id, 'user:', user.id);
+      console.log('👤 [UI] Current user details:', { id: user.id, email: user.email, type: typeof user.id });
+      console.log('👤 [UI] User profile details:', { first_name: userProfile?.first_name, last_name: userProfile?.last_name });
 
       // Get or create conversation for current user (for submitting new answers)
       const conv = await getOrCreateStoryConversation(ember.id, user.id, 'story');
-      console.log('loadConversation: Conversation result:', conv);
+      console.log('💬 [UI] Created/found conversation:', conv);
       setConversation(conv);
 
       // Load ALL story messages for this ember (from all users)
-      console.log('loadConversation: Loading all story messages for ember');
+      console.log('📥 [UI] Loading all story messages for ember...');
       
       // Explicitly clear messages state first
       setMessages([]);
       
       const allMessages = await getAllStoryMessagesForEmber(ember.id);
-      console.log('loadConversation: getAllStoryMessagesForEmber returned:', allMessages);
+      console.log('📨 [UI] getAllStoryMessagesForEmber returned:', allMessages);
+      console.log('📊 [UI] Total messages received:', allMessages.messages?.length || 0);
       
       if (allMessages.messages && allMessages.messages.length > 0) {
-        console.log('loadConversation: Processing', allMessages.messages.length, 'messages');
-        console.log('👤 Current user ID:', user.id, typeof user.id);
-        console.log('👤 Sample message user_id:', allMessages.messages[0]?.user_id, typeof allMessages.messages[0]?.user_id);
-        console.log('👤 Sample message user_first_name:', allMessages.messages[0]?.user_first_name);
+        console.log('🔄 [UI] Processing', allMessages.messages.length, 'messages for display...');
+        
+        // Log raw message data analysis
+        const messageAnalysis = allMessages.messages.map((msg, index) => ({
+          index,
+          id: msg.id,
+          sender: msg.sender,
+          message_type: msg.message_type,
+          user_id: msg.user_id,
+          user_first_name: msg.user_first_name,
+          content_preview: msg.content?.substring(0, 30) + '...',
+          is_current_user: msg.user_id === user.id
+        }));
+        console.log('📋 [UI] Message analysis:', messageAnalysis);
         
         // Convert database messages to UI format, including user info
-        const uiMessages = allMessages.messages.map(msg => ({
-          sender: msg.sender,
-          content: msg.content,
-          timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: msg.message_type,
-          hasVoiceRecording: msg.has_audio,
-          audioUrl: msg.audio_url,
-          messageId: msg.id,
-          userId: msg.user_id,
-          userFirstName: msg.user_first_name,
-          userLastName: msg.user_last_name,
-          userAvatarUrl: msg.user_avatar_url,
-          isCurrentUser: msg.user_id === user.id
-        }));
-        
-        console.log('👤 isCurrentUser results:', uiMessages.map(msg => `${msg.userId} === ${user.id} = ${msg.isCurrentUser}`));
-        console.log('👤 Message structure sample:', {
-          userFirstName: uiMessages[0]?.userFirstName,
-          isCurrentUser: uiMessages[0]?.isCurrentUser,
-          sender: uiMessages[0]?.sender,
-          userId: uiMessages[0]?.userId
+        const uiMessages = allMessages.messages.map((msg, index) => {
+          const uiMessage = {
+            sender: msg.sender,
+            content: msg.content,
+            timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            type: msg.message_type,
+            hasVoiceRecording: msg.has_audio,
+            audioUrl: msg.audio_url,
+            messageId: msg.id,
+            userId: msg.user_id,
+            userFirstName: msg.user_first_name,
+            userLastName: msg.user_last_name,
+            userAvatarUrl: msg.user_avatar_url,
+            isCurrentUser: msg.user_id === user.id
+          };
+          
+          console.log(`📝 [UI] Message ${index}:`, {
+            messageId: uiMessage.messageId,
+            sender: uiMessage.sender,
+            userId: uiMessage.userId,
+            userFirstName: uiMessage.userFirstName,
+            isCurrentUser: uiMessage.isCurrentUser,
+            userIdComparison: `${msg.user_id} === ${user.id} = ${msg.user_id === user.id}`
+          });
+          
+          return uiMessage;
         });
-
+        
+        // Summary of users in messages
+        const uniqueUsers = [...new Set(uiMessages.map(msg => msg.userId))];
+        const userSummary = uniqueUsers.map(userId => ({
+          userId,
+          firstName: uiMessages.find(msg => msg.userId === userId)?.userFirstName,
+          messageCount: uiMessages.filter(msg => msg.userId === userId).length,
+          isCurrentUser: userId === user.id
+        }));
+        console.log('👥 [UI] Users in conversation:', userSummary);
+        
         setMessages(uiMessages);
         
         // Force a re-render to ensure UI updates with correct names
-        setTimeout(() => setMessages([...uiMessages]), 50);
+        setTimeout(() => {
+          console.log('🔄 [UI] Force re-render with messages:', uiMessages.length);
+          setMessages([...uiMessages]);
+        }, 50);
 
         // Set next question based on current user's conversation progress
         // Get current user's answers only
@@ -555,21 +586,27 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           msg.type === 'answer' && msg.userId === user.id
         ).length;
         
+        console.log('❓ [UI] Current user has answered', currentUserAnswers, 'questions');
+        
         if (currentUserAnswers < 10) { // Still have questions to ask
           const nextQuestion = generateFollowUpQuestion(uiMessages.filter(msg => msg.userId === user.id));
+          console.log('❓ [UI] Generated next question:', nextQuestion);
           setCurrentQuestion(nextQuestion);
         } else {
+          console.log('✅ [UI] User has completed all questions');
           setCurrentQuestion(''); // No more questions for current user
         }
       } else {
         // No messages yet - start with first question
-        console.log('loadConversation: No messages found, setting empty state');
+        console.log('📭 [UI] No messages found, setting up initial state');
         setMessages([]);
-        setCurrentQuestion(question || "Tell us about this moment. What was happening when this photo was taken?");
+        const initialQuestion = question || "Tell us about this moment. What was happening when this photo was taken?";
+        console.log('❓ [UI] Setting initial question:', initialQuestion);
+        setCurrentQuestion(initialQuestion);
       }
     } catch (error) {
-      console.error('Error loading conversation:', error);
-      console.error('Error details:', error.message, error.stack);
+      console.error('🚨 [UI] Error loading conversation:', error);
+      console.error('🚨 [UI] Error details:', error.message, error.stack);
       
       // Check if it's a database table error
       if (error.message.includes('relation') && error.message.includes('does not exist')) {
@@ -577,10 +614,12 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       }
       
       // Fallback to new conversation
+      console.log('🔄 [UI] Falling back to new conversation');
       setMessages([]);
       setCurrentQuestion(question || "Tell us about this moment. What was happening when this photo was taken?");
     } finally {
       setIsLoading(false);
+      console.log('✅ [UI] loadConversation complete');
     }
   };
 

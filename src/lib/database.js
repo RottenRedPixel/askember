@@ -493,7 +493,57 @@ export const deleteChatMessage = async (messageId, userId) => {
  */
 export const getOrCreateStoryConversation = async (emberId, userId, conversationType = 'story') => {
   try {
-    // First, try to get existing conversations (avoid problematic boolean filter)
+    console.log('💬 [DATABASE] getOrCreateStoryConversation called:', { emberId, userId, conversationType });
+    
+    // First, let's check what access the user has to this ember
+    const { data: emberData, error: emberError } = await supabase
+      .from('embers')
+      .select('*')
+      .eq('id', emberId)
+      .single();
+    
+    if (emberError) {
+      console.error('🚨 [DATABASE] Error fetching ember:', emberError);
+    } else {
+      console.log('📝 [DATABASE] Ember details:', { 
+        id: emberData.id, 
+        title: emberData.title, 
+        owner_id: emberData.user_id, 
+        is_public: emberData.is_public,
+        is_user_owner: emberData.user_id === userId
+      });
+    }
+    
+    // Check if user has shared access
+    const { data: shareData, error: shareError } = await supabase
+      .from('ember_shares')
+      .select('*')
+      .eq('ember_id', emberId);
+    
+    if (shareError) {
+      console.error('🚨 [DATABASE] Error fetching shares:', shareError);
+    } else {
+      console.log('🤝 [DATABASE] Ember shares:', shareData);
+    }
+    
+    // Get current user's email from auth
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('🚨 [DATABASE] Error getting user:', userError);
+    } else {
+      console.log('👤 [DATABASE] Current user email:', user?.email);
+      
+      // Check if user has access via shares
+      const hasSharedAccess = shareData?.some(share => 
+        share.shared_with_email === user?.email && 
+        share.is_active && 
+        (!share.expires_at || new Date(share.expires_at) > new Date())
+      );
+      console.log('🔐 [DATABASE] User has shared access:', hasSharedAccess);
+    }
+
+    // Try to get existing conversations
+    console.log('🔍 [DATABASE] Looking for existing conversations...');
     const { data: conversations, error: fetchError } = await supabase
       .from('ember_story_conversations')
       .select('*')
@@ -503,34 +553,51 @@ export const getOrCreateStoryConversation = async (emberId, userId, conversation
       .order('created_at', { ascending: false });
 
     if (fetchError) {
+      console.error('🚨 [DATABASE] Error fetching conversations:', fetchError);
       throw new Error(fetchError.message);
     }
+
+    console.log('📋 [DATABASE] Existing conversations found:', conversations?.length || 0);
 
     // Find the first non-completed conversation
     const existingConversation = conversations?.find(conv => !conv.is_completed);
     
     if (existingConversation) {
+      console.log('✅ [DATABASE] Found existing conversation:', existingConversation.id);
       return existingConversation;
     }
 
     // Create new conversation if none exists
+    console.log('🆕 [DATABASE] Creating new conversation...');
+    const conversationData = {
+      ember_id: emberId,
+      user_id: userId,
+      conversation_type: conversationType,
+      title: 'The Story',
+      is_completed: false,
+      message_count: 0
+    };
+    
+    console.log('📝 [DATABASE] Conversation data to insert:', conversationData);
+    
     const { data: newConversation, error: createError } = await supabase
       .from('ember_story_conversations')
-      .insert([{
-        ember_id: emberId,
-        user_id: userId,
-        conversation_type: conversationType,
-        title: 'The Story',
-        is_completed: false,
-        message_count: 0
-      }])
+      .insert([conversationData])
       .select()
       .single();
 
     if (createError) {
+      console.error('🚨 [DATABASE] Error creating conversation:', createError);
+      console.error('🚨 [DATABASE] Error details:', {
+        message: createError.message,
+        code: createError.code,
+        details: createError.details,
+        hint: createError.hint
+      });
       throw new Error(createError.message);
     }
 
+    console.log('✅ [DATABASE] Successfully created conversation:', newConversation.id);
     return newConversation;
   } catch (error) {
     console.error('Error getting/creating story conversation:', error);
@@ -643,39 +710,68 @@ export const completeStoryConversation = async (conversationId, userId) => {
  */
 export const getAllStoryMessagesForEmber = async (emberId) => {
   try {
-    console.log('🔍 getAllStoryMessagesForEmber called with ember ID:', emberId, typeof emberId);
+    console.log('🔍 [DATABASE] getAllStoryMessagesForEmber called with ember ID:', emberId, typeof emberId);
+    console.log('🔍 [DATABASE] Starting RPC call to get_all_story_messages_for_ember...');
     
     // Use RPC function to bypass RLS and get all story messages for an ember
-    // Add timestamp to prevent caching
     const { data, error } = await supabase.rpc('get_all_story_messages_for_ember', {
       input_ember_id: emberId
     });
 
     if (error) {
-      console.error('🚨 RPC Error:', error);
+      console.error('🚨 [DATABASE] RPC Error:', error);
+      console.error('🚨 [DATABASE] Error details:', error.message, error.code, error.details);
       throw new Error(error.message);
     }
 
-    console.log('📊 getAllStoryMessagesForEmber result for ember', emberId, ':', data?.length || 0, 'messages');
-    console.log('📋 First few messages:', data?.slice(0, 3));
+    console.log('📊 [DATABASE] RPC SUCCESS - Total messages returned:', data?.length || 0);
+    console.log('📋 [DATABASE] Raw data from RPC:', data);
     
-    // Debug: Check if all messages belong to the same ember
+    // Debug: Analyze the returned data
     if (data && data.length > 0) {
+      console.log('🔍 [DATABASE] Analyzing returned messages...');
+      
+      // Check ember IDs
       const emberIds = [...new Set(data.map(msg => msg.ember_id || 'unknown'))];
-      console.log('🔍 Unique ember IDs in results:', emberIds);
+      console.log('🔍 [DATABASE] Unique ember IDs in results:', emberIds);
       
-      // Debug user IDs for the anonymous user issue
+      // Check user IDs and names
       const userIds = [...new Set(data.map(msg => msg.user_id))];
-      console.log('👤 Unique user IDs in results:', userIds);
-      console.log('👤 User ID types:', userIds.map(id => typeof id));
+      console.log('👤 [DATABASE] Unique user IDs in results:', userIds);
+      console.log('👤 [DATABASE] User ID types:', userIds.map(id => ({ id, type: typeof id })));
       
-      // Check conversation ember IDs
-      const conversationQuery = await supabase
-        .from('ember_story_conversations')
-        .select('id, ember_id')
-        .in('id', data.map(msg => msg.conversation_id));
+      // Check user names
+      const userNames = data.map(msg => ({
+        user_id: msg.user_id,
+        user_first_name: msg.user_first_name,
+        user_last_name: msg.user_last_name,
+        sender: msg.sender,
+        message_type: msg.message_type
+      }));
+      console.log('👤 [DATABASE] User names in messages:', userNames);
       
-      console.log('💬 Conversation ember mapping:', conversationQuery.data);
+      // Check message types and senders
+      const messageSummary = data.map(msg => ({
+        id: msg.id,
+        sender: msg.sender,
+        message_type: msg.message_type,
+        user_id: msg.user_id,
+        user_first_name: msg.user_first_name,
+        content_preview: msg.content?.substring(0, 50) + '...',
+        created_at: msg.created_at
+      }));
+      console.log('📝 [DATABASE] Message summary:', messageSummary);
+      
+      // Check for multiple users
+      const messagesByUser = userIds.map(userId => ({
+        user_id: userId,
+        message_count: data.filter(msg => msg.user_id === userId).length,
+        first_name: data.find(msg => msg.user_id === userId)?.user_first_name
+      }));
+      console.log('👥 [DATABASE] Messages by user:', messagesByUser);
+      
+    } else {
+      console.log('📭 [DATABASE] No messages found for ember:', emberId);
     }
     
     return {
