@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -33,16 +33,309 @@ function useMediaQuery(query) {
 
   useEffect(() => {
     const media = window.matchMedia(query);
-    if (media.matches !== matches) {
-      setMatches(media.matches);
-    }
+    setMatches(media.matches);
+    
     const listener = () => setMatches(media.matches);
-    window.addEventListener("resize", listener);
-    return () => window.removeEventListener("resize", listener);
-  }, [matches, query]);
+    media.addListener(listener);
+    
+    return () => media.removeListener(listener);
+  }, [query]);
 
   return matches;
 }
+
+// Extract ModalContent to prevent re-mounting on every render
+const ModalContent = ({ 
+  emberParticipants, 
+  isLoading, 
+  votedUserIds, 
+  message, 
+  viewMode, 
+  allSuggestedNames, 
+  ember, 
+  user, 
+  hasVoted, 
+  selectedName, 
+  handleSelectSuggestion, 
+  handleDeleteSuggestedName, 
+  isAddingCustom, 
+  customInputRef, 
+  customName, 
+  setCustomName, 
+  handleSelectCustom, 
+  handleAddCustom, 
+  aiSuggestedName, 
+  handleSelectAiSuggestion, 
+  handleAiSuggestion, 
+  votingResults, 
+  userVote,
+  totalVotes,
+  toggleViewMode,
+  handleChangeVote,
+  handleUseTitle
+}) => (
+  <div className="space-y-4">
+    {/* Participants Display */}
+    <div className="flex justify-center gap-2 flex-wrap min-h-[48px]">
+      {isLoading ? (
+        // Show single skeleton avatar while loading to prevent jumping
+        <div className="h-12 w-12 bg-gray-200 rounded-full border-4 border-gray-300 animate-pulse"></div>
+      ) : emberParticipants.length > 0 ? (
+        emberParticipants.map((participant, index) => {
+          const hasVotedStatus = participant.user_id && votedUserIds.includes(participant.user_id);
+          const borderColor = hasVotedStatus ? 'border-green-500' : 'border-gray-300';
+          
+          return (
+            <div key={index} className="flex flex-col items-center">
+              <Avatar className={`h-12 w-12 border-4 ${borderColor} transition-colors`}>
+                <AvatarImage 
+                  src={participant.avatar_url} 
+                  alt={`${participant.first_name || ''} ${participant.last_name || ''}`.trim() || participant.email}
+                />
+                <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
+                  {participant.first_name?.[0] || participant.last_name?.[0] || participant.email?.[0]?.toUpperCase() || '?'}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+          );
+        })
+      ) : (
+        // Show single skeleton if no participants loaded yet
+        <div className="h-12 w-12 bg-gray-200 rounded-full border-4 border-gray-300 animate-pulse"></div>
+      )}
+    </div>
+
+    {/* Message Display */}
+    {message && (
+      <div className={`p-3 rounded-md text-sm ${
+        message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+      }`}>
+        {message.text}
+      </div>
+    )}
+
+    {/* Voting View */}
+    {viewMode === 'voting' && (
+      <div className="space-y-3">
+        {/* Suggested Names */}
+        {isLoading ? (
+          // Show skeleton for 3 suggested names while loading
+          Array.from({ length: 3 }).map((_, index) => (
+            <Card key={`skeleton-${index}`} className="py-0 rounded-md border-gray-200">
+              <CardContent className="px-3 py-2 flex items-center justify-between h-10">
+                <div className="flex-1">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          allSuggestedNames.map((nameObj, index) => {
+          const isOwner = ember?.user_id === user?.id;
+          return (
+            <Card 
+              key={nameObj.id || `${nameObj.suggested_name}-${index}`}
+              className={`transition-all border py-0 rounded-md ${
+                hasVoted 
+                  ? 'opacity-60 cursor-not-allowed' 
+                  : 'hover:border-gray-300 cursor-pointer'
+              } ${
+                selectedName === nameObj.suggested_name 
+                  ? 'border-blue-500 bg-blue-50' 
+                  : 'border-gray-200'
+              }`}
+              onClick={() => !hasVoted && handleSelectSuggestion(nameObj.suggested_name)}
+            >
+              <CardContent className="px-3 py-2 flex items-center justify-between h-10">
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-bold">{nameObj.suggested_name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedName === nameObj.suggested_name && (
+                    <Check size={16} className="text-blue-500" />
+                  )}
+                  {isOwner && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSuggestedName(nameObj.id, nameObj.suggested_name);
+                      }}
+                      className="p-1 hover:bg-red-100 rounded transition-colors"
+                      disabled={isLoading}
+                      title={`Delete "${nameObj.suggested_name}"`}
+                    >
+                      <XCircle size={16} className="text-red-500 hover:text-red-700" />
+                    </button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+                      );
+          })
+        )}
+
+        {/* Custom Name Input */}
+        {!hasVoted && (
+          isAddingCustom ? (
+            <div className="space-y-2">
+              <Input
+                ref={customInputRef}
+                placeholder="Enter your custom title..."
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSelectCustom()}
+                className="h-10"
+              />
+              <div>
+                <Button 
+                  onClick={handleSelectCustom}
+                  disabled={!customName.trim()}
+                  size="lg"
+                  className="w-full"
+                >
+                  Submit This Title
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleAddCustom}
+                className="w-full flex items-center justify-center gap-2 border-dashed"
+              >
+                <Plus size={16} />
+                Add Your Own Title
+              </Button>
+              
+              {/* AI Suggested Name Card */}
+              {aiSuggestedName && (
+                <Card className="py-0 rounded-md border-blue-200 bg-blue-50">
+                  <CardContent className="px-3 py-2 flex items-center justify-between h-10">
+                    <div className="flex items-center gap-2">
+                      <Sparkle size={16} className="text-blue-600" />
+                      <span className="text-base font-bold text-blue-900">{aiSuggestedName}</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={handleSelectAiSuggestion}
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2"
+                    >
+                      Add
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+              
+              <Button
+                onClick={handleAiSuggestion}
+                disabled={isLoading}
+                size="lg"
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Sparkle size={16} />
+                {isLoading ? 'Ember is thinking...' : 'Let Ember Try'}
+              </Button>
+            </div>
+          )
+        )}
+      </div>
+    )}
+
+    {/* Results View */}
+    {viewMode === 'results' && (
+      <div className="space-y-3">
+        {votingResults.length === 0 ? (
+          <div className="text-center text-gray-500 py-4">
+            No votes yet. Be the first to vote!
+          </div>
+        ) : (
+          votingResults.map((result, index) => (
+            <Card 
+              key={`${result.suggested_name}-${result.vote_count}`}
+              className={`py-0 rounded-md ${
+                userVote?.suggested_name === result.suggested_name 
+                  ? 'border-blue-500 bg-blue-50' 
+                  : ''
+              }`}
+            >
+              <CardContent className="px-3 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold">{result.suggested_name}</span>
+                      {userVote?.suggested_name === result.suggested_name && (
+                        <Check size={16} className="text-blue-500" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-500 h-2 rounded-full transition-all"
+                          style={{ width: `${result.percentage}%` }}
+                        />
+                      </div>
+                      <span className="text-sm text-gray-600">
+                        {result.vote_count} votes
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+    )}
+
+    {/* Footer Actions - Only render when there are actual actions to show */}
+    {((totalVotes > 0 && viewMode === 'voting') || 
+      (hasVoted && viewMode === 'results') || 
+      (viewMode === 'results' && votingResults.length > 0 && ember?.user_id === user?.id)) && (
+      <div className="space-y-3 mt-6 pt-4">
+        {/* View Results Button - Only show when in voting mode */}
+        {totalVotes > 0 && viewMode === 'voting' && (
+          <Button
+            variant="blue"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            size="lg"
+            onClick={toggleViewMode}
+          >
+            View Results
+          </Button>
+        )}
+        
+        <div className="flex items-center justify-center gap-2">
+          {/* Change Vote Button - only show when user has voted and is in results view */}
+          {hasVoted && viewMode === 'results' && (
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={handleChangeVote}
+              disabled={isLoading}
+              className="text-orange-600 border-orange-300 hover:bg-orange-50"
+            >
+              Change Vote
+            </Button>
+          )}
+          
+          {/* Use This Title Button - only show for ember owner in results view */}
+          {viewMode === 'results' && votingResults.length > 0 && ember?.user_id === user?.id && (
+            <Button
+              onClick={handleUseTitle}
+              disabled={isLoading}
+              className="bg-green-600 hover:bg-green-700 text-white"
+              size="lg"
+            >
+              Use This Title
+            </Button>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+);
 
 export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate }) {
   const { user } = useStore();
@@ -62,6 +355,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
   const [emberParticipants, setEmberParticipants] = useState([]);
   const [votedUserIds, setVotedUserIds] = useState([]);
   const [aiSuggestedName, setAiSuggestedName] = useState(null);
+  const customInputRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && ember?.id) {
@@ -238,6 +532,18 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
     setSelectedName('');
   };
 
+  // Focus the custom input when it becomes visible
+  useEffect(() => {
+    if (isAddingCustom && customInputRef.current) {
+      // Small delay to ensure the input is rendered
+      const timeoutId = setTimeout(() => {
+        customInputRef.current?.focus();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isAddingCustom]);
+
   const handleSubmitVote = async (voteName = null, isCustomVote = null) => {
     const nameToVote = voteName || selectedName;
     const isCustom = isCustomVote !== null ? isCustomVote : isAddingCustom;
@@ -319,7 +625,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
       setMessage({ type: 'error', text: 'Failed to get AI suggestion' });
       setTimeout(() => setMessage(null), 2000);
     } finally {
-      setIsLoading(false);
+    setIsLoading(false);
     }
   };
 
@@ -355,7 +661,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
     const winningResult = votingResults.reduce((prev, current) => 
       (prev.vote_count > current.vote_count) ? prev : current
     );
-
+    
     try {
       setIsLoading(true);
       
@@ -409,255 +715,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
   };
 
   // Shared content component for both Dialog and Drawer
-  const ModalContent = () => (
-    <div className="space-y-4">
-      {/* Participants Display */}
-      <div className="flex justify-center gap-2 flex-wrap min-h-[48px]">
-        {isLoading ? (
-          // Show single skeleton avatar while loading to prevent jumping
-          <div className="h-12 w-12 bg-gray-200 rounded-full border-4 border-gray-300 animate-pulse"></div>
-        ) : emberParticipants.length > 0 ? (
-          emberParticipants.map((participant, index) => {
-            const hasVotedStatus = participant.user_id && votedUserIds.includes(participant.user_id);
-            const borderColor = hasVotedStatus ? 'border-green-500' : 'border-gray-300';
-            
-            return (
-              <div key={index} className="flex flex-col items-center">
-                <Avatar className={`h-12 w-12 border-4 ${borderColor} transition-colors`}>
-                  <AvatarImage 
-                    src={participant.avatar_url} 
-                    alt={`${participant.first_name || ''} ${participant.last_name || ''}`.trim() || participant.email}
-                  />
-                  <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
-                    {participant.first_name?.[0] || participant.last_name?.[0] || participant.email?.[0]?.toUpperCase() || '?'}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-            );
-          })
-        ) : (
-          // Show single skeleton if no participants loaded yet
-          <div className="h-12 w-12 bg-gray-200 rounded-full border-4 border-gray-300 animate-pulse"></div>
-        )}
-      </div>
 
-      {/* Message Display */}
-      {message && (
-        <div className={`p-3 rounded-md text-sm ${
-          message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-        }`}>
-          {message.text}
-        </div>
-      )}
-
-      {/* Voting View */}
-      {viewMode === 'voting' && (
-        <div className="space-y-3">
-          {/* Suggested Names */}
-          {allSuggestedNames.map((nameObj, index) => {
-            const isOwner = ember?.user_id === user?.id;
-            return (
-              <Card 
-                key={index}
-                className={`transition-all border py-0 rounded-md ${
-                  hasVoted 
-                    ? 'opacity-60 cursor-not-allowed' 
-                    : 'hover:border-gray-300 cursor-pointer'
-                } ${
-                  selectedName === nameObj.suggested_name 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200'
-                }`}
-                onClick={() => !hasVoted && handleSelectSuggestion(nameObj.suggested_name)}
-              >
-                <CardContent className="px-3 py-2 flex items-center justify-between h-10">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base font-bold">{nameObj.suggested_name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {selectedName === nameObj.suggested_name && (
-                      <Check size={16} className="text-blue-500" />
-                    )}
-                    {isOwner && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteSuggestedName(nameObj.id, nameObj.suggested_name);
-                        }}
-                        className="p-1 hover:bg-red-100 rounded transition-colors"
-                        disabled={isLoading}
-                        title={`Delete "${nameObj.suggested_name}"`}
-                      >
-                        <XCircle size={16} className="text-red-500 hover:text-red-700" />
-                      </button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-
-          {/* Custom Name Input */}
-          {!hasVoted && (
-            isAddingCustom ? (
-              <div className="space-y-2">
-                <Input
-                  placeholder="Enter your custom title..."
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSelectCustom()}
-                  className="h-10"
-                />
-                <div>
-                  <Button 
-                    onClick={handleSelectCustom}
-                    disabled={!customName.trim()}
-                    size="lg"
-                    className="w-full"
-                  >
-                    Submit This Title
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={handleAddCustom}
-                  className="w-full flex items-center justify-center gap-2 border-dashed"
-                >
-                  <Plus size={16} />
-                  Add Your Own Title
-                </Button>
-                
-                {/* AI Suggested Name Card */}
-                {aiSuggestedName && (
-                  <Card className="py-0 rounded-md border-blue-200 bg-blue-50">
-                    <CardContent className="px-3 py-2 flex items-center justify-between h-10">
-                      <div className="flex items-center gap-2">
-                        <Sparkle size={16} className="text-blue-600" />
-                        <span className="text-base font-bold text-blue-900">{aiSuggestedName}</span>
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={handleSelectAiSuggestion}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2"
-                      >
-                        Add
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-                
-                <Button
-                  onClick={handleAiSuggestion}
-                  disabled={isLoading}
-                  size="lg"
-                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Sparkle size={16} />
-                  {isLoading ? 'Ember is thinking...' : 'Let Ember Try'}
-                </Button>
-              </div>
-            )
-          )}
-        </div>
-      )}
-
-      {/* Results View */}
-      {viewMode === 'results' && (
-        <div className="space-y-3">
-          {votingResults.length === 0 ? (
-            <div className="text-center text-gray-500 py-4">
-              No votes yet. Be the first to vote!
-            </div>
-          ) : (
-            votingResults.map((result, index) => (
-              <Card 
-                key={index}
-                className={`py-0 rounded-md ${
-                  userVote?.suggested_name === result.suggested_name 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : ''
-                }`}
-              >
-                <CardContent className="px-3 py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold">{result.suggested_name}</span>
-                        {userVote?.suggested_name === result.suggested_name && (
-                          <Check size={16} className="text-blue-500" />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-blue-500 h-2 rounded-full transition-all"
-                            style={{ width: `${result.percentage}%` }}
-                          />
-                        </div>
-                        <span className="text-sm text-gray-600">
-                          {result.vote_count} votes
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Footer Actions - Only render when there are actual actions to show */}
-      {((totalVotes > 0 && viewMode === 'voting') || 
-        (hasVoted && viewMode === 'results') || 
-        (viewMode === 'results' && votingResults.length > 0 && ember?.user_id === user?.id)) && (
-        <div className="space-y-3 mt-6 pt-4">
-          {/* View Results Button - Only show when in voting mode */}
-          {totalVotes > 0 && viewMode === 'voting' && (
-            <Button
-              variant="blue"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-              size="lg"
-              onClick={toggleViewMode}
-            >
-              View Results
-            </Button>
-          )}
-          
-          <div className="flex items-center justify-center gap-2">
-            {/* Change Vote Button - only show when user has voted and is in results view */}
-            {hasVoted && viewMode === 'results' && (
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={handleChangeVote}
-                disabled={isLoading}
-                className="text-orange-600 border-orange-300 hover:bg-orange-50"
-              >
-                Change Vote
-              </Button>
-            )}
-            
-            {/* Use This Title Button - only show for ember owner in results view */}
-            {viewMode === 'results' && votingResults.length > 0 && ember?.user_id === user?.id && (
-              <Button
-                onClick={handleUseTitle}
-                disabled={isLoading}
-                className="bg-green-600 hover:bg-green-700 text-white"
-                size="lg"
-              >
-                Use This Title
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 
   // Responsive render: Drawer on mobile, Dialog on desktop
   if (isMobile) {
@@ -686,7 +744,35 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
-            <ModalContent />
+            <ModalContent 
+              emberParticipants={emberParticipants}
+              isLoading={isLoading}
+              votedUserIds={votedUserIds}
+              message={message}
+              viewMode={viewMode}
+              allSuggestedNames={allSuggestedNames}
+              ember={ember}
+              user={user}
+              hasVoted={hasVoted}
+              selectedName={selectedName}
+              handleSelectSuggestion={handleSelectSuggestion}
+              handleDeleteSuggestedName={handleDeleteSuggestedName}
+              isAddingCustom={isAddingCustom}
+              customInputRef={customInputRef}
+              customName={customName}
+              setCustomName={setCustomName}
+              handleSelectCustom={handleSelectCustom}
+              handleAddCustom={handleAddCustom}
+              aiSuggestedName={aiSuggestedName}
+              handleSelectAiSuggestion={handleSelectAiSuggestion}
+              handleAiSuggestion={handleAiSuggestion}
+              votingResults={votingResults}
+              userVote={userVote}
+              totalVotes={totalVotes}
+              toggleViewMode={toggleViewMode}
+              handleChangeVote={handleChangeVote}
+              handleUseTitle={handleUseTitle}
+            />
           </div>
         </DrawerContent>
       </Drawer>
@@ -718,7 +804,37 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
             }
           </DialogDescription>
         </DialogHeader>
-        <ModalContent />
+        <div className="px-4 pb-4">
+          <ModalContent 
+            emberParticipants={emberParticipants}
+            isLoading={isLoading}
+            votedUserIds={votedUserIds}
+            message={message}
+            viewMode={viewMode}
+            allSuggestedNames={allSuggestedNames}
+            ember={ember}
+            user={user}
+            hasVoted={hasVoted}
+            selectedName={selectedName}
+            handleSelectSuggestion={handleSelectSuggestion}
+            handleDeleteSuggestedName={handleDeleteSuggestedName}
+            isAddingCustom={isAddingCustom}
+            customInputRef={customInputRef}
+            customName={customName}
+            setCustomName={setCustomName}
+            handleSelectCustom={handleSelectCustom}
+            handleAddCustom={handleAddCustom}
+            aiSuggestedName={aiSuggestedName}
+            handleSelectAiSuggestion={handleSelectAiSuggestion}
+            handleAiSuggestion={handleAiSuggestion}
+            votingResults={votingResults}
+            userVote={userVote}
+            totalVotes={totalVotes}
+            toggleViewMode={toggleViewMode}
+            handleChangeVote={handleChangeVote}
+            handleUseTitle={handleUseTitle}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );

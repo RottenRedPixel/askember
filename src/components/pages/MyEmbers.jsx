@@ -319,7 +319,7 @@ const EmberGrid = ({ ember }) => {
           }}
         />
       </div>
-      <div className="p-3 bg-gray-50">
+      <div className="p-3 bg-gray-100">
         <h3 className="font-medium text-gray-900 truncate">
           {ember.title || 'Untitled Ember'}
         </h3>

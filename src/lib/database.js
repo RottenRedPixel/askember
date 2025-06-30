@@ -426,4 +426,153 @@ export const deleteChatMessage = async (messageId, userId) => {
     console.error('Error deleting chat message:', error);
     throw error;
   }
+};
+
+/**
+ * Story Conversation Functions
+ */
+
+/**
+ * Get or create a story conversation
+ */
+export const getOrCreateStoryConversation = async (emberId, userId, conversationType = 'story') => {
+  try {
+    // First, try to get existing conversation
+    const { data: existingConversation, error: fetchError } = await supabase
+      .from('ember_story_conversations')
+      .select('*')
+      .eq('ember_id', emberId)
+      .eq('user_id', userId)
+      .eq('conversation_type', conversationType)
+      .eq('is_completed', false)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      throw new Error(fetchError.message);
+    }
+
+    if (existingConversation) {
+      return existingConversation;
+    }
+
+    // Create new conversation if none exists
+    const { data: newConversation, error: createError } = await supabase
+      .from('ember_story_conversations')
+      .insert([{
+        ember_id: emberId,
+        user_id: userId,
+        conversation_type: conversationType,
+        title: 'The Story',
+        is_completed: false,
+        message_count: 0
+      }])
+      .select()
+      .single();
+
+    if (createError) {
+      throw new Error(createError.message);
+    }
+
+    return newConversation;
+  } catch (error) {
+    console.error('Error getting/creating story conversation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Add a message to a story conversation
+ */
+export const addStoryMessage = async (messageData) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_story_messages')
+      .insert([{
+        conversation_id: messageData.conversationId,
+        sender: messageData.sender,
+        message_type: messageData.messageType,
+        content: messageData.content,
+        has_audio: messageData.hasAudio || false,
+        audio_url: messageData.audioUrl || null,
+        audio_filename: messageData.audioFilename || null,
+        audio_duration_seconds: messageData.audioDurationSeconds || null,
+        audio_size_bytes: messageData.audioSizeBytes || null,
+        transcription_status: messageData.transcriptionStatus || 'none'
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error adding story message:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get a story conversation with all its messages
+ */
+export const getStoryConversationWithMessages = async (conversationId) => {
+  try {
+    // Get conversation details
+    const { data: conversation, error: convError } = await supabase
+      .from('ember_story_conversations')
+      .select('*')
+      .eq('id', conversationId)
+      .single();
+
+    if (convError) {
+      throw new Error(convError.message);
+    }
+
+    // Get all messages for this conversation
+    const { data: messages, error: messagesError } = await supabase
+      .from('ember_story_messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('sequence_number', { ascending: true });
+
+    if (messagesError) {
+      throw new Error(messagesError.message);
+    }
+
+    return {
+      ...conversation,
+      messages: messages || []
+    };
+  } catch (error) {
+    console.error('Error getting story conversation with messages:', error);
+    throw error;
+  }
+};
+
+/**
+ * Mark a story conversation as completed
+ */
+export const completeStoryConversation = async (conversationId, userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_story_conversations')
+      .update({ 
+        is_completed: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', conversationId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error completing story conversation:', error);
+    throw error;
+  }
 }; 

@@ -2,10 +2,19 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import useStore from '../../store';
+import { supabase } from '../../lib/supabase';
+import { 
+  getOrCreateStoryConversation, 
+  addStoryMessage, 
+  getStoryConversationWithMessages 
+} from '../../lib/database';
 
 export default function Test() {
+  const { user } = useStore();
   const [activeSection, setActiveSection] = useState('threaded');
   const [expandedQuestions, setExpandedQuestions] = useState(new Set([1, 5]));
+  const [testResults, setTestResults] = useState([]);
 
   const toggleQuestion = (id) => {
     const newExpanded = new Set(expandedQuestions);
@@ -15,6 +24,160 @@ export default function Test() {
       newExpanded.add(id);
     }
     setExpandedQuestions(newExpanded);
+  };
+
+  const testStoryConversations = async () => {
+    if (!user) {
+      setTestResults(prev => [...prev, 'Error: No user logged in']);
+      return;
+    }
+
+    try {
+      setTestResults(prev => [...prev, 'Testing story conversation database...']);
+
+      // Test if ember_story_conversations table exists
+      const { data: conversationsData, error: conversationsError } = await supabase
+        .from('ember_story_conversations')
+        .select('count', { count: 'exact', head: true });
+
+      if (conversationsError) {
+        setTestResults(prev => [...prev, `❌ ember_story_conversations table error: ${conversationsError.message}`]);
+        return;
+      } else {
+        setTestResults(prev => [...prev, '✅ ember_story_conversations table exists']);
+      }
+
+      // Test if ember_story_messages table exists
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('ember_story_messages')
+        .select('count', { count: 'exact', head: true });
+
+      if (messagesError) {
+        setTestResults(prev => [...prev, `❌ ember_story_messages table error: ${messagesError.message}`]);
+        return;
+      } else {
+        setTestResults(prev => [...prev, '✅ ember_story_messages table exists']);
+      }
+
+      // Test creating a conversation
+      setTestResults(prev => [...prev, '📝 Testing conversation creation...']);
+      
+      // First, get a real ember ID from the user's embers
+      setTestResults(prev => [...prev, '🔍 Getting real ember for testing...']);
+      
+      const { data: userEmbers, error: embersError } = await supabase
+        .from('embers')
+        .select('id, title')
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (embersError) {
+        setTestResults(prev => [...prev, `❌ Error getting embers: ${embersError.message}`]);
+        return;
+      }
+
+      if (!userEmbers || userEmbers.length === 0) {
+        setTestResults(prev => [...prev, '⚠️ No embers found for testing. Create an ember first, then test again.']);
+        return;
+      }
+
+      const testEmberId = userEmbers[0].id;
+      setTestResults(prev => [...prev, `✅ Using ember: "${userEmbers[0].title}" (${testEmberId})`]);
+      
+      // Now test with real ember ID
+      setTestResults(prev => [...prev, '🔍 Testing conversation creation with real ember...']);
+      
+      const { data: directInsert, error: directError } = await supabase
+        .from('ember_story_conversations')
+        .insert([{
+          ember_id: testEmberId,
+          user_id: user.id,
+          conversation_type: 'story',
+          title: 'Test Story',
+          is_completed: false,
+          message_count: 0
+        }])
+        .select()
+        .single();
+
+      if (directError) {
+        setTestResults(prev => [...prev, `❌ Conversation creation error: ${directError.message || 'Unknown error'}`]);
+        setTestResults(prev => [...prev, `❌ Error details: ${JSON.stringify(directError)}`]);
+        return;
+      } else {
+        setTestResults(prev => [...prev, `✅ Conversation created successfully: ${directInsert.id}`]);
+      }
+
+      // Test adding a message to the conversation
+      setTestResults(prev => [...prev, '💬 Testing message creation...']);
+      
+      const { data: testMessage, error: messageError } = await supabase
+        .from('ember_story_messages')
+        .insert([{
+          conversation_id: directInsert.id,
+          sender: 'ember',
+          message_type: 'question',
+          content: 'This is a test question from Ember.',
+          has_audio: false
+        }])
+        .select()
+        .single();
+
+      if (messageError) {
+        setTestResults(prev => [...prev, `❌ Message creation error: ${messageError.message}`]);
+        return;
+      } else {
+        setTestResults(prev => [...prev, `✅ Message created successfully: ${testMessage.id}`]);
+      }
+
+      // Test retrieving conversation with messages
+      setTestResults(prev => [...prev, '📖 Testing conversation retrieval...']);
+      
+      const { data: conversationWithMessages, error: retrievalError } = await supabase
+        .from('ember_story_conversations')
+        .select(`
+          *,
+          ember_story_messages (*)
+        `)
+        .eq('id', directInsert.id)
+        .single();
+
+      if (retrievalError) {
+        setTestResults(prev => [...prev, `❌ Retrieval error: ${retrievalError.message}`]);
+      } else {
+        const messageCount = conversationWithMessages.ember_story_messages?.length || 0;
+        setTestResults(prev => [...prev, `✅ Retrieved conversation with ${messageCount} messages`]);
+      }
+
+      // Test the database functions
+      setTestResults(prev => [...prev, '🚀 Testing database functions...']);
+      
+      try {
+        const functionTestConversation = await getOrCreateStoryConversation(testEmberId, user.id, 'story');
+        setTestResults(prev => [...prev, `✅ getOrCreateStoryConversation works: ${functionTestConversation.id}`]);
+        
+        const functionTestMessage = await addStoryMessage({
+          conversationId: functionTestConversation.id,
+          sender: 'user',
+          messageType: 'answer',
+          content: 'This is a test answer from the user.',
+          hasAudio: false
+        });
+        setTestResults(prev => [...prev, `✅ addStoryMessage works: ${functionTestMessage.id}`]);
+        
+        const retrievedConversation = await getStoryConversationWithMessages(functionTestConversation.id);
+        setTestResults(prev => [...prev, `✅ getStoryConversationWithMessages works: ${retrievedConversation.messages.length} messages`]);
+        
+        setTestResults(prev => [...prev, '🎉 All story conversation functions are working perfectly!']);
+        setTestResults(prev => [...prev, '📝 Note: Test conversations and messages were created in your database.']);
+        
+      } catch (functionError) {
+        setTestResults(prev => [...prev, `❌ Function test error: ${functionError.message}`]);
+      }
+
+    } catch (error) {
+      setTestResults(prev => [...prev, `❌ Error: ${error.message}`]);
+    }
   };
 
   // Mock Q&A data
@@ -405,6 +568,58 @@ export default function Test() {
             </ul>
           </div>
         </div>
+      </div>
+
+      {/* Story Conversations Test */}
+      <div className="max-w-4xl mx-auto mt-12">
+        <h2 className="text-xl font-semibold mb-4">Story Conversations Test</h2>
+        <div className="flex gap-4 mb-4">
+          <button
+            onClick={testStoryConversations}
+            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+          >
+            Test Story Conversations
+          </button>
+          <button
+            onClick={() => setTestResults([])}
+            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+          >
+            Clear Results
+          </button>
+          <button
+            onClick={async () => {
+              setTestResults(prev => [...prev, '🔄 Attempting to run migration via JavaScript...']);
+              try {
+                // Try to use the execute_sql function if it exists
+                const { data, error } = await supabase.rpc('execute_sql', { 
+                  sql_query: 'SELECT 1 as test' 
+                });
+                
+                if (error) {
+                  setTestResults(prev => [...prev, '❌ execute_sql function not available. Use Supabase dashboard instead.']);
+                } else {
+                  setTestResults(prev => [...prev, '✅ execute_sql function is available! But for safety, please use the Supabase dashboard to run the migration.']);
+                }
+              } catch (error) {
+                setTestResults(prev => [...prev, '❌ Migration via JavaScript not available. Use Supabase dashboard.']);
+              }
+            }}
+            className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700"
+          >
+            Check Migration Method
+          </button>
+        </div>
+        
+        {testResults.length > 0 && (
+          <div className="mt-4 p-4 bg-gray-100 rounded">
+            <h3 className="font-semibold mb-2">Test Results:</h3>
+            {testResults.map((result, index) => (
+              <div key={index} className="mb-1 font-mono text-sm">
+                {result}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </motion.div>
   );

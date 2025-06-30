@@ -268,17 +268,17 @@ export default function EmberWiki({
             </div>
           </div>
 
-          {/* Image Analysis Section */}
+          {/* Comments & Observations Section */}
           <div className="space-y-3">
             <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Eye className="w-4 h-4" />
-                Image Analysis
+                <MessageCircle className="w-4 h-4" />
+                Comments & Observations
               </div>
-              <StatusBadge isComplete={getSectionStatus('analysis')} />
+              <StatusBadge isComplete={getSectionStatus('comments-observations')} />
             </h3>
             <div className="text-sm text-gray-600 text-left">
-              Deep image analysis will appear here...
+              Comments and observations about this ember will appear here...
             </div>
           </div>
 
@@ -310,20 +310,6 @@ export default function EmberWiki({
             </div>
           </div>
 
-          {/* Comments & Observations Section */}
-          <div className="space-y-3">
-            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MessageCircle className="w-4 h-4" />
-                Comments & Observations
-              </div>
-              <StatusBadge isComplete={getSectionStatus('comments-observations')} />
-            </h3>
-            <div className="text-sm text-gray-600 text-left">
-              Comments and observations about this ember will appear here...
-            </div>
-          </div>
-
           {/* Supporting Media Section */}
           <div className="space-y-3">
             <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
@@ -335,6 +321,20 @@ export default function EmberWiki({
             </h3>
             <div className="text-sm text-gray-600 text-left">
               Additional photos, videos, and media related to this ember will appear here...
+            </div>
+          </div>
+
+          {/* Image Analysis Section */}
+          <div className="space-y-3">
+            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                Image Analysis
+              </div>
+              <StatusBadge isComplete={getSectionStatus('analysis')} />
+            </h3>
+            <div className="text-sm text-gray-600 text-left">
+              Deep image analysis will appear here...
             </div>
           </div>
 

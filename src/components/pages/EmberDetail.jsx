@@ -15,10 +15,11 @@ import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix, FilmSlate } from 'phosphor-react';
+import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix, FilmSlate, ChatCircle, ImageSquare } from 'phosphor-react';
 
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
+import StoryModal from '@/components/StoryModal';
 
 import EmberNamesModal from '@/components/EmberNamesModal';
 import EmberSettingsPanel from '@/components/EmberSettingsPanel';
@@ -45,6 +46,7 @@ export default function EmberDetail() {
   const [sharedUsers, setSharedUsers] = useState([]);
   const [showStoryCutCreator, setShowStoryCutCreator] = useState(false);
   const [showStoryCuts, setShowStoryCuts] = useState(false);
+  const [showStoryModal, setShowStoryModal] = useState(false);
   const [emberLength, setEmberLength] = useState(30);
   const [selectedVoices, setSelectedVoices] = useState([]);
 
@@ -390,12 +392,12 @@ export default function EmberDetail() {
       'story',
       'why',
       'feelings',
-      'analysis',
+      'comments-observations',
       'objects',
       'people',
       'contributors',
-      'comments-observations',
-      'supporting-media'
+      'supporting-media',
+      'analysis'
     ];
 
     const getSectionStatus = (sectionType) => {
@@ -518,6 +520,18 @@ export default function EmberDetail() {
                   <ShareNetwork size={24} className="text-gray-700" />
                 </button>
               )}
+              
+              {/* Settings button - Only show for ember owner */}
+              {isOwner && (
+                <button
+                  className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                  onClick={() => setShowSettingsPanel(true)}
+                  aria-label="Settings"
+                  type="button"
+                >
+                  <GearSix size={24} className="text-gray-700" />
+                </button>
+              )}
             </div>
             {/* Blurred background with fade */}
             <img
@@ -575,17 +589,6 @@ export default function EmberDetail() {
                 >
                   <CornersOut size={24} className="text-gray-700" />
                 </button>
-                {/* Only show settings button for ember owner */}
-                {isOwner && (
-                  <button
-                    className="rounded-full p-1 hover:bg-white/50 transition-colors"
-                    onClick={() => setShowSettingsPanel(true)}
-                    aria-label="Settings"
-                    type="button"
-                  >
-                    <GearSix size={24} className="text-gray-700" />
-                  </button>
-                )}
                 
                 {/* Horizontal divider */}
                 <div className="h-px w-6 bg-gray-300"></div>
@@ -731,7 +734,10 @@ export default function EmberDetail() {
                  </CarouselItem>
                  
                  <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
-                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                   <Card 
+                     className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
+                     onClick={() => setShowStoryModal(true)}
+                   >
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
                          <div className="flex justify-center items-center relative">
@@ -777,10 +783,10 @@ export default function EmberDetail() {
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
                          <div className="flex justify-center items-center relative">
-                           <MagnifyingGlass size={22} className="text-blue-600" />
+                           <ChatCircle size={22} className="text-blue-600" />
                          </div>
-                         <h3 className="font-semibold text-gray-900 my-1 text-center">Image Analysis</h3>
-                         <p className="text-sm text-gray-600 text-center">Deep analysis of this image</p>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Comments & Observations</h3>
+                         <p className="text-sm text-gray-600 text-center">Comments about this ember</p>
                        </div>
                      </CardContent>
                    </Card>
@@ -819,7 +825,35 @@ export default function EmberDetail() {
                      <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                        <div>
                          <div className="flex justify-center items-center relative">
-                           <UsersThree size={22} className="text-blue-600" />
+                           <ImageSquare size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Supporting Media</h3>
+                         <p className="text-sm text-gray-600 text-center">Additional photos and videos</p>
+                       </div>
+                     </CardContent>
+                   </Card>
+                 </CarouselItem>
+                 
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <Eye size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Image Analysis</h3>
+                         <p className="text-sm text-gray-600 text-center">Deep analysis of this image</p>
+                       </div>
+                     </CardContent>
+                   </Card>
+                 </CarouselItem>
+                 
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <Users size={22} className="text-blue-600" />
                          </div>
                          <h3 className="font-semibold text-gray-900 my-1 text-center">Contributors</h3>
                          <p className="text-sm text-gray-600 text-center">People who contributed to this ember</p>
@@ -1069,6 +1103,20 @@ export default function EmberDetail() {
           isOpen={showNamesModal} 
           onClose={() => setShowNamesModal(false)}
           onEmberUpdate={handleEmberUpdate}
+        />
+      )}
+
+      {/* Story Modal */}
+      {ember && (
+        <StoryModal 
+          ember={ember} 
+          isOpen={showStoryModal} 
+          onClose={() => setShowStoryModal(false)}
+          question="Tell us about this moment. What was happening when this photo was taken?"
+          onSubmit={async (submissionData) => {
+            console.log('Story submission:', submissionData);
+            // TODO: Handle story submission (save to database, process audio, etc.)
+          }}
         />
       )}
 
