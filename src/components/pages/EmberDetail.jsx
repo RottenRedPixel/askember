@@ -15,10 +15,11 @@ import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix, FilmSlate, ChatCircle, ImageSquare, House } from 'phosphor-react';
+import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix, FilmSlate, ChatCircle, ImageSquare, House, UserCirclePlus } from 'phosphor-react';
 
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
+import InviteModal from '@/components/InviteModal';
 import StoryModal from '@/components/StoryModal';
 
 import EmberNamesModal from '@/components/EmberNamesModal';
@@ -33,6 +34,7 @@ export default function EmberDetail() {
   const [error, setError] = useState('');
   const [showFullImage, setShowFullImage] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [showNamesModal, setShowNamesModal] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -50,6 +52,7 @@ export default function EmberDetail() {
   const [emberLength, setEmberLength] = useState(30);
   const [selectedVoices, setSelectedVoices] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [userPermission, setUserPermission] = useState('none');
 
   // Media query hook for responsive design
   const useMediaQuery = (query) => {
@@ -293,10 +296,15 @@ export default function EmberDetail() {
       console.log('Image URL:', data?.image_url);
       setEmber(data);
 
-      // Also fetch sharing information to get invited users
+      // Also fetch sharing information to get invited users and permission level
       try {
         const sharingData = await getEmberWithSharing(id);
         console.log('Sharing data:', sharingData);
+        
+        // Set user's permission level
+        setUserPermission(sharingData.userPermission || 'none');
+        console.log('User permission:', sharingData.userPermission);
+        
         if (sharingData.shares && sharingData.shares.length > 0) {
           // Extract shared users with their profile information
           // Only include users who have actually created accounts (have user_id)
@@ -320,6 +328,7 @@ export default function EmberDetail() {
         console.error('Error fetching sharing data:', sharingError);
         // Don't fail the whole component if sharing data fails
         setSharedUsers([]);
+        setUserPermission('none');
       }
     } catch (err) {
       console.error('Error fetching ember:', err);
@@ -385,6 +394,9 @@ export default function EmberDetail() {
 
   // Check if current user is the owner of this ember
   const isOwner = user && ember?.user_id === user.id;
+  
+  // Check if user can edit (owner or contributor)
+  const canEdit = isOwner || userPermission === 'edit' || userPermission === 'contributor';
 
   // Calculate wiki progress (12 sections total)
   const calculateWikiProgress = (ember, sharedUsers = []) => {
@@ -463,7 +475,7 @@ export default function EmberDetail() {
           {/* Photo area (with toggle, blurred bg, main image, icon bar) */}
           <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[65vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-auto overflow-hidden">
             {/* Top right vertical capsule: Owner Avatar and Invited Users */}
-            <div className="absolute top-4 right-4 z-30 flex flex-col items-center bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+            <div className="absolute top-4 right-4 z-30 flex flex-col items-center gap-3 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
               {/* Home Icon - clickable to go to My Embers */}
               <button
                 className="rounded-full p-1 hover:bg-white/70 transition-colors"
@@ -475,7 +487,7 @@ export default function EmberDetail() {
               </button>
               
               {/* Horizontal divider below home icon */}
-              <div className="h-px w-6 bg-gray-300 my-2"></div>
+              <div className="h-px w-6 bg-gray-300 my-1"></div>
               
               {/* Owner Avatar - Always at the top of the stack */}
               {ember?.owner && (
@@ -505,7 +517,7 @@ export default function EmberDetail() {
                   key={sharedUser.id || index}
                   className="p-1 hover:bg-white/70 rounded-full transition-colors"
                   style={{ 
-                    marginTop: ember?.owner ? '-16px' : (index === 0 ? '0px' : '-16px'),
+                    marginTop: ember?.owner ? '-28px' : (index === 0 ? '-12px' : '-28px'),
                     zIndex: ember?.owner ? (34 - index) : (30 - index) // Adjust z-index if owner is present
                   }}
                   title={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
@@ -522,15 +534,30 @@ export default function EmberDetail() {
                 </div>
               ))}
               
-              {/* Share button - Only show for private embers or owned embers */}
+              {/* Horizontal divider between avatars and action buttons */}
+              <div className="h-px w-6 bg-gray-300 my-1"></div>
+              
+              {/* Share button - View-only sharing for everyone */}
               {(!ember?.is_public || user) && (
                 <button
                   className="rounded-full p-1 hover:bg-white/70 transition-colors"
                   onClick={() => setShowShareModal(true)}
-                  aria-label="Share ember"
+                  aria-label="Share ember (view-only)"
                   type="button"
                 >
                   <ShareNetwork size={24} className="text-gray-700" />
+                </button>
+              )}
+              
+              {/* Invite Contributors button - Only for owners */}
+              {isOwner && (
+                <button
+                  className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                  onClick={() => setShowInviteModal(true)}
+                  aria-label="Invite contributors"
+                  type="button"
+                >
+                  <UserCirclePlus size={24} className="text-gray-700" />
                 </button>
               )}
               
@@ -592,7 +619,7 @@ export default function EmberDetail() {
 
             {/* Bottom right capsule: Action icons above horizontal divider above feature icons */}
             <div className="absolute right-4 bottom-4 z-20">
-              <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+              <div className="flex flex-col items-center gap-3 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
                 {/* Action Icons */}
                 <button
                   className="rounded-full p-1 hover:bg-white/50 transition-colors"
@@ -604,7 +631,7 @@ export default function EmberDetail() {
                 </button>
                 
                 {/* Horizontal divider */}
-                <div className="h-px w-6 bg-gray-300"></div>
+                <div className="h-px w-6 bg-gray-300 my-1"></div>
                 
                 {/* Feature Icons */}
                 <button
@@ -672,487 +699,207 @@ export default function EmberDetail() {
                 </CarouselItem>
                 
                                  {/* Title Card - Dynamic States */}
-                 <CarouselItem className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
                    {(() => {
                      const isComplete = ember?.title && ember.title.trim() !== '' && ember.title !== 'Untitled Ember';
                      const userName = userProfile?.first_name || 'User';
                      
                      return (
                        <Card 
-                         className={`h-32 bg-white transition-all duration-200 ${
-                           !isComplete 
-                             ? 'border-gray-200 cursor-pointer hover:shadow-md' 
-                             : 'border-gray-200'
+                         className={`h-32 bg-white border-gray-200 transition-shadow ${
+                           !isComplete ? 'cursor-pointer hover:shadow-md' : ''
                          }`}
                          onClick={!isComplete ? () => setShowNamesModal(true) : undefined}
                        >
-
                          <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
                            <div>
-                             {/* Header with icon and status badge */}
-                             <div className="flex justify-center items-center relative mb-2">
+                             <div className="flex justify-center items-center relative">
                                <PenNib size={22} className="text-blue-600" />
-                               <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                 isComplete 
-                                   ? 'bg-green-100 text-green-800' 
-                                   : 'bg-gray-100 text-gray-600'
-                               }`}>
-                                 {isComplete ? 'Done' : 'Not Done'}
-                               </div>
+                               {isComplete && (
+                                 <CheckCircle size={20} className="text-green-500 absolute right-0" />
+                               )}
                              </div>
                              
-                             {/* Wiki Title */}
-                             <h3 className="font-semibold text-gray-900 text-center mb-1">
-                               Title
-                             </h3>
-                             
-                             {/* Dynamic Content */}
                              {!isComplete ? (
-                               <p className="text-sm text-gray-600 text-center">
-                                 The perfect title awaits
-                               </p>
+                               <>
+                                 <h3 className="font-semibold text-gray-900 my-1 text-center">
+                                   help pick a perfect title for this ember.
+                                 </h3>
+                               </>
                              ) : (
-                               <p className="text-sm text-gray-700 text-center font-medium">
-                                 "{ember.title}"
-                               </p>
+                               <>
+                                 <h3 className="font-semibold text-gray-900 my-1 text-center">
+                                   {ember.title}
+                                 </h3>
+                                 <p className="text-sm text-gray-600 text-center">
+                                   This was the title that was chosen.
+                                 </p>
+                               </>
                              )}
                            </div>
+                           
+
                          </CardContent>
                        </Card>
                      );
                    })()}
                  </CarouselItem>
                  
-                 <CarouselItem className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                   {(() => {
-                     const isComplete = false; // Placeholder - will be true when location data exists
-                     return (
-                       <Card className={`h-32 bg-white transition-all duration-200 ${
-                         !isComplete 
-                           ? 'border-gray-200 cursor-pointer hover:shadow-md' 
-                           : 'border-gray-200'
-                       }`}>
-                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                           <div>
-                                                           {/* Header with icon and status badge */}
-                              <div className="flex justify-center items-center relative mb-2">
-                                <MapPin size={22} className="text-blue-600" />
-                                <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                  isComplete 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {isComplete ? 'Done' : 'Not Done'}
-                                </div>
-                              </div>
-                             
-                             {/* Wiki Title */}
-                             <h3 className="font-semibold text-gray-900 text-center mb-1">
-                               Location
-                             </h3>
-                             
-                             {/* Dynamic Content */}
-                             <p className="text-sm text-gray-600 text-center">
-                               Where this moment happened
-                             </p>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <MapPin size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Location</h3>
+                         <p className="text-sm text-gray-600 text-center">Where this moment happened</p>
+                       </div>
+                     </CardContent>
+                   </Card>
                  </CarouselItem>
                  
-                 <CarouselItem className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                   {(() => {
-                     const isComplete = false; // Placeholder - will be true when time/date data exists
-                     return (
-                       <Card className={`h-32 bg-white transition-all duration-200 ${
-                         !isComplete 
-                           ? 'border-gray-200 cursor-pointer hover:shadow-md' 
-                           : 'border-gray-200'
-                       }`}>
-                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                           <div>
-                                                           {/* Header with icon and status badge */}
-                              <div className="flex justify-center items-center relative mb-2">
-                                <Clock size={22} className="text-blue-600" />
-                                <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                  isComplete 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {isComplete ? 'Done' : 'Not Done'}
-                                </div>
-                              </div>
-                             
-                             {/* Wiki Title */}
-                             <h3 className="font-semibold text-gray-900 text-center mb-1">
-                               Time & Date
-                             </h3>
-                             
-                             {/* Dynamic Content */}
-                             <p className="text-sm text-gray-600 text-center">
-                               When this moment occurred
-                             </p>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <Clock size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Time & Date</h3>
+                         <p className="text-sm text-gray-600 text-center">When this moment occurred</p>
+                       </div>
+                     </CardContent>
+                   </Card>
                  </CarouselItem>
                  
-                 <CarouselItem className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                   {(() => {
-                     const isComplete = false; // Placeholder - will be true when story data exists
-                     return (
-                       <Card 
-                         className={`h-32 bg-white transition-all duration-200 ${
-                           !isComplete 
-                             ? 'border-gray-200 cursor-pointer hover:shadow-md' 
-                             : 'border-gray-200'
-                         }`}
-                         onClick={() => setShowStoryModal(true)}
-                       >
-                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                           <div>
-                                                           {/* Header with icon and status badge */}
-                              <div className="flex justify-center items-center relative mb-2">
-                                <BookOpen size={22} className="text-blue-600" />
-                                <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                  isComplete 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {isComplete ? 'Done' : 'Not Done'}
-                                </div>
-                              </div>
-                             
-                             {/* Wiki Title */}
-                             <h3 className="font-semibold text-gray-900 text-center mb-1">
-                               The Story
-                             </h3>
-                             
-                             {/* Dynamic Content */}
-                             <p className="text-sm text-gray-600 text-center">
-                               The narrative behind this ember
-                             </p>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card 
+                     className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
+                     onClick={() => setShowStoryModal(true)}
+                   >
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <BookOpen size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">The Story</h3>
+                         <p className="text-sm text-gray-600 text-center">The narrative behind this ember</p>
+                       </div>
+                     </CardContent>
+                   </Card>
                  </CarouselItem>
                  
-                 <CarouselItem className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                   {(() => {
-                     const isComplete = false; // Placeholder - will be true when why data exists
-                     return (
-                       <Card className={`h-32 bg-white transition-all duration-200 ${
-                         !isComplete 
-                           ? 'border-gray-200 cursor-pointer hover:shadow-md' 
-                           : 'border-gray-200'
-                       }`}>
-                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                           <div>
-                                                           {/* Header with icon and status badge */}
-                              <div className="flex justify-center items-center relative mb-2">
-                                <Question size={22} className="text-blue-600" />
-                                <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                  isComplete 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {isComplete ? 'Done' : 'Not Done'}
-                                </div>
-                              </div>
-                             
-                             {/* Wiki Title */}
-                             <h3 className="font-semibold text-gray-900 text-center mb-1">
-                               The Why
-                             </h3>
-                             
-                             {/* Dynamic Content */}
-                             <p className="text-sm text-gray-600 text-center">
-                               Why this moment was captured
-                             </p>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <Question size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">The Why</h3>
+                         <p className="text-sm text-gray-600 text-center">Why this moment was captured</p>
+                       </div>
+                     </CardContent>
+                   </Card>
                  </CarouselItem>
                  
-                 <CarouselItem className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                   {(() => {
-                     const isComplete = false; // Placeholder - will be true when feelings data exists
-                     return (
-                       <Card className={`h-32 bg-white transition-all duration-200 ${
-                         !isComplete 
-                           ? 'border-gray-200 cursor-pointer hover:shadow-md' 
-                           : 'border-gray-200'
-                       }`}>
-                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                           <div>
-                                                           {/* Header with icon and status badge */}
-                              <div className="flex justify-center items-center relative mb-2">
-                                <Heart size={22} className="text-blue-600" />
-                                <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                  isComplete 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {isComplete ? 'Done' : 'Not Done'}
-                                </div>
-                              </div>
-                             
-                             {/* Wiki Title */}
-                             <h3 className="font-semibold text-gray-900 text-center mb-1">
-                               The Feelings
-                             </h3>
-                             
-                             {/* Dynamic Content */}
-                             <p className="text-sm text-gray-600 text-center">
-                               Emotions in this moment
-                             </p>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <Heart size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">The Feelings</h3>
+                         <p className="text-sm text-gray-600 text-center">Emotions in this moment</p>
+                       </div>
+                     </CardContent>
+                   </Card>
                  </CarouselItem>
                  
-                 <CarouselItem className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                   {(() => {
-                     const isComplete = false; // Placeholder - will be true when comments data exists
-                     return (
-                       <Card className={`h-32 bg-white transition-all duration-200 ${
-                         !isComplete 
-                           ? 'border-gray-200 cursor-pointer hover:shadow-md' 
-                           : 'border-gray-200'
-                       }`}>
-                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                           <div>
-                                                           {/* Header with icon and status badge */}
-                              <div className="flex justify-center items-center relative mb-2">
-                                <ChatCircle size={22} className="text-blue-600" />
-                                <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                  isComplete 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {isComplete ? 'Done' : 'Not Done'}
-                                </div>
-                              </div>
-                             
-                             {/* Wiki Title */}
-                             <h3 className="font-semibold text-gray-900 text-center mb-1">
-                               Comments
-                             </h3>
-                             
-                             {/* Dynamic Content */}
-                             <p className="text-sm text-gray-600 text-center">
-                               Comments about this ember
-                             </p>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <ChatCircle size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Comments & Observations</h3>
+                         <p className="text-sm text-gray-600 text-center">Comments about this ember</p>
+                       </div>
+                     </CardContent>
+                   </Card>
                  </CarouselItem>
                  
-                 <CarouselItem className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                   {(() => {
-                     const isComplete = false; // Placeholder - will be true when tagged objects data exists
-                     return (
-                       <Card className={`h-32 bg-white transition-all duration-200 ${
-                         !isComplete 
-                           ? 'border-gray-200 cursor-pointer hover:shadow-md' 
-                           : 'border-gray-200'
-                       }`}>
-                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                           <div>
-                                                           {/* Header with icon and status badge */}
-                              <div className="flex justify-center items-center relative mb-2">
-                                <Package size={22} className="text-blue-600" />
-                                <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                  isComplete 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {isComplete ? 'Done' : 'Not Done'}
-                                </div>
-                              </div>
-                             
-                             {/* Wiki Title */}
-                             <h3 className="font-semibold text-gray-900 text-center mb-1">
-                               Tagged Objects
-                             </h3>
-                             
-                             {/* Dynamic Content */}
-                             <p className="text-sm text-gray-600 text-center">
-                               Objects identified in this image
-                             </p>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <Package size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Tagged Objects</h3>
+                         <p className="text-sm text-gray-600 text-center">Objects identified in this image</p>
+                       </div>
+                     </CardContent>
+                   </Card>
                  </CarouselItem>
                  
-                 <CarouselItem className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                   {(() => {
-                     const isComplete = false; // Placeholder - will be true when tagged people data exists
-                     return (
-                       <Card className={`h-32 bg-white transition-all duration-200 ${
-                         !isComplete 
-                           ? 'border-gray-200 cursor-pointer hover:shadow-md' 
-                           : 'border-gray-200'
-                       }`}>
-                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                           <div>
-                             {/* Header with icon and status badge */}
-                             <div className="flex justify-center items-center relative mb-2">
-                               <Users size={22} className="text-blue-600" />
-                               <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                 isComplete 
-                                   ? 'bg-green-100 text-green-800' 
-                                   : 'bg-gray-100 text-gray-600'
-                               }`}>
-                                 {isComplete ? 'Done' : 'Not Done'}
-                               </div>
-                             </div>
-                             
-                             {/* Wiki Title */}
-                             <h3 className="font-semibold text-gray-900 text-center mb-1">
-                               Tagged People
-                             </h3>
-                             
-                             {/* Dynamic Content */}
-                             <p className="text-sm text-gray-600 text-center">
-                               People identified in this image
-                             </p>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <Users size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Tagged People</h3>
+                         <p className="text-sm text-gray-600 text-center">People identified in this image</p>
+                       </div>
+                     </CardContent>
+                   </Card>
                  </CarouselItem>
                  
-                 <CarouselItem className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                   {(() => {
-                     const isComplete = false; // Placeholder - will be true when supporting media data exists
-                     return (
-                       <Card className={`h-32 bg-white transition-all duration-200 ${
-                         !isComplete 
-                           ? 'border-gray-200 cursor-pointer hover:shadow-md' 
-                           : 'border-gray-200'
-                       }`}>
-                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                           <div>
-                             {/* Header with icon and status badge */}
-                             <div className="flex justify-center items-center relative mb-2">
-                               <ImageSquare size={22} className="text-blue-600" />
-                               <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                 isComplete 
-                                   ? 'bg-green-100 text-green-800' 
-                                   : 'bg-gray-100 text-gray-600'
-                               }`}>
-                                 {isComplete ? 'Done' : 'Not Done'}
-                               </div>
-                             </div>
-                             
-                             {/* Wiki Title */}
-                             <h3 className="font-semibold text-gray-900 text-center mb-1">
-                               Supporting Media
-                             </h3>
-                             
-                             {/* Dynamic Content */}
-                             <p className="text-sm text-gray-600 text-center">
-                               Additional photos and videos
-                             </p>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <ImageSquare size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Supporting Media</h3>
+                         <p className="text-sm text-gray-600 text-center">Additional photos and videos</p>
+                       </div>
+                     </CardContent>
+                   </Card>
                  </CarouselItem>
                  
-                 <CarouselItem className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                   {(() => {
-                     const isComplete = false; // Placeholder - will be true when image analysis data exists
-                     return (
-                       <Card className={`h-32 bg-white transition-all duration-200 ${
-                         !isComplete 
-                           ? 'border-gray-200 cursor-pointer hover:shadow-md' 
-                           : 'border-gray-200'
-                       }`}>
-                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                           <div>
-                             {/* Header with icon and status badge */}
-                             <div className="flex justify-center items-center relative mb-2">
-                               <Eye size={22} className="text-blue-600" />
-                               <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                 isComplete 
-                                   ? 'bg-green-100 text-green-800' 
-                                   : 'bg-gray-100 text-gray-600'
-                               }`}>
-                                 {isComplete ? 'Done' : 'Not Done'}
-                               </div>
-                             </div>
-                             
-                             {/* Wiki Title */}
-                             <h3 className="font-semibold text-gray-900 text-center mb-1">
-                               Image Analysis
-                             </h3>
-                             
-                             {/* Dynamic Content */}
-                             <p className="text-sm text-gray-600 text-center">
-                               Deep analysis of this image
-                             </p>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <Eye size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Image Analysis</h3>
+                         <p className="text-sm text-gray-600 text-center">Deep analysis of this image</p>
+                       </div>
+                     </CardContent>
+                   </Card>
                  </CarouselItem>
                  
-                 <CarouselItem className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                   {(() => {
-                     const isComplete = ember?.owner || sharedUsers.length > 0; // Contributors logic
-                     return (
-                       <Card className={`h-32 bg-white transition-all duration-200 ${
-                         !isComplete 
-                           ? 'border-gray-200 cursor-pointer hover:shadow-md' 
-                           : 'border-gray-200'
-                       }`}>
-                         <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                           <div>
-                             {/* Header with icon and status badge */}
-                             <div className="flex justify-center items-center relative mb-2">
-                               <Users size={22} className="text-blue-600" />
-                               <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                 isComplete 
-                                   ? 'bg-green-100 text-green-800' 
-                                   : 'bg-gray-100 text-gray-600'
-                               }`}>
-                                 {isComplete ? 'Done' : 'Not Done'}
-                               </div>
-                             </div>
-                             
-                             {/* Wiki Title */}
-                             <h3 className="font-semibold text-gray-900 text-center mb-1">
-                               Contributors
-                             </h3>
-                             
-                             {/* Dynamic Content */}
-                             <p className="text-sm text-gray-600 text-center">
-                               People who contributed to this ember
-                             </p>
-                           </div>
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
+                 <CarouselItem className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-3/5">
+                   <Card className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-shadow">
+                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                       <div>
+                         <div className="flex justify-center items-center relative">
+                           <Users size={22} className="text-blue-600" />
+                         </div>
+                         <h3 className="font-semibold text-gray-900 my-1 text-center">Contributors</h3>
+                         <p className="text-sm text-gray-600 text-center">People who contributed to this ember</p>
+                       </div>
+                     </CardContent>
+                   </Card>
                  </CarouselItem>
               </CarouselContent>
             </Carousel>
@@ -1221,9 +968,11 @@ export default function EmberDetail() {
                       ) : (
                         <div className="flex items-center gap-2">
                           <span className="text-gray-900">{ember.title || 'N/A'}</span>
-                          <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
-                            <PencilSimple size={16} />
-                          </button>
+                          {canEdit && (
+                            <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
+                              <PencilSimple size={16} />
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1386,6 +1135,16 @@ export default function EmberDetail() {
           ember={ember} 
           isOpen={showShareModal} 
           onClose={() => setShowShareModal(false)} 
+        />
+      )}
+
+      {/* Invite Contributors Modal */}
+      {ember && (
+        <InviteModal 
+          ember={ember} 
+          isOpen={showInviteModal} 
+          onClose={() => setShowInviteModal(false)}
+          onUpdate={handleEmberUpdate}
         />
       )}
 
