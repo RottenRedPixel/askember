@@ -49,6 +49,7 @@ export default function EmberDetail() {
   const [showStoryModal, setShowStoryModal] = useState(false);
   const [emberLength, setEmberLength] = useState(30);
   const [selectedVoices, setSelectedVoices] = useState([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Media query hook for responsive design
   const useMediaQuery = (query) => {
@@ -286,6 +287,7 @@ export default function EmberDetail() {
   const fetchEmber = async () => {
     try {
       setLoading(true);
+      setIsRefreshing(true);
       const data = await getEmber(id);
       console.log('Fetched ember data:', data);
       console.log('Image URL:', data?.image_url);
@@ -324,6 +326,7 @@ export default function EmberDetail() {
       setError('Ember not found');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -1117,6 +1120,8 @@ export default function EmberDetail() {
             console.log('Story submission:', submissionData);
             // TODO: Handle story submission (save to database, process audio, etc.)
           }}
+          onRefresh={fetchEmber}
+          isRefreshing={isRefreshing}
         />
       )}
 

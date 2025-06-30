@@ -4,6 +4,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { BookOpen, Mic, MicOff, Play, Pause, Settings, Send, User, Sparkles, Check, ChevronsUpDown } from 'lucide-react';
+import { ArrowClockwise } from 'phosphor-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -315,7 +316,7 @@ const ModalContent = ({
   </div>
 );
 
-export default function StoryModal({ isOpen, onClose, ember, question, onSubmit }) {
+export default function StoryModal({ isOpen, onClose, ember, question, onSubmit, onRefresh, isRefreshing }) {
   const { user, userProfile } = useStore();
   const isMobile = useMediaQuery('(max-width: 768px)');
   
@@ -952,6 +953,18 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
     return followUpQuestions[questionIndex];
   };
 
+  // Handle refresh functionality
+  const handleRefresh = async () => {
+    console.log('🔄 Refreshing story conversation...');
+    if (onRefresh) {
+      await onRefresh();
+    }
+    // Also reload the conversation data
+    if (ember?.id && user?.id) {
+      loadConversation();
+    }
+  };
+
   // Responsive render: Drawer on mobile, Dialog on desktop
   if (isMobile) {
     return (
@@ -961,6 +974,19 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
             <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
               <BookOpen size={20} className="text-blue-600" />
               The Story
+              {onRefresh && (
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                  title="Refresh story data"
+                >
+                  <ArrowClockwise 
+                    size={16} 
+                    className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
+                  />
+                </button>
+              )}
             </DrawerTitle>
             <DrawerDescription className="text-left text-gray-600">
               Share the story behind this moment
@@ -1006,6 +1032,19 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
             <BookOpen size={20} className="text-blue-600" />
             The Story
+            {onRefresh && (
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                title="Refresh story data"
+              >
+                <ArrowClockwise 
+                  size={16} 
+                  className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
+                />
+              </button>
+            )}
           </DialogTitle>
           <DialogDescription className="text-gray-600">
             Share the story behind this moment
