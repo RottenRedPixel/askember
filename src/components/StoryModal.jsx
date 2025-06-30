@@ -314,7 +314,7 @@ const ModalContent = ({
                 size="sm"
                 onClick={isRecording ? stopRecording : startRecording}
                 disabled={isProcessing}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 h-9"
               >
                 {isRecording ? (
                   <>
@@ -346,7 +346,7 @@ const ModalContent = ({
                   size="sm"
                   onClick={playRecording}
                   disabled={isProcessing || isPlaying}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 h-9"
                 >
                   {isPlaying ? <Pause size={16} /> : <Play size={16} />}
                   {isPlaying ? 'Pause' : 'Play'}

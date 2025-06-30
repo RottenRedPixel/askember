@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { ArrowClockwise, PencilSimple, TrashSimple } from 'phosphor-react';
 import { 
   FileText,
@@ -80,9 +81,26 @@ export default function EmberWiki({
         ? 'bg-green-100 text-green-800' 
         : 'bg-gray-100 text-gray-600'
     }`}>
-      {isComplete ? 'Complete' : 'Not Complete'}
+      {isComplete ? 'Done' : 'Not Done'}
     </span>
   );
+
+  // Category badge component
+  const CategoryBadge = ({ category }) => {
+    const styles = {
+      'Story Circle': 'bg-purple-100 text-purple-800 border-purple-200',
+      'Discovery': 'bg-blue-100 text-blue-800 border-blue-200'
+    };
+    
+    return (
+      <Badge 
+        variant="outline" 
+        className={`text-xs ${styles[category]}`}
+      >
+        {category}
+      </Badge>
+    );
+  };
 
   const fetchSharedUsers = async () => {
     try {
@@ -166,6 +184,7 @@ export default function EmberWiki({
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4" />
                 Title
+                <CategoryBadge category="Discovery" />
               </div>
               <StatusBadge isComplete={getSectionStatus('title')} />
             </h3>
@@ -204,6 +223,7 @@ export default function EmberWiki({
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
                 Location
+                <CategoryBadge category="Discovery" />
               </div>
               <StatusBadge isComplete={getSectionStatus('location')} />
             </h3>
@@ -218,6 +238,7 @@ export default function EmberWiki({
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />
                 Time & Date
+                <CategoryBadge category="Discovery" />
               </div>
               <StatusBadge isComplete={getSectionStatus('time-date')} />
             </h3>
@@ -232,6 +253,7 @@ export default function EmberWiki({
               <div className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4" />
                 The Story
+                <CategoryBadge category="Story Circle" />
               </div>
               <StatusBadge isComplete={getSectionStatus('story')} />
             </h3>
@@ -246,6 +268,7 @@ export default function EmberWiki({
               <div className="flex items-center gap-2">
                 <HelpCircle className="w-4 h-4" />
                 The Why
+                <CategoryBadge category="Story Circle" />
               </div>
               <StatusBadge isComplete={getSectionStatus('why')} />
             </h3>
@@ -260,6 +283,7 @@ export default function EmberWiki({
               <div className="flex items-center gap-2">
                 <Heart className="w-4 h-4" />
                 The Feelings
+                <CategoryBadge category="Story Circle" />
               </div>
               <StatusBadge isComplete={getSectionStatus('feelings')} />
             </h3>
@@ -268,17 +292,18 @@ export default function EmberWiki({
             </div>
           </div>
 
-          {/* Comments & Observations Section */}
+          {/* Comments Section */}
           <div className="space-y-3">
             <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MessageCircle className="w-4 h-4" />
-                Comments & Observations
+                Comments
+                <CategoryBadge category="Story Circle" />
               </div>
               <StatusBadge isComplete={getSectionStatus('comments-observations')} />
             </h3>
             <div className="text-sm text-gray-600 text-left">
-              Comments and observations about this ember will appear here...
+              Comments about this ember will appear here...
             </div>
           </div>
 
@@ -288,6 +313,7 @@ export default function EmberWiki({
               <div className="flex items-center gap-2">
                 <Package className="w-4 h-4" />
                 Tagged Objects
+                <CategoryBadge category="Discovery" />
               </div>
               <StatusBadge isComplete={getSectionStatus('objects')} />
             </h3>
@@ -302,6 +328,7 @@ export default function EmberWiki({
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 Tagged People
+                <CategoryBadge category="Discovery" />
               </div>
               <StatusBadge isComplete={getSectionStatus('people')} />
             </h3>
@@ -316,6 +343,7 @@ export default function EmberWiki({
               <div className="flex items-center gap-2">
                 <Image className="w-4 h-4" />
                 Supporting Media
+                <CategoryBadge category="Discovery" />
               </div>
               <StatusBadge isComplete={getSectionStatus('supporting-media')} />
             </h3>
@@ -330,6 +358,7 @@ export default function EmberWiki({
               <div className="flex items-center gap-2">
                 <Eye className="w-4 h-4" />
                 Image Analysis
+                <CategoryBadge category="Discovery" />
               </div>
               <StatusBadge isComplete={getSectionStatus('analysis')} />
             </h3>
