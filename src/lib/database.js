@@ -576,4 +576,31 @@ export const completeStoryConversation = async (conversationId, userId) => {
     console.error('Error completing story conversation:', error);
     throw error;
   }
+};
+
+/**
+ * Get all story messages for an ember across all users
+ * This allows users to see other users' answers to story questions
+ * Note: This function requires modified RLS policies to allow cross-user access
+ */
+export const getAllStoryMessagesForEmber = async (emberId) => {
+  try {
+    // Use RPC function to bypass RLS and get all story messages for an ember
+    const { data, error } = await supabase.rpc('get_all_story_messages_for_ember', {
+      ember_id: emberId
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return {
+      messages: data || []
+    };
+  } catch (error) {
+    console.error('Error getting all story messages for ember:', error);
+    // Fallback to regular conversation loading for current user
+    console.log('Falling back to current user conversation only');
+    return { messages: [] };
+  }
 }; 

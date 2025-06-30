@@ -15,7 +15,8 @@ import {
   getOrCreateStoryConversation, 
   addStoryMessage, 
   getStoryConversationWithMessages,
-  completeStoryConversation
+  completeStoryConversation,
+  getAllStoryMessagesForEmber
 } from '../lib/database';
 import { speechToText, storeVoiceTraining } from '../lib/elevenlabs';
 
@@ -64,7 +65,7 @@ const MicrophoneCombobox = ({ microphones, selectedMicrophone, onSelectMicrophon
           />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg rounded-md" align="start">
+                    <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg rounded-md focus:outline-none" align="start">
         <Command>
           <CommandInput placeholder="Search microphones..." className="h-9" />
           <CommandList>
@@ -130,71 +131,97 @@ const ModalContent = ({
       <>
         {/* Chat Messages */}
         <div className="space-y-4 max-h-60 overflow-y-auto">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex w-full gap-3 ${
-                message.sender === 'ember' ? 'justify-start' : 'justify-end'
-              }`}
-            >
-              {/* Avatar - only show on left side for ember messages */}
-              {message.sender === 'ember' && (
-                <Avatar className="h-8 w-8 flex-shrink-0">
-                  <AvatarImage src="/ember-ai-avatar.png" alt="Ember AI" />
-                  <AvatarFallback className="bg-blue-500 text-white">
-                    <Sparkles size={16} />
-                  </AvatarFallback>
-                </Avatar>
-              )}
+          {messages.map((message, index) => {
+            // Determine display name for user messages
+            const getUserDisplayName = (msg) => {
+              if (msg.sender === 'ember') return 'Ember AI';
+              if (msg.isCurrentUser) return 'You';
+              if (msg.userFirstName) return msg.userFirstName;
+              return 'Anonymous User';
+            };
 
+            const getUserAvatar = (msg) => {
+              if (msg.isCurrentUser) return userProfile?.avatar_url;
+              return msg.userAvatarUrl;
+            };
+
+            return (
               <div
-                className={`max-w-[75%] ${
-                  message.sender === 'ember' ? 'order-2' : 'order-1'
+                key={index}
+                className={`flex w-full gap-3 ${
+                  message.sender === 'ember' ? 'justify-start' : 'justify-end'
                 }`}
               >
-                {/* Sender name */}
-                <div className={`flex items-center gap-2 mb-1 ${
-                  message.sender === 'ember' ? 'justify-start' : 'justify-end'
-                }`}>
-                  <span className={`text-xs font-medium ${
-                    message.sender === 'ember' ? 'text-blue-700' : 'text-gray-600'
-                  }`}>
-                    {message.sender === 'ember' ? 'Ember AI' : (userProfile?.first_name || user?.email?.split('@')[0] || 'You')}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {message.timestamp}
-                  </span>
-                </div>
+                {/* Avatar - only show on left side for ember messages */}
+                {message.sender === 'ember' && (
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarImage src="/ember-ai-avatar.png" alt="Ember AI" />
+                    <AvatarFallback className="bg-blue-500 text-white">
+                      <Sparkles size={16} />
+                    </AvatarFallback>
+                  </Avatar>
+                )}
 
-                {/* Message bubble */}
                 <div
-                  className={`p-3 rounded-lg ${
-                    message.sender === 'ember'
-                      ? 'bg-blue-100 text-blue-900 rounded-tl-none'
-                      : 'bg-gray-100 text-gray-900 rounded-tr-none'
+                  className={`max-w-[75%] ${
+                    message.sender === 'ember' ? 'order-2' : 'order-1'
                   }`}
                 >
-                  <p className="text-sm">{message.content}</p>
-                  {message.hasVoiceRecording && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs opacity-70">Audio message</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+                  {/* Sender name */}
+                  <div className={`flex items-center gap-2 mb-1 ${
+                    message.sender === 'ember' ? 'justify-start' : 'justify-end'
+                  }`}>
+                    <span className={`text-xs font-medium ${
+                      message.sender === 'ember' 
+                        ? 'text-blue-700' 
+                        : message.isCurrentUser 
+                          ? 'text-green-700' 
+                          : 'text-purple-700'
+                    }`}>
+                      {getUserDisplayName(message)}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {message.timestamp}
+                    </span>
+                  </div>
 
-              {/* Avatar - only show on right side for user messages */}
-              {message.sender === 'user' && (
-                <Avatar className="h-8 w-8 flex-shrink-0">
-                  <AvatarImage src={userProfile?.avatar_url} alt={userProfile?.first_name || user?.email || 'User'} />
-                  <AvatarFallback className="bg-gray-500 text-white">
-                    <User size={16} />
-                  </AvatarFallback>
-                </Avatar>
-              )}
-            </div>
-          ))}
+                  {/* Message bubble */}
+                  <div
+                    className={`p-3 rounded-lg ${
+                      message.sender === 'ember'
+                        ? 'bg-blue-100 text-blue-900 rounded-tl-none'
+                        : message.isCurrentUser
+                          ? 'bg-green-100 text-green-900 rounded-tr-none'
+                          : 'bg-purple-100 text-purple-900 rounded-tr-none'
+                    }`}
+                  >
+                    <p className="text-sm">{message.content}</p>
+                    {message.hasVoiceRecording && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs opacity-70">Audio message</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Avatar - only show on right side for user messages */}
+                {message.sender === 'user' && (
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarImage 
+                      src={getUserAvatar(message)} 
+                      alt={getUserDisplayName(message)} 
+                    />
+                    <AvatarFallback className={`text-white ${
+                      message.isCurrentUser ? 'bg-green-500' : 'bg-purple-500'
+                    }`}>
+                      <User size={16} />
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+              </div>
+            );
+          })}
           <div ref={messagesEndRef} />
         </div>
 
@@ -429,38 +456,48 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       setIsLoading(true);
       console.log('loadConversation: Creating/getting conversation for ember:', ember.id, 'user:', user.id);
 
-      // Get or create conversation
+      // Get or create conversation for current user (for submitting new answers)
       const conv = await getOrCreateStoryConversation(ember.id, user.id, 'story');
       console.log('loadConversation: Conversation result:', conv);
       setConversation(conv);
 
-      // Load existing messages
-      const convWithMessages = await getStoryConversationWithMessages(conv.id);
+      // Load ALL story messages for this ember (from all users)
+      console.log('loadConversation: Loading all story messages for ember');
+      const allMessages = await getAllStoryMessagesForEmber(ember.id);
       
-      if (convWithMessages.messages && convWithMessages.messages.length > 0) {
-        // Convert database messages to UI format
-        const uiMessages = convWithMessages.messages.map(msg => ({
+      if (allMessages.messages && allMessages.messages.length > 0) {
+        // Convert database messages to UI format, including user info
+        const uiMessages = allMessages.messages.map(msg => ({
           sender: msg.sender,
           content: msg.content,
           timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           type: msg.message_type,
           hasVoiceRecording: msg.has_audio,
           audioUrl: msg.audio_url,
-          messageId: msg.id
+          messageId: msg.id,
+          userId: msg.user_id,
+          userFirstName: msg.user_first_name,
+          userLastName: msg.user_last_name,
+          userAvatarUrl: msg.user_avatar_url,
+          isCurrentUser: msg.user_id === user.id
         }));
 
         setMessages(uiMessages);
 
-        // Set next question based on conversation progress
-        const answerCount = uiMessages.filter(msg => msg.type === 'answer').length;
-        if (answerCount < 10) { // Still have questions to ask
-          const nextQuestion = generateFollowUpQuestion(uiMessages);
+        // Set next question based on current user's conversation progress
+        // Get current user's answers only
+        const currentUserAnswers = uiMessages.filter(msg => 
+          msg.type === 'answer' && msg.userId === user.id
+        ).length;
+        
+        if (currentUserAnswers < 10) { // Still have questions to ask
+          const nextQuestion = generateFollowUpQuestion(uiMessages.filter(msg => msg.userId === user.id));
           setCurrentQuestion(nextQuestion);
         } else {
-          setCurrentQuestion(''); // No more questions
+          setCurrentQuestion(''); // No more questions for current user
         }
       } else {
-        // New conversation - start with first question
+        // No messages yet - start with first question
         setMessages([]);
         setCurrentQuestion(question || "Tell us about this moment. What was happening when this photo was taken?");
       }
@@ -969,7 +1006,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   if (isMobile) {
     return (
       <Drawer open={isOpen} onOpenChange={onClose}>
-        <DrawerContent className="bg-white">
+        <DrawerContent className="bg-white focus:outline-none">
           <DrawerHeader className="bg-white">
             <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
               <BookOpen size={20} className="text-blue-600" />
@@ -1027,7 +1064,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   // Desktop Dialog
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-lg max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-lg rounded-2xl">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-lg max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-lg rounded-2xl focus:outline-none">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
             <BookOpen size={20} className="text-blue-600" />

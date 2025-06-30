@@ -127,7 +127,7 @@ export default function SlideToVoteModal({ isOpen, onClose, ember, onVoteSubmit 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md bg-white">
+      <DialogContent className="max-w-md bg-white focus:outline-none">
         <DialogHeader>
           <DialogTitle className="text-center text-xl font-bold text-gray-900">
             Vote for Ember Name
