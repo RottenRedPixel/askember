@@ -11,6 +11,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from '@/lib/utils';
 import { uploadToBlob } from '../lib/storage';
 import useStore from '../store';
+import { supabase } from '../lib/supabase';
 import { 
   getOrCreateStoryConversation, 
   addStoryMessage, 
@@ -123,9 +124,18 @@ const ModalContent = ({
   user,
   userProfile,
   isEmberOwner,
-  onDeleteMessage
+  onDeleteMessage,
+  newMessageNotification
 }) => (
   <div className="space-y-4">
+    {/* Real-time notification */}
+    {newMessageNotification && (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-center gap-2 animate-pulse">
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+        <span className="text-sm text-blue-700 font-medium">New message from contributor</span>
+      </div>
+    )}
+    
     {isLoading ? (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -398,6 +408,9 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   // Individual message delete state
   const [isDeletingMessage, setIsDeletingMessage] = useState(false);
   
+  // Real-time notification state
+  const [newMessageNotification, setNewMessageNotification] = useState(false);
+  
   const mediaRecorderRef = useRef(null);
   const audioRef = useRef(null);
   const recordingIntervalRef = useRef(null);
@@ -459,6 +472,119 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // Real-time subscription for new story messages
+  useEffect(() => {
+    if (!isOpen || !ember?.id) {
+      console.log('🔴 [REALTIME] Skipping subscription - modal closed or no ember ID');
+      return;
+    }
+
+    console.log('🟢 [REALTIME] Setting up subscription for ember:', ember.id);
+
+    // Create a unique channel for this ember's story messages
+    const channel = supabase
+      .channel(`story-messages-${ember.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'ember_story_messages'
+      }, async (payload) => {
+        console.log('📨 [REALTIME] New message received:', payload);
+        
+        const newMessage = payload.new;
+        
+        // Check if this message is from the current user's conversation
+        if (conversation && newMessage.conversation_id === conversation.id) {
+          console.log('✅ [REALTIME] Message is from current user - ignoring (own message)');
+          return; // Don't add our own messages via real-time
+        }
+        
+        // This is a message from another user - we need to get the full message data with user info
+        try {
+          console.log('🔄 [REALTIME] Getting full message data for cross-user message');
+          
+          // Get the conversation info to find the user details
+          const { data: conversationData, error: convError } = await supabase
+            .from('ember_story_conversations')
+            .select(`
+              *,
+              user_profiles!inner(first_name, last_name, avatar_url)
+            `)
+            .eq('id', newMessage.conversation_id)
+            .single();
+            
+          if (convError) {
+            console.error('🚨 [REALTIME] Error fetching conversation data:', convError);
+            // Fallback: reload all messages
+            loadConversation();
+            return;
+          }
+          
+          // Check if this message is for our current ember
+          if (conversationData.ember_id !== ember.id) {
+            console.log('🔴 [REALTIME] Message is not for current ember - ignoring');
+            return;
+          }
+          
+          console.log('👤 [REALTIME] Conversation data:', conversationData);
+          
+          // Format the message for UI display
+          const uiMessage = {
+            sender: newMessage.sender,
+            content: newMessage.content,
+            timestamp: new Date(newMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            type: newMessage.message_type,
+            hasVoiceRecording: newMessage.has_audio,
+            audioUrl: newMessage.audio_url,
+            messageId: newMessage.id,
+            userId: conversationData.user_id,
+            userFirstName: conversationData.user_profiles?.first_name,
+            userLastName: conversationData.user_profiles?.last_name,
+            userAvatarUrl: conversationData.user_profiles?.avatar_url,
+            isCurrentUser: conversationData.user_id === user?.id
+          };
+          
+                     console.log('➕ [REALTIME] Adding new message to UI:', uiMessage);
+           
+           // Show notification for new message
+           setNewMessageNotification(true);
+           setTimeout(() => setNewMessageNotification(false), 3000); // Hide after 3 seconds
+           
+           // Add the new message to the existing messages
+           setMessages(prev => {
+             // Check if message already exists to avoid duplicates
+             const exists = prev.some(msg => msg.messageId === uiMessage.messageId);
+             if (exists) {
+               console.log('⚠️ [REALTIME] Message already exists, skipping duplicate');
+               return prev;
+             }
+             
+             // Add the new message and sort by timestamp
+             const updated = [...prev, uiMessage].sort((a, b) => 
+               new Date(`1970-01-01 ${a.timestamp}`) - new Date(`1970-01-01 ${b.timestamp}`)
+             );
+             console.log('✅ [REALTIME] Messages updated, total count:', updated.length);
+             return updated;
+           });
+          
+        } catch (error) {
+          console.error('🚨 [REALTIME] Error processing new message:', error);
+          // Fallback: reload all messages
+          console.log('🔄 [REALTIME] Falling back to full reload');
+          loadConversation();
+        }
+      })
+      .subscribe((status) => {
+        console.log('📡 [REALTIME] Subscription status:', status);
+      });
+
+    // Cleanup subscription when component unmounts or modal closes
+    return () => {
+      console.log('🔴 [REALTIME] Cleaning up subscription for ember:', ember.id);
+      supabase.removeChannel(channel);
+    };
+  }, [isOpen, ember?.id, conversation?.id, user?.id]); // Include user.id for proper message filtering
 
   // Load conversation when modal opens
   useEffect(() => {
@@ -1248,6 +1374,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
                 userProfile={userProfile}
                 isEmberOwner={isEmberOwner}
                 onDeleteMessage={handleDeleteMessage}
+                newMessageNotification={newMessageNotification}
               />
               <audio ref={audioRef} style={{ display: 'none' }} />
             </div>
@@ -1367,6 +1494,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
             userProfile={userProfile}
             isEmberOwner={isEmberOwner}
             onDeleteMessage={handleDeleteMessage}
+            newMessageNotification={newMessageNotification}
           />
           <audio ref={audioRef} style={{ display: 'none' }} />
         </DialogContent>

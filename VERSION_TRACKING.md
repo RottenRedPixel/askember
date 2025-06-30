@@ -2,6 +2,23 @@
 
 This project implements a comprehensive version tracking system following industry best practices.
 
+## 🔥 Latest Release: v1.0.42 (Real-time Story Collaboration)
+
+### New Features
+- ✅ **Real-time Story Modal Updates**: Contributors can now see User A's story responses instantly without refreshing
+- ✅ **Live Message Notifications**: Visual notifications when new messages arrive from other users  
+- ✅ **Supabase Real-time Integration**: Uses Supabase real-time subscriptions for instant cross-user updates
+- ✅ **Auto-scroll to New Messages**: Automatically scrolls to show latest messages as they arrive
+- ✅ **Duplicate Prevention**: Smart message deduplication prevents showing the same message twice
+- ✅ **Optimized Performance**: Direct message addition without full reload for faster updates
+
+### Technical Implementation
+- Real-time subscriptions on `ember_story_messages` table
+- Message filtering by ember ID and user conversation
+- Enhanced logging with `[REALTIME]` prefixes for debugging
+- Automatic subscription cleanup on modal close
+- Fallback error handling with full message reload if needed
+
 ## Semantic Versioning
 
 We follow [Semantic Versioning (SemVer)](https://semver.org/) with the format: `MAJOR.MINOR.PATCH`
