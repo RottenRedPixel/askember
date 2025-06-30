@@ -75,12 +75,59 @@ CREATE POLICY "Users can view story messages for accessible embers"
             WHERE esc.id = conversation_id 
             AND (
                 e.user_id = auth.uid() OR -- Own ember
+                e.is_public = true OR -- Public ember
                 EXISTS (
-                    SELECT 1 FROM public.ember_sharing_profiles esp
-                    WHERE esp.ember_id = e.id 
-                    AND esp.shared_with_user_id = auth.uid()
-                    AND esp.access_type IN ('view', 'edit')
+                    SELECT 1 FROM public.ember_shares es
+                    WHERE es.ember_id = e.id 
+                    AND es.shared_with_email = auth.jwt() ->> 'email'
+                    AND es.is_active = true
+                    AND (es.expires_at IS NULL OR es.expires_at > now())
                 ) -- Shared ember
             )
         )
-    ); 
+    );
+
+-- Create function to clear all story conversations and messages for an ember (owner only)
+CREATE OR REPLACE FUNCTION clear_all_stories_for_ember(ember_id UUID, requesting_user_id UUID)
+RETURNS JSON
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    deleted_messages_count INTEGER;
+    deleted_conversations_count INTEGER;
+BEGIN
+    -- Verify that the requesting user is the owner of the ember
+    IF NOT EXISTS (
+        SELECT 1 FROM embers 
+        WHERE id = ember_id 
+        AND user_id = requesting_user_id
+    ) THEN
+        RAISE EXCEPTION 'Access denied. Only the ember owner can clear all stories.';
+    END IF;
+
+    -- Delete all messages first (due to foreign key constraints)
+    DELETE FROM ember_story_messages 
+    WHERE conversation_id IN (
+        SELECT id FROM ember_story_conversations 
+        WHERE ember_story_conversations.ember_id = clear_all_stories_for_ember.ember_id
+    );
+    
+    GET DIAGNOSTICS deleted_messages_count = ROW_COUNT;
+
+    -- Delete all conversations
+    DELETE FROM ember_story_conversations 
+    WHERE ember_story_conversations.ember_id = clear_all_stories_for_ember.ember_id;
+    
+    GET DIAGNOSTICS deleted_conversations_count = ROW_COUNT;
+
+    -- Return the counts
+    RETURN json_build_object(
+        'deleted_messages', deleted_messages_count,
+        'deleted_conversations', deleted_conversations_count
+    );
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION clear_all_stories_for_ember(UUID, UUID) TO authenticated; 

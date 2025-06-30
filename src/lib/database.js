@@ -437,20 +437,22 @@ export const deleteChatMessage = async (messageId, userId) => {
  */
 export const getOrCreateStoryConversation = async (emberId, userId, conversationType = 'story') => {
   try {
-    // First, try to get existing conversation
-    const { data: existingConversation, error: fetchError } = await supabase
+    // First, try to get existing conversations (avoid problematic boolean filter)
+    const { data: conversations, error: fetchError } = await supabase
       .from('ember_story_conversations')
       .select('*')
       .eq('ember_id', emberId)
       .eq('user_id', userId)
       .eq('conversation_type', conversationType)
-      .eq('is_completed', false)
-      .single();
+      .order('created_at', { ascending: false });
 
-    if (fetchError && fetchError.code !== 'PGRST116') {
+    if (fetchError) {
       throw new Error(fetchError.message);
     }
 
+    // Find the first non-completed conversation
+    const existingConversation = conversations?.find(conv => !conv.is_completed);
+    
     if (existingConversation) {
       return existingConversation;
     }
@@ -585,15 +587,41 @@ export const completeStoryConversation = async (conversationId, userId) => {
  */
 export const getAllStoryMessagesForEmber = async (emberId) => {
   try {
+    console.log('🔍 getAllStoryMessagesForEmber called with ember ID:', emberId, typeof emberId);
+    
     // Use RPC function to bypass RLS and get all story messages for an ember
+    // Add timestamp to prevent caching
     const { data, error } = await supabase.rpc('get_all_story_messages_for_ember', {
-      ember_id: emberId
+      input_ember_id: emberId
     });
 
     if (error) {
+      console.error('🚨 RPC Error:', error);
       throw new Error(error.message);
     }
 
+    console.log('📊 getAllStoryMessagesForEmber result for ember', emberId, ':', data?.length || 0, 'messages');
+    console.log('📋 First few messages:', data?.slice(0, 3));
+    
+    // Debug: Check if all messages belong to the same ember
+    if (data && data.length > 0) {
+      const emberIds = [...new Set(data.map(msg => msg.ember_id || 'unknown'))];
+      console.log('🔍 Unique ember IDs in results:', emberIds);
+      
+      // Debug user IDs for the anonymous user issue
+      const userIds = [...new Set(data.map(msg => msg.user_id))];
+      console.log('👤 Unique user IDs in results:', userIds);
+      console.log('👤 User ID types:', userIds.map(id => typeof id));
+      
+      // Check conversation ember IDs
+      const conversationQuery = await supabase
+        .from('ember_story_conversations')
+        .select('id, ember_id')
+        .in('id', data.map(msg => msg.conversation_id));
+      
+      console.log('💬 Conversation ember mapping:', conversationQuery.data);
+    }
+    
     return {
       messages: data || []
     };
@@ -602,5 +630,71 @@ export const getAllStoryMessagesForEmber = async (emberId) => {
     // Fallback to regular conversation loading for current user
     console.log('Falling back to current user conversation only');
     return { messages: [] };
+  }
+};
+
+/**
+ * Delete an individual story message (ember owner only)
+ */
+export const deleteStoryMessage = async (messageId, emberId, userId) => {
+  try {
+    console.log('🗑️ Calling deleteStoryMessage with params:', {
+      messageId,
+      emberId, 
+      userId,
+      messageIdType: typeof messageId,
+      emberIdType: typeof emberId,
+      userIdType: typeof userId
+    });
+
+    // Use RPC function to delete individual message (includes ownership verification)
+    const { data, error } = await supabase.rpc('delete_story_message', {
+      message_id: messageId,
+      ember_id: emberId,
+      requesting_user_id: userId
+    });
+
+    console.log('🗑️ Supabase RPC response:', { data, error });
+
+    if (error) {
+      console.error('🗑️ Supabase error details:', error);
+      throw new Error(error.message);
+    }
+
+    return {
+      success: true,
+      deletedMessage: data?.deleted_message || false
+    };
+  } catch (error) {
+    console.error('Error deleting story message:', error);
+    console.error('Error details:', error.message, error.stack);
+    throw error;
+  }
+};
+
+/**
+ * Clear all story conversations and messages for an ember (owner only)
+ * This allows ember owners to reset all story content
+ */
+export const clearAllStoriesForEmber = async (emberId, userId) => {
+  try {
+    // Use RPC function to clear all stories (includes ownership verification)
+    const { data, error } = await supabase.rpc('clear_all_stories_for_ember', {
+      ember_id: emberId,
+      requesting_user_id: userId
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return {
+      success: true,
+      deletedConversations: data?.deleted_conversations || 0,
+      deletedMessages: data?.deleted_messages || 0
+    };
+  } catch (error) {
+    console.error('Error clearing all stories for ember:', error);
+    throw error;
   }
 }; 

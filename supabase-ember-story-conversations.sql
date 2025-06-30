@@ -65,80 +65,240 @@ CREATE INDEX IF NOT EXISTS idx_story_messages_created_at ON public.ember_story_m
 ALTER TABLE public.ember_story_conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ember_story_messages ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view own story conversations" ON public.ember_story_conversations;
+DROP POLICY IF EXISTS "Users can create story conversations" ON public.ember_story_conversations;
+DROP POLICY IF EXISTS "Users can update own story conversations" ON public.ember_story_conversations;
+DROP POLICY IF EXISTS "Users can delete own story conversations" ON public.ember_story_conversations;
+DROP POLICY IF EXISTS "Users can view own story messages" ON public.ember_story_messages;
+DROP POLICY IF EXISTS "Users can create story messages" ON public.ember_story_messages;
+DROP POLICY IF EXISTS "Users can update own story messages" ON public.ember_story_messages;
+DROP POLICY IF EXISTS "Users can delete own story messages" ON public.ember_story_messages;
+
 -- Policies for ember_story_conversations
--- Users can view their own conversations
-CREATE POLICY "Users can view own story conversations"
+-- Users can view conversations for embers they have access to
+CREATE POLICY "Users can view story conversations for accessible embers"
     ON public.ember_story_conversations
     FOR SELECT
-    USING (auth.uid() = user_id);
+    USING (
+        auth.uid() = user_id OR -- Own conversations
+        EXISTS (
+            SELECT 1 FROM public.embers e
+            WHERE e.id = ember_id 
+            AND (
+                e.user_id = auth.uid() OR -- Own ember
+                e.is_public = true OR -- Public ember
+                EXISTS (
+                    SELECT 1 FROM public.ember_shares es
+                    WHERE es.ember_id = e.id 
+                    AND es.shared_with_email = auth.jwt() ->> 'email'
+                    AND es.is_active = true
+                    AND (es.expires_at IS NULL OR es.expires_at > now())
+                ) -- Shared ember
+            )
+        )
+    );
 
--- Users can create conversations for their own embers or embers they have access to
-CREATE POLICY "Users can create story conversations"
+-- Users can create conversations for embers they have access to
+CREATE POLICY "Users can create story conversations for accessible embers"
     ON public.ember_story_conversations
     FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
+    WITH CHECK (
+        auth.uid() = user_id AND -- Must be creating for themselves
+        EXISTS (
+            SELECT 1 FROM public.embers e
+            WHERE e.id = ember_id 
+            AND (
+                e.user_id = auth.uid() OR -- Own ember
+                e.is_public = true OR -- Public ember
+                EXISTS (
+                    SELECT 1 FROM public.ember_shares es
+                    WHERE es.ember_id = e.id 
+                    AND es.shared_with_email = auth.jwt() ->> 'email'
+                    AND es.is_active = true
+                    AND (es.expires_at IS NULL OR es.expires_at > now())
+                ) -- Shared ember
+            )
+        )
+    );
 
--- Users can update their own conversations
-CREATE POLICY "Users can update own story conversations"
+-- Users can update their own conversations for accessible embers
+CREATE POLICY "Users can update own story conversations for accessible embers"
     ON public.ember_story_conversations
     FOR UPDATE
-    USING (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
+    USING (
+        auth.uid() = user_id AND
+        EXISTS (
+            SELECT 1 FROM public.embers e
+            WHERE e.id = ember_id 
+            AND (
+                e.user_id = auth.uid() OR -- Own ember
+                e.is_public = true OR -- Public ember
+                EXISTS (
+                    SELECT 1 FROM public.ember_shares es
+                    WHERE es.ember_id = e.id 
+                    AND es.shared_with_email = auth.jwt() ->> 'email'
+                    AND es.is_active = true
+                    AND (es.expires_at IS NULL OR es.expires_at > now())
+                ) -- Shared ember
+            )
+        )
+    )
+    WITH CHECK (
+        auth.uid() = user_id AND
+        EXISTS (
+            SELECT 1 FROM public.embers e
+            WHERE e.id = ember_id 
+            AND (
+                e.user_id = auth.uid() OR -- Own ember
+                e.is_public = true OR -- Public ember
+                EXISTS (
+                    SELECT 1 FROM public.ember_shares es
+                    WHERE es.ember_id = e.id 
+                    AND es.shared_with_email = auth.jwt() ->> 'email'
+                    AND es.is_active = true
+                    AND (es.expires_at IS NULL OR es.expires_at > now())
+                ) -- Shared ember
+            )
+        )
+    );
 
--- Users can delete their own conversations
-CREATE POLICY "Users can delete own story conversations"
+-- Users can delete their own conversations for accessible embers
+CREATE POLICY "Users can delete own story conversations for accessible embers"
     ON public.ember_story_conversations
     FOR DELETE
-    USING (auth.uid() = user_id);
+    USING (
+        auth.uid() = user_id AND
+        EXISTS (
+            SELECT 1 FROM public.embers e
+            WHERE e.id = ember_id 
+            AND (
+                e.user_id = auth.uid() OR -- Own ember
+                e.is_public = true OR -- Public ember
+                EXISTS (
+                    SELECT 1 FROM public.ember_shares es
+                    WHERE es.ember_id = e.id 
+                    AND es.shared_with_email = auth.jwt() ->> 'email'
+                    AND es.is_active = true
+                    AND (es.expires_at IS NULL OR es.expires_at > now())
+                ) -- Shared ember
+            )
+        )
+    );
 
 -- Policies for ember_story_messages
--- Users can view messages from their own conversations
-CREATE POLICY "Users can view own story messages"
+-- Users can view messages from conversations for accessible embers
+CREATE POLICY "Users can view story messages for accessible embers"
     ON public.ember_story_messages
     FOR SELECT
     USING (
         EXISTS (
-            SELECT 1 FROM public.ember_story_conversations 
-            WHERE id = conversation_id AND user_id = auth.uid()
+            SELECT 1 FROM public.ember_story_conversations esc
+            JOIN public.embers e ON esc.ember_id = e.id
+            WHERE esc.id = conversation_id 
+            AND (
+                esc.user_id = auth.uid() OR -- Own conversation
+                e.user_id = auth.uid() OR -- Own ember
+                e.is_public = true OR -- Public ember
+                EXISTS (
+                    SELECT 1 FROM public.ember_shares es
+                    WHERE es.ember_id = e.id 
+                    AND es.shared_with_email = auth.jwt() ->> 'email'
+                    AND es.is_active = true
+                    AND (es.expires_at IS NULL OR es.expires_at > now())
+                ) -- Shared ember
+            )
         )
     );
 
--- Users can create messages in their own conversations
-CREATE POLICY "Users can create story messages"
+-- Users can create messages in their own conversations for accessible embers
+CREATE POLICY "Users can create story messages for accessible embers"
     ON public.ember_story_messages
     FOR INSERT
     WITH CHECK (
         EXISTS (
-            SELECT 1 FROM public.ember_story_conversations 
-            WHERE id = conversation_id AND user_id = auth.uid()
+            SELECT 1 FROM public.ember_story_conversations esc
+            JOIN public.embers e ON esc.ember_id = e.id
+            WHERE esc.id = conversation_id 
+            AND esc.user_id = auth.uid() -- Must be own conversation
+            AND (
+                e.user_id = auth.uid() OR -- Own ember
+                e.is_public = true OR -- Public ember
+                EXISTS (
+                    SELECT 1 FROM public.ember_shares es
+                    WHERE es.ember_id = e.id 
+                    AND es.shared_with_email = auth.jwt() ->> 'email'
+                    AND es.is_active = true
+                    AND (es.expires_at IS NULL OR es.expires_at > now())
+                ) -- Shared ember
+            )
         )
     );
 
--- Users can update messages in their own conversations
-CREATE POLICY "Users can update own story messages"
+-- Users can update messages in their own conversations for accessible embers
+CREATE POLICY "Users can update story messages for accessible embers"
     ON public.ember_story_messages
     FOR UPDATE
     USING (
         EXISTS (
-            SELECT 1 FROM public.ember_story_conversations 
-            WHERE id = conversation_id AND user_id = auth.uid()
+            SELECT 1 FROM public.ember_story_conversations esc
+            JOIN public.embers e ON esc.ember_id = e.id
+            WHERE esc.id = conversation_id 
+            AND esc.user_id = auth.uid() -- Must be own conversation
+            AND (
+                e.user_id = auth.uid() OR -- Own ember
+                e.is_public = true OR -- Public ember
+                EXISTS (
+                    SELECT 1 FROM public.ember_shares es
+                    WHERE es.ember_id = e.id 
+                    AND es.shared_with_email = auth.jwt() ->> 'email'
+                    AND es.is_active = true
+                    AND (es.expires_at IS NULL OR es.expires_at > now())
+                ) -- Shared ember
+            )
         )
     )
     WITH CHECK (
         EXISTS (
-            SELECT 1 FROM public.ember_story_conversations 
-            WHERE id = conversation_id AND user_id = auth.uid()
+            SELECT 1 FROM public.ember_story_conversations esc
+            JOIN public.embers e ON esc.ember_id = e.id
+            WHERE esc.id = conversation_id 
+            AND esc.user_id = auth.uid() -- Must be own conversation
+            AND (
+                e.user_id = auth.uid() OR -- Own ember
+                e.is_public = true OR -- Public ember
+                EXISTS (
+                    SELECT 1 FROM public.ember_shares es
+                    WHERE es.ember_id = e.id 
+                    AND es.shared_with_email = auth.jwt() ->> 'email'
+                    AND es.is_active = true
+                    AND (es.expires_at IS NULL OR es.expires_at > now())
+                ) -- Shared ember
+            )
         )
     );
 
--- Users can delete messages in their own conversations
-CREATE POLICY "Users can delete own story messages"
+-- Users can delete messages in their own conversations for accessible embers
+CREATE POLICY "Users can delete story messages for accessible embers"
     ON public.ember_story_messages
     FOR DELETE
     USING (
         EXISTS (
-            SELECT 1 FROM public.ember_story_conversations 
-            WHERE id = conversation_id AND user_id = auth.uid()
+            SELECT 1 FROM public.ember_story_conversations esc
+            JOIN public.embers e ON esc.ember_id = e.id
+            WHERE esc.id = conversation_id 
+            AND esc.user_id = auth.uid() -- Must be own conversation
+            AND (
+                e.user_id = auth.uid() OR -- Own ember
+                e.is_public = true OR -- Public ember
+                EXISTS (
+                    SELECT 1 FROM public.ember_shares es
+                    WHERE es.ember_id = e.id 
+                    AND es.shared_with_email = auth.jwt() ->> 'email'
+                    AND es.is_active = true
+                    AND (es.expires_at IS NULL OR es.expires_at > now())
+                ) -- Shared ember
+            )
         )
     );
 

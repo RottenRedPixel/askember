@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { BookOpen, Mic, MicOff, Play, Pause, Settings, Send, User, Sparkles, Check, ChevronsUpDown } from 'lucide-react';
+import { BookOpen, Mic, MicOff, Play, Pause, Settings, Send, User, Sparkles, Check, ChevronsUpDown, Trash2, X } from 'lucide-react';
 import { ArrowClockwise } from 'phosphor-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -16,7 +16,9 @@ import {
   addStoryMessage, 
   getStoryConversationWithMessages,
   completeStoryConversation,
-  getAllStoryMessagesForEmber
+  getAllStoryMessagesForEmber,
+  clearAllStoriesForEmber,
+  deleteStoryMessage
 } from '../lib/database';
 import { speechToText, storeVoiceTraining } from '../lib/elevenlabs';
 
@@ -119,7 +121,9 @@ const ModalContent = ({
   isLoading,
   ember,
   user,
-  userProfile
+  userProfile,
+  isEmberOwner,
+  onDeleteMessage
 }) => (
   <div className="space-y-4">
     {isLoading ? (
@@ -136,7 +140,20 @@ const ModalContent = ({
             const getUserDisplayName = (msg) => {
               if (msg.sender === 'ember') return 'Ember AI';
               if (msg.isCurrentUser) return 'You';
-              if (msg.userFirstName) return msg.userFirstName;
+              if (msg.userFirstName) {
+                console.log('🔍 Using userFirstName:', msg.userFirstName);
+                return msg.userFirstName;
+              }
+              // Fallback for current user if no userFirstName
+              if (msg.isCurrentUser && userProfile?.first_name) {
+                console.log('🔍 Using userProfile.first_name:', userProfile.first_name);
+                return userProfile.first_name;
+              }
+              if (msg.isCurrentUser && user?.email) {
+                console.log('🔍 Using email prefix:', user.email.split('@')[0]);
+                return user.email.split('@')[0];
+              }
+              console.log('🔍 Falling back to Anonymous User for:', msg);
               return 'Anonymous User';
             };
 
@@ -167,8 +184,8 @@ const ModalContent = ({
                     message.sender === 'ember' ? 'order-2' : 'order-1'
                   }`}
                 >
-                  {/* Sender name */}
-                  <div className={`flex items-center gap-2 mb-1 ${
+                  {/* Sender name and controls */}
+                  <div className={`flex items-center gap-2 mb-1 group ${
                     message.sender === 'ember' ? 'justify-start' : 'justify-end'
                   }`}>
                     <span className={`text-xs font-medium ${
@@ -183,6 +200,16 @@ const ModalContent = ({
                     <span className="text-xs text-gray-400">
                       {message.timestamp}
                     </span>
+                    {/* Delete button - only show for ember owners on hover */}
+                    {isEmberOwner && message.messageId && (
+                      <button
+                        onClick={() => onDeleteMessage(message.messageId, message)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded text-red-500 hover:text-red-700"
+                        title="Delete this message"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
                   </div>
 
                   {/* Message bubble */}
@@ -364,10 +391,20 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   const [selectedMicrophone, setSelectedMicrophone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
+  // Clear stories state
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  
+  // Individual message delete state
+  const [isDeletingMessage, setIsDeletingMessage] = useState(false);
+  
   const mediaRecorderRef = useRef(null);
   const audioRef = useRef(null);
   const recordingIntervalRef = useRef(null);
   const messagesEndRef = useRef(null);
+
+  // Check if current user is ember owner
+  const isEmberOwner = ember?.user_id === user?.id;
 
   // Cleanup on unmount
   useEffect(() => {
@@ -424,7 +461,12 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   // Load conversation when modal opens
   useEffect(() => {
     if (isOpen && ember?.id && user?.id) {
-      loadConversation();
+      // Small delay to ensure user profile is loaded
+      const timer = setTimeout(() => {
+        loadConversation();
+      }, 100);
+      
+      return () => clearTimeout(timer);
     }
   }, [isOpen, ember?.id, user?.id]);
 
@@ -463,9 +505,19 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
 
       // Load ALL story messages for this ember (from all users)
       console.log('loadConversation: Loading all story messages for ember');
+      
+      // Explicitly clear messages state first
+      setMessages([]);
+      
       const allMessages = await getAllStoryMessagesForEmber(ember.id);
+      console.log('loadConversation: getAllStoryMessagesForEmber returned:', allMessages);
       
       if (allMessages.messages && allMessages.messages.length > 0) {
+        console.log('loadConversation: Processing', allMessages.messages.length, 'messages');
+        console.log('👤 Current user ID:', user.id, typeof user.id);
+        console.log('👤 Sample message user_id:', allMessages.messages[0]?.user_id, typeof allMessages.messages[0]?.user_id);
+        console.log('👤 Sample message user_first_name:', allMessages.messages[0]?.user_first_name);
+        
         // Convert database messages to UI format, including user info
         const uiMessages = allMessages.messages.map(msg => ({
           sender: msg.sender,
@@ -481,8 +533,19 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           userAvatarUrl: msg.user_avatar_url,
           isCurrentUser: msg.user_id === user.id
         }));
+        
+        console.log('👤 isCurrentUser results:', uiMessages.map(msg => `${msg.userId} === ${user.id} = ${msg.isCurrentUser}`));
+        console.log('👤 Message structure sample:', {
+          userFirstName: uiMessages[0]?.userFirstName,
+          isCurrentUser: uiMessages[0]?.isCurrentUser,
+          sender: uiMessages[0]?.sender,
+          userId: uiMessages[0]?.userId
+        });
 
         setMessages(uiMessages);
+        
+        // Force a re-render to ensure UI updates with correct names
+        setTimeout(() => setMessages([...uiMessages]), 50);
 
         // Set next question based on current user's conversation progress
         // Get current user's answers only
@@ -498,6 +561,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         }
       } else {
         // No messages yet - start with first question
+        console.log('loadConversation: No messages found, setting empty state');
         setMessages([]);
         setCurrentQuestion(question || "Tell us about this moment. What was happening when this photo was taken?");
       }
@@ -926,7 +990,12 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         type: 'answer',
         hasVoiceRecording: hasRecording,
         audioUrl,
-        messageId: userMessage.id
+        messageId: userMessage.id,
+        userId: user.id,
+        userFirstName: userProfile?.first_name || user?.email?.split('@')[0],
+        userLastName: userProfile?.last_name,
+        userAvatarUrl: userProfile?.avatar_url,
+        isCurrentUser: true
       };
       
       updatedMessages.push(uiUserResponse);
@@ -1002,6 +1071,79 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
     }
   };
 
+  // Handle deleting individual message
+  const handleDeleteMessage = async (messageId, message) => {
+    if (!ember?.id || !user?.id || !isEmberOwner) {
+      console.error('Cannot delete message: not ember owner');
+      return;
+    }
+
+    if (!messageId) {
+      console.error('Cannot delete message: no message ID');
+      return;
+    }
+
+    // Confirm deletion
+    const messagePreview = message.content.substring(0, 100).replace(/"/g, "'") + (message.content.length > 100 ? '...' : '');
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete this ${message.sender === 'ember' ? 'question' : 'answer'}?\n\n"${messagePreview}"\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      setIsDeletingMessage(true);
+      console.log('🗑️ Deleting individual message:', messageId);
+      
+      const result = await deleteStoryMessage(messageId, ember.id, user.id);
+      
+      console.log('✅ Message deleted successfully:', result);
+      
+      // Refresh the conversation to reflect the deletion
+      await loadConversation();
+      
+    } catch (error) {
+      console.error('❌ Error deleting message:', error);
+      alert(`Failed to delete message: ${error.message}`);
+    } finally {
+      setIsDeletingMessage(false);
+    }
+  };
+
+  // Handle clearing all stories
+  const handleClearAllStories = async () => {
+    if (!ember?.id || !user?.id || !isEmberOwner) {
+      console.error('Cannot clear stories: not ember owner');
+      return;
+    }
+
+    try {
+      setIsClearing(true);
+      console.log('🗑️ Clearing all stories for ember:', ember.id);
+      
+      const result = await clearAllStoriesForEmber(ember.id, user.id);
+      
+      console.log('✅ Stories cleared successfully:', result);
+      
+      // Refresh the conversation to show empty state
+      await loadConversation();
+      
+      // Close confirmation dialog
+      setShowClearConfirm(false);
+      
+      // Show success message (optional)
+      if (result.deletedConversations > 0 || result.deletedMessages > 0) {
+        console.log(`Cleared ${result.deletedMessages} messages from ${result.deletedConversations} conversations`);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error clearing stories:', error);
+      alert(`Failed to clear stories: ${error.message}`);
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   // Responsive render: Drawer on mobile, Dialog on desktop
   if (isMobile) {
     return (
@@ -1022,6 +1164,15 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
                     size={16} 
                     className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
                   />
+                </button>
+              )}
+              {isEmberOwner && (
+                <button
+                  onClick={() => setShowClearConfirm(true)}
+                  className="p-1 hover:bg-red-50 rounded transition-colors text-red-600 hover:text-red-700"
+                  title="Clear all stories (Owner only)"
+                >
+                  <Trash2 size={16} />
                 </button>
               )}
             </DrawerTitle>
@@ -1053,6 +1204,8 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
               ember={ember}
               user={user}
               userProfile={userProfile}
+              isEmberOwner={isEmberOwner}
+              onDeleteMessage={handleDeleteMessage}
             />
             <audio ref={audioRef} style={{ display: 'none' }} />
           </div>
@@ -1080,6 +1233,15 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
                   size={16} 
                   className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
                 />
+              </button>
+            )}
+            {isEmberOwner && (
+              <button
+                onClick={() => setShowClearConfirm(true)}
+                className="p-1 hover:bg-red-50 rounded transition-colors text-red-600 hover:text-red-700"
+                title="Clear all stories (Owner only)"
+              >
+                <Trash2 size={16} />
               </button>
             )}
           </DialogTitle>
@@ -1110,9 +1272,60 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           ember={ember}
           user={user}
           userProfile={userProfile}
+          isEmberOwner={isEmberOwner}
+          onDeleteMessage={handleDeleteMessage}
         />
         <audio ref={audioRef} style={{ display: 'none' }} />
       </DialogContent>
+
+      {/* Clear Stories Confirmation Dialog */}
+      <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <DialogContent className="max-w-md bg-white focus:outline-none">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 size={20} />
+              Clear All Stories
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Are you sure you want to clear all story conversations and messages for this ember? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <p className="text-sm text-yellow-800">
+                <strong>Warning:</strong> This will permanently delete all story responses from all users who have contributed to this ember's story.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowClearConfirm(false)}
+                disabled={isClearing}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleClearAllStories}
+                disabled={isClearing}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isClearing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Clearing...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} className="mr-2" />
+                    Clear All Stories
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 } 
