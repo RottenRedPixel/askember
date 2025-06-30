@@ -64,14 +64,29 @@ export default function ElevenLabsTest() {
     try {
       addTestResult('Scanning for microphones...');
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const microphones = devices.filter(device => device.kind === 'audioinput');
+      // Filter out microphones with empty deviceId (iOS issue)
+      const microphones = devices.filter(device => 
+        device.kind === 'audioinput' && 
+        device.deviceId && 
+        device.deviceId.trim() !== ''
+      );
+      
+      // If no valid microphones found, add a default entry
+      if (microphones.length === 0) {
+        const defaultMic = {
+          deviceId: 'default',
+          label: 'Default Microphone',
+          kind: 'audioinput'
+        };
+        microphones.push(defaultMic);
+        addTestResult('No specific microphones found, using default', 'warning');
+      }
+      
       setAvailableMicrophones(microphones);
       
       if (microphones.length > 0 && !selectedMicrophone) {
         setSelectedMicrophone(microphones[0].deviceId);
         addTestResult(`Found ${microphones.length} microphones, selected: ${microphones[0].label || 'Default'}`, 'success');
-      } else if (microphones.length === 0) {
-        addTestResult('No microphones found', 'error');
       }
       
       return microphones;
@@ -95,9 +110,13 @@ export default function ElevenLabsTest() {
       const audioConstraints = {
         echoCancellation: true,
         noiseSuppression: true,
-        sampleRate: 44100,
-        deviceId: { exact: selectedMicrophone }
+        sampleRate: 44100
       };
+
+      // Only specify deviceId if it's not the default fallback
+      if (selectedMicrophone && selectedMicrophone !== 'default') {
+        audioConstraints.deviceId = { exact: selectedMicrophone };
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
       

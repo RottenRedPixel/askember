@@ -356,7 +356,24 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
   const getAvailableMicrophones = async () => {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioInputs = devices.filter(device => device.kind === 'audioinput');
+      // Filter out microphones with empty deviceId (iOS issue)
+      const audioInputs = devices.filter(device => 
+        device.kind === 'audioinput' && 
+        device.deviceId && 
+        device.deviceId.trim() !== ''
+      );
+      
+      // If no valid microphones found, add a default entry
+      if (audioInputs.length === 0) {
+        const defaultMic = {
+          deviceId: 'default',
+          label: 'Default Microphone',
+          kind: 'audioinput'
+        };
+        audioInputs.push(defaultMic);
+        console.log('No specific microphones found, using default');
+      }
+      
       setAvailableMicrophones(audioInputs);
       
       // Set default microphone if none selected
@@ -511,12 +528,12 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit 
         baseConstraints.sampleRate = 44100;
       }
 
-      const audioConstraints = selectedMicrophone 
-        ? { 
-            deviceId: { exact: selectedMicrophone },
-            ...baseConstraints
-          }
-        : baseConstraints;
+      const audioConstraints = { ...baseConstraints };
+      
+      // Only specify deviceId if it's not the default fallback
+      if (selectedMicrophone && selectedMicrophone !== 'default') {
+        audioConstraints.deviceId = { exact: selectedMicrophone };
+      }
       
       console.log('📋 Audio constraints:', audioConstraints);
         
