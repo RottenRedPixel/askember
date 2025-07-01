@@ -103,10 +103,12 @@ export default function Create() {
       console.log('Ember created:', newEmber);
 
       // Upload the same image with EXIF data and associate it with the ember
+      let supabaseImageUrl = null;
       try {
         console.log('Uploading image with EXIF data...');
         const photoResult = await uploadImageWithExif(selectedImage, user.id, newEmber.id);
         console.log('Photo with EXIF data uploaded:', photoResult);
+        supabaseImageUrl = photoResult.storageUrl; // Use Supabase URL for AI analysis
       } catch (exifError) {
         console.warn('Failed to upload image with EXIF data:', exifError);
         // Don't fail the entire ember creation if EXIF extraction fails
@@ -116,11 +118,15 @@ export default function Create() {
       try {
         console.log('🔍 Triggering AI image analysis...');
         
+        // Use Supabase URL if available, fallback to Vercel Blob URL
+        const analysisImageUrl = supabaseImageUrl || imageResult.url;
+        console.log('Using image URL for analysis:', analysisImageUrl);
+        
         // Import the analysis functions dynamically to avoid loading issues
         const { triggerImageAnalysis, saveImageAnalysis } = await import('@/lib/database');
         
         // Start the analysis process (don't await - let it run in background)
-        triggerImageAnalysis(newEmber.id, imageResult.url)
+        triggerImageAnalysis(newEmber.id, analysisImageUrl)
           .then(async (analysisResult) => {
             if (analysisResult.success) {
               // Save the analysis result
@@ -128,7 +134,7 @@ export default function Create() {
                 newEmber.id,
                 user.id,
                 analysisResult.analysis,
-                imageResult.url,
+                analysisImageUrl,
                 analysisResult.model,
                 analysisResult.tokensUsed
               );
