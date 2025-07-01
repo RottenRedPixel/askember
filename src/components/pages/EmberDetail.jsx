@@ -1188,7 +1188,7 @@ export default function EmberDetail() {
       {ember && showStoryCuts && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50" onClick={() => setShowStoryCuts(false)}>
           <div 
-            className="fixed right-0 top-0 h-full w-80 bg-white shadow-xl transform transition-transform duration-300 ease-in-out"
+            className="fixed right-0 top-0 h-full w-4/5 bg-white shadow-xl transform transition-transform duration-300 ease-in-out"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 border-b">
