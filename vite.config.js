@@ -15,5 +15,8 @@ export default defineConfig({
     __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
     __GIT_COMMIT__: JSON.stringify(process.env.GIT_COMMIT || 'dev'),
     __BUILD_ENV__: JSON.stringify(process.env.NODE_ENV || 'development'),
+    // Define process.env for browser compatibility with Node.js libraries
+    'process.env': JSON.stringify({}),
+    global: 'globalThis',
   },
 })

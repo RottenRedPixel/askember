@@ -18,6 +18,7 @@ import {
   Image
 } from 'lucide-react';
 import { getEmberWithSharing } from '@/lib/sharing';
+import { getImageAnalysis } from '@/lib/database';
 
 export default function EmberWiki({ 
   ember, 
@@ -34,10 +35,12 @@ export default function EmberWiki({
 }) {
   const [sharedUsers, setSharedUsers] = useState([]); // Users with accounts
   const [emailOnlyInvites, setEmailOnlyInvites] = useState([]); // Email-only invites
+  const [imageAnalysis, setImageAnalysis] = useState(null);
 
   useEffect(() => {
     if (ember?.id) {
       fetchSharedUsers();
+      fetchImageAnalysis();
     }
   }, [ember?.id]);
 
@@ -57,7 +60,7 @@ export default function EmberWiki({
       case 'feelings':
         return false; // Placeholder - will be true when feelings data exists
       case 'analysis':
-        return false; // Placeholder - will be true when analysis data exists
+        return !!(imageAnalysis && imageAnalysis.analysis_text);
       case 'objects':
         return false; // Placeholder - will be true when tagged objects exist
       case 'people':
@@ -130,6 +133,17 @@ export default function EmberWiki({
     }
   };
 
+  const fetchImageAnalysis = async () => {
+    try {
+      const analysis = await getImageAnalysis(ember.id);
+      console.log('Wiki image analysis data:', analysis);
+      setImageAnalysis(analysis);
+    } catch (error) {
+      console.error('Error fetching image analysis:', error);
+      setImageAnalysis(null);
+    }
+  };
+
   return (
     <Card className="min-h-full rounded-none">
       <CardContent className="px-6 pb-6 space-y-6">
@@ -169,31 +183,64 @@ export default function EmberWiki({
               </div>
               <StatusBadge isComplete={getSectionStatus('title')} />
             </h3>
-            <div className="text-left">
+            <div className="text-sm text-gray-600 text-left space-y-3">
               {isEditingTitle ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="text"
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    maxLength="45"
-                    className="h-10"
-                  />
-                  <Button size="lg" variant="blue" onClick={handleTitleSave}>Save</Button>
-                  <Button size="sm" variant="outline" onClick={handleTitleCancel}>Cancel</Button>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText size={16} className="text-green-600" />
+                    <span className="text-sm font-medium text-green-900">Edit Title</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      maxLength="30"
+                      className="h-10 flex-1"
+                    />
+                    <Button size="lg" variant="blue" onClick={handleTitleSave}>Save</Button>
+                    <Button size="sm" variant="outline" onClick={handleTitleCancel}>Cancel</Button>
+                  </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-900">{ember.title || 'N/A'}</span>
-                  <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
-                    <PencilSimple size={16} />
-                  </button>
-                  {ember.title && ember.title !== 'N/A' && (
-                    <button onClick={handleTitleDelete} className="text-gray-400 hover:text-red-600">
-                      <TrashSimple size={16} />
-                    </button>
-                  )}
-                </div>
+                ember.title && ember.title !== 'Untitled Ember' ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText size={16} className="text-green-600" />
+                      <span className="text-sm font-medium text-green-900">Ember Title</span>
+                      <div className="flex items-center gap-1 ml-auto">
+                        <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
+                          <PencilSimple size={16} />
+                        </button>
+                        <button onClick={handleTitleDelete} className="text-gray-400 hover:text-red-600">
+                          <TrashSimple size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-gray-900 font-medium">
+                      {ember.title}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      Source: {ember.title_source === 'ai' ? 'AI generated' : 'Manual entry'}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText size={16} className="text-gray-600" />
+                      <span className="text-sm font-medium text-gray-900">No Title Set</span>
+                      <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600 ml-auto">
+                        <PencilSimple size={16} />
+                      </button>
+                    </div>
+                    <div className="text-gray-500 font-medium">
+                      No title has been set for this ember
+                    </div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      Click the edit button to add a title
+                    </div>
+                  </div>
+                )
               )}
             </div>
           </div>
@@ -222,9 +269,19 @@ export default function EmberWiki({
                       {ember.city}{ember.state ? `, ${ember.state}` : ''} • {ember.country}
                     </div>
                   )}
+                  {ember.altitude && (
+                    <div className="text-gray-600 mt-1">
+                      <strong>Altitude:</strong> {ember.altitude > 0 ? `${ember.altitude.toFixed(1)}m above sea level` : `${Math.abs(ember.altitude).toFixed(1)}m below sea level`}
+                    </div>
+                  )}
                   <div className="text-xs text-gray-500 mt-2">
                     Source: Photo GPS data
                   </div>
+                  {ember.camera_make && ember.camera_model && (
+                    <div className="mt-2 text-xs text-blue-800">
+                      <strong>Camera:</strong> {ember.camera_make} {ember.camera_model}
+                    </div>
+                  )}
                 </div>
               ) : null}
               
@@ -417,8 +474,36 @@ export default function EmberWiki({
               </div>
               <StatusBadge isComplete={getSectionStatus('analysis')} />
             </h3>
-            <div className="text-sm text-gray-600 text-left">
-              Deep image analysis will appear here...
+            <div className="text-sm text-gray-600 text-left space-y-3">
+              {imageAnalysis && imageAnalysis.analysis_text ? (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Eye size={16} className="text-purple-600" />
+                    <span className="text-sm font-medium text-purple-900">AI Image Analysis</span>
+                  </div>
+                  <div className="text-gray-900 whitespace-pre-wrap">
+                    {imageAnalysis.analysis_text}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2 space-y-1">
+                    <div>
+                      Source: OpenAI {imageAnalysis.openai_model || 'gpt-4o'} • {imageAnalysis.tokens_used} tokens
+                    </div>
+                    <div>
+                      Analyzed: {new Date(imageAnalysis.analysis_timestamp).toLocaleString('en-US', {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-500">No image analysis data available</div>
+              )}
             </div>
           </div>
 

@@ -111,6 +111,40 @@ export default function Create() {
         console.warn('Failed to upload image with EXIF data:', exifError);
         // Don't fail the entire ember creation if EXIF extraction fails
       }
+
+      // Trigger AI image analysis in the background
+      try {
+        console.log('🔍 Triggering AI image analysis...');
+        
+        // Import the analysis functions dynamically to avoid loading issues
+        const { triggerImageAnalysis, saveImageAnalysis } = await import('@/lib/database');
+        
+        // Start the analysis process (don't await - let it run in background)
+        triggerImageAnalysis(newEmber.id, imageResult.url)
+          .then(async (analysisResult) => {
+            if (analysisResult.success) {
+              // Save the analysis result
+              await saveImageAnalysis(
+                newEmber.id,
+                user.id,
+                analysisResult.analysis,
+                imageResult.url,
+                analysisResult.model,
+                analysisResult.tokensUsed
+              );
+              console.log('✅ AI image analysis completed and saved');
+            }
+          })
+          .catch((analysisError) => {
+            console.warn('⚠️ AI image analysis failed (non-critical):', analysisError);
+            // Analysis failure doesn't prevent ember creation
+          });
+          
+        console.log('🚀 AI analysis started in background');
+      } catch (error) {
+        console.warn('⚠️ Failed to start AI analysis (non-critical):', error);
+        // Don't fail ember creation if analysis can't be started
+      }
       
       setMessage({ 
         type: 'success', 

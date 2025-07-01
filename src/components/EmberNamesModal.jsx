@@ -23,7 +23,7 @@ import { Aperture, Plus, Check, ChartBar, Users, Sparkle, ArrowClockwise, XCircl
 import { submitVote, getVotingResults, getUserVote, getParticipantVotingStatus, deleteVote } from '@/lib/voting';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getEmberSuggestedNames, addSuggestedName, initializeDefaultSuggestedNames, deleteSuggestedName } from '@/lib/suggestedNames';
-import { updateEmberTitle } from '@/lib/database';
+import { updateEmberTitle, getImageAnalysis } from '@/lib/database';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import useStore from '@/store';
 
@@ -67,6 +67,7 @@ const ModalContent = ({
   aiSuggestedName, 
   handleSelectAiSuggestion, 
   handleAiSuggestion, 
+  isAiLoading,
   votingResults, 
   userVote,
   totalVotes,
@@ -230,12 +231,12 @@ const ModalContent = ({
               
               <Button
                 onClick={handleAiSuggestion}
-                disabled={isLoading}
+                disabled={isAiLoading}
                 size="lg"
                 className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Sparkle size={16} />
-                {isLoading ? 'Ember is thinking...' : 'Let Ember Try'}
+                {isAiLoading ? 'Ember is thinking...' : 'Let Ember Try'}
               </Button>
             </div>
           )
@@ -355,6 +356,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
   const [emberParticipants, setEmberParticipants] = useState([]);
   const [votedUserIds, setVotedUserIds] = useState([]);
   const [aiSuggestedName, setAiSuggestedName] = useState(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
   const customInputRef = useRef(null);
 
   useEffect(() => {
@@ -402,9 +404,22 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
       // Load suggested names from dedicated table
       const suggestedNames = await getEmberSuggestedNames(ember.id);
       
-      // If no suggested names exist, initialize with defaults
+      // If no suggested names exist, initialize with AI-generated defaults
       if (suggestedNames.length === 0) {
-        await initializeDefaultSuggestedNames(ember.id);
+        // Gather all wiki data for AI analysis
+        const emberData = { ...ember };
+        
+        // Get image analysis data if available
+        try {
+          const imageAnalysis = await getImageAnalysis(ember.id);
+          if (imageAnalysis && imageAnalysis.analysis_text) {
+            emberData.image_analysis = imageAnalysis.analysis_text;
+          }
+        } catch (analysisError) {
+          console.log('No image analysis available for default title generation');
+        }
+        
+        await initializeDefaultSuggestedNames(ember.id, emberData);
         const defaultNames = await getEmberSuggestedNames(ember.id);
         setAllSuggestedNames(defaultNames); // Store full objects with id and suggested_name
       } else {
@@ -599,25 +614,49 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
 
   const handleAiSuggestion = async () => {
     try {
-      setIsLoading(true);
+      setIsAiLoading(true);
       
-      // Call OpenAI API to get suggestion
-      const response = await fetch('/api/ai-title-suggestion', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          emberTitle: ember.title,
-          imageUrl: ember.image_url 
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get AI suggestion');
+      // Gather all wiki data for AI analysis
+      const emberData = { ...ember };
+      
+      // Get image analysis data if available
+      try {
+        const imageAnalysis = await getImageAnalysis(ember.id);
+        if (imageAnalysis && imageAnalysis.analysis_text) {
+          emberData.image_analysis = imageAnalysis.analysis_text;
+        }
+      } catch (analysisError) {
+        console.log('No image analysis available for title suggestion');
       }
+      
+      // Call OpenAI API to get suggestion based on all wiki data
+      const isDevelopment = import.meta.env.DEV;
+      let data;
+      
+      if (isDevelopment) {
+        // In development, we need to import the function dynamically
+        const { generateTitlesWithOpenAI } = await import('@/lib/suggestedNames');
+        data = await generateTitlesWithOpenAI(emberData, 'single');
+      } else {
+        // In production, use the serverless API
+        const response = await fetch('/api/ai-title-suggestion', {
+          method: 'POST',  
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            emberData: emberData,
+            requestType: 'single'
+          }),
+        });
 
-      const data = await response.json();
+        if (!response.ok) {
+          throw new Error('Failed to get AI suggestion');
+        }
+
+        data = await response.json();
+      }
+      
       setAiSuggestedName(data.suggestion);
       
     } catch (error) {
@@ -625,7 +664,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
       setMessage({ type: 'error', text: 'Failed to get AI suggestion' });
       setTimeout(() => setMessage(null), 2000);
     } finally {
-    setIsLoading(false);
+      setIsAiLoading(false);
     }
   };
 
@@ -633,11 +672,18 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
     if (aiSuggestedName) {
       try {
         // Add the AI suggested name to the database
-        await addSuggestedName(ember.id, aiSuggestedName, true);
+        const newNameId = await addSuggestedName(ember.id, aiSuggestedName, true);
         
-        // Refetch suggested names to get the new name with its ID
-        const updatedSuggestedNames = await getEmberSuggestedNames(ember.id);
-        setAllSuggestedNames(updatedSuggestedNames);
+        // Add to existing list instead of refetching everything
+        const newSuggestion = {
+          id: newNameId,
+          suggested_name: aiSuggestedName,
+          is_custom: true,
+          created_by_user_id: user?.id,
+          created_at: new Date().toISOString()
+        };
+        
+        setAllSuggestedNames(prevNames => [...prevNames, newSuggestion]);
         
         // Clear AI suggestion
         setAiSuggestedName(null);
@@ -766,6 +812,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
               aiSuggestedName={aiSuggestedName}
               handleSelectAiSuggestion={handleSelectAiSuggestion}
               handleAiSuggestion={handleAiSuggestion}
+              isAiLoading={isAiLoading}
               votingResults={votingResults}
               userVote={userVote}
               totalVotes={totalVotes}
@@ -827,6 +874,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
             aiSuggestedName={aiSuggestedName}
             handleSelectAiSuggestion={handleSelectAiSuggestion}
             handleAiSuggestion={handleAiSuggestion}
+            isAiLoading={isAiLoading}
             votingResults={votingResults}
             userVote={userVote}
             totalVotes={totalVotes}

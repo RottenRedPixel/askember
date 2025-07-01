@@ -849,4 +849,258 @@ export const clearAllStoriesForEmber = async (emberId, userId) => {
     console.error('Error clearing all stories for ember:', error);
     throw error;
   }
+};
+
+/**
+ * Save image analysis data for an ember
+ * @param {string} emberId - Ember ID
+ * @param {string} userId - User ID
+ * @param {string} analysisText - Full OpenAI analysis text
+ * @param {string} imageUrl - URL of the analyzed image
+ * @param {string} openaiModel - OpenAI model used (default: gpt-4o)
+ * @param {number} tokensUsed - Number of tokens used
+ * @returns {Promise<string>} - Analysis record ID
+ */
+export const saveImageAnalysis = async (emberId, userId, analysisText, imageUrl, openaiModel = 'gpt-4o', tokensUsed = null) => {
+  try {
+    console.log('🔍 [DATABASE] Saving image analysis:', { emberId, userId, analysisLength: analysisText.length });
+
+    const { data, error } = await supabase.rpc('save_image_analysis', {
+      p_ember_id: emberId,
+      p_user_id: userId,
+      p_analysis_text: analysisText,
+      p_image_url: imageUrl,
+      p_openai_model: openaiModel,
+      p_tokens_used: tokensUsed
+    });
+
+    if (error) {
+      console.error('❌ [DATABASE] Error saving image analysis:', error);
+      throw error;
+    }
+
+    console.log('✅ [DATABASE] Image analysis saved successfully, ID:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ [DATABASE] saveImageAnalysis failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get image analysis data for an ember
+ * @param {string} emberId - Ember ID
+ * @returns {Promise<Object|null>} - Analysis data or null if not found
+ */
+export const getImageAnalysis = async (emberId) => {
+  try {
+    console.log('🔍 [DATABASE] Getting image analysis for ember:', emberId);
+
+    const { data, error } = await supabase.rpc('get_image_analysis', {
+      p_ember_id: emberId
+    });
+
+    if (error) {
+      console.error('❌ [DATABASE] Error getting image analysis:', error);
+      throw error;
+    }
+
+    const result = data && data.length > 0 ? data[0] : null;
+    console.log('✅ [DATABASE] Image analysis retrieved:', result ? 'Found' : 'Not found');
+    return result;
+  } catch (error) {
+    console.error('❌ [DATABASE] getImageAnalysis failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Trigger OpenAI image analysis for an ember
+ * @param {string} emberId - Ember ID
+ * @param {string} imageUrl - URL of the image to analyze
+ * @returns {Promise<Object>} - Analysis result
+ */
+export const triggerImageAnalysis = async (emberId, imageUrl) => {
+  try {
+    console.log('🚀 [DATABASE] Triggering OpenAI image analysis:', { emberId, imageUrl });
+
+    // Check if we're in development and use direct OpenAI call
+    const isDevelopment = import.meta.env.MODE === 'development' || window.location.hostname === 'localhost';
+    
+    if (isDevelopment) {
+      console.log('🔧 [DATABASE] Development mode detected, calling OpenAI directly...');
+      return await analyzeImageWithOpenAI(emberId, imageUrl);
+    }
+
+    // Production: use API route
+    const response = await fetch('/api/analyze-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        emberId,
+        imageUrl
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Analysis failed: ${errorData.error || response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ [DATABASE] OpenAI image analysis completed:', {
+      success: result.success,
+      analysisLength: result.analysis?.length,
+      tokensUsed: result.tokensUsed
+    });
+
+    return result;
+  } catch (error) {
+    console.error('❌ [DATABASE] triggerImageAnalysis failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Direct OpenAI image analysis for development mode
+ * @param {string} emberId - Ember ID
+ * @param {string} imageUrl - URL of the image to analyze
+ * @returns {Promise<Object>} - Analysis result
+ */
+const analyzeImageWithOpenAI = async (emberId, imageUrl) => {
+  try {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    
+    if (!apiKey) {
+      throw new Error('OpenAI API key not found. Please add VITE_OPENAI_API_KEY to your .env.local file');
+    }
+
+    console.log('🔍 [DATABASE] Starting direct OpenAI analysis...');
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Please perform a comprehensive analysis of this image. Provide detailed information about:
+
+PEOPLE & DEMOGRAPHICS:
+- Number of people visible
+- Estimated age ranges (child, teen, adult, elderly)
+- Gender identification (if clearly apparent)
+- Ethnic diversity (if apparent)
+- Facial expressions and emotions
+- Body language and posture
+- Relationships between people (family, friends, romantic, etc.)
+
+CLOTHING & STYLE:
+- Detailed clothing descriptions
+- Fashion style (casual, formal, vintage, modern, etc.)
+- Colors and patterns
+- Accessories (jewelry, hats, bags, etc.)
+- Seasonal appropriateness
+
+ENVIRONMENT & SETTING:
+- Indoor vs outdoor location
+- Specific venue type (home, restaurant, park, office, etc.)
+- Architecture and design elements
+- Weather conditions (if outdoor)
+- Lighting conditions (natural, artificial, etc.)
+- Background elements and details
+
+OBJECTS & ITEMS:
+- All visible objects and items
+- Technology/devices present
+- Furniture and decorations
+- Food and drinks
+- Transportation visible
+- Tools or equipment
+
+ACTIVITIES & CONTEXT:
+- What activity is taking place
+- Event type (celebration, work, leisure, etc.)
+- Interaction patterns
+- Gestures and movements
+- Social dynamics
+
+TEXT & SIGNAGE:
+- Any readable text in the image
+- Signs, labels, or writing
+- Brand names or logos
+- Street signs or location indicators
+
+ARTISTIC & TECHNICAL:
+- Photo composition and angle
+- Quality and clarity
+- Color palette and mood
+- Artistic style or filters applied
+- Professional vs casual photography
+
+CULTURAL & TEMPORAL:
+- Time period indicators
+- Cultural elements or traditions
+- Historical context clues
+- Regional characteristics
+
+Please be thorough, descriptive, and observant. Format your response as a structured analysis covering all these areas systematically.`
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageUrl,
+                  detail: "high"
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 4000,
+        temperature: 0.3
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      
+      if (response.status === 401) {
+        throw new Error('Invalid OpenAI API key. Please check your VITE_OPENAI_API_KEY in .env.local');
+      }
+      if (response.status === 429) {
+        throw new Error('OpenAI API quota exceeded. Please check your billing.');
+      }
+      
+      throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    const analysis = data.choices[0].message.content;
+
+    console.log('✅ [DATABASE] Direct OpenAI analysis completed');
+    console.log('📊 [DATABASE] Analysis length:', analysis.length, 'characters');
+
+    return {
+      success: true,
+      analysis,
+      emberId,
+      imageUrl,
+      timestamp: new Date().toISOString(),
+      model: "gpt-4o",
+      tokensUsed: data.usage?.total_tokens || 0
+    };
+
+  } catch (error) {
+    console.error('❌ [DATABASE] Direct OpenAI analysis failed:', error);
+    throw error;
+  }
 }; 

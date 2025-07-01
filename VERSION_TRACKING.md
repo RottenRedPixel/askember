@@ -2,6 +2,30 @@
 
 This project implements a comprehensive version tracking system following industry best practices.
 
+## Version History
+
+### v1.0.43 (Latest)
+**Release Date**: 2024-01-XX
+**Features**:
+- ✨ **NEW**: AI-Powered Deep Image Analysis
+  - Automatic OpenAI image analysis when embers are created
+  - Comprehensive analysis of people, emotions, environment, objects, activities, and more
+  - ImageAnalysisModal with "Save Analysis Data" button
+  - Analysis results stored in new `image_analysis` database table
+  - Background processing to avoid blocking ember creation
+  - Integration with EmberDetail carousel and completion tracking
+- 🔧 **Database**: New `image_analysis` table with RLS policies
+- 🔧 **API**: New `/api/analyze-image` endpoint using OpenAI GPT-4o Vision
+- 🔧 **Dependencies**: Added OpenAI SDK v4.78.0
+
+**Technical Details**:
+- OpenAI Vision API integration for detailed image analysis
+- Analysis includes: people count, demographics, emotions, environment, objects, activities, text/signage, artistic elements, and cultural context
+- Database functions: `save_image_analysis()`, `get_image_analysis()`
+- Modal component follows existing pattern (LocationModal, TimeDateModal)
+- Automatic analysis triggering in ember creation workflow
+- Completion status tracking in EmberDetail carousel
+
 ## Semantic Versioning
 
 We follow [Semantic Versioning (SemVer)](https://semver.org/) with the format: `MAJOR.MINOR.PATCH`

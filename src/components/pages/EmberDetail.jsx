@@ -23,6 +23,7 @@ import InviteModal from '@/components/InviteModal';
 import StoryModal from '@/components/StoryModal';
 import LocationModal from '@/components/LocationModal';
 import TimeDateModal from '@/components/TimeDateModal';
+import ImageAnalysisModal from '@/components/ImageAnalysisModal';
 
 import EmberNamesModal from '@/components/EmberNamesModal';
 import EmberSettingsPanel from '@/components/EmberSettingsPanel';
@@ -53,6 +54,7 @@ export default function EmberDetail() {
   const [showStoryModal, setShowStoryModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showTimeDateModal, setShowTimeDateModal] = useState(false);
+  const [showImageAnalysisModal, setShowImageAnalysisModal] = useState(false);
   const [emberLength, setEmberLength] = useState(30);
   const [selectedVoices, setSelectedVoices] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -298,6 +300,17 @@ export default function EmberDetail() {
       const data = await getEmber(id);
       console.log('Fetched ember data:', data);
       console.log('Image URL:', data?.image_url);
+      
+      // Check if image analysis exists for this ember
+      try {
+        const { getImageAnalysis } = await import('@/lib/database');
+        const analysisData = await getImageAnalysis(id);
+        data.image_analysis_completed = !!analysisData;
+      } catch (analysisError) {
+        console.warn('Failed to check image analysis status:', analysisError);
+        data.image_analysis_completed = false;
+      }
+      
       setEmber(data);
 
       // Also fetch sharing information to get invited users and permission level
@@ -413,10 +426,11 @@ export default function EmberDetail() {
           return !!(ember?.latitude && ember?.longitude) || !!ember?.manual_location;
         case 'time-date':
           return !!ember?.ember_timestamp || !!ember?.manual_datetime;
+        case 'analysis':
+          return !!ember?.image_analysis_completed;
         case 'story':
         case 'why':
         case 'feelings':
-        case 'analysis':
         case 'objects':
         case 'people':
         case 'comments-observations':
@@ -701,7 +715,7 @@ export default function EmberDetail() {
                       sectionType: 'title',
                       icon: PenNib,
                       title: () => 'Title',
-                      description: (isComplete) => (!isComplete ? 'help pick a perfect title for this ember.' : ember.title),
+                      description: (isComplete) => (!isComplete ? 'pick the perfect title' : ember.title),
                       onClick: () => () => setShowNamesModal(true)
                     },
                     {
@@ -782,7 +796,7 @@ export default function EmberDetail() {
                       icon: Eye,
                       title: () => 'Image Analysis',
                       description: () => 'Deep analysis of this image',
-                      onClick: () => () => console.log('Image Analysis modal coming soon')
+                      onClick: () => () => setShowImageAnalysisModal(true)
                     },
                     {
                       id: 'contributors',
@@ -904,7 +918,7 @@ export default function EmberDetail() {
                             type="text"
                             value={newTitle}
                             onChange={(e) => setNewTitle(e.target.value)}
-                            maxLength="45"
+                            maxLength="30"
                             className="h-10"
                           />
                           <Button size="lg" variant="blue" onClick={handleTitleSave}>Save</Button>
@@ -1156,6 +1170,16 @@ export default function EmberDetail() {
           isOpen={showTimeDateModal} 
           onClose={() => setShowTimeDateModal(false)}
           isMobile={isMobile}
+          onRefresh={fetchEmber}
+        />
+      )}
+
+      {/* Image Analysis Modal */}
+      {ember && (
+        <ImageAnalysisModal 
+          ember={ember} 
+          isOpen={showImageAnalysisModal} 
+          onClose={() => setShowImageAnalysisModal(false)}
           onRefresh={fetchEmber}
         />
       )}

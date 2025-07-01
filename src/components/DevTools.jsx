@@ -118,9 +118,9 @@ export default function DevTools() {
             SELECT FROM information_schema.columns 
             WHERE table_name = 'embers' AND column_name = 'title'
           ) THEN
-            ALTER TABLE embers ADD COLUMN title VARCHAR(45);
+            ALTER TABLE embers ADD COLUMN title VARCHAR(30);
           ELSE
-            ALTER TABLE embers ALTER COLUMN title TYPE VARCHAR(45);
+            ALTER TABLE embers ALTER COLUMN title TYPE VARCHAR(30);
           END IF;
         END $$;
 
