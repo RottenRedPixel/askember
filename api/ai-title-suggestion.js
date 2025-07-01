@@ -5,8 +5,26 @@ const openai = new OpenAI({
 });
 
 export default async function handler(req, res) {
+  // Add CORS headers for mobile compatibility
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Verify OpenAI API key is available
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('❌ OPENAI_API_KEY environment variable not set');
+    return res.status(500).json({ 
+      error: 'OpenAI configuration error',
+      details: 'API key not configured on server' 
+    });
   }
 
   try {
@@ -90,6 +108,7 @@ Return only the title, no additional text or formatting.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
+      timeout: 30000, // 30 second timeout for mobile networks
       messages: [
         {
           role: 'system',

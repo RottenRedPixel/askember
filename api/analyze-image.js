@@ -1,10 +1,19 @@
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
-  apiKey: process.env.VITE_OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export default async function handler(req, res) {
+  // Add CORS headers for mobile compatibility
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -15,11 +24,21 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required parameters: imageUrl and emberId' });
   }
 
+  // Verify OpenAI API key is available
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('❌ OPENAI_API_KEY environment variable not set');
+    return res.status(500).json({ 
+      error: 'OpenAI configuration error',
+      details: 'API key not configured on server' 
+    });
+  }
+
   try {
     console.log('🔍 Starting deep image analysis for ember:', emberId);
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
+      timeout: 60000, // 60 second timeout for mobile networks
       messages: [
         {
           role: "user",
