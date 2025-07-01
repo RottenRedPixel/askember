@@ -10,12 +10,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Label } from '@/components/ui/label';
-import { getEmber, updateEmberTitle, saveStoryCut, getStoryCutsForEmber, getAllStoryMessagesForEmber } from '@/lib/database';
+import { getEmber, updateEmberTitle, saveStoryCut, getStoryCutsForEmber, getAllStoryMessagesForEmber, deleteStoryCut } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix, FilmSlate, ChatCircle, ImageSquare, House, UserCirclePlus } from 'phosphor-react';
+import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix, FilmSlate, ChatCircle, ImageSquare, House, UserCirclePlus, Trash } from 'phosphor-react';
 
 import FeaturesCard from '@/components/FeaturesCard';
 import ShareModal from '@/components/ShareModal';
@@ -78,6 +78,11 @@ export default function EmberDetail() {
   const [selectedStoryCut, setSelectedStoryCut] = useState(null);
   const [showStoryCutDetail, setShowStoryCutDetail] = useState(false);
   const [currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut] = useState(null);
+  
+  // Delete story cut state
+  const [storyCutToDelete, setStoryCutToDelete] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Media query hook for responsive design
   const useMediaQuery = (query) => {
@@ -192,6 +197,49 @@ export default function EmberDetail() {
   const getStyleDisplayName = (style) => {
     const styleConfig = STORY_CUT_STYLES[style];
     return styleConfig ? styleConfig.name : style;
+  };
+
+  // Handle story cut deletion
+  const handleDeleteStoryCut = async () => {
+    if (!storyCutToDelete || !userProfile?.user_id) return;
+    
+    try {
+      setIsDeleting(true);
+      await deleteStoryCut(storyCutToDelete.id, userProfile.user_id);
+      
+      // Refresh the story cuts list
+      await fetchStoryCuts();
+      
+      // Close modals and reset state
+      setShowDeleteConfirm(false);
+      setStoryCutToDelete(null);
+      
+      // If the deleted story cut was selected, close the detail view
+      if (selectedStoryCut?.id === storyCutToDelete.id) {
+        setSelectedStoryCut(null);
+        setShowStoryCutDetail(false);
+      }
+      
+      setMessage({
+        type: 'success',
+        text: `Story cut "${storyCutToDelete.title}" deleted successfully!`
+      });
+      
+    } catch (error) {
+      console.error('Error deleting story cut:', error);
+      setMessage({
+        type: 'error',
+        text: 'Failed to delete story cut. Please try again.'
+      });
+    } finally {
+      setIsDeleting(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  // Check if current user can delete a story cut (must be creator)
+  const canDeleteStoryCut = (storyCut) => {
+    return userProfile?.user_id === storyCut.creator_user_id;
   };
 
   // Handle generating a new story cut using AI prompts
@@ -1967,61 +2015,81 @@ Return a JSON object with:
               {!storyCutsLoading && storyCuts.map((cut) => (
                 <div 
                   key={cut.id} 
-                  className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors cursor-pointer border border-gray-200"
-                  onClick={() => {
-                    setSelectedStoryCut(cut);
-                    setShowStoryCutDetail(true);
-                  }}
+                  className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors border border-gray-200 relative group"
                 >
-                  <div className="flex gap-4">
-                                         {/* Thumbnail - Using ember image for now */}
-                     <div className="flex-shrink-0">
-                       <img 
-                         src={ember.image_url} 
-                         alt={cut.title}
-                         className="w-24 h-24 rounded-lg object-cover"
-                       />
-                     </div>
-                    
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-gray-900 truncate">{cut.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                            {cut.story_focus || (cut.full_script ? cut.full_script.substring(0, 100) + '...' : '') || 'No description available'}
-                          </p>
+                  {/* Delete Button - Only show for creators */}
+                  {canDeleteStoryCut(cut) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setStoryCutToDelete(cut);
+                        setShowDeleteConfirm(true);
+                      }}
+                      className="absolute bottom-2 right-2 p-1.5 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors duration-200 z-10"
+                      title="Delete story cut"
+                    >
+                      <Trash size={14} />
+                    </button>
+                  )}
+
+                  {/* Clickable content area */}
+                  <div 
+                    className="cursor-pointer"
+                    onClick={() => {
+                      setSelectedStoryCut(cut);
+                      setShowStoryCutDetail(true);
+                    }}
+                  >
+                    <div className="flex gap-4">
+                                           {/* Thumbnail - Using ember image for now */}
+                       <div className="flex-shrink-0">
+                         <img 
+                           src={ember.image_url} 
+                           alt={cut.title}
+                           className="w-24 h-24 rounded-lg object-cover"
+                         />
+                       </div>
+                      
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-gray-900 truncate">{cut.title}</h3>
+                            <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                              {cut.story_focus || (cut.full_script ? cut.full_script.substring(0, 100) + '...' : '') || 'No description available'}
+                            </p>
+                          </div>
+                          
+                          {/* Creator Avatar */}
+                          <div className="flex-shrink-0">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={cut.creator?.avatar_url} alt={`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim()} />
+                              <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
+                                {cut.creator?.first_name?.[0] || cut.creator?.last_name?.[0] || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
                         </div>
                         
-                        {/* Creator Avatar */}
-                        <div className="flex-shrink-0">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={cut.creator?.avatar_url} alt={`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim()} />
-                            <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
-                              {cut.creator?.first_name?.[0] || cut.creator?.last_name?.[0] || 'U'}
-                            </AvatarFallback>
-                          </Avatar>
+                        {/* Metadata */}
+                        <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <Users size={12} />
+                            {`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock size={12} />
+                            {formatDuration(cut.duration)}
+                          </span>
+                          <span>{formatRelativeTime(cut.created_at)}</span>
                         </div>
-                      </div>
-                      
-                      {/* Metadata */}
-                      <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Users size={12} />
-                          {`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} />
-                          {formatDuration(cut.duration)}
-                        </span>
-                        <span>{formatRelativeTime(cut.created_at)}</span>
-                      </div>
-                      
-                      {/* Style Badge */}
-                      <div className="mt-2">
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {getStyleDisplayName(cut.style)}
-                        </span>
+                        
+                        {/* Style Badge */}
+                        <div className="mt-2">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {getStyleDisplayName(cut.style)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2215,6 +2283,52 @@ Return a JSON object with:
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md bg-white sm:w-full sm:max-w-md rounded-2xl focus:outline-none">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold text-red-700">
+              <Trash size={20} className="text-red-600" />
+              Delete Story Cut
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Are you sure you want to delete "{storyCutToDelete?.title}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex gap-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setStoryCutToDelete(null);
+              }}
+              className="flex-1"
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteStoryCut}
+              disabled={isDeleting}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
+            >
+              {isDeleting ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Deleting...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Trash size={16} />
+                  Delete
+                </div>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
