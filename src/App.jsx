@@ -17,6 +17,7 @@ import AuthGuard from './components/auth/AuthGuard';
 import AdminGuard from './components/auth/AdminGuard';
 import AuthCallback from './components/auth/AuthCallback';
 import AuthPage from './components/auth/AuthPage';
+import { addPrimaryStoryCutColumn } from './lib/database';
 import './App.css'
 
 export default function App() {
@@ -25,6 +26,18 @@ export default function App() {
   // Initialize authentication state on app startup
   useEffect(() => {
     initializeAuth();
+    
+    // Run database migrations
+    const runMigrations = async () => {
+      try {
+        // Add primary_story_cut_id column if it doesn't exist
+        await addPrimaryStoryCutColumn();
+      } catch (error) {
+        console.error('Error running migrations:', error);
+      }
+    };
+    
+    runMigrations();
   }, [initializeAuth]);
 
   return (
