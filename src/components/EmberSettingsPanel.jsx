@@ -1,33 +1,21 @@
 import { useState, useEffect } from 'react';
-import { X, Info, Chats, ShareNetwork, Gear } from 'phosphor-react';
+import { X, Info, Image } from 'phosphor-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import FeaturesCard from '@/components/FeaturesCard';
 import EmberWiki from '@/components/ember/EmberWiki';
-import EmberStoryCircle from '@/components/ember/EmberStoryCircle';
-import EmberSettings from '@/components/ember/EmberSettings';
+import EmberMedia from '@/components/ember/EmberMedia';
 
 
 const tabs = [
-  {
-    id: "story-circle",
-    label: "Circle",
-    icon: Chats
-  },
   {
     id: "wiki",
     label: "Wiki",
     icon: Info
   },
   {
-    id: "sharing",
-    label: "Sharing",
-    icon: ShareNetwork
-  },
-  {
-    id: "settings",
-    label: "Settings",
-    icon: Gear
+    id: "media",
+    label: "Media",
+    icon: Image
   }
 ];
 
@@ -52,9 +40,9 @@ export default function EmberSettingsPanel({
   const getStoredActiveTab = () => {
     if (ember?.id) {
       const stored = localStorage.getItem(`ember-settings-tab-${ember.id}`);
-      return stored || "story-circle";
+      return stored || "wiki";
     }
-    return "story-circle";
+    return "wiki";
   };
   
   const [activeTab, setActiveTab] = useState(getStoredActiveTab);
@@ -74,6 +62,13 @@ export default function EmberSettingsPanel({
       setActiveTab(storedTab);
     }
   }, [ember?.id]);
+
+  // Always show wiki tab when panel is opened
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab("wiki");
+    }
+  }, [isOpen]);
   
   // Simplified state - only for refresh functionality
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -118,36 +113,13 @@ export default function EmberSettingsPanel({
           </div>
         );
 
-      case 'story-circle':
+      case 'media':
         return (
-          <div className="h-full overflow-hidden">
-            <EmberStoryCircle 
+          <div className="h-full overflow-auto">
+            <EmberMedia 
               ember={ember}
               onRefresh={handleRefresh}
               isRefreshing={isRefreshing}
-            />
-          </div>
-        );
-
-      case 'sharing':
-        return (
-          <div className="h-full overflow-auto">
-            <FeaturesCard 
-              ember={ember} 
-              onRefresh={handleRefresh}
-              isRefreshing={isRefreshing}
-            />
-          </div>
-        );
-
-      case 'settings':
-        return (
-          <div className="h-full overflow-auto">
-            <EmberSettings 
-              ember={ember}
-              onRefresh={handleRefresh}
-              isRefreshing={isRefreshing}
-              onClose={onClose}
             />
           </div>
         );
@@ -184,7 +156,7 @@ export default function EmberSettingsPanel({
         <div className="border-b border-gray-200">
           {/* Header with title and close button */}
           <div className="flex items-center justify-between p-4 pb-2">
-            <h2 className="text-lg font-semibold text-gray-900">Ember Settings</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Ember Wiki</h2>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X size={20} />
             </Button>

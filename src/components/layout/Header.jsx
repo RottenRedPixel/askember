@@ -9,13 +9,18 @@ export default function Header() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isDevToolsMenuOpen, setIsDevToolsMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+  const devToolsMenuRef = useRef(null);
   
-  // Close user menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setIsUserMenuOpen(false);
+      }
+      if (devToolsMenuRef.current && !devToolsMenuRef.current.contains(event.target)) {
+        setIsDevToolsMenuOpen(false);
       }
     };
     
@@ -25,6 +30,11 @@ export default function Header() {
   
   // Helper function to determine if a link is active
   const isActive = (path) => location.pathname === path;
+  
+  // Helper function to check if any dev tools are active
+  const isDevToolsActive = () => {
+    return ['/dev', '/eleven', '/style'].includes(location.pathname);
+  };
   
   // Helper function to get link classes based on active state
   const getLinkClasses = (path, baseClasses = "px-4 py-2 font-medium transition-colors border-b-2") => {
@@ -105,20 +115,62 @@ export default function Header() {
                 </Link>
               )}
               {isAdmin && (
-                <Link 
-                  to="/dev" 
-                  className={getLinkClasses("/dev")}
-                >
-                  Dev
-                </Link>
-              )}
-              {isAdmin && (
-                <Link 
-                  to="/eleven" 
-                  className={getLinkClasses("/eleven")}
-                >
-                  ElevenLabs
-                </Link>
+                <div className="relative" ref={devToolsMenuRef}>
+                  <button
+                    onClick={() => setIsDevToolsMenuOpen(!isDevToolsMenuOpen)}
+                    className={`px-4 py-2 font-medium transition-colors border-b-2 flex items-center gap-1 ${
+                      isDevToolsActive() 
+                        ? "text-blue-600 bg-blue-50 border-blue-600" 
+                        : "text-gray-700 hover:text-blue-600 border-transparent"
+                    }`}
+                  >
+                    Dev Tools
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {/* Dev Tools dropdown menu */}
+                  {isDevToolsMenuOpen && (
+                    <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                      <div className="py-2">
+                        <Link
+                          to="/dev"
+                          onClick={() => setIsDevToolsMenuOpen(false)}
+                          className={`block px-4 py-2 text-sm transition-colors ${
+                            isActive('/dev') 
+                              ? 'text-blue-600 bg-blue-50' 
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          Dev Dashboard
+                        </Link>
+                        <Link
+                          to="/eleven"
+                          onClick={() => setIsDevToolsMenuOpen(false)}
+                          className={`block px-4 py-2 text-sm transition-colors ${
+                            isActive('/eleven') 
+                              ? 'text-blue-600 bg-blue-50' 
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          ElevenLabs Test
+                        </Link>
+                        <Link
+                          to="/style"
+                          onClick={() => setIsDevToolsMenuOpen(false)}
+                          className={`block px-4 py-2 text-sm transition-colors ${
+                            isActive('/style') 
+                              ? 'text-blue-600 bg-blue-50' 
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          Style Guide
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             
@@ -242,22 +294,32 @@ export default function Header() {
                   </Link>
                 )}
                 {isAdmin && (
-                  <Link 
-                    to="/dev" 
-                    className={getMobileLinkClasses("/dev")}
-                    onClick={handleMobileLinkClick}
-                  >
-                    Dev
-                  </Link>
-                )}
-                {isAdmin && (
-                  <Link 
-                    to="/eleven" 
-                    className={getMobileLinkClasses("/eleven")}
-                    onClick={handleMobileLinkClick}
-                  >
-                    ElevenLabs
-                  </Link>
+                  <>
+                    <div className="px-4 py-2 text-sm font-semibold text-gray-500 bg-gray-50 border-l-4 border-gray-300">
+                      Dev Tools
+                    </div>
+                    <Link 
+                      to="/dev" 
+                      className={`${getMobileLinkClasses("/dev")} pl-8`}
+                      onClick={handleMobileLinkClick}
+                    >
+                      Dev Dashboard
+                    </Link>
+                    <Link 
+                      to="/eleven" 
+                      className={`${getMobileLinkClasses("/eleven")} pl-8`}
+                      onClick={handleMobileLinkClick}
+                    >
+                      ElevenLabs Test
+                    </Link>
+                    <Link 
+                      to="/style" 
+                      className={`${getMobileLinkClasses("/style")} pl-8`}
+                      onClick={handleMobileLinkClick}
+                    >
+                      Style Guide
+                    </Link>
+                  </>
                 )}
                 
                 <div className="border-t border-gray-200 mt-2 pt-2">

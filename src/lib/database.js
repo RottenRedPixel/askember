@@ -851,6 +851,131 @@ export const clearAllStoriesForEmber = async (emberId, userId) => {
   }
 };
 
+// =============================================================================
+// STORY CUTS FUNCTIONS
+// =============================================================================
+
+/**
+ * Save a generated story cut to the database
+ */
+export const saveStoryCut = async (storyCutData) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_story_cuts')
+      .insert([{
+        ember_id: storyCutData.emberId,
+        creator_user_id: storyCutData.creatorUserId,
+        title: storyCutData.title,
+        style: storyCutData.style,
+        duration: storyCutData.duration,
+        word_count: storyCutData.wordCount,
+        story_focus: storyCutData.storyFocus,
+        full_script: storyCutData.script.fullScript,
+        ember_voice_lines: storyCutData.script.emberVoiceLines,
+        narrator_voice_lines: storyCutData.script.narratorVoiceLines,
+        ember_voice_id: storyCutData.voiceCasting.emberVoice.voice_id,
+        ember_voice_name: storyCutData.voiceCasting.emberVoice.name,
+        narrator_voice_id: storyCutData.voiceCasting.narratorVoice.voice_id,
+        narrator_voice_name: storyCutData.voiceCasting.narratorVoice.name,
+        selected_contributors: storyCutData.voiceCasting.contributors,
+        metadata: storyCutData.metadata
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error saving story cut:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get all story cuts for an ember
+ */
+export const getStoryCutsForEmber = async (emberId) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_story_cuts')
+      .select(`
+        *,
+        creator:user_profiles!creator_user_id(
+          user_id,
+          first_name,
+          last_name,
+          avatar_url
+        )
+      `)
+      .eq('ember_id', emberId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching story cuts:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get a specific story cut by ID
+ */
+export const getStoryCutById = async (storyCutId) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_story_cuts')
+      .select(`
+        *,
+        creator:user_profiles!creator_user_id(
+          user_id,
+          first_name,
+          last_name,
+          avatar_url
+        )
+      `)
+      .eq('id', storyCutId)
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching story cut:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a story cut
+ */
+export const deleteStoryCut = async (storyCutId, userId) => {
+  try {
+    const { error } = await supabase
+      .from('ember_story_cuts')
+      .delete()
+      .eq('id', storyCutId)
+      .eq('creator_user_id', userId); // Only creator can delete
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting story cut:', error);
+    throw error;
+  }
+};
+
 /**
  * Save image analysis data for an ember
  * @param {string} emberId - Ember ID

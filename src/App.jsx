@@ -12,6 +12,7 @@ import Sandbox from './components/pages/Sandbox';
 import Settings from './components/pages/Settings';
 import AdminDashboard from './components/pages/AdminDashboard';
 import DevDashboard from './components/pages/DevDashboard';
+import StyleGuide from './components/pages/StyleGuide';
 import AuthGuard from './components/auth/AuthGuard';
 import AdminGuard from './components/auth/AdminGuard';
 import AuthCallback from './components/auth/AuthCallback';
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="/test" element={<Test />} />
             <Route path="/eleven" element={<ElevenLabsTest />} />
             <Route path="/sandbox" element={<Sandbox />} />
+            <Route path="/style" element={<StyleGuide />} />
             <Route path="/login" element={<AuthPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/embers" element={

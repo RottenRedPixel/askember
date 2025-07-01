@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ArrowClockwise, PencilSimple, TrashSimple } from 'phosphor-react';
 import { 
   FileText,
@@ -15,10 +24,13 @@ import {
   Clock,
   BookOpen,
   MessageCircle,
-  Image
+  Image,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { getEmberWithSharing } from '@/lib/sharing';
-import { getImageAnalysis } from '@/lib/database';
+import { getImageAnalysis, getAllStoryMessagesForEmber, deleteEmber } from '@/lib/database';
+import useStore from '@/store';
 
 export default function EmberWiki({ 
   ember, 
@@ -31,16 +43,29 @@ export default function EmberWiki({
   handleTitleSave,
   handleTitleCancel,
   handleTitleEdit,
-  handleTitleDelete
+  handleTitleDelete,
+  onClose
 }) {
+  const navigate = useNavigate();
+  const { user } = useStore();
+  
   const [sharedUsers, setSharedUsers] = useState([]); // Users with accounts
   const [emailOnlyInvites, setEmailOnlyInvites] = useState([]); // Email-only invites
   const [imageAnalysis, setImageAnalysis] = useState(null);
+  const [storyMessages, setStoryMessages] = useState([]);
+  
+  // Delete ember state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Check if current user is owner
+  const isOwner = user && ember?.user_id === user.id;
 
   useEffect(() => {
     if (ember?.id) {
       fetchSharedUsers();
       fetchImageAnalysis();
+      fetchStoryMessages();
     }
   }, [ember?.id]);
 
@@ -54,7 +79,7 @@ export default function EmberWiki({
       case 'time-date':
         return !!ember?.ember_timestamp || !!ember?.manual_datetime;
       case 'story':
-        return false; // Placeholder - will be true when story data exists
+        return storyMessages && storyMessages.length > 0;
       case 'why':
         return false; // Placeholder - will be true when why data exists
       case 'feelings':
@@ -144,33 +169,70 @@ export default function EmberWiki({
     }
   };
 
+  const fetchStoryMessages = async () => {
+    try {
+      const result = await getAllStoryMessagesForEmber(ember.id);
+      console.log('Wiki story messages result:', result);
+      console.log('Wiki story messages data:', result.messages);
+      setStoryMessages(result.messages || []);
+    } catch (error) {
+      console.error('Error fetching story messages:', error);
+      setStoryMessages([]);
+    }
+  };
+
+  // Delete ember functions
+  const handleDeleteEmber = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteEmber(ember.id, user.id);
+      
+      // Close the dialog and redirect after a short delay
+      setTimeout(() => {
+        setShowDeleteConfirm(false);
+        if (onClose) onClose(); // Close the settings panel
+        navigate('/embers');
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to delete ember:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const resetDeleteConfirm = () => {
+    setShowDeleteConfirm(false);
+    setIsDeleting(false);
+  };
+
   return (
-    <Card className="min-h-full rounded-none">
-      <CardContent className="px-6 pb-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 text-left flex items-center gap-2">
-              Ember Wiki
-              {onRefresh && (
-                <button
-                  onClick={onRefresh}
-                  disabled={isRefreshing}
-                  className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-                  title="Refresh wiki data"
-                >
-                  <ArrowClockwise 
-                    size={16} 
-                    className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
-                  />
-                </button>
-              )}
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Knowledge and information about this ember
-            </p>
+    <>
+      <Card className="min-h-full rounded-none">
+        <CardContent className="px-6 pb-6 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 text-left flex items-center gap-2">
+                Ember Wiki
+                {onRefresh && (
+                  <button
+                    onClick={onRefresh}
+                    disabled={isRefreshing}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                    title="Refresh wiki data"
+                  >
+                    <ArrowClockwise 
+                      size={16} 
+                      className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
+                    />
+                  </button>
+                )}
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Knowledge and information about this ember
+              </p>
+            </div>
           </div>
-        </div>
         
         {/* Content Sections */}
         <div className="space-y-4 text-left">
@@ -376,8 +438,80 @@ export default function EmberWiki({
               </div>
               <StatusBadge isComplete={getSectionStatus('story')} />
             </h3>
-            <div className="text-sm text-gray-600 text-left">
-              The complete narrative and story behind this ember will appear here...
+            <div className="text-sm text-gray-600 text-left space-y-3">
+              {storyMessages && storyMessages.length > 0 ? (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BookOpen size={16} className="text-indigo-600" />
+                    <span className="text-sm font-medium text-indigo-900">Story Conversation</span>
+                  </div>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {storyMessages.map((message, index) => (
+                      <div key={message.id || index} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                                                         {message.sender === 'ember' ? (
+                               <div className="w-2 h-2 bg-purple-500 rounded-full" />
+                             ) : (
+                               <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                             )}
+                             <span className="text-xs font-medium text-gray-700">
+                               {message.sender === 'ember' ? 'Ember AI' : (
+                                 message.user_first_name && message.user_last_name 
+                                   ? `${message.user_first_name} ${message.user_last_name}`
+                                   : 'User'
+                               )}
+                             </span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {new Date(message.created_at).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true
+                            })}
+                          </span>
+                        </div>
+                                                 <div className={`p-3 rounded-lg text-sm ${
+                           message.sender === 'ember' 
+                             ? 'bg-purple-50 text-purple-900 border border-purple-200' 
+                             : 'bg-blue-50 text-blue-900 border border-blue-200'
+                         }`}>
+                          <div className="whitespace-pre-wrap">
+                            {message.content}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-3 pt-2 border-t border-indigo-200">
+                    <div className="flex items-center justify-between">
+                      <span>
+                        {storyMessages.length} message{storyMessages.length !== 1 ? 's' : ''} • Source: Story Modal conversations
+                      </span>
+                      <span>
+                        Last updated: {new Date(Math.max(...storyMessages.map(m => new Date(m.created_at)))).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <BookOpen size={16} className="text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">No Story Content</span>
+                  </div>
+                  <div className="text-gray-500">
+                    No story conversations have been created for this ember yet. Use the "Story" modal to build a rich narrative through AI conversations.
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -589,8 +723,84 @@ export default function EmberWiki({
               
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+
+          {/* Danger Zone - Only for owners */}
+          {isOwner && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <h4 className="font-medium text-red-600 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  Danger Zone
+                </h4>
+                <div className="p-3 border border-red-200 rounded-lg bg-red-50">
+                  <p className="text-sm text-red-700 mb-3">
+                    Delete this ember permanently. This action cannot be undone and will remove all associated data including shares, chat messages, story conversations, and analysis.
+                  </p>
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={isDeleting}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete Ember
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={resetDeleteConfirm}>
+        <DialogContent className="max-w-md bg-white focus:outline-none">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              Delete Ember
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              This action cannot be undone. This will permanently delete the ember and all associated data.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-3 border border-yellow-200 rounded-lg bg-yellow-50">
+              <p className="text-sm text-yellow-800">
+                <strong>Warning:</strong> This will also delete:
+              </p>
+              <ul className="text-sm text-yellow-700 mt-1 ml-4 list-disc">
+                <li>All sharing permissions</li>
+                <li>All chat messages and conversations</li>
+                <li>All story conversations and responses</li>
+                <li>All story cuts and scripts</li>
+                <li>Image analysis data</li>
+                <li>The ember image and metadata</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={resetDeleteConfirm}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteEmber}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Ember'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 } 
