@@ -10,12 +10,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Label } from '@/components/ui/label';
-import { getEmber, updateEmberTitle, saveStoryCut, getStoryCutsForEmber, getAllStoryMessagesForEmber, deleteStoryCut } from '@/lib/database';
+import { getEmber, updateEmberTitle, saveStoryCut, getStoryCutsForEmber, getAllStoryMessagesForEmber, deleteStoryCut, setPrimaryStoryCut, getPrimaryStoryCut } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Package, UsersThree, PlayCircle, Sliders, CirclesFour, FilmSlate, ImageSquare, House, UserCirclePlus, Trash, Link, Copy, QrCode } from 'phosphor-react';
+import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Package, UsersThree, PlayCircle, Sliders, CirclesFour, FilmSlate, ImageSquare, House, UserCirclePlus, Trash, Link, Copy, QrCode, ArrowsClockwise, Heart, HeartStraight, Calendar, Play, Pause, X, Circle, Share, Export, Star } from 'phosphor-react';
 
 import FeaturesCard from '@/components/FeaturesCard';
 
@@ -29,7 +29,7 @@ import EmberNamesModal from '@/components/EmberNamesModal';
 import EmberSettingsPanel from '@/components/EmberSettingsPanel';
 import QRCodeGenerator from '@/components/QRCodeGenerator';
 import { textToSpeech, getVoices } from '@/lib/elevenlabs';
-import { getStoryCutStyles, STORY_CUT_PROMPTS, STORY_CUT_STYLES, buildEmberContext, generateStoryCutWithOpenAI } from '@/lib/prompts';
+import { getStoryCutStyles, getStoryCutStylesFromDB, STORY_CUT_PROMPTS, STORY_CUT_STYLES, buildEmberContext, generateStoryCutWithOpenAI } from '@/lib/prompts';
 import useStore from '@/store';
 
 export default function EmberDetail() {
@@ -76,9 +76,12 @@ export default function EmberDetail() {
   const [storyFocus, setStoryFocus] = useState('');
   const [storyCuts, setStoryCuts] = useState([]);
   const [storyCutsLoading, setStoryCutsLoading] = useState(false);
+  const [availableStoryStyles, setAvailableStoryStyles] = useState([]);
+  const [stylesLoading, setStylesLoading] = useState(false);
   const [selectedStoryCut, setSelectedStoryCut] = useState(null);
   const [showStoryCutDetail, setShowStoryCutDetail] = useState(false);
   const [currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut] = useState(null);
+  const [primaryStoryCut, setPrimaryStoryCutState] = useState(null);
   
   // Delete story cut state
   const [storyCutToDelete, setStoryCutToDelete] = useState(null);
@@ -127,9 +130,29 @@ export default function EmberDetail() {
     }
   };
 
-  // Fetch voices on component mount
+  // Fetch available story styles from database
+  const fetchStoryStyles = async () => {
+    try {
+      setStylesLoading(true);
+      const styles = await getStoryCutStyles();
+      setAvailableStoryStyles(styles);
+    } catch (error) {
+      console.error('Failed to fetch story styles:', error);
+      // Set fallback styles if database fails
+      setAvailableStoryStyles([
+        { id: 'cinematic', name: 'Cinematic Drama', description: 'Epic, movie-like storytelling' },
+        { id: 'conversational', name: 'Conversational', description: 'Natural, friendly storytelling' },
+        { id: 'documentary', name: 'Documentary Style', description: 'Informative, educational approach' }
+      ]);
+    } finally {
+      setStylesLoading(false);
+    }
+  };
+
+  // Fetch voices and story styles on component mount
   useEffect(() => {
     fetchVoices();
+    fetchStoryStyles();
   }, []);
 
   // Fetch story cuts for the current ember
@@ -140,10 +163,54 @@ export default function EmberDetail() {
       setStoryCutsLoading(true);
       const cuts = await getStoryCutsForEmber(ember.id);
       setStoryCuts(cuts);
+      
+      // Also fetch the primary story cut
+      const primary = await getPrimaryStoryCut(ember.id);
+      setPrimaryStoryCutState(primary);
+      
+      // Auto-set single story cut as "The One" if no primary exists
+      if (cuts.length === 1 && !primary && userProfile?.user_id) {
+        try {
+          console.log('🎬 Auto-setting single story cut as "The One":', cuts[0].title);
+          await setPrimaryStoryCut(cuts[0].id, ember.id, userProfile.user_id);
+          
+          // Refresh to get the updated primary status
+          const updatedPrimary = await getPrimaryStoryCut(ember.id);
+          setPrimaryStoryCutState(updatedPrimary);
+        } catch (error) {
+          console.log('⚠️ Could not auto-set primary (may not be owner):', error.message);
+          // This is fine - user might not be the owner
+        }
+      }
     } catch (error) {
       console.error('Error fetching story cuts:', error);
     } finally {
       setStoryCutsLoading(false);
+    }
+  };
+
+  // Set a story cut as the primary one
+  const handleSetPrimary = async (storyCutId) => {
+    if (!ember?.id || !userProfile?.user_id) return;
+    
+    try {
+      await setPrimaryStoryCut(storyCutId, ember.id, userProfile.user_id);
+      
+      // Refresh the story cuts and primary status
+      await fetchStoryCuts();
+      
+      setMessage({
+        type: 'success',
+        text: 'Story cut set as "The One" successfully!'
+      });
+    } catch (error) {
+      console.error('Error setting primary story cut:', error);
+      setMessage({
+        type: 'error',
+        text: 'Failed to set as primary. Only the ember owner can do this.'
+      });
+    } finally {
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -194,10 +261,10 @@ export default function EmberDetail() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  // Helper function to capitalize style names
+  // Helper function to get style display name from database styles
   const getStyleDisplayName = (style) => {
-    const styleConfig = STORY_CUT_STYLES[style];
-    return styleConfig ? styleConfig.name : style;
+    const dbStyle = availableStoryStyles.find(s => s.id === style);
+    return dbStyle ? dbStyle.name : style;
   };
 
   // Handle story cut deletion
@@ -363,18 +430,35 @@ export default function EmberDetail() {
     );
   };
 
-  // Handle generating a new story cut using AI prompts
+  // Generate story cut with OpenAI
   const handleGenerateStoryCut = async () => {
-    if (!selectedStoryStyle || !selectedEmberVoice || !selectedNarratorVoice) {
-      return;
-    }
-
     try {
       setIsGeneratingStoryCut(true);
-      
-      // Collect all form data
+      setMessage(null);
+
+      // Form validation
+      if (!selectedStoryStyle) {
+        throw new Error('Please select a story style');
+      }
+
+      if (!emberLength || emberLength < 10 || emberLength > 300) {
+        throw new Error('Duration must be between 10 and 300 seconds');
+      }
+
+      if (!selectedEmberVoice || !selectedNarratorVoice) {
+        throw new Error('Please select voices for both Ember and Narrator');
+      }
+
+      // Get style configuration from database styles instead of hardcoded
+      const dbStyles = await getStoryCutStylesFromDB();
+      const styleConfig = dbStyles[selectedStoryStyle];
+      if (!styleConfig) {
+        throw new Error('Invalid story style selected');
+      }
+
+      // Log form data for debugging
       const formData = {
-        title: storyTitle || ember?.title || 'Untitled Story',
+        title: ember?.title || 'Untitled',
         duration: emberLength,
         style: selectedStoryStyle,
         focus: storyFocus,
@@ -382,12 +466,6 @@ export default function EmberDetail() {
         narratorVoice: selectedNarratorVoice,
         selectedUsers: selectedVoices
       };
-
-      // Get style configuration
-      const styleConfig = STORY_CUT_STYLES[selectedStoryStyle];
-      if (!styleConfig) {
-        throw new Error('Invalid story style selected');
-      }
 
       // Get story messages for richer context
       const storyMessages = await getAllStoryMessagesForEmber(ember.id);
@@ -422,87 +500,13 @@ export default function EmberDetail() {
         }
       });
 
-      // Calculate approximate word count (3 words per second)
-      const approximateWords = Math.round(emberLength * 3);
-      
-      // Build comprehensive prompt
-      const systemPrompt = `${styleConfig.systemPrompt}
-
-VOICE CASTING:
-- Ember Voice (${styleConfig.emberVoiceRole}): ${emberVoiceInfo?.name || 'Selected Voice'} (${emberVoiceInfo?.labels?.gender || 'Unknown'})
-- Narrator Voice (${styleConfig.narratorVoiceRole}): ${narratorVoiceInfo?.name || 'Selected Voice'} (${narratorVoiceInfo?.labels?.gender || 'Unknown'})
-
-SELECTED CONTRIBUTORS: ${selectedUserDetails.map(u => `${u.name} (${u.role})`).join(', ') || 'None selected'}
-
-You must create content that makes use of the voice casting and involves the selected contributors in the storytelling when appropriate.`;
-
-      const userPrompt = `Create a ${emberLength}-second ${styleConfig.name.toLowerCase()} style story cut for this photo/memory:
-
-STORY INFORMATION:
-Title: "${formData.title}"
-Style: ${styleConfig.name} - ${styleConfig.description}
-Duration: ${emberLength} seconds (approximately ${approximateWords} words)
-Story Focus: ${formData.focus || 'General storytelling approach'}
-
-EMBER CONTEXT:
-${emberContext}
-
-VOICE INSTRUCTIONS:
-${styleConfig.voiceInstructions}
-
-REQUIREMENTS:
-- Target exactly ${emberLength} seconds of content (approximately ${approximateWords} words)
-- Follow ${styleConfig.name.toLowerCase()} style: ${styleConfig.description}
-- Include specific details from the ember context
-- ${formData.focus ? `Focus specifically on: ${formData.focus}` : 'Create engaging narrative flow'}
-- Assign appropriate lines to ember voice vs narrator voice
-- Make use of selected contributors: ${selectedUserDetails.map(u => u.name).join(', ') || 'Focus on the image content'}
-
-OUTPUT FORMAT:
-Return a JSON object with:
-{
-  "title": "Engaging title for this story cut",
-  "duration": ${emberLength},
-  "style": "${selectedStoryStyle}",
-  "wordCount": ${approximateWords},
-  "script": {
-    "fullScript": "Complete narration script as one piece",
-    "emberVoiceLines": ["Specific lines to be spoken by the ember voice (${styleConfig.emberVoiceRole})"],
-    "narratorVoiceLines": ["Lines to be spoken by the narrator (${styleConfig.narratorVoiceRole})"]
-  },
-  "voiceCasting": {
-    "emberVoice": "${emberVoiceInfo?.name || 'Selected Voice'}",
-    "narratorVoice": "${narratorVoiceInfo?.name || 'Selected Voice'}",
-    "contributors": ${JSON.stringify(selectedUserDetails)}
-  },
-  "metadata": {
-    "focus": "${formData.focus}",
-    "emberTitle": "${ember?.title || 'Untitled'}",
-    "location": "${ember?.location_name || 'Unknown'}",
-    "generatedAt": "${new Date().toISOString()}"
-  }
-}`;
-
-      const completePrompt = {
-        system: systemPrompt,
-        user: userPrompt,
-        formData,
-        emberContext,
-        styleConfig,
-        voiceCasting: {
-          ember: emberVoiceInfo,
-          narrator: narratorVoiceInfo,
-          contributors: selectedUserDetails
-        }
-      };
-
       console.log('🎬 PREPARING OPENAI STORY CUT GENERATION:');
       console.log('='.repeat(80));
       console.log('📚 STORY INTEGRATION:', storyMessages && storyMessages.length > 0 
         ? `✅ Using ${storyMessages.length} story messages from conversations` 
         : '❌ No story content found - using visual analysis only');
       console.log('🎭 STYLE:', styleConfig.name, '-', styleConfig.description);
-      console.log('⏱️ DURATION:', emberLength, 'seconds (~' + approximateWords + ' words)');
+      console.log('⏱️ DURATION:', emberLength, 'seconds');
       console.log('🎤 VOICE CASTING:', {
         ember: emberVoiceInfo?.name,
         narrator: narratorVoiceInfo?.name,
@@ -514,8 +518,8 @@ Return a JSON object with:
       // Use OpenAI to generate the actual story cut
       console.log('🤖 Calling OpenAI to generate story cut...');
       const openaiResult = await generateStoryCutWithOpenAI(
-        formData, 
-        styleConfig, 
+        formData,
+        styleConfig,
         emberContext, 
         {
           ember: emberVoiceInfo,
@@ -619,25 +623,9 @@ Return a JSON object with:
 
   const StoryCutDetailContent = () => (
     <div className="space-y-6">
-      {/* Play Button and Controls */}
+      {/* Story Cut Info */}
       <div className="flex flex-col sm:flex-row gap-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
         <div className="flex items-center gap-3">
-          <Button 
-            variant="blue" 
-            size="lg"
-            className="flex items-center gap-2"
-            onClick={() => {
-              // TODO: Implement audio playback with ElevenLabs
-              setMessage({
-                type: 'info',
-                text: 'Audio playback coming soon! ElevenLabs integration in progress.'
-              });
-              setTimeout(() => setMessage(null), 3000);
-            }}
-          >
-            <PlayCircle size={20} />
-            Play Story Cut
-          </Button>
           <div className="text-sm text-gray-600">
             <div className="font-medium">{formatDuration(selectedStoryCut.duration)}</div>
             <div>{selectedStoryCut.word_count || 'Unknown'} words</div>
@@ -679,56 +667,56 @@ Return a JSON object with:
 
       {/* Full Script */}
       {selectedStoryCut.full_script && (
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold text-gray-900">Complete Script</h3>
-          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-              {selectedStoryCut.full_script}
-            </p>
-          </div>
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold text-gray-900">Complete Script</h3>
+        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+            {selectedStoryCut.full_script}
+          </p>
         </div>
+      </div>
       )}
 
       {/* Voice Lines Breakdown */}
       {((selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0) || 
         (selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0)) && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">Voice Lines Breakdown</h3>
-          
-          {/* Ember Voice Lines */}
-          {selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0 && (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900">Voice Lines Breakdown</h3>
+        
+        {/* Ember Voice Lines */}
+        {selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="font-medium text-green-800 flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              Ember Voice Lines ({selectedStoryCut.ember_voice_name})
+            </h4>
             <div className="space-y-2">
-              <h4 className="font-medium text-green-800 flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                Ember Voice Lines ({selectedStoryCut.ember_voice_name})
-              </h4>
-              <div className="space-y-2">
-                {selectedStoryCut.ember_voice_lines.map((line, index) => (
-                  <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
-                    <p className="text-green-700">{line}</p>
-                  </div>
-                ))}
-              </div>
+              {selectedStoryCut.ember_voice_lines.map((line, index) => (
+                <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-green-700">{line}</p>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Narrator Voice Lines */}
-          {selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0 && (
+        {/* Narrator Voice Lines */}
+        {selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="font-medium text-purple-800 flex items-center gap-2">
+              <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+              Narrator Voice Lines ({selectedStoryCut.narrator_voice_name})
+            </h4>
             <div className="space-y-2">
-              <h4 className="font-medium text-purple-800 flex items-center gap-2">
-                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                Narrator Voice Lines ({selectedStoryCut.narrator_voice_name})
-              </h4>
-              <div className="space-y-2">
-                {selectedStoryCut.narrator_voice_lines.map((line, index) => (
-                  <div key={index} className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <p className="text-purple-700">{line}</p>
-                  </div>
-                ))}
-              </div>
+              {selectedStoryCut.narrator_voice_lines.map((line, index) => (
+                <div key={index} className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <p className="text-purple-700">{line}</p>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
       )}
 
       {/* Contributors */}
@@ -937,14 +925,21 @@ Return a JSON object with:
           <select 
             value={selectedStoryStyle}
             onChange={(e) => setSelectedStoryStyle(e.target.value)}
+            disabled={stylesLoading}
             className="w-full p-2 border border-gray-300 rounded-md text-sm h-10"
           >
+            {stylesLoading ? (
+              <option>Loading story styles...</option>
+            ) : (
+              <>
             <option value="">Select story style...</option>
-            {getStoryCutStyles().map((style) => (
+                {availableStoryStyles.map((style) => (
               <option key={style.id} value={style.id}>
                 {style.name} - {style.description}
               </option>
             ))}
+              </>
+            )}
           </select>
         </div>
       </div>
@@ -1222,16 +1217,23 @@ Return a JSON object with:
 
       // Check if we have story cuts available
       if (storyCuts && storyCuts.length > 0) {
-        // Use the most recent story cut
-        const latestStoryCut = storyCuts[0]; // They're ordered by created_at DESC
-        setCurrentlyPlayingStoryCut(latestStoryCut);
+        // Prioritize "The One" primary story cut, fallback to most recent
+        let selectedStoryCut;
+        if (primaryStoryCut) {
+          selectedStoryCut = primaryStoryCut;
+          console.log('🎬 Playing "The One" primary story cut:', selectedStoryCut.title, '(' + selectedStoryCut.style + ')');
+        } else {
+          selectedStoryCut = storyCuts[0]; // They're ordered by created_at DESC
+          console.log('🎬 Playing most recent story cut:', selectedStoryCut.title, '(' + selectedStoryCut.style + ')');
+        }
         
-        console.log('🎬 Playing story cut:', latestStoryCut.title, '(' + latestStoryCut.style + ')');
-        console.log('📖 Story cut script:', latestStoryCut.full_script);
+        setCurrentlyPlayingStoryCut(selectedStoryCut);
+        
+        console.log('📖 Story cut script:', selectedStoryCut.full_script);
         
         // Use the story cut's script and voice
-        const content = latestStoryCut.full_script;
-        const voiceId = latestStoryCut.ember_voice_id; // Use the ember voice from the story cut
+        const content = selectedStoryCut.full_script;
+        const voiceId = selectedStoryCut.ember_voice_id; // Use the ember voice from the story cut
         
         // Generate speech using ElevenLabs with the specific voice
         const audioBlob = await textToSpeech(content, voiceId);
@@ -2101,11 +2103,21 @@ Return a JSON object with:
               )}
 
               {/* Real Story Cuts */}
-              {!storyCutsLoading && storyCuts.map((cut) => (
+              {!storyCutsLoading && storyCuts.map((cut) => {
+                const isPrimary = primaryStoryCut?.id === cut.id;
+                return (
                 <div 
                   key={cut.id} 
                   className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors border border-gray-200 relative group"
                 >
+                  {/* Primary Badge - Matches media section "Cover" badge style */}
+                  {isPrimary && (
+                    <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 z-10">
+                      <Play size={12} weight="fill" />
+                      The One
+                    </div>
+                  )}
+
                   {/* Delete Button - Only show for creators */}
                   {canDeleteStoryCut(cut) && (
                     <button
@@ -2121,6 +2133,20 @@ Return a JSON object with:
                     </button>
                   )}
 
+                  {/* Make Primary Button - Only show for owner and non-primary cuts */}
+                  {!isPrimary && userPermission === 'owner' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSetPrimary(cut.id);
+                      }}
+                      className="absolute bottom-2 right-10 p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors duration-200 z-10"
+                      title="Make This The One"
+                    >
+                      <Star size={14} weight="fill" />
+                    </button>
+                  )}
+
                   {/* Clickable content area */}
                   <div 
                     className="cursor-pointer"
@@ -2130,60 +2156,61 @@ Return a JSON object with:
                     }}
                   >
                     <div className="flex gap-4">
-                                           {/* Thumbnail - Using ember image for now */}
-                       <div className="flex-shrink-0">
-                         <img 
-                           src={ember.image_url} 
-                           alt={cut.title}
-                           className="w-24 h-24 rounded-lg object-cover"
-                         />
-                       </div>
-                      
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-gray-900 truncate">{cut.title}</h3>
-                            <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                                         {/* Thumbnail - Using ember image for now */}
+                     <div className="flex-shrink-0">
+                       <img 
+                         src={ember.image_url} 
+                         alt={cut.title}
+                         className="w-24 h-24 rounded-lg object-cover"
+                       />
+                     </div>
+                    
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-gray-900 truncate">{cut.title}</h3>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
                               {cut.story_focus || (cut.full_script ? cut.full_script.substring(0, 100) + '...' : '') || 'No description available'}
-                            </p>
-                          </div>
-                          
-                          {/* Creator Avatar */}
-                          <div className="flex-shrink-0">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={cut.creator?.avatar_url} alt={`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim()} />
-                              <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
-                                {cut.creator?.first_name?.[0] || cut.creator?.last_name?.[0] || 'U'}
-                              </AvatarFallback>
-                            </Avatar>
-                          </div>
+                          </p>
                         </div>
                         
-                        {/* Metadata */}
-                        <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <Users size={12} />
-                            {`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Clock size={12} />
-                            {formatDuration(cut.duration)}
-                          </span>
-                          <span>{formatRelativeTime(cut.created_at)}</span>
-                        </div>
-                        
-                        {/* Style Badge */}
-                        <div className="mt-2">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {getStyleDisplayName(cut.style)}
-                          </span>
+                        {/* Creator Avatar */}
+                        <div className="flex-shrink-0">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={cut.creator?.avatar_url} alt={`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim()} />
+                            <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
+                              {cut.creator?.first_name?.[0] || cut.creator?.last_name?.[0] || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
                         </div>
                       </div>
+                      
+                      {/* Metadata */}
+                      <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Users size={12} />
+                          {`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} />
+                          {formatDuration(cut.duration)}
+                        </span>
+                        <span>{formatRelativeTime(cut.created_at)}</span>
+                      </div>
+                      
+                      {/* Style Badge */}
+                      <div className="mt-2">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {getStyleDisplayName(cut.style)}
+                        </span>
+                      </div>
+                    </div>
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+            })}
               
               {/* Empty State - Show when no cuts exist */}
               {!storyCutsLoading && storyCuts.length === 0 && (
@@ -2321,46 +2348,46 @@ Return a JSON object with:
               <h1 className="text-white text-2xl font-bold truncate drop-shadow-md text-left pl-2">
                 {ember.title || 'Untitled Ember'}
               </h1>
+                </div>
             </div>
-          </div>
 
 
 
           {/* Bottom right capsule: Play controls and exit */}
           <div className="absolute right-4 bottom-4 z-20">
             <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
-              
-              {/* Play/Pause Button */}
-              <button
-                onClick={handlePlay}
+            
+            {/* Play/Pause Button */}
+            <button
+              onClick={handlePlay}
                 className="rounded-full p-1 hover:bg-white/70 transition-colors"
                 aria-label={isPlaying ? "Pause playing" : "Resume playing"}
                 type="button"
-              >
-                {isPlaying ? (
+            >
+              {isPlaying ? (
                   <div className="w-6 h-6 flex items-center justify-center">
                     <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm transition-all duration-300"></div>
                     <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm transition-all duration-300"></div>
-                  </div>
-                ) : (
+                </div>
+              ) : (
                   <PlayCircle size={24} className="text-gray-700 transition-all duration-300" />
-                )}
-              </button>
+              )}
+            </button>
               
               {/* Horizontal divider */}
               <div className="h-px w-6 bg-gray-300 my-1"></div>
-              
-              {/* Close button */}
-              <button
-                onClick={handleExitPlay}
+            
+            {/* Close button */}
+            <button
+              onClick={handleExitPlay}
                 className="rounded-full p-1 hover:bg-white/70 transition-colors"
-                aria-label="Close fullscreen"
+              aria-label="Close fullscreen"
                 type="button"
-              >
+            >
                 <svg className="w-6 h-6 text-gray-700 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
             </div>
           </div>
         </div>
