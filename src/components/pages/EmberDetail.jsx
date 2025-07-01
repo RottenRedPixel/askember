@@ -15,10 +15,10 @@ import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Question, Heart, Package, UsersThree, PlayCircle, Sliders, CirclesFour, GearSix, FilmSlate, ChatCircle, ImageSquare, House, UserCirclePlus, Trash } from 'phosphor-react';
+import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Package, UsersThree, PlayCircle, Sliders, CirclesFour, FilmSlate, ImageSquare, House, UserCirclePlus, Trash, Link, Copy, QrCode } from 'phosphor-react';
 
 import FeaturesCard from '@/components/FeaturesCard';
-import ShareModal from '@/components/ShareModal';
+
 import InviteModal from '@/components/InviteModal';
 import StoryModal from '@/components/StoryModal';
 import LocationModal from '@/components/LocationModal';
@@ -27,6 +27,7 @@ import ImageAnalysisModal from '@/components/ImageAnalysisModal';
 
 import EmberNamesModal from '@/components/EmberNamesModal';
 import EmberSettingsPanel from '@/components/EmberSettingsPanel';
+import QRCodeGenerator from '@/components/QRCodeGenerator';
 import { textToSpeech, getVoices } from '@/lib/elevenlabs';
 import { getStoryCutStyles, STORY_CUT_PROMPTS, STORY_CUT_STYLES, buildEmberContext, generateStoryCutWithOpenAI } from '@/lib/prompts';
 import useStore from '@/store';
@@ -38,7 +39,7 @@ export default function EmberDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showFullImage, setShowFullImage] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
+  const [showShareSlideOut, setShowShareSlideOut] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showNamesModal, setShowNamesModal] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -240,6 +241,126 @@ export default function EmberDetail() {
   // Check if current user can delete a story cut (must be creator)
   const canDeleteStoryCut = (storyCut) => {
     return userProfile?.user_id === storyCut.creator_user_id;
+  };
+
+  // Share slide out content component
+  const ShareSlideOutContent = () => {
+    const [message, setMessage] = useState(null);
+    const [showQRCode, setShowQRCode] = useState(false);
+
+    const copyShareLink = async () => {
+      try {
+        const link = `${window.location.origin}/embers/${ember.id}`;
+        await navigator.clipboard.writeText(link);
+        setMessage({ type: 'success', text: 'Link copied to clipboard' });
+        setTimeout(() => setMessage(null), 3000);
+      } catch (error) {
+        setMessage({ type: 'error', text: 'Failed to copy link' });
+        setTimeout(() => setMessage(null), 3000);
+      }
+    };
+
+    const handleNativeShare = async () => {
+      try {
+        const link = `${window.location.origin}/embers/${ember.id}`;
+        const title = ember.title || 'Check out this ember';
+        const description = ember.message || 'Shared from ember.ai';
+        
+        if (navigator.share) {
+          await navigator.share({
+            title: title,
+            text: description,
+            url: link,
+          });
+        }
+      } catch (error) {
+        console.log('Error sharing:', error);
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Message */}
+        {message && (
+          <div className={`p-4 rounded-xl ${message.type === 'error' ? 'border border-red-200 bg-red-50 text-red-800' : 'border border-green-200 bg-green-50 text-green-800'}`}>
+            <p className="text-sm">{message.text}</p>
+          </div>
+        )}
+
+        {/* View-Only Notice */}
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+          <h4 className="font-medium text-green-900 mb-2">View-Only Sharing</h4>
+          <p className="text-sm text-green-800">
+            Anyone with this link can view the ember but cannot edit or contribute to it. 
+            To invite collaborators with edit access, use the "Invite Contributors" feature.
+          </p>
+        </div>
+
+        {/* Share Link */}
+        <div className="space-y-3">
+          <h4 className="font-medium flex items-center gap-2">
+            <Link className="w-4 h-4" />
+            Share Link (View-Only)
+          </h4>
+          <div className="flex gap-2">
+            <Input
+              value={`${window.location.origin}/embers/${ember.id}`}
+              readOnly
+              className="text-xs min-w-0 flex-1 h-10"
+            />
+            <Button size="lg" onClick={copyShareLink} variant="blue" className="flex-shrink-0">
+              <Copy className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* QR Code Section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium flex items-center gap-2">
+              <QrCode className="w-4 h-4" />
+              QR Code (View-Only)
+            </h4>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => setShowQRCode(!showQRCode)}
+              className="flex items-center gap-2"
+            >
+              {showQRCode ? 'Hide' : 'Generate'}
+            </Button>
+          </div>
+          
+          {/* Fixed height container to prevent jumping */}
+          <div className={`transition-all duration-200 overflow-hidden ${showQRCode ? 'h-[240px]' : 'h-0'}`}>
+            {showQRCode && (
+              <div className="mt-4">
+                <QRCodeGenerator 
+                  url={`${window.location.origin}/embers/${ember.id}`}
+                  title="Ember QR Code"
+                  size={180}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Native Share Button - Bottom */}
+        {typeof navigator !== 'undefined' && navigator.share && (
+          <div className="mt-6 pt-4 border-t">
+            <Button 
+              onClick={handleNativeShare} 
+              variant="blue" 
+              size="lg"
+              className="w-full flex items-center gap-2"
+            >
+              <ShareNetwork className="w-4 h-4" />
+              Share Ember
+            </Button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Handle generating a new story cut using AI prompts
@@ -1219,28 +1340,20 @@ Return a JSON object with:
         case 'analysis':
           return !!ember?.image_analysis_completed;
         case 'story':
-        case 'why':
-        case 'feelings':
-        case 'objects':
         case 'people':
-        case 'comments-observations':
         case 'supporting-media':
         default:
           return false; // Placeholder - will be true when data exists
       }
     };
 
-  // Calculate wiki progress (12 sections total)
+  // Calculate wiki progress (8 sections total)
   const calculateWikiProgress = (ember, sharedUsers = []) => {
     const sections = [
       'title',
       'location', 
       'time-date',
       'story',
-      'why',
-      'feelings',
-      'comments-observations',
-      'objects',
       'people',
       'contributors',
       'supporting-media',
@@ -1348,18 +1461,6 @@ Return a JSON object with:
               {/* Horizontal divider between avatars and action buttons */}
               <div className="h-px w-6 bg-gray-300 my-1"></div>
               
-              {/* Share button - View-only sharing for everyone */}
-              {(!ember?.is_public || user) && (
-                <button
-                  className="rounded-full p-1 hover:bg-white/70 transition-colors"
-                  onClick={() => setShowShareModal(true)}
-                  aria-label="Share ember (view-only)"
-                  type="button"
-                >
-                  <ShareNetwork size={24} className="text-gray-700" />
-                </button>
-              )}
-              
               {/* Settings button - Only show for ember owner */}
               {isOwner && (
                 <button
@@ -1368,7 +1469,19 @@ Return a JSON object with:
                   aria-label="Settings"
                   type="button"
                 >
-                  <GearSix size={24} className="text-gray-700" />
+                  <Info size={24} className="text-gray-700" />
+                </button>
+              )}
+              
+              {/* Share button - View-only sharing for everyone */}
+              {(!ember?.is_public || user) && (
+                <button
+                  className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                  onClick={() => setShowShareSlideOut(true)}
+                  aria-label="Share ember (view-only)"
+                  type="button"
+                >
+                  <ShareNetwork size={24} className="text-gray-700" />
                 </button>
               )}
             </div>
@@ -1536,38 +1649,6 @@ Return a JSON object with:
                       title: () => 'The Story',
                       description: () => 'The narrative behind this ember',
                       onClick: () => () => setShowStoryModal(true)
-                    },
-                    {
-                      id: 'why',
-                      sectionType: 'why',
-                      icon: Question,
-                      title: () => 'The Why',
-                      description: () => 'Why this moment was captured',
-                      onClick: () => () => console.log('The Why modal coming soon')
-                    },
-                    {
-                      id: 'feelings',
-                      sectionType: 'feelings',
-                      icon: Heart,
-                      title: () => 'The Feelings',
-                      description: () => 'Emotions in this moment',
-                      onClick: () => () => console.log('The Feelings modal coming soon')
-                    },
-                    {
-                      id: 'comments',
-                      sectionType: 'comments-observations',
-                      icon: ChatCircle,
-                      title: () => 'Comments',
-                      description: () => 'Comments about this ember',
-                      onClick: () => () => console.log('Comments modal coming soon')
-                    },
-                    {
-                      id: 'objects',
-                      sectionType: 'objects',
-                      icon: Package,
-                      title: () => 'Tagged Objects',
-                      description: () => 'Objects identified in this image',
-                      onClick: () => () => console.log('Tagged Objects modal coming soon')
                     },
                     {
                       id: 'people',
@@ -1745,21 +1826,7 @@ Return a JSON object with:
                   </div>
                 </div>
 
-                {/* The Why Section */}
-                <div className="space-y-3">
-                  <h3 className="font-medium text-gray-900 text-left">The Why</h3>
-                  <div className="text-sm text-gray-600 text-left">
-                    The story behind why this moment was captured will appear here...
-                  </div>
-                </div>
 
-                {/* The Feelings Section */}
-                <div className="space-y-3">
-                  <h3 className="font-medium text-gray-900 text-left">The Feelings</h3>
-                  <div className="text-sm text-gray-600 text-left">
-                    Emotions and feelings associated with this moment will appear here...
-                  </div>
-                </div>
 
                 {/* People & Analysis Section */}
                 <div className="space-y-3">
@@ -1883,13 +1950,35 @@ Return a JSON object with:
         </div>
       </div>
 
-      {/* Share Modal */}
-      {ember && (
-        <ShareModal 
-          ember={ember} 
-          isOpen={showShareModal} 
-          onClose={() => setShowShareModal(false)} 
-        />
+      {/* Share Slide Out */}
+      {ember && showShareSlideOut && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50" onClick={() => setShowShareSlideOut(false)}>
+          <div 
+            className="fixed right-0 top-0 h-full w-[90%] md:w-[50%] bg-white shadow-xl transform transition-transform duration-300 ease-in-out"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShareNetwork size={24} className="text-blue-600" />
+                  <h2 className="text-xl font-bold text-gray-900">Share Ember</h2>
+                </div>
+                <button
+                  onClick={() => setShowShareSlideOut(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <ShareSlideOutContent />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Invite Contributors Modal */}
@@ -1983,7 +2072,7 @@ Return a JSON object with:
       {ember && showStoryCuts && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50" onClick={() => setShowStoryCuts(false)}>
           <div 
-            className="fixed right-0 top-0 h-full w-[90%] bg-white shadow-xl transform transition-transform duration-300 ease-in-out"
+            className="fixed right-0 top-0 h-full w-[90%] md:w-[50%] bg-white shadow-xl transform transition-transform duration-300 ease-in-out"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 border-b">
@@ -2098,17 +2187,17 @@ Return a JSON object with:
               
               {/* Empty State - Show when no cuts exist */}
               {!storyCutsLoading && storyCuts.length === 0 && (
-                <div className="text-center py-12">
-                  <CirclesFour size={48} className="text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Story Cuts Yet</h3>
-                  <p className="text-gray-600 mb-4">Create your first story cut to get started</p>
+                <div className="flex flex-col items-center justify-center py-12">
+                  <CirclesFour size={48} className="text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2 text-center">No Story Cuts Yet</h3>
+                  <p className="text-gray-600 mb-4 text-center">Create your first story cut to get started</p>
                   <Button 
                     variant="blue" 
                     onClick={() => {
                       setShowStoryCuts(false);
                       setShowStoryCutCreator(true);
                     }}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 mx-auto"
                   >
                     <FilmSlate size={16} />
                     Create Story Cut
@@ -2132,7 +2221,7 @@ Return a JSON object with:
                     Story Cuts Creator
                   </DrawerTitle>
                   <DrawerDescription className="text-left text-gray-600">
-                    Create a custom version of this ember with your chosen style and focus
+                    Compose your own version of this ember
                   </DrawerDescription>
                 </DrawerHeader>
                 <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
@@ -2149,7 +2238,7 @@ Return a JSON object with:
                     Story Cuts Creator
                   </DialogTitle>
                   <DialogDescription className="text-gray-600">
-                    Create a custom version of this ember with your chosen style and focus
+                    Compose your own version of this ember
                   </DialogDescription>
                 </DialogHeader>
                 <StoryModalContent />
@@ -2201,7 +2290,7 @@ Return a JSON object with:
       {/* Fullscreen Play Mode */}
       {showFullscreenPlay && (
         <div 
-          className={`fixed inset-0 bg-black z-50 flex items-center justify-center transition-all duration-500 ease-out ${
+          className={`fixed inset-0 bg-black z-50 transition-all duration-500 ease-out ${
             isExitingPlay ? 'opacity-0' : 'opacity-100'
           }`}
           style={{
@@ -2226,60 +2315,53 @@ Return a JSON object with:
             }}
           />
           
-          {/* Controls */}
-          <div 
-            className={`relative z-10 flex flex-col items-center gap-6 transition-all duration-500 ease-out ${
-              isExitingPlay ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
-            }`}
-            style={{
-              animation: isExitingPlay ? 'slideDownFade 0.5s ease-out' : 'slideUpFade 1.5s ease-out'
-            }}
-          >
-            {/* Title */}
-            <div className="text-center text-white">
-              <h1 className="text-3xl md:text-4xl font-bold mb-2 transform transition-all duration-1000">
+          {/* Title Overlay - Same position as normal view */}
+          <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none z-20">
+            <div className="container mx-auto max-w-4xl">
+              <h1 className="text-white text-2xl font-bold truncate drop-shadow-md text-left pl-2">
                 {ember.title || 'Untitled Ember'}
               </h1>
-              {currentlyPlayingStoryCut ? (
-                <div className="text-lg text-white/80 transform transition-all duration-1000">
-                  <p className="text-lg">Playing: "{currentlyPlayingStoryCut.title}"</p>
-                  <p className="text-sm">
-                    {getStyleDisplayName(currentlyPlayingStoryCut.style)} • {formatDuration(currentlyPlayingStoryCut.duration)}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-lg text-white/80 transform transition-all duration-1000">
-                  {storyCuts && storyCuts.length > 0 ? 'Playing story...' : 'Playing basic story...'}
-                </p>
-              )}
             </div>
-            
-            {/* Play/Pause Button */}
-            <button
-              onClick={handlePlay}
-              className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-full p-6 hover:bg-white/30 transition-all duration-300 transform hover:scale-105"
-              aria-label={isPlaying ? "Stop playing" : "Resume playing"}
-            >
-              {isPlaying ? (
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <div className="w-2 h-6 bg-white mx-1 rounded-sm transition-all duration-300"></div>
-                  <div className="w-2 h-6 bg-white mx-1 rounded-sm transition-all duration-300"></div>
-                </div>
-              ) : (
-                <PlayCircle size={32} className="text-white transition-all duration-300" />
-              )}
-            </button>
-            
-            {/* Close button */}
-            <button
-              onClick={handleExitPlay}
-              className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-full p-3 hover:bg-white/30 transition-all duration-300 transform hover:scale-105"
-              aria-label="Close fullscreen"
-            >
-              <svg className="w-6 h-6 text-white transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+          </div>
+
+
+
+          {/* Bottom right capsule: Play controls and exit */}
+          <div className="absolute right-4 bottom-4 z-20">
+            <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+              
+              {/* Play/Pause Button */}
+              <button
+                onClick={handlePlay}
+                className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                aria-label={isPlaying ? "Pause playing" : "Resume playing"}
+                type="button"
+              >
+                {isPlaying ? (
+                  <div className="w-6 h-6 flex items-center justify-center">
+                    <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm transition-all duration-300"></div>
+                    <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm transition-all duration-300"></div>
+                  </div>
+                ) : (
+                  <PlayCircle size={24} className="text-gray-700 transition-all duration-300" />
+                )}
+              </button>
+              
+              {/* Horizontal divider */}
+              <div className="h-px w-6 bg-gray-300 my-1"></div>
+              
+              {/* Close button */}
+              <button
+                onClick={handleExitPlay}
+                className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                aria-label="Close fullscreen"
+                type="button"
+              >
+                <svg className="w-6 h-6 text-gray-700 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -18,12 +18,8 @@ import {
   MapPin,
   Eye,
   Users,
-  Package,
-  HelpCircle,
-  Heart,
   Clock,
   BookOpen,
-  MessageCircle,
   Image,
   Trash2,
   AlertTriangle
@@ -80,18 +76,10 @@ export default function EmberWiki({
         return !!ember?.ember_timestamp || !!ember?.manual_datetime;
       case 'story':
         return storyMessages && storyMessages.length > 0;
-      case 'why':
-        return false; // Placeholder - will be true when why data exists
-      case 'feelings':
-        return false; // Placeholder - will be true when feelings data exists
       case 'analysis':
         return !!(imageAnalysis && imageAnalysis.analysis_text);
-      case 'objects':
-        return false; // Placeholder - will be true when tagged objects exist
       case 'people':
         return false; // Placeholder - will be true when tagged people exist
-      case 'comments-observations':
-        return false; // Placeholder - will be true when comments/observations exist
       case 'supporting-media':
         return false; // Placeholder - will be true when supporting media exists
       case 'contributors':
@@ -515,61 +503,7 @@ export default function EmberWiki({
             </div>
           </div>
 
-          {/* The Why Section */}
-          <div className="space-y-3">
-            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <HelpCircle className="w-4 h-4" />
-                The Why
-              </div>
-              <StatusBadge isComplete={getSectionStatus('why')} />
-            </h3>
-            <div className="text-sm text-gray-600 text-left">
-              The story behind why this moment was captured will appear here...
-            </div>
-          </div>
 
-          {/* The Feelings Section */}
-          <div className="space-y-3">
-            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Heart className="w-4 h-4" />
-                The Feelings
-              </div>
-              <StatusBadge isComplete={getSectionStatus('feelings')} />
-            </h3>
-            <div className="text-sm text-gray-600 text-left">
-              Emotions and feelings associated with this moment will appear here...
-            </div>
-          </div>
-
-          {/* Comments & Observations Section */}
-          <div className="space-y-3">
-            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MessageCircle className="w-4 h-4" />
-                Comments & Observations
-              </div>
-              <StatusBadge isComplete={getSectionStatus('comments-observations')} />
-            </h3>
-            <div className="text-sm text-gray-600 text-left">
-              Comments and observations about this ember will appear here...
-            </div>
-          </div>
-
-          {/* Tagged Objects Section */}
-          <div className="space-y-3">
-            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                Tagged Objects
-              </div>
-              <StatusBadge isComplete={getSectionStatus('objects')} />
-            </h3>
-            <div className="text-sm text-gray-600 text-left">
-              Object detection and recognition will appear here...
-            </div>
-          </div>
 
           {/* Tagged People Section */}
           <div className="space-y-3">

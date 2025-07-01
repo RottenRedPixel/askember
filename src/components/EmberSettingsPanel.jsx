@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Info, Image } from 'phosphor-react';
-import { Button } from '@/components/ui/button';
+import { Info, Image } from 'phosphor-react';
 import { cn } from '@/lib/utils';
 import EmberWiki from '@/components/ember/EmberWiki';
 import EmberMedia from '@/components/ember/EmberMedia';
@@ -149,20 +148,31 @@ export default function EmberSettingsPanel({
       
       {/* Side Panel */}
       <div className={cn(
-        "fixed top-0 right-0 h-full w-[90%] bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out",
+        "fixed top-0 right-0 h-full w-[90%] md:w-[50%] bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out",
         isOpen ? "translate-x-0" : "translate-x-full"
       )}>
                 {/* Panel Header */}
-        <div className="border-b border-gray-200">
+        <div className="p-6 border-b">
           {/* Header with title and close button */}
-          <div className="flex items-center justify-between p-4 pb-2">
-            <h2 className="text-lg font-semibold text-gray-900">Ember Wiki</h2>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X size={20} />
-            </Button>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Info size={24} className="text-blue-600" />
+              <h2 className="text-xl font-bold text-gray-900">Ember Wiki</h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <span className="sr-only">Close</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          
-          {/* Tab Navigation */}
+        </div>
+        
+        {/* Tab Navigation */}
+        <div className="border-b border-gray-200">
           <div className="flex border-b border-gray-100">
             {tabs.map((tab) => (
               <button
@@ -182,6 +192,7 @@ export default function EmberSettingsPanel({
           </div>
         </div>
 
+
         {/* Success/Error Messages */}
         {message && (
           <div className={cn(
@@ -193,7 +204,7 @@ export default function EmberSettingsPanel({
         )}
 
         {/* Panel Content */}
-        <div className="h-[calc(100vh-80px)] overflow-hidden">
+        <div className="h-[calc(100vh-140px)] overflow-hidden">
           {renderSectionContent()}
         </div>
       </div>
