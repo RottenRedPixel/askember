@@ -343,6 +343,36 @@ export async function generateStoryCutWithOpenAI(formData, styleConfig, emberCon
     duration: formData.duration 
   });
 
+  // In production, use the backend API route
+  if (!isDevelopment) {
+    try {
+      const response = await fetch('/api/generate-story-cut', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formData, styleConfig, emberContext, voiceCasting })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to generate story cut');
+      }
+      // The backend returns the story cut as a string, so parse it
+      let storyCutData;
+      try {
+        storyCutData = JSON.parse(result.data);
+      } catch (e) {
+        throw new Error('Failed to parse story cut JSON from backend');
+      }
+      return {
+        success: true,
+        data: storyCutData,
+        tokensUsed: result.tokensUsed || 0
+      };
+    } catch (error) {
+      console.error('❌ Story cut generation via API failed:', error);
+      throw error;
+    }
+  }
+
   if (!isDevelopment || !openaiApiKey) {
     throw new Error('OpenAI direct call only available in development with API key');
   }
