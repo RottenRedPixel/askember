@@ -1,70 +1,104 @@
-// Story Cut Styles Configuration
-export const STORY_CUT_STYLES = {
-  cinematic: {
-    name: "Cinematic Drama",
-    description: "Epic, movie-like storytelling with dramatic narration",
-    systemPrompt: "You are a master storyteller creating a cinematic experience. Focus on dramatic pacing, vivid imagery, and emotional depth. Use rich descriptive language and create tension and release.",
-    emberVoiceRole: "Character/Subject",
-    narratorVoiceRole: "Cinematic Narrator",
-    voiceInstructions: "The ember voice should speak as the subject or character in the memory, while the narrator provides dramatic, film-like narration with rich descriptions and emotional context."
-  },
-  conversational: {
-    name: "Conversational",
-    description: "Natural, friendly storytelling like sharing with friends",
-    systemPrompt: "You are telling a story to close friends in a warm, conversational style. Use natural language, personal insights, and create an intimate sharing experience.",
-    emberVoiceRole: "Storyteller",
-    narratorVoiceRole: "Friend/Companion",
-    voiceInstructions: "Both voices should feel natural and conversational, like friends sharing memories together. Use casual language and genuine emotional connections."
-  },
-  documentary: {
-    name: "Documentary Style",
-    description: "Informative, educational approach with factual storytelling",
-    systemPrompt: "You are creating an educational documentary segment. Focus on factual details, historical context, and informative narration while maintaining engagement.",
-    emberVoiceRole: "Subject/Witness",
-    narratorVoiceRole: "Documentary Narrator",
-    voiceInstructions: "The narrator should provide clear, informative context while the ember voice shares personal testimony or first-hand experience."
-  },
-  poetic: {
-    name: "Poetic Journey",
-    description: "Artistic, metaphorical storytelling with lyrical language",
-    systemPrompt: "You are a poet creating a lyrical journey. Use metaphors, beautiful imagery, and rhythmic language to create an artistic interpretation of the memory.",
-    emberVoiceRole: "Muse/Spirit",
-    narratorVoiceRole: "Poet",
-    voiceInstructions: "Use flowing, rhythmic speech with artistic language. The ember voice should be ethereal and inspiring, while the narrator weaves poetic interpretations."
-  },
-  comedy: {
-    name: "Comedy",
-    description: "Humorous, light-hearted storytelling with wit and charm",
-    systemPrompt: "You are creating an entertaining, humorous story. Find the funny, charming, or quirky aspects of the memory while being respectful and warm.",
-    emberVoiceRole: "Comic Character",
-    narratorVoiceRole: "Comedian/Host",
-    voiceInstructions: "Use timing, wit, and charm. Both voices should contribute to the humor through timing, delivery, and playful banter."
-  },
-  mystery: {
-    name: "Mystery",
-    description: "Intriguing, suspenseful storytelling with dramatic reveals",
-    systemPrompt: "You are crafting a mysterious tale. Build suspense, create intrigue, and reveal details dramatically to keep the audience engaged.",
-    emberVoiceRole: "Witness/Investigator",
-    narratorVoiceRole: "Mystery Narrator",
-    voiceInstructions: "Use suspenseful pacing and dramatic reveals. The ember voice provides clues while the narrator builds atmosphere and tension."
-  },
-  adventure: {
-    name: "Adventure",
-    description: "Exciting, action-packed storytelling with dynamic energy",
-    systemPrompt: "You are creating an exciting adventure story. Focus on action, movement, discovery, and the thrill of experience.",
-    emberVoiceRole: "Adventurer/Hero",
-    narratorVoiceRole: "Adventure Guide",
-    voiceInstructions: "Use energetic, dynamic delivery. The ember voice should convey excitement and determination while the narrator drives the action forward."
-  }
-};
+import { getPromptsByCategory, getActivePrompt } from '@/lib/database';
 
-// Function to get array of story cut styles for UI selection
-export function getStoryCutStyles() {
-  return Object.keys(STORY_CUT_STYLES).map(styleId => ({
-    id: styleId,
-    name: STORY_CUT_STYLES[styleId].name,
-    description: STORY_CUT_STYLES[styleId].description
-  }));
+// ============================================================================
+// DATABASE-DRIVEN STORY CUT STYLES
+// ============================================================================
+
+// Cache for loaded prompts to avoid repeated database calls
+let _storyCutStylesCache = null;
+let _cacheTimestamp = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Get story cut styles from database
+export async function getStoryCutStylesFromDB() {
+  // Check cache first
+  if (_storyCutStylesCache && _cacheTimestamp && (Date.now() - _cacheTimestamp) < CACHE_DURATION) {
+    return _storyCutStylesCache;
+  }
+
+  try {
+    const prompts = await getPromptsByCategory('story_cuts', 'styles');
+    const styles = {};
+    
+    prompts.forEach(prompt => {
+      styles[prompt.prompt_key] = {
+        name: prompt.name,
+        description: prompt.description,
+        systemPrompt: prompt.system_prompt,
+        emberVoiceRole: prompt.metadata?.emberVoiceRole || "Character",
+        narratorVoiceRole: prompt.metadata?.narratorVoiceRole || "Narrator", 
+        voiceInstructions: prompt.metadata?.voiceInstructions || "Use appropriate voice roles for the story style."
+      };
+    });
+
+    // Update cache
+    _storyCutStylesCache = styles;
+    _cacheTimestamp = Date.now();
+    
+    return styles;
+  } catch (error) {
+    console.error('Error loading story cut styles from database:', error);
+    // Return fallback styles if database fails
+    return getFallbackStoryCutStyles();
+  }
+}
+
+// Fallback hardcoded styles (in case database is unavailable)
+function getFallbackStoryCutStyles() {
+  return {
+    cinematic: {
+      name: "Cinematic Drama",
+      description: "Epic, movie-like storytelling with dramatic narration",
+      systemPrompt: "You are a master storyteller creating a cinematic experience. Focus on dramatic pacing, vivid imagery, and emotional depth. Use rich descriptive language and create tension and release.",
+      emberVoiceRole: "Character/Subject",
+      narratorVoiceRole: "Cinematic Narrator",
+      voiceInstructions: "The ember voice should speak as the subject or character in the memory, while the narrator provides dramatic, film-like narration with rich descriptions and emotional context."
+    },
+    conversational: {
+      name: "Conversational",
+      description: "Natural, friendly storytelling like sharing with friends",
+      systemPrompt: "You are telling a story to close friends in a warm, conversational style. Use natural language, personal insights, and create an intimate sharing experience.",
+      emberVoiceRole: "Storyteller",
+      narratorVoiceRole: "Friend/Companion",
+      voiceInstructions: "Both voices should feel natural and conversational, like friends sharing memories together. Use casual language and genuine emotional connections."
+    },
+    documentary: {
+      name: "Documentary Style", 
+      description: "Informative, educational approach with factual storytelling",
+      systemPrompt: "You are creating an educational documentary segment. Focus on factual details, historical context, and informative narration while maintaining engagement.",
+      emberVoiceRole: "Subject/Witness",
+      narratorVoiceRole: "Documentary Narrator",
+      voiceInstructions: "The narrator should provide clear, informative context while the ember voice shares personal testimony or first-hand experience."
+    }
+  };
+}
+
+// Legacy export for backwards compatibility (now loads from database)
+export const STORY_CUT_STYLES = new Proxy({}, {
+  get: function(target, prop) {
+    console.warn('STORY_CUT_STYLES is deprecated. Use getStoryCutStylesFromDB() instead.');
+    return getFallbackStoryCutStyles()[prop];
+  }
+});
+
+// Function to get array of story cut styles for UI selection (DATABASE VERSION)
+export async function getStoryCutStyles() {
+  try {
+    const styles = await getStoryCutStylesFromDB();
+    return Object.keys(styles).map(styleId => ({
+      id: styleId,
+      name: styles[styleId].name,
+      description: styles[styleId].description
+    }));
+  } catch (error) {
+    console.error('Error loading story cut styles for UI:', error);
+    const fallback = getFallbackStoryCutStyles();
+    return Object.keys(fallback).map(styleId => ({
+      id: styleId,
+      name: fallback[styleId].name,
+      description: fallback[styleId].description
+    }));
+  }
 }
 
 // Story Cut Prompts for different contexts
@@ -316,8 +350,19 @@ export async function generateStoryCutWithOpenAI(formData, styleConfig, emberCon
   // Calculate approximate word count (3 words per second)
   const approximateWords = Math.round(formData.duration * 3);
   
-  // Build comprehensive system prompt with strict accuracy requirements
-  const systemPrompt = `${styleConfig.systemPrompt}
+  // Build comprehensive system prompt from database + style config
+  let baseSystemPrompt;
+  try {
+    const mainPrompt = await getActivePrompt('story_cut_generator');
+    baseSystemPrompt = mainPrompt ? mainPrompt.system_prompt : null;
+  } catch (error) {
+    console.error('Error loading main story generation prompt from database:', error);
+    baseSystemPrompt = null;
+  }
+  
+  // Fallback base prompt if database lookup fails
+  if (!baseSystemPrompt) {
+    baseSystemPrompt = `You are an expert storyteller and scriptwriter who creates engaging audio narratives from photos, memories, and personal stories.
 
 CRITICAL ACCURACY REQUIREMENTS:
 - Use ONLY the information provided in the ember context
@@ -327,11 +372,25 @@ CRITICAL ACCURACY REQUIREMENTS:
 - Stick strictly to the facts and details actually provided
 - When the context is limited, focus on the general atmosphere and emotions rather than specific fabricated details
 
+Your task is to create a compelling audio story script with two distinct voices:
+1. An Ember Voice - represents the memory/moment itself or a character within it
+2. A Narrator Voice - provides context, transitions, and storytelling structure
+
+The story should feel authentic, emotionally resonant, and true to the provided information. Focus on creating an engaging narrative that brings the memory to life without adding fictional elements.`;
+  }
+
+  const systemPrompt = `${baseSystemPrompt}
+
+STYLE: ${styleConfig.name}
+STYLE INSTRUCTIONS: ${styleConfig.systemPrompt}
+
 VOICE CASTING:
 - Ember Voice (${styleConfig.emberVoiceRole}): ${voiceCasting.ember?.name || 'Selected Voice'} (${voiceCasting.ember?.labels?.gender || 'Unknown'})
 - Narrator Voice (${styleConfig.narratorVoiceRole}): ${voiceCasting.narrator?.name || 'Selected Voice'} (${voiceCasting.narrator?.labels?.gender || 'Unknown'})
 
 SELECTED CONTRIBUTORS: ${voiceCasting.contributors?.map(u => `${u.name} (${u.role})`).join(', ') || 'None selected'}
+
+VOICE INSTRUCTIONS: ${styleConfig.voiceInstructions}
 
 You must create content that makes use of the voice casting and involves the selected contributors in the storytelling when appropriate. Return ONLY valid JSON with the exact structure specified.`;
 
