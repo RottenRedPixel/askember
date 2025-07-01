@@ -38,7 +38,6 @@ export default async function handler(req, res) {
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
-      timeout: 60000, // 60 second timeout for mobile networks
       messages: [
         {
           role: "user",

@@ -28,8 +28,7 @@ export default async function handler(req, res) {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: "Say 'OpenAI connection test successful'" }],
-      max_tokens: 50,
-      timeout: 10000
+      max_tokens: 50
     });
 
     return res.status(200).json({

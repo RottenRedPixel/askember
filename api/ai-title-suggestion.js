@@ -108,7 +108,6 @@ Return only the title, no additional text or formatting.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      timeout: 30000, // 30 second timeout for mobile networks
       messages: [
         {
           role: 'system',
