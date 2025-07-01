@@ -159,4 +159,4 @@ Please be thorough, descriptive, and observant. Format your response as a struct
       details: error.message 
     });
   }
-} 
+} "// Environment variables updated" 
