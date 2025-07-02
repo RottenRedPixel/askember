@@ -1794,4 +1794,130 @@ export const getAdminEmberList = async (limit = 50, offset = 0) => {
     console.error('❌ [ADMIN] Error fetching admin ember list:', error);
     throw error;
   }
+};
+
+/**
+ * Tagged People functions
+ */
+
+/**
+ * Get all tagged people for an ember
+ */
+export const getEmberTaggedPeople = async (emberId) => {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_ember_tagged_people', { ember_uuid: emberId });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching tagged people:', error);
+    throw error;
+  }
+};
+
+/**
+ * Add a tagged person to an ember
+ */
+export const addTaggedPerson = async (emberId, personName, faceCoordinates, contributorEmail = null, emberShareId = null) => {
+  try {
+    const { data, error } = await supabase
+      .rpc('add_tagged_person', {
+        ember_uuid: emberId,
+        person_name_param: personName,
+        face_coords: faceCoordinates,
+        contributor_email_param: contributorEmail,
+        ember_share_id_param: emberShareId
+      });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error adding tagged person:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update a tagged person (mainly for connecting to contributors)
+ */
+export const updateTaggedPerson = async (taggedPersonId, personName = null, contributorEmail = null, emberShareId = null) => {
+  try {
+    const { data, error } = await supabase
+      .rpc('update_tagged_person', {
+        tagged_person_id: taggedPersonId,
+        person_name_param: personName,
+        contributor_email_param: contributorEmail,
+        ember_share_id_param: emberShareId
+      });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error updating tagged person:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a tagged person
+ */
+export const deleteTaggedPerson = async (taggedPersonId) => {
+  try {
+    const { error } = await supabase
+      .from('ember_tagged_people')
+      .delete()
+      .eq('id', taggedPersonId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting tagged person:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get potential contributor matches for a tagged person
+ * Returns contributors who might match the tagged person's name
+ */
+export const getPotentialContributorMatches = async (emberId, personName) => {
+  try {
+    // Import the sharing function here to avoid circular imports
+    const { getEmberWithSharing } = await import('./sharing.js');
+    
+    // Get all contributors for this ember
+    const emberData = await getEmberWithSharing(emberId);
+    const contributors = emberData.shares || [];
+
+    // Simple name matching - look for first name matches
+    const nameToMatch = personName.toLowerCase().trim();
+    const matches = contributors.filter(contributor => {
+      const contributorName = contributor.shared_user?.first_name?.toLowerCase() || '';
+      const contributorLastName = contributor.shared_user?.last_name?.toLowerCase() || '';
+      const fullName = `${contributorName} ${contributorLastName}`.trim();
+      
+      return contributorName.includes(nameToMatch) || 
+             contributorLastName.includes(nameToMatch) ||
+             fullName.includes(nameToMatch) ||
+             nameToMatch.includes(contributorName);
+    });
+
+    return matches;
+  } catch (error) {
+    console.error('Error finding contributor matches:', error);
+    throw error;
+  }
 }; 

@@ -24,6 +24,7 @@ import StoryModal from '@/components/StoryModal';
 import LocationModal from '@/components/LocationModal';
 import TimeDateModal from '@/components/TimeDateModal';
 import ImageAnalysisModal from '@/components/ImageAnalysisModal';
+import TaggedPeopleModal from '@/components/TaggedPeopleModal';
 
 import EmberNamesModal from '@/components/EmberNamesModal';
 import EmberSettingsPanel from '@/components/EmberSettingsPanel';
@@ -58,6 +59,8 @@ export default function EmberDetail() {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showTimeDateModal, setShowTimeDateModal] = useState(false);
   const [showImageAnalysisModal, setShowImageAnalysisModal] = useState(false);
+  const [showTaggedPeopleModal, setShowTaggedPeopleModal] = useState(false);
+  const [taggedPeopleCount, setTaggedPeopleCount] = useState(0);
   const [emberLength, setEmberLength] = useState(30);
   const [selectedVoices, setSelectedVoices] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -155,6 +158,20 @@ export default function EmberDetail() {
     fetchStoryStyles();
   }, []);
 
+  // Fetch tagged people count for the current ember
+  const fetchTaggedPeopleCount = async () => {
+    if (!ember?.id) return;
+    
+    try {
+      const { getEmberTaggedPeople } = await import('@/lib/database');
+      const taggedPeople = await getEmberTaggedPeople(ember.id);
+      setTaggedPeopleCount(taggedPeople.length);
+    } catch (error) {
+      console.error('Error fetching tagged people count:', error);
+      setTaggedPeopleCount(0);
+    }
+  };
+
   // Fetch story cuts for the current ember
   const fetchStoryCuts = async () => {
     if (!ember?.id) return;
@@ -214,10 +231,11 @@ export default function EmberDetail() {
     }
   };
 
-  // Fetch story cuts when ember changes
+  // Fetch story cuts and tagged people when ember changes
   useEffect(() => {
     if (ember?.id) {
       fetchStoryCuts();
+      fetchTaggedPeopleCount();
     }
   }, [ember?.id]);
 
@@ -1148,6 +1166,10 @@ export default function EmberDetail() {
     await fetchEmber();
   };
 
+  const handleTaggedPeopleUpdate = async () => {
+    await fetchTaggedPeopleCount();
+  };
+
   // Extract all wiki content as text for narration
   const extractWikiContent = (ember) => {
     let content = [];
@@ -1341,8 +1363,9 @@ export default function EmberDetail() {
           return !!ember?.ember_timestamp || !!ember?.manual_datetime;
         case 'analysis':
           return !!ember?.image_analysis_completed;
-        case 'story':
         case 'people':
+          return taggedPeopleCount > 0;
+        case 'story':
         case 'supporting-media':
         default:
           return false; // Placeholder - will be true when data exists
@@ -1658,7 +1681,7 @@ export default function EmberDetail() {
                       icon: Users,
                       title: () => 'Tagged People',
                       description: () => 'People identified in this image',
-                      onClick: () => () => console.log('Tagged People modal coming soon')
+                      onClick: () => () => setShowTaggedPeopleModal(true)
                     },
                     {
                       id: 'supporting-media',
@@ -2067,6 +2090,16 @@ export default function EmberDetail() {
           isOpen={showImageAnalysisModal} 
           onClose={() => setShowImageAnalysisModal(false)}
           onRefresh={fetchEmber}
+        />
+      )}
+
+      {/* Tagged People Modal */}
+      {ember && (
+        <TaggedPeopleModal 
+          ember={ember} 
+          isOpen={showTaggedPeopleModal} 
+          onClose={() => setShowTaggedPeopleModal(false)}
+          onUpdate={handleTaggedPeopleUpdate}
         />
       )}
 

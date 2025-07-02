@@ -39,6 +39,7 @@
     "cmdk": "^1.1.1",
     "embla-carousel-react": "^8.6.0",
     "exiftool-vendored": "^30.3.0",
+    "face-api.js": "^0.22.2",
     "framer-motion": "^12.19.1",
     "lucide-react": "^0.523.0",
     "openai": "^4.78.0",

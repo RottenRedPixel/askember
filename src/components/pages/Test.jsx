@@ -8,7 +8,12 @@ import { supabase } from '../../lib/supabase';
 import { 
   getOrCreateStoryConversation, 
   addStoryMessage, 
-  getStoryConversationWithMessages 
+  getStoryConversationWithMessages,
+  getEmberTaggedPeople,
+  addTaggedPerson,
+  updateTaggedPerson,
+  deleteTaggedPerson,
+  getPotentialContributorMatches
 } from '../../lib/database';
 import { speechToText } from '../../lib/elevenlabs';
 
@@ -209,6 +214,116 @@ export default function Test() {
 
     } catch (error) {
       setTestResults(prev => [...prev, `❌ Error: ${error.message}`]);
+    }
+  };
+
+  const testTaggedPeople = async () => {
+    if (!user) {
+      setTestResults(prev => [...prev, 'Error: No user logged in']);
+      return;
+    }
+
+    try {
+      setTestResults(prev => [...prev, '🏷️ Testing Tagged People database functions...']);
+
+      // Test if ember_tagged_people table exists
+      const { data: tableData, error: tableError } = await supabase
+        .from('ember_tagged_people')
+        .select('count', { count: 'exact', head: true });
+
+      if (tableError) {
+        setTestResults(prev => [...prev, `❌ ember_tagged_people table error: ${tableError.message}`]);
+        return;
+      } else {
+        setTestResults(prev => [...prev, '✅ ember_tagged_people table exists']);
+      }
+
+      // Get a real ember ID from the user's embers
+      setTestResults(prev => [...prev, '🔍 Getting real ember for testing...']);
+      
+      const { data: userEmbers, error: embersError } = await supabase
+        .from('embers')
+        .select('id, title')
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (embersError) {
+        setTestResults(prev => [...prev, `❌ Error getting embers: ${embersError.message}`]);
+        return;
+      }
+
+      if (!userEmbers || userEmbers.length === 0) {
+        setTestResults(prev => [...prev, '⚠️ No embers found for testing. Create an ember first, then test again.']);
+        return;
+      }
+
+      const testEmberId = userEmbers[0].id;
+      setTestResults(prev => [...prev, `✅ Using ember: "${userEmbers[0].title}" (${testEmberId})`]);
+
+      // Test 1: Get tagged people for ember (should be empty initially)
+      setTestResults(prev => [...prev, '1️⃣ Testing getEmberTaggedPeople...']);
+      const initialTaggedPeople = await getEmberTaggedPeople(testEmberId);
+      setTestResults(prev => [...prev, `✅ getEmberTaggedPeople works: ${initialTaggedPeople.length} tagged people found`]);
+
+      // Test 2: Add a tagged person
+      setTestResults(prev => [...prev, '2️⃣ Testing addTaggedPerson...']);
+      const testFaceCoordinates = { x: 100, y: 150, width: 80, height: 120 };
+      const newTaggedPersonId = await addTaggedPerson(
+        testEmberId, 
+        'Test Person', 
+        testFaceCoordinates,
+        'test@example.com'
+      );
+      setTestResults(prev => [...prev, `✅ addTaggedPerson works: Created person with ID ${newTaggedPersonId}`]);
+
+      // Test 3: Get tagged people again (should now have 1)
+      setTestResults(prev => [...prev, '3️⃣ Testing getEmberTaggedPeople after adding...']);
+      const updatedTaggedPeople = await getEmberTaggedPeople(testEmberId);
+      setTestResults(prev => [...prev, `✅ Found ${updatedTaggedPeople.length} tagged people after adding`]);
+
+      if (updatedTaggedPeople.length > 0) {
+        const person = updatedTaggedPeople[0];
+        setTestResults(prev => [...prev, `📋 Person details: ${person.person_name} at coordinates ${JSON.stringify(person.face_coordinates)}`]);
+      }
+
+      // Test 4: Update the tagged person
+      if (newTaggedPersonId) {
+        setTestResults(prev => [...prev, '4️⃣ Testing updateTaggedPerson...']);
+        await updateTaggedPerson(newTaggedPersonId, 'Updated Test Person', 'updated@example.com');
+        setTestResults(prev => [...prev, '✅ updateTaggedPerson works: Person updated']);
+      }
+
+      // Test 5: Test potential contributor matches
+      setTestResults(prev => [...prev, '5️⃣ Testing getPotentialContributorMatches...']);
+      const matches = await getPotentialContributorMatches(testEmberId, 'Test');
+      setTestResults(prev => [...prev, `✅ getPotentialContributorMatches works: ${matches.length} potential matches found`]);
+
+      // Test 6: Get tagged people one more time to verify update
+      setTestResults(prev => [...prev, '6️⃣ Testing final getEmberTaggedPeople...']);
+      const finalTaggedPeople = await getEmberTaggedPeople(testEmberId);
+      if (finalTaggedPeople.length > 0) {
+        const updatedPerson = finalTaggedPeople[0];
+        setTestResults(prev => [...prev, `✅ Updated person: ${updatedPerson.person_name} (${updatedPerson.contributor_email})`]);
+      }
+
+      // Test 7: Clean up - delete the test tagged person
+      if (newTaggedPersonId) {
+        setTestResults(prev => [...prev, '7️⃣ Testing deleteTaggedPerson (cleanup)...']);
+        await deleteTaggedPerson(newTaggedPersonId);
+        setTestResults(prev => [...prev, '✅ deleteTaggedPerson works: Test person deleted']);
+      }
+
+      // Test 8: Verify cleanup
+      setTestResults(prev => [...prev, '8️⃣ Verifying cleanup...']);
+      const cleanupTaggedPeople = await getEmberTaggedPeople(testEmberId);
+      setTestResults(prev => [...prev, `✅ Cleanup verified: ${cleanupTaggedPeople.length} tagged people remaining`]);
+
+      setTestResults(prev => [...prev, '🎉 All Tagged People functions are working perfectly!']);
+      setTestResults(prev => [...prev, '📝 Note: Test data was created and cleaned up automatically.']);
+
+    } catch (error) {
+      setTestResults(prev => [...prev, `❌ Tagged People test error: ${error.message}`]);
+      console.error('Tagged people test error:', error);
     }
   };
 
@@ -645,6 +760,12 @@ export default function Test() {
             className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
           >
             Test Story Conversations
+          </button>
+          <button
+            onClick={testTaggedPeople}
+            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          >
+            Test Tagged People
           </button>
           <button
             onClick={() => setTestResults([])}
