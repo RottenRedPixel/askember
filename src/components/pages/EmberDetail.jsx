@@ -92,6 +92,9 @@ export default function EmberDetail() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Image analysis data state
+  const [imageAnalysisData, setImageAnalysisData] = useState(null);
+
   // Media query hook for responsive design
   const useMediaQuery = (query) => {
     const [matches, setMatches] = useState(false);
@@ -1071,9 +1074,11 @@ export default function EmberDetail() {
         const { getImageAnalysis } = await import('@/lib/database');
         const analysisData = await getImageAnalysis(id);
         data.image_analysis_completed = !!analysisData;
+        setImageAnalysisData(analysisData); // Store the full analysis data
       } catch (analysisError) {
         console.warn('Failed to check image analysis status:', analysisError);
         data.image_analysis_completed = false;
+        setImageAnalysisData(null);
       }
       
       setEmber(data);
@@ -1171,6 +1176,25 @@ export default function EmberDetail() {
 
   const handleTaggedPeopleUpdate = async () => {
     await fetchTaggedPeopleData();
+  };
+
+  const handleImageAnalysisUpdate = async () => {
+    // Refresh the image analysis data when it's updated
+    if (!ember?.id) return;
+    
+    try {
+      const { getImageAnalysis } = await import('@/lib/database');
+      const analysisData = await getImageAnalysis(ember.id);
+      setImageAnalysisData(analysisData);
+      
+      // Update the ember state to reflect completion status
+      setEmber(prev => ({
+        ...prev,
+        image_analysis_completed: !!analysisData
+      }));
+    } catch (error) {
+      console.error('Error refreshing image analysis:', error);
+    }
   };
 
   // Extract all wiki content as text for narration
@@ -1699,7 +1723,12 @@ export default function EmberDetail() {
                       sectionType: 'analysis',
                       icon: Eye,
                       title: () => 'Image Analysis',
-                      description: () => 'Deep analysis of this image',
+                      description: (isComplete) => {
+                        if (isComplete && imageAnalysisData?.tokens_used) {
+                          return `${imageAnalysisData.tokens_used} tokens used to complete`;
+                        }
+                        return 'Deep analysis of this image';
+                      },
                       onClick: () => () => setShowImageAnalysisModal(true)
                     },
                     {
@@ -2123,7 +2152,7 @@ export default function EmberDetail() {
           ember={ember} 
           isOpen={showImageAnalysisModal} 
           onClose={() => setShowImageAnalysisModal(false)}
-          onRefresh={fetchEmber}
+          onRefresh={handleImageAnalysisUpdate}
         />
       )}
 
