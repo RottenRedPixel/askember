@@ -49,7 +49,7 @@ export default function MagicLinkForm({ onSwitchToLogin, onSwitchToSignup }) {
         </p>
       </div>
       <form onSubmit={handleMagicLink} className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
@@ -59,6 +59,7 @@ export default function MagicLinkForm({ onSwitchToLogin, onSwitchToSignup }) {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={isLoading}
+              className="h-10"
             />
           </div>
 

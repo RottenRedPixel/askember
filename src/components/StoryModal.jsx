@@ -1194,7 +1194,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
             <DrawerHeader className="bg-white">
               <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
                 <BookOpen size={20} className="text-blue-600" />
-                The Story
+                Story Circle
                 {onRefresh && (
                   <button
                     onClick={handleRefresh}
@@ -1314,7 +1314,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
               <BookOpen size={20} className="text-blue-600" />
-              The Story
+              Story Circle
               {onRefresh && (
                 <button
                   onClick={handleRefresh}

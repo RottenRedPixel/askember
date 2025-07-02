@@ -422,7 +422,7 @@ export default function EmberWiki({
             <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4" />
-                The Story
+                Story Circle
               </div>
               <StatusBadge isComplete={getSectionStatus('story')} />
             </h3>

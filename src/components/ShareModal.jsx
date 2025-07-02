@@ -43,6 +43,98 @@ function useMediaQuery(query) {
   return matches;
 }
 
+// Extract ModalContent to prevent re-mounting on every render (FIXES CURSOR JUMPING)
+const ModalContent = ({
+  message,
+  ember,
+  copyShareLink,
+  showQRCode,
+  setShowQRCode,
+  handleNativeShare
+}) => (
+  <div className="space-y-6 overflow-x-hidden">
+    {/* Message */}
+    {message && (
+      <Alert className={message.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}>
+        <AlertDescription>{message.text}</AlertDescription>
+      </Alert>
+    )}
+
+    {/* View-Only Notice */}
+    <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+      <h4 className="font-medium text-green-900 mb-2">View-Only Sharing</h4>
+      <p className="text-sm text-green-800">
+        Anyone with this link can view the ember but cannot edit or contribute to it. 
+        To invite collaborators with edit access, use the "Invite Contributors" feature.
+      </p>
+    </div>
+
+    {/* Share Link */}
+    <div className="space-y-3">
+      <h4 className="font-medium flex items-center gap-2">
+        <LinkIcon className="w-4 h-4" />
+        Share Link (View-Only)
+      </h4>
+      <div className="flex gap-2">
+        <Input
+          value={`${window.location.origin}/embers/${ember.id}`}
+          readOnly
+          className="text-xs min-w-0 flex-1 h-10"
+        />
+        <Button size="lg" onClick={copyShareLink} variant="blue" className="flex-shrink-0">
+          <Copy className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+
+    {/* QR Code Section */}
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="font-medium flex items-center gap-2">
+          <QrCode className="w-4 h-4" />
+          QR Code (View-Only)
+        </h4>
+        <Button
+          variant="outline"
+          size="lg"
+          onClick={() => setShowQRCode(!showQRCode)}
+          className="flex items-center gap-2"
+        >
+          {showQRCode ? 'Hide' : 'Generate'}
+        </Button>
+      </div>
+      
+      {/* Fixed height container to prevent jumping */}
+      <div className={`transition-all duration-200 overflow-hidden ${showQRCode ? 'h-[240px]' : 'h-0'}`}>
+        {showQRCode && (
+          <div className="mt-4">
+            <QRCodeGenerator 
+              url={`${window.location.origin}/embers/${ember.id}`}
+              title="Ember QR Code"
+              size={180}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* Native Share Button - Bottom */}
+    {typeof navigator !== 'undefined' && navigator.share && (
+      <div className="mt-6 pt-4 border-t">
+        <Button 
+          onClick={handleNativeShare} 
+          variant="blue" 
+          size="lg"
+          className="w-full flex items-center gap-2"
+        >
+          <Share className="w-4 h-4" />
+          Share Ember
+        </Button>
+      </div>
+    )}
+  </div>
+);
+
 export default function ShareModal({ ember, isOpen, onClose }) {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [message, setMessage] = useState(null);
@@ -78,89 +170,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
     }
   };
 
-  const ModalContent = () => (
-    <div className="space-y-6 overflow-x-hidden">
-      {/* Message */}
-      {message && (
-        <Alert className={message.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}>
-          <AlertDescription>{message.text}</AlertDescription>
-        </Alert>
-      )}
 
-      {/* View-Only Notice */}
-      <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-        <h4 className="font-medium text-green-900 mb-2">View-Only Sharing</h4>
-        <p className="text-sm text-green-800">
-          Anyone with this link can view the ember but cannot edit or contribute to it. 
-          To invite collaborators with edit access, use the "Invite Contributors" feature.
-        </p>
-      </div>
-
-      {/* Share Link */}
-      <div className="space-y-3">
-        <h4 className="font-medium flex items-center gap-2">
-          <LinkIcon className="w-4 h-4" />
-          Share Link (View-Only)
-        </h4>
-        <div className="flex gap-2">
-          <Input
-            value={`${window.location.origin}/embers/${ember.id}`}
-            readOnly
-            className="text-xs min-w-0 flex-1 h-10"
-          />
-          <Button size="lg" onClick={copyShareLink} variant="blue" className="flex-shrink-0">
-            <Copy className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* QR Code Section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium flex items-center gap-2">
-            <QrCode className="w-4 h-4" />
-            QR Code (View-Only)
-          </h4>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => setShowQRCode(!showQRCode)}
-            className="flex items-center gap-2"
-          >
-            {showQRCode ? 'Hide' : 'Generate'}
-          </Button>
-        </div>
-        
-        {/* Fixed height container to prevent jumping */}
-        <div className={`transition-all duration-200 overflow-hidden ${showQRCode ? 'h-[240px]' : 'h-0'}`}>
-          {showQRCode && (
-            <div className="mt-4">
-              <QRCodeGenerator 
-                url={`${window.location.origin}/embers/${ember.id}`}
-                title="Ember QR Code"
-                size={180}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Native Share Button - Bottom */}
-      {typeof navigator !== 'undefined' && navigator.share && (
-        <div className="mt-6 pt-4 border-t">
-          <Button 
-            onClick={handleNativeShare} 
-            variant="blue" 
-            size="lg"
-            className="w-full flex items-center gap-2"
-          >
-            <Share className="w-4 h-4" />
-            Share Ember
-          </Button>
-        </div>
-      )}
-    </div>
-  );
 
   // Responsive render: Drawer on mobile, Dialog on desktop
   if (isMobile) {
@@ -177,7 +187,14 @@ export default function ShareModal({ ember, isOpen, onClose }) {
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
-            <ModalContent />
+            <ModalContent 
+              message={message}
+              ember={ember}
+              copyShareLink={copyShareLink}
+              showQRCode={showQRCode}
+              setShowQRCode={setShowQRCode}
+              handleNativeShare={handleNativeShare}
+            />
           </div>
         </DrawerContent>
       </Drawer>
@@ -197,7 +214,14 @@ export default function ShareModal({ ember, isOpen, onClose }) {
             Share this ember for viewing only - no editing access
           </DialogDescription>
         </DialogHeader>
-        <ModalContent />
+        <ModalContent 
+          message={message}
+          ember={ember}
+          copyShareLink={copyShareLink}
+          showQRCode={showQRCode}
+          setShowQRCode={setShowQRCode}
+          handleNativeShare={handleNativeShare}
+        />
       </DialogContent>
     </Dialog>
   );

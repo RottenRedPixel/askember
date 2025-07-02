@@ -63,6 +63,194 @@ function getRelativeTime(timestamp) {
   }
 }
 
+// Extract ModalContent to prevent re-mounting on every render (FIXES CURSOR JUMPING)
+const ModalContent = ({
+  loading,
+  selectedPhoto,
+  photosWithTimestamp,
+  setSelectedPhoto,
+  manualDateTime,
+  handleManualDateTimeChange,
+  manualDateTimeRef,
+  handleSave,
+  saving,
+  formatDateTime,
+  getRelativeTime,
+  formatExposureTime
+}) => (
+  <div className="space-y-6">
+    {/* Header Info */}
+    <div className="text-center">
+      <h3 className="text-lg font-semibold text-gray-900 mb-2">Time & Date Information</h3>
+      <p className="text-sm text-gray-600">
+        Timestamp and camera data extracted from image EXIF metadata
+      </p>
+    </div>
+
+    {loading ? (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="text-sm text-gray-500 mt-2">Loading timestamp data...</p>
+      </div>
+    ) : (
+      <div className="space-y-6">
+        {/* Current Timestamp Display */}
+        {selectedPhoto?.timestamp ? (
+          <Card className="border-orange-200 bg-orange-50">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Calendar size={20} className="text-orange-600 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-medium text-orange-900 mb-1">Photo Timestamp</h4>
+                  <p className="text-sm text-orange-800 mb-1">
+                    {formatDateTime(selectedPhoto.timestamp)}
+                  </p>
+                  <p className="text-xs text-orange-700">
+                    {getRelativeTime(selectedPhoto.timestamp)}
+                  </p>
+                  
+                  {/* Camera Info */}
+                  {(selectedPhoto.camera_make || selectedPhoto.camera_model) && (
+                    <div className="mt-3 pt-3 border-t border-orange-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Camera size={16} className="text-orange-600" />
+                        <span className="text-sm font-medium text-orange-900">Camera Info</span>
+                      </div>
+                      <div className="space-y-1 text-xs text-orange-800">
+                        {selectedPhoto.camera_make && selectedPhoto.camera_model && (
+                          <p>{selectedPhoto.camera_make} {selectedPhoto.camera_model}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {selectedPhoto.iso && (
+                            <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-300">
+                              ISO {selectedPhoto.iso}
+                            </Badge>
+                          )}
+                          {selectedPhoto.aperture && (
+                            <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-300">
+                              f/{selectedPhoto.aperture}
+                            </Badge>
+                          )}
+                          {selectedPhoto.shutter_speed && (
+                            <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-300">
+                              {formatExposureTime(selectedPhoto.shutter_speed)}
+                            </Badge>
+                          )}
+                          {selectedPhoto.focal_length && (
+                            <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-300">
+                              {selectedPhoto.focal_length}mm
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-gray-200">
+            <CardContent className="p-4 text-center">
+              <Clock size={24} className="text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">No timestamp data found in uploaded images</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Photos with Timestamps */}
+        {photosWithTimestamp.length > 0 && (
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+              <Clock size={16} />
+              Photos with Timestamp Data ({photosWithTimestamp.length})
+            </Label>
+            
+            <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
+              {photosWithTimestamp.map((photo) => (
+                <div
+                  key={photo.id}
+                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                    selectedPhoto?.id === photo.id
+                      ? 'border-orange-500 bg-orange-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setSelectedPhoto(photo)}
+                >
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={photo.storage_url}
+                      alt="Photo"
+                      className="w-12 h-12 object-cover rounded"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {photo.original_filename}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formatDateTime(photo.timestamp)}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {getRelativeTime(photo.timestamp)}
+                      </p>
+                    </div>
+                    {selectedPhoto?.id === photo.id && (
+                      <Sun size={16} className="text-orange-600" />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Manual Date/Time Input */}
+        <div className="space-y-3">
+          <Label htmlFor="manualDateTime" className="text-sm font-medium text-gray-900 flex items-center gap-2">
+            <Calendar size={16} />
+            Manual Date & Time (Optional)
+          </Label>
+          <Input
+            id="manualDateTime"
+            ref={manualDateTimeRef}
+            type="datetime-local"
+            value={manualDateTime}
+            onChange={handleManualDateTimeChange}
+            className="h-10"
+            autoComplete="off"
+          />
+          <p className="text-xs text-gray-500">
+            You can manually specify when this ember was created
+          </p>
+        </div>
+
+        {/* Statistics */}
+        {photosWithTimestamp.length > 1 && (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-900 mb-2">Photo Timeline</h4>
+            <div className="text-xs text-gray-600 space-y-1">
+              <p>• Total photos with timestamps: {photosWithTimestamp.length}</p>
+              <p>• Earliest: {formatDateTime(Math.min(...photosWithTimestamp.map(p => new Date(p.timestamp))))}</p>
+              <p>• Latest: {formatDateTime(Math.max(...photosWithTimestamp.map(p => new Date(p.timestamp))))}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* Save Button */}
+    <div className="pt-4">
+      <Button 
+        className="w-full"
+        disabled={(!selectedPhoto?.timestamp && !manualDateTime.trim()) || saving}
+        onClick={handleSave}
+      >
+        {saving ? 'Saving...' : 'Save Date & Time'}
+      </Button>
+    </div>
+  </div>
+);
+
 export default function TimeDateModal({ isOpen, onClose, ember, isMobile, onRefresh }) {
   const [photos, setPhotos] = useState([]);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
@@ -191,179 +379,7 @@ export default function TimeDateModal({ isOpen, onClose, ember, isMobile, onRefr
     }
   };
 
-  const ModalContent = () => (
-    <div className="space-y-6">
-      {/* Header Info */}
-      <div className="text-center">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Time & Date Information</h3>
-        <p className="text-sm text-gray-600">
-          Timestamp and camera data extracted from image EXIF metadata
-        </p>
-      </div>
 
-      {loading ? (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-sm text-gray-500 mt-2">Loading timestamp data...</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Current Timestamp Display */}
-          {selectedPhoto?.timestamp ? (
-            <Card className="border-orange-200 bg-orange-50">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <Calendar size={20} className="text-orange-600 mt-0.5" />
-                  <div className="flex-1">
-                    <h4 className="font-medium text-orange-900 mb-1">Photo Timestamp</h4>
-                    <p className="text-sm text-orange-800 mb-1">
-                      {formatDateTime(selectedPhoto.timestamp)}
-                    </p>
-                    <p className="text-xs text-orange-700">
-                      {getRelativeTime(selectedPhoto.timestamp)}
-                    </p>
-                    
-                    {/* Camera Info */}
-                    {(selectedPhoto.camera_make || selectedPhoto.camera_model) && (
-                      <div className="mt-3 pt-3 border-t border-orange-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Camera size={16} className="text-orange-600" />
-                          <span className="text-sm font-medium text-orange-900">Camera Info</span>
-                        </div>
-                        <div className="space-y-1 text-xs text-orange-800">
-                          {selectedPhoto.camera_make && selectedPhoto.camera_model && (
-                            <p>{selectedPhoto.camera_make} {selectedPhoto.camera_model}</p>
-                          )}
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selectedPhoto.iso && (
-                              <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-300">
-                                ISO {selectedPhoto.iso}
-                              </Badge>
-                            )}
-                            {selectedPhoto.aperture && (
-                              <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-300">
-                                f/{selectedPhoto.aperture}
-                              </Badge>
-                            )}
-                            {selectedPhoto.shutter_speed && (
-                              <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-300">
-                                {formatExposureTime(selectedPhoto.shutter_speed)}
-                              </Badge>
-                            )}
-                            {selectedPhoto.focal_length && (
-                              <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-300">
-                                {selectedPhoto.focal_length}mm
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="border-gray-200">
-              <CardContent className="p-4 text-center">
-                <Clock size={24} className="text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">No timestamp data found in uploaded images</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Photos with Timestamps */}
-          {photosWithTimestamp.length > 0 && (
-            <div className="space-y-3">
-              <Label className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                <Clock size={16} />
-                Photos with Timestamp Data ({photosWithTimestamp.length})
-              </Label>
-              
-              <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
-                {photosWithTimestamp.map((photo) => (
-                  <div
-                    key={photo.id}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedPhoto?.id === photo.id
-                        ? 'border-orange-500 bg-orange-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => setSelectedPhoto(photo)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={photo.storage_url}
-                        alt="Photo"
-                        className="w-12 h-12 object-cover rounded"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {photo.original_filename}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {formatDateTime(photo.timestamp)}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {getRelativeTime(photo.timestamp)}
-                        </p>
-                      </div>
-                      {selectedPhoto?.id === photo.id && (
-                        <Sun size={16} className="text-orange-600" />
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Manual Date/Time Input */}
-          <div className="space-y-3">
-            <Label htmlFor="manualDateTime" className="text-sm font-medium text-gray-900 flex items-center gap-2">
-              <Calendar size={16} />
-              Manual Date & Time (Optional)
-            </Label>
-            <Input
-              id="manualDateTime"
-              ref={manualDateTimeRef}
-              type="datetime-local"
-              value={manualDateTime}
-              onChange={handleManualDateTimeChange}
-              className="h-10"
-              autoComplete="off"
-            />
-            <p className="text-xs text-gray-500">
-              You can manually specify when this ember was created
-            </p>
-          </div>
-
-          {/* Statistics */}
-          {photosWithTimestamp.length > 1 && (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="text-sm font-medium text-gray-900 mb-2">Photo Timeline</h4>
-              <div className="text-xs text-gray-600 space-y-1">
-                <p>• Total photos with timestamps: {photosWithTimestamp.length}</p>
-                <p>• Earliest: {formatDateTime(Math.min(...photosWithTimestamp.map(p => new Date(p.timestamp))))}</p>
-                <p>• Latest: {formatDateTime(Math.max(...photosWithTimestamp.map(p => new Date(p.timestamp))))}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Save Button */}
-      <div className="pt-4">
-        <Button 
-          className="w-full"
-          disabled={(!selectedPhoto?.timestamp && !manualDateTime.trim()) || saving}
-          onClick={handleSave}
-        >
-          {saving ? 'Saving...' : 'Save Date & Time'}
-        </Button>
-      </div>
-    </div>
-  );
 
   if (isMobile) {
     return (
@@ -379,7 +395,20 @@ export default function TimeDateModal({ isOpen, onClose, ember, isMobile, onRefr
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
-            <ModalContent />
+            <ModalContent 
+              loading={loading}
+              selectedPhoto={selectedPhoto}
+              photosWithTimestamp={photosWithTimestamp}
+              setSelectedPhoto={setSelectedPhoto}
+              manualDateTime={manualDateTime}
+              handleManualDateTimeChange={handleManualDateTimeChange}
+              manualDateTimeRef={manualDateTimeRef}
+              handleSave={handleSave}
+              saving={saving}
+              formatDateTime={formatDateTime}
+              getRelativeTime={getRelativeTime}
+              formatExposureTime={formatExposureTime}
+            />
           </div>
         </DrawerContent>
       </Drawer>
@@ -398,7 +427,20 @@ export default function TimeDateModal({ isOpen, onClose, ember, isMobile, onRefr
             Timestamp data extracted from your photos
           </DialogDescription>
         </DialogHeader>
-        <ModalContent />
+        <ModalContent 
+          loading={loading}
+          selectedPhoto={selectedPhoto}
+          photosWithTimestamp={photosWithTimestamp}
+          setSelectedPhoto={setSelectedPhoto}
+          manualDateTime={manualDateTime}
+          handleManualDateTimeChange={handleManualDateTimeChange}
+          manualDateTimeRef={manualDateTimeRef}
+          handleSave={handleSave}
+          saving={saving}
+          formatDateTime={formatDateTime}
+          getRelativeTime={getRelativeTime}
+          formatExposureTime={formatExposureTime}
+        />
       </DialogContent>
     </Dialog>
   );

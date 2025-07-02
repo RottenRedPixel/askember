@@ -1648,7 +1648,7 @@ export default function EmberDetail() {
                       id: 'story',
                       sectionType: 'story',
                       icon: BookOpen,
-                      title: () => 'The Story',
+                      title: () => 'Story Circle',
                       description: () => 'The narrative behind this ember',
                       onClick: () => () => setShowStoryModal(true)
                     },

@@ -573,7 +573,7 @@ export const getOrCreateStoryConversation = async (emberId, userId, conversation
       ember_id: emberId,
       user_id: userId,
       conversation_type: conversationType,
-      title: 'The Story',
+      title: 'Story Circle',
       is_completed: false,
       message_count: 0
     };

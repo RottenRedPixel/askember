@@ -223,7 +223,7 @@ export default function Settings() {
 
               {/* Name Fields */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="space-y-3">
                   <Label htmlFor="firstName">First Name</Label>
                   <Input
                     id="firstName"
@@ -232,7 +232,7 @@ export default function Settings() {
                     placeholder="Enter first name"
                   />
                 </div>
-                <div>
+                <div className="space-y-3">
                   <Label htmlFor="lastName">Last Name</Label>
                   <Input
                     id="lastName"
@@ -244,7 +244,7 @@ export default function Settings() {
               </div>
 
               {/* Email (read-only) */}
-              <div>
+              <div className="space-y-3">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
@@ -274,7 +274,7 @@ export default function Settings() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handlePasswordUpdate} className="space-y-4">
-              <div>
+              <div className="space-y-3">
                 <Label htmlFor="newPassword">New Password</Label>
                 <Input
                   id="newPassword"
@@ -286,7 +286,7 @@ export default function Settings() {
                 />
               </div>
 
-              <div>
+              <div className="space-y-3">
                 <Label htmlFor="confirmPassword">Confirm New Password</Label>
                 <Input
                   id="confirmPassword"

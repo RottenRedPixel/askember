@@ -53,6 +53,188 @@ function useMediaQuery(query) {
   return matches;
 }
 
+// Extract ModalContent to prevent re-mounting on every render (FIXES CURSOR JUMPING)
+const ModalContent = ({
+  message,
+  showInviteForm,
+  setShowInviteForm,
+  handleInviteContributor,
+  inviteEmail,
+  handleEmailChange,
+  inviteEmailRef,
+  invitePermission,
+  setInvitePermission,
+  isLoading,
+  isInitialLoading,
+  emberData,
+  getPermissionColor,
+  getPermissionIcon,
+  getPermissionLabel,
+  handleUpdatePermission,
+  handleRemoveContributor
+}) => (
+  <div className="space-y-6 overflow-x-hidden">
+    {/* Message */}
+    {message && (
+      <Alert className={message.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}>
+        <AlertDescription>{message.text}</AlertDescription>
+      </Alert>
+    )}
+
+    {/* Explanation */}
+    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+      <h4 className="font-medium text-blue-900 mb-2">About Contributors</h4>
+      <p className="text-sm text-blue-800">
+        Contributors can edit this ember, add content, and help build the story. They'll receive an email invitation to join.
+      </p>
+    </div>
+
+    {/* Invite Form */}
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="font-medium flex items-center gap-2">
+          <Users className="w-4 h-4" />
+          Invite Contributors
+        </h4>
+        <Button
+          size="lg"
+          variant="blue"
+          onClick={() => setShowInviteForm(!showInviteForm)}
+        >
+          <Plus className="w-4 h-4 mr-1" />
+          Invite Someone
+        </Button>
+      </div>
+
+      {/* Invite Form - Fixed height container */}
+      <div className={`transition-all duration-200 overflow-hidden ${showInviteForm ? 'h-[220px]' : 'h-0'}`}>
+        {showInviteForm && (
+          <form onSubmit={handleInviteContributor} className="space-y-4 p-3 border rounded-xl bg-gray-50">
+            <div className="space-y-3">
+              <Label htmlFor="inviteEmail">Email Address</Label>
+              <Input
+                id="inviteEmail"
+                ref={inviteEmailRef}
+                type="email"
+                value={inviteEmail}
+                onChange={handleEmailChange}
+                placeholder="Enter email address"
+                className="h-10"
+                autoComplete="off"
+                required
+              />
+            </div>
+            <div className="space-y-3">
+              <Label htmlFor="invitePermission">Permission Level</Label>
+              <select
+                id="invitePermission"
+                value={invitePermission}
+                onChange={(e) => setInvitePermission(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md h-10"
+              >
+                <option value="edit">Contributor (Can Edit)</option>
+                <option value="view">Viewer (View Only)</option>
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" size="lg" disabled={isLoading} variant="blue">
+                Send Invitation
+              </Button>
+              <Button 
+                type="button" 
+                size="lg" 
+                variant="outline"
+                onClick={() => setShowInviteForm(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+
+    <Separator />
+
+    {/* Current Contributors */}
+    {isInitialLoading ? (
+      // Skeleton loading
+      <div className="space-y-3">
+        <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
+        <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
+      </div>
+    ) : (
+      <div className="space-y-3">
+        <h4 className="font-medium flex items-center gap-2">
+          <Users className="w-4 h-4" />
+          Current Contributors ({(emberData?.shares?.length || 0) + 1})
+        </h4>
+
+        <div className="space-y-2 max-h-60 overflow-y-auto">
+          {/* Owner */}
+          {emberData?.owner && (
+            <div className="flex items-center justify-between p-3 border rounded-xl bg-yellow-50">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <Mail className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                <span className="text-sm truncate">
+                  {emberData.owner.email || `${emberData.owner.first_name || ''} ${emberData.owner.last_name || ''}`.trim() || 'Owner'}
+                </span>
+                <Badge className="bg-yellow-100 text-yellow-800">
+                  <div className="flex items-center gap-1">
+                    <Crown className="w-3 h-3" />
+                    Owner
+                  </div>
+                </Badge>
+              </div>
+            </div>
+          )}
+
+          {/* Invited Contributors */}
+          {emberData?.shares?.map((share) => (
+            <div key={share.id} className="flex items-center justify-between p-3 border rounded-xl">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <span className="text-sm truncate">{share.shared_with_email}</span>
+                <Badge className={getPermissionColor(share.permission_level)}>
+                  <div className="flex items-center gap-1">
+                    {getPermissionIcon(share.permission_level)}
+                    {getPermissionLabel(share.permission_level)}
+                  </div>
+                </Badge>
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <select
+                  value={share.permission_level}
+                  onChange={(e) => handleUpdatePermission(share.id, e.target.value)}
+                  className="text-xs p-1 border rounded"
+                  disabled={isLoading}
+                >
+                  <option value="edit">Contributor</option>
+                  <option value="view">Viewer</option>
+                </select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleRemoveContributor(share.id)}
+                  disabled={isLoading}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          {(!emberData?.shares || emberData.shares.length === 0) && (
+            <div className="text-sm text-gray-500 text-center py-4 border rounded-xl bg-gray-50">
+              No contributors invited yet. Invite someone to start collaborating!
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+);
+
 export default function InviteModal({ ember, isOpen, onClose, onUpdate }) {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [emberData, setEmberData] = useState(ember);
@@ -171,169 +353,6 @@ export default function InviteModal({ ember, isOpen, onClose, onUpdate }) {
     setInviteEmail(e.target.value);
   };
 
-  const ModalContent = () => (
-    <div className="space-y-6 overflow-x-hidden">
-      {/* Message */}
-      {message && (
-        <Alert className={message.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}>
-          <AlertDescription>{message.text}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Explanation */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <h4 className="font-medium text-blue-900 mb-2">About Contributors</h4>
-        <p className="text-sm text-blue-800">
-          Contributors can edit this ember, add content, and help build the story. They'll receive an email invitation to join.
-        </p>
-      </div>
-
-      {/* Invite Form */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Invite Contributors
-          </h4>
-          <Button
-            size="lg"
-            variant="blue"
-            onClick={() => setShowInviteForm(!showInviteForm)}
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Invite Someone
-          </Button>
-        </div>
-
-        {/* Invite Form - Fixed height container */}
-        <div className={`transition-all duration-200 overflow-hidden ${showInviteForm ? 'h-[220px]' : 'h-0'}`}>
-          {showInviteForm && (
-            <form onSubmit={handleInviteContributor} className="space-y-3 p-3 border rounded-xl bg-gray-50">
-              <div>
-                <Label htmlFor="inviteEmail">Email Address</Label>
-                <Input
-                  id="inviteEmail"
-                  ref={inviteEmailRef}
-                  type="email"
-                  value={inviteEmail}
-                  onChange={handleEmailChange}
-                  placeholder="Enter email address"
-                  className="h-10"
-                  autoComplete="off"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="invitePermission">Permission Level</Label>
-                <select
-                  id="invitePermission"
-                  value={invitePermission}
-                  onChange={(e) => setInvitePermission(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md h-10"
-                >
-                  <option value="edit">Contributor (Can Edit)</option>
-                  <option value="view">Viewer (View Only)</option>
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <Button type="submit" size="lg" disabled={isLoading} variant="blue">
-                  Send Invitation
-                </Button>
-                <Button 
-                  type="button" 
-                  size="lg" 
-                  variant="outline"
-                  onClick={() => setShowInviteForm(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          )}
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Current Contributors */}
-      {isInitialLoading ? (
-        // Skeleton loading
-        <div className="space-y-3">
-          <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
-          <div className="h-12 bg-gray-200 rounded animate-pulse"></div>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <h4 className="font-medium flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Current Contributors ({(emberData?.shares?.length || 0) + 1})
-          </h4>
-
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {/* Owner */}
-            {emberData?.owner && (
-              <div className="flex items-center justify-between p-3 border rounded-xl bg-yellow-50">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <Mail className="w-4 h-4 text-yellow-500 flex-shrink-0" />
-                  <span className="text-sm truncate">
-                    {emberData.owner.email || `${emberData.owner.first_name || ''} ${emberData.owner.last_name || ''}`.trim() || 'Owner'}
-                  </span>
-                  <Badge className="bg-yellow-100 text-yellow-800">
-                    <div className="flex items-center gap-1">
-                      <Crown className="w-3 h-3" />
-                      Owner
-                    </div>
-                  </Badge>
-                </div>
-              </div>
-            )}
-
-            {/* Invited Contributors */}
-            {emberData?.shares?.map((share) => (
-              <div key={share.id} className="flex items-center justify-between p-3 border rounded-xl">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span className="text-sm truncate">{share.shared_with_email}</span>
-                  <Badge className={getPermissionColor(share.permission_level)}>
-                    <div className="flex items-center gap-1">
-                      {getPermissionIcon(share.permission_level)}
-                      {getPermissionLabel(share.permission_level)}
-                    </div>
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <select
-                    value={share.permission_level}
-                    onChange={(e) => handleUpdatePermission(share.id, e.target.value)}
-                    className="text-xs p-1 border rounded"
-                    disabled={isLoading}
-                  >
-                    <option value="edit">Contributor</option>
-                    <option value="view">Viewer</option>
-                  </select>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleRemoveContributor(share.id)}
-                    disabled={isLoading}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-
-            {(!emberData?.shares || emberData.shares.length === 0) && (
-              <div className="text-sm text-gray-500 text-center py-4 border rounded-xl bg-gray-50">
-                No contributors invited yet. Invite someone to start collaborating!
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
   // Responsive render: Drawer on mobile, Dialog on desktop
   if (isMobile) {
     return (
@@ -349,7 +368,25 @@ export default function InviteModal({ ember, isOpen, onClose, onUpdate }) {
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
-            <ModalContent />
+            <ModalContent 
+              message={message}
+              showInviteForm={showInviteForm}
+              setShowInviteForm={setShowInviteForm}
+              handleInviteContributor={handleInviteContributor}
+              inviteEmail={inviteEmail}
+              handleEmailChange={handleEmailChange}
+              inviteEmailRef={inviteEmailRef}
+              invitePermission={invitePermission}
+              setInvitePermission={setInvitePermission}
+              isLoading={isLoading}
+              isInitialLoading={isInitialLoading}
+              emberData={emberData}
+              getPermissionColor={getPermissionColor}
+              getPermissionIcon={getPermissionIcon}
+              getPermissionLabel={getPermissionLabel}
+              handleUpdatePermission={handleUpdatePermission}
+              handleRemoveContributor={handleRemoveContributor}
+            />
           </div>
         </DrawerContent>
       </Drawer>
@@ -369,7 +406,25 @@ export default function InviteModal({ ember, isOpen, onClose, onUpdate }) {
             Invite people to edit and contribute to this ember
           </DialogDescription>
         </DialogHeader>
-        <ModalContent />
+        <ModalContent 
+          message={message}
+          showInviteForm={showInviteForm}
+          setShowInviteForm={setShowInviteForm}
+          handleInviteContributor={handleInviteContributor}
+          inviteEmail={inviteEmail}
+          handleEmailChange={handleEmailChange}
+          inviteEmailRef={inviteEmailRef}
+          invitePermission={invitePermission}
+          setInvitePermission={setInvitePermission}
+          isLoading={isLoading}
+          isInitialLoading={isInitialLoading}
+          emberData={emberData}
+          getPermissionColor={getPermissionColor}
+          getPermissionIcon={getPermissionIcon}
+          getPermissionLabel={getPermissionLabel}
+          handleUpdatePermission={handleUpdatePermission}
+          handleRemoveContributor={handleRemoveContributor}
+        />
       </DialogContent>
     </Dialog>
   );

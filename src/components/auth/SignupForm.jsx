@@ -67,7 +67,7 @@ export default function SignupForm({ onSwitchToLogin, onSwitchToMagicLink }) {
         </p>
       </div>
       <form onSubmit={handleSignup} className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
@@ -77,10 +77,11 @@ export default function SignupForm({ onSwitchToLogin, onSwitchToMagicLink }) {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={isLoading}
+              className="h-10"
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
@@ -90,10 +91,11 @@ export default function SignupForm({ onSwitchToLogin, onSwitchToMagicLink }) {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
+              className="h-10"
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label htmlFor="confirmPassword">Confirm Password</Label>
             <Input
               id="confirmPassword"
@@ -103,6 +105,7 @@ export default function SignupForm({ onSwitchToLogin, onSwitchToMagicLink }) {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               disabled={isLoading}
+              className="h-10"
             />
           </div>
 

@@ -714,16 +714,13 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
       // Update the ember title in the database
       await updateEmberTitle(ember.id, winningResult.suggested_name, user.id);
       
-      // Call the onEmberUpdate callback to refresh the parent component
-      if (onEmberUpdate) {
-        await onEmberUpdate();
-      }
+      // Close the modal immediately after successful update
+      onClose();
       
-      setMessage({ type: 'success', text: `Title updated to "${winningResult.suggested_name}"!` });
-      setTimeout(() => {
-        setMessage(null);
-        onClose(); // Close the modal after successful update
-      }, 2000);
+      // Call the onEmberUpdate callback to refresh the parent component after closing
+      if (onEmberUpdate) {
+        onEmberUpdate();
+      }
       
     } catch (error) {
       console.error('Error updating ember title:', error);

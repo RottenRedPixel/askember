@@ -63,7 +63,7 @@ export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
         </p>
       </div>
       <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
@@ -73,10 +73,11 @@ export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={isLoading}
+              className="h-10"
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
@@ -86,6 +87,7 @@ export default function LoginForm({ onSwitchToSignup, onSwitchToMagicLink }) {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
+              className="h-10"
             />
           </div>
 
