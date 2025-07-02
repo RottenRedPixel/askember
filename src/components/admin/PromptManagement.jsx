@@ -3,9 +3,11 @@ import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 const emptyPrompt = {
   name: '',
@@ -160,29 +162,205 @@ export default function PromptManagement() {
         </CardContent>
       </Card>
 
-      {/* Add/Edit Modal */}
+      {/* Add/Edit Modal - Enhanced Version */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="bg-white dark:bg-gray-900">
+        <DialogContent className="bg-white dark:bg-gray-900 max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingPrompt ? 'Edit Prompt' : 'Add Prompt'}</DialogTitle>
+            <DialogTitle className="text-xl font-bold">
+              {editingPrompt ? 'Edit Prompt' : 'Create New Prompt'}
+            </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSave} className="space-y-4">
-            <Input name="name" label="Name" placeholder="Prompt Name" value={form.name} onChange={handleChange} required />
-            <Input name="prompt_key" label="Prompt Key" placeholder="Unique Key" value={form.prompt_key} onChange={handleChange} required />
-            <Input name="category" label="Category" placeholder="Category" value={form.category} onChange={handleChange} required />
-            <Input name="subcategory" label="Subcategory" placeholder="Subcategory" value={form.subcategory} onChange={handleChange} />
-            <Textarea name="description" label="Description" placeholder="Description" value={form.description} onChange={handleChange} />
-            <Textarea name="system_prompt" label="System Prompt" placeholder="System Prompt" value={form.system_prompt} onChange={handleChange} required />
-            <Textarea name="user_prompt_template" label="User Prompt Template" placeholder="User Prompt Template" value={form.user_prompt_template} onChange={handleChange} />
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" name="is_active" checked={form.is_active} onChange={handleChange} />
-              <span>Active</span>
-            </label>
-            <div className="flex space-x-2">
-              <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
-              <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>Cancel</Button>
+          
+          <form onSubmit={handleSave} className="space-y-6">
+            {/* Basic Information Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Basic Information</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-sm font-medium text-gray-700">
+                    Prompt Name *
+                  </Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    placeholder="Enter a descriptive name"
+                    value={form.name}
+                    onChange={handleChange}
+                    required
+                    className="h-10"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="prompt_key" className="text-sm font-medium text-gray-700">
+                    Prompt Key *
+                  </Label>
+                  <Input
+                    id="prompt_key"
+                    name="prompt_key"
+                    placeholder="unique_identifier_key"
+                    value={form.prompt_key}
+                    onChange={handleChange}
+                    required
+                    className="h-10"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="category" className="text-sm font-medium text-gray-700">
+                    Category *
+                  </Label>
+                  <Input
+                    id="category"
+                    name="category"
+                    placeholder="e.g. story_cuts, image_analysis"
+                    value={form.category}
+                    onChange={handleChange}
+                    required
+                    className="h-10"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="subcategory" className="text-sm font-medium text-gray-700">
+                    Subcategory
+                  </Label>
+                  <Input
+                    id="subcategory"
+                    name="subcategory"
+                    placeholder="e.g. styles, generators"
+                    value={form.subcategory}
+                    onChange={handleChange}
+                    className="h-10"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="description" className="text-sm font-medium text-gray-700">
+                  Description
+                </Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  placeholder="Brief description of what this prompt does..."
+                  value={form.description}
+                  onChange={handleChange}
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
             </div>
-            {error && <div className="text-red-600">{error}</div>}
+
+            <Separator />
+
+            {/* Prompt Content Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Prompt Content</h3>
+              
+              <div className="space-y-2">
+                <Label htmlFor="system_prompt" className="text-sm font-medium text-gray-700">
+                  System Prompt * 
+                  <span className="text-xs text-gray-500 font-normal ml-2">
+                    (Instructions that define the AI's role and behavior)
+                  </span>
+                </Label>
+                <Textarea
+                  id="system_prompt"
+                  name="system_prompt"
+                  placeholder="You are an expert assistant that..."
+                  value={form.system_prompt}
+                  onChange={handleChange}
+                  required
+                  rows={8}
+                  className="resize-y min-h-[200px] font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500">
+                  Define the AI's role, personality, and core instructions. This sets the context for all interactions.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="user_prompt_template" className="text-sm font-medium text-gray-700">
+                  User Prompt Template
+                  <span className="text-xs text-gray-500 font-normal ml-2">
+                    (Template for user input - optional)
+                  </span>
+                </Label>
+                <Textarea
+                  id="user_prompt_template"
+                  name="user_prompt_template"
+                  placeholder="Create a story about {topic} that includes..."
+                  value={form.user_prompt_template}
+                  onChange={handleChange}
+                  rows={6}
+                  className="resize-y min-h-[150px] font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500">
+                  Template for formatting user requests. Use {'{}'} placeholders for dynamic content.
+                </p>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Settings Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Settings</h3>
+              
+              <div className="flex items-center space-x-3">
+                <input
+                  id="is_active"
+                  type="checkbox"
+                  name="is_active"
+                  checked={form.is_active}
+                  onChange={handleChange}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <Label htmlFor="is_active" className="text-sm font-medium text-gray-700">
+                  Active
+                  <span className="text-xs text-gray-500 font-normal ml-2">
+                    (Enable this prompt for use in the application)
+                  </span>
+                </Label>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowModal(false)}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {saving ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </div>
+                ) : (
+                  editingPrompt ? 'Update Prompt' : 'Create Prompt'
+                )}
+              </Button>
+            </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
           </form>
         </DialogContent>
       </Dialog>
