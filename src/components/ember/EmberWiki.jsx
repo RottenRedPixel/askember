@@ -21,11 +21,14 @@ import {
   Clock,
   BookOpen,
   Image,
+  Music,
+  File,
+  ExternalLink,
   Trash2,
   AlertTriangle
 } from 'lucide-react';
 import { getEmberWithSharing } from '@/lib/sharing';
-import { getImageAnalysis, getAllStoryMessagesForEmber, deleteEmber, getEmberTaggedPeople } from '@/lib/database';
+import { getImageAnalysis, getAllStoryMessagesForEmber, deleteEmber, getEmberTaggedPeople, getEmberSupportingMedia } from '@/lib/database';
 import useStore from '@/store';
 
 export default function EmberWiki({ 
@@ -50,6 +53,7 @@ export default function EmberWiki({
   const [imageAnalysis, setImageAnalysis] = useState(null);
   const [storyMessages, setStoryMessages] = useState([]);
   const [taggedPeople, setTaggedPeople] = useState([]);
+  const [supportingMedia, setSupportingMedia] = useState([]);
   
   // Delete ember state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -64,6 +68,7 @@ export default function EmberWiki({
       fetchImageAnalysis();
       fetchStoryMessages();
       fetchTaggedPeople();
+      fetchSupportingMedia();
     }
   }, [ember?.id]);
 
@@ -83,7 +88,7 @@ export default function EmberWiki({
       case 'people':
         return taggedPeople.length > 0;
       case 'supporting-media':
-        return false; // Placeholder - will be true when supporting media exists
+        return supportingMedia.length > 0;
       case 'contributors':
         return sharedUsers.length > 0 || emailOnlyInvites.length > 0;
       default:
@@ -179,6 +184,17 @@ export default function EmberWiki({
     } catch (error) {
       console.error('Error fetching tagged people:', error);
       setTaggedPeople([]);
+    }
+  };
+
+  const fetchSupportingMedia = async () => {
+    try {
+      const media = await getEmberSupportingMedia(ember.id);
+      console.log('Wiki supporting media data:', media);
+      setSupportingMedia(media || []);
+    } catch (error) {
+      console.error('Error fetching supporting media:', error);
+      setSupportingMedia([]);
     }
   };
 
@@ -567,8 +583,70 @@ export default function EmberWiki({
               </div>
               <StatusBadge isComplete={getSectionStatus('supporting-media')} />
             </h3>
-            <div className="text-sm text-gray-600 text-left">
-              Additional photos, videos, and media related to this ember will appear here...
+            <div className="text-sm text-gray-600 text-left space-y-3">
+              {supportingMedia.length > 0 ? (
+                supportingMedia.map((media, index) => {
+                  const getFileIcon = (category) => {
+                    if (category === 'image') return Image;
+                    if (category === 'audio') return Music;
+                    return File;
+                  };
+                  
+                  const IconComponent = getFileIcon(media.file_category);
+                  
+                  const formatFileSize = (bytes) => {
+                    if (bytes === 0) return '0 Bytes';
+                    const k = 1024;
+                    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                  };
+
+                  return (
+                    <div key={media.id || index} className="bg-teal-50 border border-teal-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <IconComponent size={16} className="text-teal-600" />
+                        <span className="text-sm font-medium text-teal-900">{media.file_name}</span>
+                        <a 
+                          href={media.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="ml-auto text-teal-600 hover:text-teal-800"
+                          title="Open file"
+                        >
+                          <ExternalLink size={14} />
+                        </a>
+                      </div>
+                      <div className="text-gray-900 space-y-1">
+                        <div className="flex items-center gap-4 text-xs text-gray-600">
+                          <span className="capitalize">{media.file_category}</span>
+                          <span>{formatFileSize(media.file_size)}</span>
+                          <span>{media.file_type}</span>
+                        </div>
+                        {media.uploader && (
+                          <div className="text-xs text-gray-500">
+                            Uploaded by: {media.uploader.first_name} {media.uploader.last_name}
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-500">
+                          Added: {new Date(media.created_at).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-gray-500">
+                  No supporting media has been uploaded yet. Use the "Supporting Media" feature to add additional photos and audio files.
+                </div>
+              )}
             </div>
           </div>
 

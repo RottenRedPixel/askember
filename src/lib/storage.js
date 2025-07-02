@@ -106,7 +106,7 @@ export const validateFile = (file, options = {}) => {
  * @returns {string} - 'image', 'audio', 'video', or 'other'
  */
 export const getFileCategory = (mimeType) => {
-  if (mimeType.startsWith('image/')) return 'images';
+  if (mimeType.startsWith('image/')) return 'image';
   if (mimeType.startsWith('audio/')) return 'audio';
   if (mimeType.startsWith('video/')) return 'video';
   return 'other';
@@ -166,7 +166,7 @@ export const getStorageUsage = async () => {
       totalFiles: blobs.length,
       totalSize: 0,
       filesByType: {
-        images: { count: 0, size: 0 },
+        image: { count: 0, size: 0 },
         audio: { count: 0, size: 0 },
         video: { count: 0, size: 0 },
         other: { count: 0, size: 0 }

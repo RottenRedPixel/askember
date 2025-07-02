@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Label } from '@/components/ui/label';
-import { getEmber, updateEmberTitle, saveStoryCut, getStoryCutsForEmber, getAllStoryMessagesForEmber, deleteStoryCut, setPrimaryStoryCut, getPrimaryStoryCut } from '@/lib/database';
+import { getEmber, updateEmberTitle, saveStoryCut, getStoryCutsForEmber, getAllStoryMessagesForEmber, deleteStoryCut, setPrimaryStoryCut, getPrimaryStoryCut, getEmberSupportingMedia } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import LocationModal from '@/components/LocationModal';
 import TimeDateModal from '@/components/TimeDateModal';
 import ImageAnalysisModal from '@/components/ImageAnalysisModal';
 import TaggedPeopleModal from '@/components/TaggedPeopleModal';
+import SupportingMediaModal from '@/components/SupportingMediaModal';
 
 import EmberNamesModal from '@/components/EmberNamesModal';
 import EmberSettingsPanel from '@/components/EmberSettingsPanel';
@@ -60,6 +61,7 @@ export default function EmberDetail() {
   const [showTimeDateModal, setShowTimeDateModal] = useState(false);
   const [showImageAnalysisModal, setShowImageAnalysisModal] = useState(false);
   const [showTaggedPeopleModal, setShowTaggedPeopleModal] = useState(false);
+  const [showSupportingMediaModal, setShowSupportingMediaModal] = useState(false);
   const [taggedPeopleCount, setTaggedPeopleCount] = useState(0);
   const [taggedPeopleData, setTaggedPeopleData] = useState([]);
   const [emberLength, setEmberLength] = useState(30);
@@ -94,6 +96,13 @@ export default function EmberDetail() {
 
   // Image analysis data state
   const [imageAnalysisData, setImageAnalysisData] = useState(null);
+
+  // Story messages state
+  const [storyMessages, setStoryMessages] = useState([]);
+  const [storyContributorCount, setStoryContributorCount] = useState(0);
+
+  // Supporting media state
+  const [supportingMedia, setSupportingMedia] = useState([]);
 
   // Media query hook for responsive design
   const useMediaQuery = (query) => {
@@ -201,14 +210,46 @@ export default function EmberDetail() {
           const updatedPrimary = await getPrimaryStoryCut(ember.id);
           setPrimaryStoryCutState(updatedPrimary);
         } catch (error) {
-          console.log('⚠️ Could not auto-set primary (may not be owner):', error.message);
-          // This is fine - user might not be the owner
+          console.error('Error auto-setting primary story cut:', error);
         }
       }
     } catch (error) {
       console.error('Error fetching story cuts:', error);
+      setStoryCuts([]);
     } finally {
       setStoryCutsLoading(false);
+    }
+  };
+
+  // Fetch story messages for the current ember
+  const fetchStoryMessages = async () => {
+    if (!ember?.id) return;
+    
+    try {
+      const result = await getAllStoryMessagesForEmber(ember.id);
+      const allMessages = result.messages || [];
+      
+      // Filter to only include user responses (not AI questions)
+      const userResponses = allMessages.filter(message => 
+        message.sender === 'user' || message.message_type === 'response'
+      );
+      
+      setStoryMessages(userResponses);
+      
+      // Count unique contributors from user responses only
+      const uniqueContributors = new Set();
+      userResponses.forEach(message => {
+        if (message.user_id) {
+          uniqueContributors.add(message.user_id);
+        }
+      });
+      setStoryContributorCount(uniqueContributors.size);
+      
+      console.log(`📊 Story data updated: ${userResponses.length} user responses from ${uniqueContributors.size} contributors (${allMessages.length} total messages)`);
+    } catch (error) {
+      console.error('Error fetching story messages:', error);
+      setStoryMessages([]);
+      setStoryContributorCount(0);
     }
   };
 
@@ -1196,6 +1237,16 @@ export default function EmberDetail() {
     }
   }, [ember?.title]);
 
+  // Fetch dependent data when ember loads
+  useEffect(() => {
+    if (ember?.id) {
+      fetchStoryMessages();
+      fetchTaggedPeopleData();
+      fetchStoryCuts();
+      fetchSupportingMedia();
+    }
+  }, [ember?.id]);
+
   const handleTitleEdit = () => {
     setNewTitle(ember.title || '');
     setIsEditingTitle(true);
@@ -1252,6 +1303,30 @@ export default function EmberDetail() {
     } catch (error) {
       console.error('Error refreshing image analysis:', error);
     }
+  };
+
+  const handleStoryUpdate = async () => {
+    // Refresh story data when updated via modal
+    await fetchStoryMessages();
+  };
+
+  // Fetch supporting media for the current ember
+  const fetchSupportingMedia = async () => {
+    if (!ember?.id) return;
+    
+    try {
+      const media = await getEmberSupportingMedia(ember.id);
+      setSupportingMedia(media);
+      console.log(`📁 Supporting media updated: ${media.length} files`);
+    } catch (error) {
+      console.error('Error fetching supporting media:', error);
+      setSupportingMedia([]);
+    }
+  };
+
+  const handleSupportingMediaUpdate = async () => {
+    // Refresh supporting media data when updated
+    await fetchSupportingMedia();
   };
 
   // Extract all wiki content as text for narration
@@ -1450,9 +1525,11 @@ export default function EmberDetail() {
         case 'people':
           return taggedPeopleCount > 0;
         case 'story':
+          return storyMessages.length >= 6;
         case 'supporting-media':
+          return supportingMedia.length > 0;
         default:
-          return false; // Placeholder - will be true when data exists
+          return false;
       }
     };
 
@@ -1769,7 +1846,12 @@ export default function EmberDetail() {
                       sectionType: 'story',
                       icon: BookOpen,
                       title: () => 'Story Circle',
-                      description: () => 'The narrative behind this ember',
+                      description: (isComplete) => {
+                        if (isComplete) {
+                          return `${storyMessages.length} comments from ${storyContributorCount} contributor${storyContributorCount !== 1 ? 's' : ''}`;
+                        }
+                        return 'The narrative behind this ember';
+                      },
                       onClick: () => () => setShowStoryModal(true)
                     },
                     {
@@ -1785,8 +1867,13 @@ export default function EmberDetail() {
                       sectionType: 'supporting-media',
                       icon: ImageSquare,
                       title: () => 'Supporting Media',
-                      description: () => 'Additional photos and videos',
-                      onClick: () => () => console.log('Supporting Media modal coming soon')
+                      description: (isComplete) => {
+                        if (isComplete) {
+                          return `${supportingMedia.length} media file${supportingMedia.length !== 1 ? 's' : ''} added`;
+                        }
+                        return 'Additional photos and videos';
+                      },
+                      onClick: () => () => setShowSupportingMediaModal(true)
                     },
                     {
                       id: 'analysis',
@@ -1811,8 +1898,12 @@ export default function EmberDetail() {
                     }
                   ];
 
-                  // Sort cards: Not Done first, Done last
+                  // Sort cards: Story Circle always first, then Not Done, then Done
                   const sortedCards = carouselCards.sort((a, b) => {
+                    // Story Circle always comes first
+                    if (a.sectionType === 'story') return -1;
+                    if (b.sectionType === 'story') return 1;
+                    
                     const aComplete = getSectionStatus(a.sectionType);
                     const bComplete = getSectionStatus(b.sectionType);
                     
@@ -2170,7 +2261,7 @@ export default function EmberDetail() {
             console.log('Story submission:', submissionData);
             // TODO: Handle story submission (save to database, process audio, etc.)
           }}
-          onRefresh={fetchEmber}
+          onRefresh={handleStoryUpdate}
           isRefreshing={isRefreshing}
         />
       )}
@@ -2191,6 +2282,7 @@ export default function EmberDetail() {
           handleTitleDelete={handleTitleDelete}
           message={message}
           onRefresh={fetchEmber}
+          onOpenSupportingMedia={() => setShowSupportingMediaModal(true)}
         />
       )}
 
@@ -2233,6 +2325,16 @@ export default function EmberDetail() {
           isOpen={showTaggedPeopleModal} 
           onClose={() => setShowTaggedPeopleModal(false)}
           onUpdate={handleTaggedPeopleUpdate}
+        />
+      )}
+
+      {/* Supporting Media Modal */}
+      {ember && (
+        <SupportingMediaModal 
+          ember={ember} 
+          isOpen={showSupportingMediaModal} 
+          onClose={() => setShowSupportingMediaModal(false)}
+          onUpdate={handleSupportingMediaUpdate}
         />
       )}
 

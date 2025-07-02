@@ -1920,4 +1920,116 @@ export const getPotentialContributorMatches = async (emberId, personName) => {
     console.error('Error finding contributor matches:', error);
     throw error;
   }
+};
+
+// =============================================================================
+// SUPPORTING MEDIA FUNCTIONS
+// =============================================================================
+
+/**
+ * Save supporting media files to an ember
+ */
+export const saveEmberSupportingMedia = async (emberId, userId, mediaFiles) => {
+  try {
+    console.log('💾 Saving supporting media for ember:', emberId, mediaFiles.length, 'files');
+    
+    const mediaRecords = mediaFiles.map(file => ({
+      ember_id: emberId,
+      uploaded_by_user_id: userId,
+      file_url: file.url,
+      file_name: file.originalName,
+      file_size: file.size,
+      file_type: file.type,
+      file_category: file.category,
+      storage_path: file.pathname
+    }));
+
+    const { data, error } = await supabase
+      .from('ember_supporting_media')
+      .insert(mediaRecords)
+      .select();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    console.log('✅ Supporting media saved successfully:', data);
+    return data;
+  } catch (error) {
+    console.error('Error saving supporting media:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get all supporting media for an ember
+ */
+export const getEmberSupportingMedia = async (emberId) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_supporting_media')
+      .select(`
+        *,
+        uploader:user_profiles!uploaded_by_user_id(
+          user_id,
+          first_name,
+          last_name,
+          avatar_url
+        )
+      `)
+      .eq('ember_id', emberId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching supporting media:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete supporting media item
+ */
+export const deleteEmberSupportingMedia = async (mediaId, userId) => {
+  try {
+    // First check if user can delete (must be uploader or ember owner)
+    const { data: mediaItem, error: fetchError } = await supabase
+      .from('ember_supporting_media')
+      .select(`
+        *,
+        ember:embers!ember_id(user_id)
+      `)
+      .eq('id', mediaId)
+      .single();
+
+    if (fetchError) {
+      throw new Error(fetchError.message);
+    }
+
+    // Check permissions
+    const canDelete = mediaItem.uploaded_by_user_id === userId || 
+                     mediaItem.ember.user_id === userId;
+
+    if (!canDelete) {
+      throw new Error('Permission denied: You can only delete media you uploaded or if you own the ember');
+    }
+
+    const { error: deleteError } = await supabase
+      .from('ember_supporting_media')
+      .delete()
+      .eq('id', mediaId);
+
+    if (deleteError) {
+      throw new Error(deleteError.message);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting supporting media:', error);
+    throw error;
+  }
 }; 

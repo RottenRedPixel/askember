@@ -31,7 +31,8 @@ export default function EmberSettingsPanel({
   handleTitleEdit,
   handleTitleDelete,
   message,
-  onRefresh
+  onRefresh,
+  onOpenSupportingMedia
 }) {
 
   
@@ -119,6 +120,7 @@ export default function EmberSettingsPanel({
               ember={ember}
               onRefresh={handleRefresh}
               isRefreshing={isRefreshing}
+              onOpenSupportingMedia={onOpenSupportingMedia}
             />
           </div>
         );
