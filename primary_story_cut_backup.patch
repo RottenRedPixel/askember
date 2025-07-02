@@ -1,0 +1,413 @@
+commit 94f41bf474e67253dd05cafd376c72101d1a7e07
+Author: Amado Batour <amadobatour@hotmail.com>
+Date:   Tue Jul 1 14:30:44 2025 -0700
+
+    Add primary story cut functionality with getPrimaryStoryCut and setPrimaryStoryCut functions
+
+diff --git a/src/App.jsx b/src/App.jsx
+index 7150e3d..7eec944 100644
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -17,6 +17,7 @@ import AuthGuard from './components/auth/AuthGuard';
+ import AdminGuard from './components/auth/AdminGuard';
+ import AuthCallback from './components/auth/AuthCallback';
+ import AuthPage from './components/auth/AuthPage';
++import { addPrimaryStoryCutColumn } from './lib/database';
+ import './App.css'
+ 
+ export default function App() {
+@@ -25,6 +26,18 @@ export default function App() {
+   // Initialize authentication state on app startup
+   useEffect(() => {
+     initializeAuth();
++    
++    // Run database migrations
++    const runMigrations = async () => {
++      try {
++        // Add primary_story_cut_id column if it doesn't exist
++        await addPrimaryStoryCutColumn();
++      } catch (error) {
++        console.error('Error running migrations:', error);
++      }
++    };
++    
++    runMigrations();
+   }, [initializeAuth]);
+ 
+   return (
+diff --git a/src/lib/database.js b/src/lib/database.js
+index 666469a..7f6af91 100644
+--- a/src/lib/database.js
++++ b/src/lib/database.js
+@@ -1228,4 +1228,333 @@ Please be thorough, descriptive, and observant. Format your response as a struct
+     console.error('❌ [DATABASE] Direct OpenAI analysis failed:', error);
+     throw error;
+   }
++};
++
++/**
++ * PROMPT MANAGEMENT FUNCTIONS
++ */
++
++/**
++ * Get active prompt by key
++ * @param {string} promptKey - The prompt key to search for
++ * @returns {Promise<Object|null>} - The active prompt or null
++ */
++export const getActivePrompt = async (promptKey) => {
++  try {
++    console.log('🔍 [DATABASE] Getting active prompt:', promptKey);
++    
++    const { data, error } = await supabase
++      .rpc('get_active_prompt', { prompt_key_param: promptKey });
++
++    if (error) {
++      throw new Error(error.message);
++    }
++
++    const result = data && data.length > 0 ? data[0] : null;
++    console.log('✅ [DATABASE] Active prompt retrieved:', result ? 'Found' : 'Not found');
++    return result;
++  } catch (error) {
++    console.error('❌ [DATABASE] getActivePrompt failed:', error);
++    throw error;
++  }
++};
++
++/**
++ * Get prompts by category and subcategory
++ * @param {string} category - The category to filter by
++ * @param {string} subcategory - Optional subcategory to filter by
++ * @returns {Promise<Array>} - Array of prompts
++ */
++export const getPromptsByCategory = async (category, subcategory = null) => {
++  try {
++    console.log('🔍 [DATABASE] Getting prompts by category:', { category, subcategory });
++    
++    const { data, error } = await supabase
++      .rpc('get_prompts_by_category', { 
++        category_param: category,
++        subcategory_param: subcategory 
++      });
++
++    if (error) {
++      throw new Error(error.message);
++    }
++
++    console.log('✅ [DATABASE] Prompts retrieved:', data?.length || 0, 'items');
++    return data || [];
++  } catch (error) {
++    console.error('❌ [DATABASE] getPromptsByCategory failed:', error);
++    throw error;
++  }
++};
++
++/**
++ * Get all prompts (admin only)
++ * @returns {Promise<Array>} - Array of all prompts
++ */
++export const getAllPrompts = async () => {
++  try {
++    console.log('🔍 [DATABASE] Getting all prompts (admin)');
++    
++    const { data, error } = await supabase
++      .from('prompts')
++      .select('*')
++      .order('category', { ascending: true })
++      .order('name', { ascending: true });
++
++    if (error) {
++      throw new Error(error.message);
++    }
++
++    console.log('✅ [DATABASE] All prompts retrieved:', data?.length || 0, 'items');
++    return data || [];
++  } catch (error) {
++    console.error('❌ [DATABASE] getAllPrompts failed:', error);
++    throw error;
++  }
++};
++
++/**
++ * Create a new prompt (admin only)
++ * @param {Object} promptData - The prompt data
++ * @returns {Promise<Object>} - The created prompt
++ */
++export const createPrompt = async (promptData) => {
++  try {
++    console.log('🚀 [DATABASE] Creating new prompt:', promptData.name);
++    
++    const { data, error } = await supabase
++      .from('prompts')
++      .insert([promptData])
++      .select()
++      .single();
++
++    if (error) {
++      throw new Error(error.message);
++    }
++
++    console.log('✅ [DATABASE] Prompt created successfully');
++    return data;
++  } catch (error) {
++    console.error('❌ [DATABASE] createPrompt failed:', error);
++    throw error;
++  }
++};
++
++/**
++ * Update an existing prompt (admin only)
++ * @param {string} promptId - The prompt ID
++ * @param {Object} updates - The updates to apply
++ * @returns {Promise<Object>} - The updated prompt
++ */
++export const updatePrompt = async (promptId, updates) => {
++  try {
++    console.log('🔄 [DATABASE] Updating prompt:', promptId);
++    
++    const { data, error } = await supabase
++      .from('prompts')
++      .update(updates)
++      .eq('id', promptId)
++      .select()
++      .single();
++
++    if (error) {
++      throw new Error(error.message);
++    }
++
++    console.log('✅ [DATABASE] Prompt updated successfully');
++    return data;
++  } catch (error) {
++    console.error('❌ [DATABASE] updatePrompt failed:', error);
++    throw error;
++  }
++};
++
++/**
++ * Delete a prompt (admin only)
++ * @param {string} promptId - The prompt ID
++ * @returns {Promise<boolean>} - Success status
++ */
++export const deletePrompt = async (promptId) => {
++  try {
++    console.log('🗑️ [DATABASE] Deleting prompt:', promptId);
++    
++    const { error } = await supabase
++      .from('prompts')
++      .delete()
++      .eq('id', promptId);
++
++    if (error) {
++      throw new Error(error.message);
++    }
++
++    console.log('✅ [DATABASE] Prompt deleted successfully');
++    return true;
++  } catch (error) {
++    console.error('❌ [DATABASE] deletePrompt failed:', error);
++    throw error;
++  }
++};
++
++/**
++ * Toggle prompt active status (admin only)
++ * @param {string} promptId - The prompt ID
++ * @param {boolean} isActive - The new active status
++ * @returns {Promise<Object>} - The updated prompt
++ */
++export const togglePromptStatus = async (promptId, isActive) => {
++  try {
++    console.log('🔄 [DATABASE] Toggling prompt status:', { promptId, isActive });
++    
++    const { data, error } = await supabase
++      .from('prompts')
++      .update({ is_active: isActive })
++      .eq('id', promptId)
++      .select()
++      .single();
++
++    if (error) {
++      throw new Error(error.message);
++    }
++
++    console.log('✅ [DATABASE] Prompt status updated successfully');
++    return data;
++  } catch (error) {
++    console.error('❌ [DATABASE] togglePromptStatus failed:', error);
++    throw error;
++  }
++};
++
++/**
++ * Set a story cut as the primary one for an ember
++ * Only the ember owner can set the primary story cut
++ */
++export const setPrimaryStoryCut = async (storyCutId, emberId, userId) => {
++  try {
++    // First check if the user is the ember owner
++    const { data: ember, error: emberError } = await supabase
++      .from('embers')
++      .select('user_id')
++      .eq('id', emberId)
++      .single();
++    
++    if (emberError) {
++      throw new Error(emberError.message);
++    }
++    
++    // Only the ember owner can set the primary story cut
++    if (ember.user_id !== userId) {
++      throw new Error('Only the ember owner can set the primary story cut');
++    }
++    
++    // Update the ember with the primary story cut ID
++    const { data, error } = await supabase
++      .from('embers')
++      .update({ primary_story_cut_id: storyCutId })
++      .eq('id', emberId)
++      .eq('user_id', userId) // Extra safety check
++      .select()
++      .single();
++    
++    if (error) {
++      throw new Error(error.message);
++    }
++    
++    return data;
++  } catch (error) {
++    console.error('Error setting primary story cut:', error);
++    throw error;
++  }
++};
++
++/**
++ * Get the primary story cut for an ember
++ */
++export const getPrimaryStoryCut = async (emberId) => {
++  try {
++    // First get the ember to find the primary_story_cut_id
++    const { data: ember, error: emberError } = await supabase
++      .from('embers')
++      .select('primary_story_cut_id')
++      .eq('id', emberId)
++      .single();
++    
++    if (emberError) {
++      throw new Error(emberError.message);
++    }
++    
++    // If no primary story cut is set, return null
++    if (!ember.primary_story_cut_id) {
++      return null;
++    }
++    
++    // Get the primary story cut details
++    const { data: storyCut, error: storyCutError } = await supabase
++      .from('ember_story_cuts')
++      .select('*')
++      .eq('id', ember.primary_story_cut_id)
++      .single();
++    
++    if (storyCutError) {
++      console.warn('Primary story cut not found:', storyCutError.message);
++      return null;
++    }
++    
++    return storyCut;
++  } catch (error) {
++    console.error('Error getting primary story cut:', error);
++    return null;
++  }
++};
++
++/**
++ * Add primary_story_cut_id column to embers table if it doesn't exist
++ */
++export const addPrimaryStoryCutColumn = async () => {
++  try {
++    console.log('Checking if primary_story_cut_id column exists in embers table...');
++    
++    // Check if the column exists
++    const { data, error } = await supabase.rpc('execute_sql', {
++      sql_query: `
++        SELECT column_name 
++        FROM information_schema.columns 
++        WHERE table_name = 'embers' 
++        AND column_name = 'primary_story_cut_id'
++      `
++    });
++    
++    if (error) {
++      console.error('Error checking for primary_story_cut_id column:', error);
++      return false;
++    }
++    
++    // If column exists, nothing to do
++    if (data && data.length > 0) {
++      console.log('primary_story_cut_id column already exists');
++      return true;
++    }
++    
++    console.log('Adding primary_story_cut_id column to embers table...');
++    
++    // Add the column
++    const result = await supabase.rpc('execute_sql', {
++      sql_query: `
++        ALTER TABLE embers
++        ADD COLUMN primary_story_cut_id UUID REFERENCES ember_story_cuts(id) ON DELETE SET NULL;
++        
++        CREATE INDEX IF NOT EXISTS embers_primary_story_cut_id_idx ON embers(primary_story_cut_id);
++      `
++    });
++    
++    if (result.error) {
++      console.error('Error adding primary_story_cut_id column:', result.error);
++      return false;
++    }
++    
++    console.log('Successfully added primary_story_cut_id column to embers table');
++    return true;
++  } catch (error) {
++    console.error('Error in addPrimaryStoryCutColumn:', error);
++    return false;
++  }
+ }; 
+\ No newline at end of file
+diff --git a/supabase-add-primary-story-cut.sql b/supabase-add-primary-story-cut.sql
+new file mode 100644
+index 0000000..5beb3ee
+--- /dev/null
++++ b/supabase-add-primary-story-cut.sql
+@@ -0,0 +1,30 @@
++-- Add primary_story_cut_id column to embers table
++ALTER TABLE IF EXISTS embers
++ADD COLUMN IF NOT EXISTS primary_story_cut_id UUID REFERENCES ember_story_cuts(id) ON DELETE SET NULL;
++
++-- Create an index for better query performance
++CREATE INDEX IF NOT EXISTS embers_primary_story_cut_id_idx ON embers(primary_story_cut_id);
++
++-- Comment on the column to document its purpose
++COMMENT ON COLUMN embers.primary_story_cut_id IS 'Reference to the primary story cut chosen by the ember owner';
++
++-- Only the ember owner can update the primary_story_cut_id
++CREATE OR REPLACE FUNCTION check_primary_story_cut_update()
++RETURNS TRIGGER AS $$
++BEGIN
++  -- If primary_story_cut_id is being changed and user is not the owner, reject
++  IF (OLD.primary_story_cut_id IS DISTINCT FROM NEW.primary_story_cut_id) AND 
++     (auth.uid() IS DISTINCT FROM NEW.user_id) THEN
++    RAISE EXCEPTION 'Only the ember owner can set the primary story cut';
++  END IF;
++  
++  RETURN NEW;
++END;
++$$ LANGUAGE plpgsql;
++
++-- Create or replace the trigger
++DROP TRIGGER IF EXISTS check_primary_story_cut_update_trigger ON embers;
++CREATE TRIGGER check_primary_story_cut_update_trigger
++  BEFORE UPDATE ON embers
++  FOR EACH ROW
++  EXECUTE FUNCTION check_primary_story_cut_update(); 
+\ No newline at end of file
