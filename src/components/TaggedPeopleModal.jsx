@@ -3,10 +3,13 @@ import * as faceapi from 'face-api.js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Users, X, Plus, Edit2, Trash2, UserCheck } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Users, X, Plus, Edit2, Trash2, UserCheck, Eye, Brain } from 'lucide-react';
 import { 
   getEmberTaggedPeople, 
   addTaggedPerson, 
@@ -14,6 +17,233 @@ import {
   deleteTaggedPerson,
   getPotentialContributorMatches 
 } from '@/lib/database';
+
+// Custom hook to detect mobile devices
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    if (media.matches !== matches) {
+      setMatches(media.matches);
+    }
+    const listener = () => setMatches(media.matches);
+    window.addEventListener("resize", listener);
+    return () => window.removeEventListener("resize", listener);
+  }, [matches, query]);
+
+  return matches;
+}
+
+// Extract ModalContent to prevent re-mounting on every render (FIXES CURSOR JUMPING)
+const ModalContent = ({
+  ember,
+  message,
+  imageRef,
+  canvasRef,
+  handleImageLoad,
+  handleCanvasClick,
+  showTagForm,
+  tagName,
+  handleTagNameChange,
+  potentialMatches,
+  handleAddTag,
+  setShowTagForm,
+  setSelectedFace,
+  setTagName,
+  setPotentialMatches,
+  taggedPeople,
+  handleDeleteTag,
+  isLoading,
+  isModelLoaded
+}) => {
+  const mainImageUrl = ember.image_urls?.[0];
+
+  return (
+    <div className="space-y-6">
+      {/* Header Info */}
+      <div className="text-center">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Face Detection & Tagging</h3>
+        <p className="text-sm text-gray-600">
+          Automatically detect faces and tag people in your image
+        </p>
+      </div>
+
+      {/* Loading State */}
+      {isLoading && !isModelLoaded && (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-sm text-gray-500 mt-2">Loading face detection models...</p>
+          <p className="text-xs text-gray-400 mt-1">This may take a few seconds</p>
+        </div>
+      )}
+
+      {/* Message */}
+      {message && (
+        <Alert className={`${message.type === 'error' ? 'border-red-200 bg-red-50' : 
+                              message.type === 'success' ? 'border-green-200 bg-green-50' : 
+                              'border-blue-200 bg-blue-50'}`}>
+          <AlertDescription className={`${message.type === 'error' ? 'text-red-800' : 
+                                            message.type === 'success' ? 'text-green-800' : 
+                                            'text-blue-800'}`}>
+            {message.text}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Main Image with Face Detection */}
+      {!isLoading || isModelLoaded ? (
+        <Card className="border-gray-200">
+          <CardContent className="p-6">
+            {mainImageUrl ? (
+              <div className="relative inline-block w-full">
+                <img
+                  ref={imageRef}
+                  src={mainImageUrl}
+                  alt="Ember"
+                  onLoad={handleImageLoad}
+                  className="max-w-full h-auto rounded-lg mx-auto block"
+                />
+                <canvas
+                  ref={canvasRef}
+                  onClick={handleCanvasClick}
+                  className="absolute top-0 left-0 cursor-pointer"
+                  style={{ pointerEvents: 'auto' }}
+                />
+              </div>
+            ) : (
+              <div className="p-8 text-center text-gray-500">
+                <Brain size={32} className="text-gray-400 mx-auto mb-3" />
+                <p>No image available for face detection</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-6 text-center">
+            <Eye size={32} className="text-blue-600 mx-auto mb-3" />
+            <h4 className="font-medium text-blue-900 mb-2">Getting Ready for Face Detection</h4>
+            <p className="text-sm text-blue-700">
+              AI models are loading. Once ready, faces will be automatically detected and you can click to tag people.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tag Form */}
+      {showTagForm && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-6">
+            <h4 className="font-medium mb-4 text-blue-900">Tag this person</h4>
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <Label htmlFor="tagName">Name</Label>
+                <Input
+                  id="tagName"
+                  value={tagName}
+                  onChange={(e) => handleTagNameChange(e.target.value)}
+                  placeholder="Enter person's name"
+                  className="h-10"
+                />
+              </div>
+
+              {potentialMatches.length > 0 && (
+                <div className="space-y-3">
+                  <Label>Potential contributor matches:</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {potentialMatches.map((match, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTagName(match.shared_user?.first_name || match.shared_with_email)}
+                      >
+                        <UserCheck className="w-3 h-3 mr-1" />
+                        {match.shared_user?.first_name || match.shared_with_email}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button onClick={handleAddTag} disabled={!tagName.trim() || isLoading} variant="blue">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Tag
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowTagForm(false);
+                    setSelectedFace(null);
+                    setTagName('');
+                    setPotentialMatches([]);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tagged People List */}
+      {taggedPeople.length > 0 && (
+        <div className="space-y-4">
+          <Separator />
+          <div className="space-y-3">
+            <h4 className="font-medium flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Tagged People ({taggedPeople.length})
+            </h4>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {taggedPeople.map((person) => (
+                <div key={person.id} className="flex items-center justify-between p-3 border rounded-xl">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <span className="font-medium truncate">{person.person_name}</span>
+                    {person.contributor_email && (
+                      <Badge variant="outline" className="text-xs">
+                        {person.contributor_email}
+                      </Badge>
+                    )}
+                    {person.contributor_info && (
+                      <Badge className="text-xs bg-green-100 text-green-800">
+                        Contributor
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteTag(person.id)}
+                    disabled={isLoading}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Instructions */}
+      <Card className="border-gray-200 bg-gray-50">
+        <CardContent className="p-4">
+          <div className="text-sm text-gray-600 space-y-1">
+            <p>• Blue circles indicate untagged faces - click to add names</p>
+            <p>• Green circles show already tagged faces</p>
+            <p>• Names will be suggested based on ember contributors</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
 
 const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
   const imageRef = useRef(null);
@@ -27,6 +257,8 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
   const [selectedFace, setSelectedFace] = useState(null);
   const [tagName, setTagName] = useState('');
   const [potentialMatches, setPotentialMatches] = useState([]);
+  
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
   // Load face detection models
   const loadModels = useCallback(async () => {
@@ -268,7 +500,47 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
 
   if (!ember) return null;
 
-  const mainImageUrl = ember.image_urls?.[0];
+  // Mobile: Use Drawer, Desktop: Use Dialog
+  if (isMobile) {
+    return (
+      <Drawer open={isOpen} onOpenChange={onClose}>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Tagged People
+            </DrawerTitle>
+            <DrawerDescription>
+              Detect faces and tag people in your image using AI
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto p-4">
+            <ModalContent
+              ember={ember}
+              message={message}
+              imageRef={imageRef}
+              canvasRef={canvasRef}
+              handleImageLoad={handleImageLoad}
+              handleCanvasClick={handleCanvasClick}
+              showTagForm={showTagForm}
+              tagName={tagName}
+              handleTagNameChange={handleTagNameChange}
+              potentialMatches={potentialMatches}
+              handleAddTag={handleAddTag}
+              setShowTagForm={setShowTagForm}
+              setSelectedFace={setSelectedFace}
+              setTagName={setTagName}
+              setPotentialMatches={setPotentialMatches}
+              taggedPeople={taggedPeople}
+              handleDeleteTag={handleDeleteTag}
+              isLoading={isLoading}
+              isModelLoaded={isModelLoaded}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -278,141 +550,31 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
             <Users className="w-5 h-5" />
             Tagged People
           </DialogTitle>
+          <DialogDescription>
+            Detect faces and tag people in your image using AI
+          </DialogDescription>
         </DialogHeader>
-
-        {message && (
-          <Alert className={`${message.type === 'error' ? 'border-red-200 bg-red-50' : 
-                                message.type === 'success' ? 'border-green-200 bg-green-50' : 
-                                'border-blue-200 bg-blue-50'}`}>
-            <AlertDescription className={`${message.type === 'error' ? 'text-red-800' : 
-                                              message.type === 'success' ? 'text-green-800' : 
-                                              'text-blue-800'}`}>
-              {message.text}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Main Image with Face Detection */}
-        <div className="relative">
-          {mainImageUrl ? (
-            <div className="relative inline-block">
-              <img
-                ref={imageRef}
-                src={mainImageUrl}
-                alt="Ember"
-                onLoad={handleImageLoad}
-                className="max-w-full h-auto rounded-lg"
-              />
-              <canvas
-                ref={canvasRef}
-                onClick={handleCanvasClick}
-                className="absolute top-0 left-0 cursor-pointer"
-                style={{ pointerEvents: 'auto' }}
-              />
-            </div>
-          ) : (
-            <div className="p-8 text-center text-gray-500">
-              No image available for face detection
-            </div>
-          )}
-        </div>
-
-        {/* Tag Form */}
-        {showTagForm && (
-          <div className="border rounded-lg p-4 bg-blue-50">
-            <h4 className="font-medium mb-3">Tag this person</h4>
-            <div className="space-y-3">
-              <div>
-                <Label htmlFor="tagName">Name</Label>
-                <Input
-                  id="tagName"
-                  value={tagName}
-                  onChange={(e) => handleTagNameChange(e.target.value)}
-                  placeholder="Enter person's name"
-                  className="h-10"
-                />
-              </div>
-
-              {potentialMatches.length > 0 && (
-                <div>
-                  <Label>Potential contributor matches:</Label>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {potentialMatches.map((match, index) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setTagName(match.shared_user?.first_name || match.shared_with_email)}
-                      >
-                        <UserCheck className="w-3 h-3 mr-1" />
-                        {match.shared_user?.first_name || match.shared_with_email}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button onClick={handleAddTag} disabled={!tagName.trim() || isLoading}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  Add Tag
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setShowTagForm(false);
-                    setSelectedFace(null);
-                    setTagName('');
-                    setPotentialMatches([]);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tagged People List */}
-        {taggedPeople.length > 0 && (
-          <div className="space-y-3">
-            <h4 className="font-medium">Tagged People</h4>
-            <div className="space-y-2">
-              {taggedPeople.map((person) => (
-                <div key={person.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-gray-400" />
-                    <span className="font-medium">{person.person_name}</span>
-                    {person.contributor_email && (
-                      <Badge variant="outline" className="text-xs">
-                        {person.contributor_email}
-                      </Badge>
-                    )}
-                    {person.contributor_info && (
-                      <Badge className="text-xs bg-green-100 text-green-800">
-                        Contributor
-                      </Badge>
-                    )}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteTag(person.id)}
-                    disabled={isLoading}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="text-sm text-gray-600">
-          <p>• Blue circles indicate untagged faces - click to add names</p>
-          <p>• Green circles show already tagged faces</p>
-          <p>• Names will be suggested based on ember contributors</p>
-        </div>
+        <ModalContent
+          ember={ember}
+          message={message}
+          imageRef={imageRef}
+          canvasRef={canvasRef}
+          handleImageLoad={handleImageLoad}
+          handleCanvasClick={handleCanvasClick}
+          showTagForm={showTagForm}
+          tagName={tagName}
+          handleTagNameChange={handleTagNameChange}
+          potentialMatches={potentialMatches}
+          handleAddTag={handleAddTag}
+          setShowTagForm={setShowTagForm}
+          setSelectedFace={setSelectedFace}
+          setTagName={setTagName}
+          setPotentialMatches={setPotentialMatches}
+          taggedPeople={taggedPeople}
+          handleDeleteTag={handleDeleteTag}
+          isLoading={isLoading}
+          isModelLoaded={isModelLoaded}
+        />
       </DialogContent>
     </Dialog>
   );

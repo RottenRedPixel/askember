@@ -1680,7 +1680,7 @@ export default function EmberDetail() {
                       sectionType: 'people',
                       icon: Users,
                       title: () => 'Tagged People',
-                      description: () => 'People identified in this image',
+                      description: (isComplete) => (!isComplete ? 'Identify and tag people in this image' : `${taggedPeopleCount} ${taggedPeopleCount !== 1 ? 'people' : 'person'} tagged`),
                       onClick: () => () => setShowTaggedPeopleModal(true)
                     },
                     {
