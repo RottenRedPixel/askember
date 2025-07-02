@@ -1557,4 +1557,241 @@ export const addPrimaryStoryCutColumn = async () => {
     console.error('Error in addPrimaryStoryCutColumn:', error);
     return false;
   }
+};
+
+// =============================================================================
+// ADMIN ANALYTICS FUNCTIONS
+// =============================================================================
+
+/**
+ * Get ember analytics for admin dashboard (no private user data)
+ * Only accessible by admins
+ */
+export const getEmberAnalytics = async () => {
+  try {
+    console.log('📊 [ADMIN] Fetching ember analytics...');
+
+    // Get basic ember statistics
+    const { data: emberStats, error: emberError } = await supabase
+      .from('embers')
+      .select('id, created_at, title, is_public')
+      .order('created_at', { ascending: false });
+
+    if (emberError) {
+      throw new Error(emberError.message);
+    }
+
+    // Get story cut analytics with token usage
+    const { data: storyCuts, error: storyCutsError } = await supabase
+      .from('ember_story_cuts')
+      .select('id, ember_id, created_at, duration, word_count, metadata');
+
+    if (storyCutsError) {
+      throw new Error(storyCutsError.message);
+    }
+
+    // Get sharing analytics
+    const { data: shares, error: sharesError } = await supabase
+      .from('ember_shares')
+      .select('ember_id, shared_with_email, is_active, created_at')
+      .eq('is_active', true);
+
+    if (sharesError) {
+      throw new Error(sharesError.message);
+    }
+
+    // Get image analysis token usage
+    const { data: imageAnalysis, error: imageError } = await supabase
+      .from('image_analysis')
+      .select('ember_id, tokens_used, created_at');
+
+    if (imageError) {
+      console.warn('Could not fetch image analysis data:', imageError.message);
+    }
+
+    // Calculate analytics
+    const totalEmbers = emberStats.length;
+    const publicEmbers = emberStats.filter(ember => ember.is_public).length;
+    const privateEmbers = totalEmbers - publicEmbers;
+
+    // Calculate token usage from story cuts
+    let totalStoryCutTokens = 0;
+    storyCuts.forEach(cut => {
+      if (cut.metadata && typeof cut.metadata === 'object' && cut.metadata.tokensUsed) {
+        totalStoryCutTokens += cut.metadata.tokensUsed;
+      }
+    });
+
+    // Calculate token usage from image analysis
+    let totalImageAnalysisTokens = 0;
+    if (imageAnalysis) {
+      imageAnalysis.forEach(analysis => {
+        if (analysis.tokens_used) {
+          totalImageAnalysisTokens += analysis.tokens_used;
+        }
+      });
+    }
+
+    // Calculate contributor statistics
+    const contributorStats = {};
+    shares.forEach(share => {
+      if (!contributorStats[share.ember_id]) {
+        contributorStats[share.ember_id] = [];
+      }
+      contributorStats[share.ember_id].push(share.shared_with_email);
+    });
+
+    const embersWithContributors = Object.keys(contributorStats).length;
+    const totalContributorConnections = shares.length;
+    const averageContributorsPerEmber = embersWithContributors > 0 
+      ? (totalContributorConnections / embersWithContributors).toFixed(1) 
+      : 0;
+
+    // Recent activity (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const recentEmbers = emberStats.filter(ember => 
+      new Date(ember.created_at) > thirtyDaysAgo
+    );
+    
+    const recentStoryCuts = storyCuts.filter(cut => 
+      new Date(cut.created_at) > thirtyDaysAgo
+    );
+
+    // Top embers by activity (most story cuts)
+    const emberActivity = {};
+    storyCuts.forEach(cut => {
+      if (!emberActivity[cut.ember_id]) {
+        emberActivity[cut.ember_id] = {
+          ember_id: cut.ember_id,
+          story_cuts: 0,
+          total_duration: 0,
+          contributors: contributorStats[cut.ember_id]?.length || 0
+        };
+      }
+      emberActivity[cut.ember_id].story_cuts++;
+      emberActivity[cut.ember_id].total_duration += cut.duration || 0;
+    });
+
+    // Add ember titles (keeping them generic for privacy)
+    Object.keys(emberActivity).forEach(emberId => {
+      const ember = emberStats.find(e => e.id === emberId);
+      emberActivity[emberId].title = ember ? ember.title.substring(0, 50) + (ember.title.length > 50 ? '...' : '') : 'Unknown';
+      emberActivity[emberId].is_public = ember ? ember.is_public : false;
+      emberActivity[emberId].created_at = ember ? ember.created_at : null;
+    });
+
+    const topEmbers = Object.values(emberActivity)
+      .sort((a, b) => b.story_cuts - a.story_cuts)
+      .slice(0, 10);
+
+    console.log('✅ [ADMIN] Ember analytics calculated successfully');
+
+    return {
+      overview: {
+        totalEmbers,
+        publicEmbers,
+        privateEmbers,
+        totalStoryCuts: storyCuts.length,
+        embersWithContributors,
+        totalContributorConnections,
+        averageContributorsPerEmber: parseFloat(averageContributorsPerEmber)
+      },
+      tokenUsage: {
+        totalStoryCutTokens,
+        totalImageAnalysisTokens,
+        totalTokens: totalStoryCutTokens + totalImageAnalysisTokens,
+        estimatedCost: ((totalStoryCutTokens + totalImageAnalysisTokens) * 0.000015).toFixed(4) // Rough estimate for GPT-4o
+      },
+      activity: {
+        recentEmbers: recentEmbers.length,
+        recentStoryCuts: recentStoryCuts.length,
+        topEmbers
+      },
+      timestamps: {
+        oldestEmber: emberStats.length > 0 ? emberStats[emberStats.length - 1].created_at : null,
+        newestEmber: emberStats.length > 0 ? emberStats[0].created_at : null,
+        calculatedAt: new Date().toISOString()
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ [ADMIN] Error fetching ember analytics:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get detailed ember list for admin (minimal info, no private data)
+ */
+export const getAdminEmberList = async (limit = 50, offset = 0) => {
+  try {
+    console.log('📋 [ADMIN] Fetching admin ember list...');
+
+    // Get basic ember data
+    const { data: embers, error: emberError } = await supabase
+      .from('embers')
+      .select('id, title, created_at, is_public')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (emberError) {
+      throw new Error(emberError.message);
+    }
+
+    // Get story cuts counts for these embers
+    const emberIds = embers.map(e => e.id);
+    
+    const { data: storyCutCounts, error: storyCutError } = await supabase
+      .from('ember_story_cuts')
+      .select('ember_id')
+      .in('ember_id', emberIds);
+
+    const { data: shareCounts, error: shareError } = await supabase
+      .from('ember_shares')
+      .select('ember_id')
+      .in('ember_id', emberIds)
+      .eq('is_active', true);
+
+    if (storyCutError) {
+      console.warn('Could not fetch story cut counts:', storyCutError.message);
+    }
+    if (shareError) {
+      console.warn('Could not fetch share counts:', shareError.message);
+    }
+
+    // Count story cuts and shares per ember
+    const storyCutCountMap = {};
+    const shareCountMap = {};
+
+    if (storyCutCounts) {
+      storyCutCounts.forEach(cut => {
+        storyCutCountMap[cut.ember_id] = (storyCutCountMap[cut.ember_id] || 0) + 1;
+      });
+    }
+
+    if (shareCounts) {
+      shareCounts.forEach(share => {
+        shareCountMap[share.ember_id] = (shareCountMap[share.ember_id] || 0) + 1;
+      });
+    }
+
+    // Transform data to include counts
+    const transformedData = embers.map(ember => ({
+      id: ember.id,
+      title: ember.title.substring(0, 60) + (ember.title.length > 60 ? '...' : ''),
+      created_at: ember.created_at,
+      is_public: ember.is_public,
+      story_cuts_count: storyCutCountMap[ember.id] || 0,
+      contributors_count: shareCountMap[ember.id] || 0
+    }));
+
+    console.log('✅ [ADMIN] Admin ember list retrieved:', transformedData.length, 'embers');
+    return transformedData;
+
+  } catch (error) {
+    console.error('❌ [ADMIN] Error fetching admin ember list:', error);
+    throw error;
+  }
 }; 
