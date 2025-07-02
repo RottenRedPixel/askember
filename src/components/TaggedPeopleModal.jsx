@@ -57,18 +57,10 @@ const ModalContent = ({
   isLoading,
   isModelLoaded
 }) => {
-  const mainImageUrl = ember.image_urls?.[0];
+  const mainImageUrl = ember.image_url;
 
   return (
     <div className="space-y-6">
-      {/* Header Info */}
-      <div className="text-center">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Face Detection & Tagging</h3>
-        <p className="text-sm text-gray-600">
-          Automatically detect faces and tag people in your image
-        </p>
-      </div>
-
       {/* Loading State */}
       {isLoading && !isModelLoaded && (
         <div className="text-center py-8">
@@ -504,17 +496,17 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
   if (isMobile) {
     return (
       <Drawer open={isOpen} onOpenChange={onClose}>
-        <DrawerContent className="max-h-[90vh]">
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
+        <DrawerContent className="bg-white focus:outline-none">
+          <DrawerHeader className="bg-white">
+            <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+              <Users className="w-5 h-5 text-blue-600" />
               Tagged People
             </DrawerTitle>
-            <DrawerDescription>
+            <DrawerDescription className="text-left text-gray-600">
               Detect faces and tag people in your image using AI
             </DrawerDescription>
           </DrawerHeader>
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
             <ModalContent
               ember={ember}
               message={message}
@@ -544,13 +536,13 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
+          <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+            <Users className="w-5 h-5 text-blue-600" />
             Tagged People
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-gray-600">
             Detect faces and tag people in your image using AI
           </DialogDescription>
         </DialogHeader>
