@@ -291,6 +291,25 @@ export default function EmberDetail() {
     return dbStyle ? dbStyle.name : style;
   };
 
+  // Format date for display in carousel cards
+  const formatDisplayDate = (timestamp) => {
+    if (!timestamp) return null;
+    
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return null;
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return null;
+    }
+  };
+
   // Handle story cut deletion
   const handleDeleteStoryCut = async () => {
     if (!storyCutToDelete || !userProfile?.user_id) return;
@@ -1691,7 +1710,14 @@ export default function EmberDetail() {
                       sectionType: 'time-date',
                       icon: Clock,
                       title: () => 'Time & Date',
-                      description: () => 'When this moment occurred',
+                      description: (isComplete) => {
+                        if (isComplete) {
+                          const dateToShow = ember?.ember_timestamp || ember?.manual_datetime;
+                          const formattedDate = formatDisplayDate(dateToShow);
+                          return formattedDate || 'Date information available';
+                        }
+                        return 'When this moment occurred';
+                      },
                       onClick: () => () => setShowTimeDateModal(true)
                     },
                     {
