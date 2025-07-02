@@ -1334,7 +1334,7 @@ export default function EmberDetail() {
         case 'title':
           return ember?.title && ember.title.trim() !== '' && ember.title !== 'Untitled Ember';
         case 'contributors':
-          return ember?.owner || sharedUsers.length > 0;
+          return sharedUsers.length > 0;
         case 'location':
           return !!(ember?.latitude && ember?.longitude) || !!ember?.manual_location;
         case 'time-date':

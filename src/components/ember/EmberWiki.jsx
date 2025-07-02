@@ -83,7 +83,7 @@ export default function EmberWiki({
       case 'supporting-media':
         return false; // Placeholder - will be true when supporting media exists
       case 'contributors':
-        return ember?.owner || sharedUsers.length > 0 || emailOnlyInvites.length > 0;
+        return sharedUsers.length > 0 || emailOnlyInvites.length > 0;
       default:
         return false;
     }
