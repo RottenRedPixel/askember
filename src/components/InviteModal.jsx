@@ -396,7 +396,7 @@ export default function InviteModal({ ember, isOpen, onClose, onUpdate }) {
   // Desktop Dialog
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-md max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-md rounded-2xl focus:outline-none">
+                    <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
             <Users className="w-5 h-5 text-blue-600" />

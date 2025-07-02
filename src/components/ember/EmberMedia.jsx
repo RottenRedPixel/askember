@@ -265,7 +265,7 @@ export default function EmberMedia({
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirm.open} onOpenChange={handleDeleteCancel}>
-        <DialogContent className="max-w-md bg-white focus:outline-none">
+        <DialogContent className="max-w-2xl bg-white focus:outline-none">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <Trash2 size={20} />

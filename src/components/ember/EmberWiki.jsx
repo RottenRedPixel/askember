@@ -807,7 +807,7 @@ export default function EmberWiki({
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={resetDeleteConfirm}>
-        <DialogContent className="max-w-md bg-white focus:outline-none">
+        <DialogContent className="max-w-2xl bg-white focus:outline-none">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="w-5 h-5" />
