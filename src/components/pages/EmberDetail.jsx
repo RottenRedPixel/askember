@@ -310,6 +310,44 @@ export default function EmberDetail() {
     }
   };
 
+  // Format location for display in carousel cards
+  const formatDisplayLocation = (ember) => {
+    if (!ember) return null;
+    
+    // Use structured location data (City, State, Country)
+    if (ember.city || ember.state || ember.country) {
+      const locationParts = [];
+      
+      if (ember.city && ember.city.trim()) {
+        locationParts.push(ember.city.trim());
+      }
+      if (ember.state && ember.state.trim()) {
+        locationParts.push(ember.state.trim());
+      }
+      if (ember.country && ember.country.trim()) {
+        locationParts.push(ember.country.trim());
+      }
+      
+      if (locationParts.length > 0) {
+        return locationParts.join(', ');
+      }
+    }
+    
+    // Fall back to manual location (free text entry)
+    if (ember.manual_location && ember.manual_location.trim()) {
+      return ember.manual_location.trim();
+    }
+    
+    // Fall back to GPS coordinates as last resort
+    if (ember.latitude && ember.longitude) {
+      const lat = parseFloat(ember.latitude).toFixed(4);
+      const lng = parseFloat(ember.longitude).toFixed(4);
+      return `${lat}, ${lng}`;
+    }
+    
+    return null;
+  };
+
   // Handle story cut deletion
   const handleDeleteStoryCut = async () => {
     if (!storyCutToDelete || !userProfile?.user_id) return;
@@ -1702,7 +1740,13 @@ export default function EmberDetail() {
                       sectionType: 'location',
                       icon: MapPin,
                       title: () => 'Location',
-                      description: () => 'Where this moment happened',
+                      description: (isComplete) => {
+                        if (isComplete) {
+                          const formattedLocation = formatDisplayLocation(ember);
+                          return formattedLocation || 'Location information available';
+                        }
+                        return 'Where this moment happened';
+                      },
                       onClick: () => () => setShowLocationModal(true)
                     },
                     {
