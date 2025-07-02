@@ -61,6 +61,7 @@ export default function EmberDetail() {
   const [showImageAnalysisModal, setShowImageAnalysisModal] = useState(false);
   const [showTaggedPeopleModal, setShowTaggedPeopleModal] = useState(false);
   const [taggedPeopleCount, setTaggedPeopleCount] = useState(0);
+  const [taggedPeopleData, setTaggedPeopleData] = useState([]);
   const [emberLength, setEmberLength] = useState(30);
   const [selectedVoices, setSelectedVoices] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -158,16 +159,18 @@ export default function EmberDetail() {
     fetchStoryStyles();
   }, []);
 
-  // Fetch tagged people count for the current ember
-  const fetchTaggedPeopleCount = async () => {
+  // Fetch tagged people data for the current ember
+  const fetchTaggedPeopleData = async () => {
     if (!ember?.id) return;
     
     try {
       const { getEmberTaggedPeople } = await import('@/lib/database');
       const taggedPeople = await getEmberTaggedPeople(ember.id);
+      setTaggedPeopleData(taggedPeople);
       setTaggedPeopleCount(taggedPeople.length);
     } catch (error) {
-      console.error('Error fetching tagged people count:', error);
+      console.error('Error fetching tagged people:', error);
+      setTaggedPeopleData([]);
       setTaggedPeopleCount(0);
     }
   };
@@ -235,7 +238,7 @@ export default function EmberDetail() {
   useEffect(() => {
     if (ember?.id) {
       fetchStoryCuts();
-      fetchTaggedPeopleCount();
+      fetchTaggedPeopleData();
     }
   }, [ember?.id]);
 
@@ -1167,7 +1170,7 @@ export default function EmberDetail() {
   };
 
   const handleTaggedPeopleUpdate = async () => {
-    await fetchTaggedPeopleCount();
+    await fetchTaggedPeopleData();
   };
 
   // Extract all wiki content as text for narration
@@ -1853,11 +1856,42 @@ export default function EmberDetail() {
 
 
 
-                {/* People & Analysis Section */}
+                {/* Tagged People Section */}
                 <div className="space-y-3">
-                  <h3 className="font-medium text-gray-900 text-left">Analysis & People</h3>
-                  <div className="text-sm text-gray-600 text-left">
-                    Deep image analysis and people tagging will appear here...
+                  <h3 className="font-medium text-gray-900 text-left">Tagged People</h3>
+                  <div className="space-y-3">
+                    {taggedPeopleData.length > 0 ? (
+                      taggedPeopleData.map((person, index) => (
+                        <div key={person.id || index} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
+                          <div className="flex-shrink-0">
+                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                              <Users className="h-5 w-5 text-blue-600" />
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900">
+                                {person.person_name}
+                              </span>
+                              {person.contributor_info && (
+                                <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                                  Contributor
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600">
+                              {person.contributor_info 
+                                ? `Tagged and connected to contributor ${person.contributor_email}` 
+                                : 'Tagged person identified in this image'}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-gray-500 text-left p-3 rounded-xl bg-gray-50">
+                        No people have been tagged in this image yet. Use the "Tagged People" feature to identify faces.
+                      </div>
+                    )}
                   </div>
                 </div>
 

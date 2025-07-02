@@ -25,7 +25,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { getEmberWithSharing } from '@/lib/sharing';
-import { getImageAnalysis, getAllStoryMessagesForEmber, deleteEmber } from '@/lib/database';
+import { getImageAnalysis, getAllStoryMessagesForEmber, deleteEmber, getEmberTaggedPeople } from '@/lib/database';
 import useStore from '@/store';
 
 export default function EmberWiki({ 
@@ -49,6 +49,7 @@ export default function EmberWiki({
   const [emailOnlyInvites, setEmailOnlyInvites] = useState([]); // Email-only invites
   const [imageAnalysis, setImageAnalysis] = useState(null);
   const [storyMessages, setStoryMessages] = useState([]);
+  const [taggedPeople, setTaggedPeople] = useState([]);
   
   // Delete ember state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -62,6 +63,7 @@ export default function EmberWiki({
       fetchSharedUsers();
       fetchImageAnalysis();
       fetchStoryMessages();
+      fetchTaggedPeople();
     }
   }, [ember?.id]);
 
@@ -79,7 +81,7 @@ export default function EmberWiki({
       case 'analysis':
         return !!(imageAnalysis && imageAnalysis.analysis_text);
       case 'people':
-        return false; // Placeholder - will be true when tagged people exist
+        return taggedPeople.length > 0;
       case 'supporting-media':
         return false; // Placeholder - will be true when supporting media exists
       case 'contributors':
@@ -166,6 +168,17 @@ export default function EmberWiki({
     } catch (error) {
       console.error('Error fetching story messages:', error);
       setStoryMessages([]);
+    }
+  };
+
+  const fetchTaggedPeople = async () => {
+    try {
+      const people = await getEmberTaggedPeople(ember.id);
+      console.log('Wiki tagged people data:', people);
+      setTaggedPeople(people || []);
+    } catch (error) {
+      console.error('Error fetching tagged people:', error);
+      setTaggedPeople([]);
     }
   };
 
@@ -514,8 +527,34 @@ export default function EmberWiki({
               </div>
               <StatusBadge isComplete={getSectionStatus('people')} />
             </h3>
-            <div className="text-sm text-gray-600 text-left">
-              People tagging will appear here...
+            <div className="text-sm text-gray-600 text-left space-y-3">
+              {taggedPeople.length > 0 ? (
+                taggedPeople.map((person, index) => (
+                  <div key={person.id || index} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users size={16} className="text-blue-600" />
+                      <span className="text-sm font-medium text-blue-900">{person.person_name}</span>
+                      {person.contributor_info && (
+                        <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                          Contributor
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-gray-900">
+                      {person.contributor_info 
+                        ? `Tagged and connected to contributor ${person.contributor_email}` 
+                        : 'Tagged person identified in this image using AI face detection'}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      Face coordinates: {person.face_coordinates?.x?.toFixed(0)}, {person.face_coordinates?.y?.toFixed(0)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-gray-500">
+                  No people have been tagged in this image yet. Use the "Tagged People" feature to identify faces.
+                </div>
+              )}
             </div>
           </div>
 

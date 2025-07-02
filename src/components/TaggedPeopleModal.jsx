@@ -89,13 +89,14 @@ const ModalContent = ({
           <CardContent className="p-6">
             {mainImageUrl ? (
               <div className="relative inline-block w-full">
-                <img
-                  ref={imageRef}
-                  src={mainImageUrl}
-                  alt="Ember"
-                  onLoad={handleImageLoad}
-                  className="max-w-full h-auto rounded-lg mx-auto block"
-                />
+                              <img
+                ref={imageRef}
+                src={mainImageUrl}
+                alt="Ember"
+                onLoad={handleImageLoad}
+                crossOrigin="anonymous"
+                className="max-w-full h-auto rounded-lg mx-auto block"
+              />
                 <canvas
                   ref={canvasRef}
                   onClick={handleCanvasClick}
@@ -294,10 +295,42 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
       setIsLoading(true);
       setMessage({ type: 'info', text: 'Detecting faces...' });
 
-      const detections = await faceapi.detectAllFaces(
-        imageRef.current,
-        new faceapi.TinyFaceDetectorOptions()
-      );
+      // Try to detect faces with the current image
+      let detections;
+      try {
+        detections = await faceapi.detectAllFaces(
+          imageRef.current,
+          new faceapi.TinyFaceDetectorOptions()
+        );
+      } catch (corsError) {
+        // If CORS error, try fetching as blob first
+        if (corsError.message && corsError.message.includes('tainted')) {
+          setMessage({ type: 'info', text: 'Retrying with alternative method...' });
+          
+          const response = await fetch(imageRef.current.src);
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          
+          // Create a new image element with the blob URL
+          const newImg = new Image();
+          newImg.crossOrigin = 'anonymous';
+          await new Promise((resolve, reject) => {
+            newImg.onload = resolve;
+            newImg.onerror = reject;
+            newImg.src = blobUrl;
+          });
+          
+          detections = await faceapi.detectAllFaces(
+            newImg,
+            new faceapi.TinyFaceDetectorOptions()
+          );
+          
+          // Clean up blob URL
+          URL.revokeObjectURL(blobUrl);
+        } else {
+          throw corsError;
+        }
+      }
 
       const canvas = canvasRef.current;
       const displaySize = {
@@ -351,7 +384,16 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
 
     } catch (error) {
       console.error('Error detecting faces:', error);
-      setMessage({ type: 'error', text: 'Failed to detect faces' });
+      
+      // Handle CORS/tainted canvas errors specifically
+      if (error.message && error.message.includes('tainted') || error.name === 'SecurityError') {
+        setMessage({ 
+          type: 'error', 
+          text: 'Image access blocked by browser security. Please try refreshing the page or contact support.' 
+        });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to detect faces. Please try again.' });
+      }
     } finally {
       setIsLoading(false);
     }
