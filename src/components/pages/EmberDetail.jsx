@@ -3231,8 +3231,10 @@ export default function EmberDetail() {
         
         console.log(`▶️ Playing segment ${currentSegmentIndex + 1}/${audioSegments.length}: [${currentSegment.voiceTag}]`);
         
-        // Set current audio for potential stop functionality
-        setCurrentAudio(audio);
+        // Set current audio for potential stop functionality (use the state setter from parent scope)
+        if (setCurrentAudio) {
+          setCurrentAudio(audio);
+        }
         
         // Track URLs for cleanup
         if (currentSegment.url) {
