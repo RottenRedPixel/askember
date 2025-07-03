@@ -1131,6 +1131,7 @@ export default function EmberDetail() {
         narrator_voice_lines: generatedStoryCut.narrator_voice_lines,
         ember_voice_name: generatedStoryCut.ember_voice_name,
         narrator_voice_name: generatedStoryCut.narrator_voice_name,
+        recordedAudio: generatedStoryCut.recordedAudio || {},
         voiceCasting: {
           emberVoice: voiceCasting.ember,
           narratorVoice: voiceCasting.narrator,
@@ -1625,39 +1626,82 @@ export default function EmberDetail() {
         
         console.log('📖 Story cut script:', selectedStoryCut.full_script);
         
-        // Use the story cut's script and voice
-        const content = selectedStoryCut.full_script;
-        const voiceId = selectedStoryCut.ember_voice_id; // Use the ember voice from the story cut
+        // Check if we have recorded audio URLs in the story cut
+        const recordedAudio = selectedStoryCut.metadata?.recordedAudio || {};
+        console.log('🎙️ Recorded audio available:', Object.keys(recordedAudio));
         
-        // Generate speech using ElevenLabs with the specific voice
-        const audioBlob = await textToSpeech(content, voiceId);
-        
-        // Create audio URL and play
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        
-        setCurrentAudio(audio);
-        
-        // Handle audio end
-        audio.onended = () => {
-          handleExitPlay();
-          URL.revokeObjectURL(audioUrl);
-        };
-        
-        // Handle audio error
-        audio.onerror = () => {
-          console.error('Audio playback failed');
-          handleExitPlay();
-          URL.revokeObjectURL(audioUrl);
-        };
-        
-        await audio.play();
+        if (Object.keys(recordedAudio).length > 0) {
+          // TODO: Multi-voice playback with recorded audio
+          console.log('🎵 Multi-voice playback with recorded audio will be implemented next');
+          console.log('🎙️ Available recorded audio:', recordedAudio);
+          
+          // For now, fall back to synthesized audio but log the availability
+          const content = selectedStoryCut.full_script;
+          const voiceId = selectedStoryCut.ember_voice_id;
+          
+          // Generate speech using ElevenLabs with the specific voice
+          const audioBlob = await textToSpeech(content, voiceId);
+          
+          // Create audio URL and play
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+          
+          setCurrentAudio(audio);
+          
+          // Handle audio end
+          audio.onended = () => {
+            handleExitPlay();
+            URL.revokeObjectURL(audioUrl);
+          };
+          
+          // Handle audio error
+          audio.onerror = () => {
+            console.error('Audio playback failed');
+            handleExitPlay();
+            URL.revokeObjectURL(audioUrl);
+          };
+          
+          await audio.play();
+        } else {
+          // No recorded audio, use current synthesized approach
+          console.log('🔊 No recorded audio found, using synthesized speech');
+          
+          // Use the story cut's script and voice
+          const content = selectedStoryCut.full_script;
+          const voiceId = selectedStoryCut.ember_voice_id; // Use the ember voice from the story cut
+          
+          // Generate speech using ElevenLabs with the specific voice
+          const audioBlob = await textToSpeech(content, voiceId);
+          
+          // Create audio URL and play
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+          
+          setCurrentAudio(audio);
+          
+          // Handle audio end
+          audio.onended = () => {
+            handleExitPlay();
+            URL.revokeObjectURL(audioUrl);
+          };
+          
+          // Handle audio error
+          audio.onerror = () => {
+            console.error('Audio playback failed');
+            handleExitPlay();
+            URL.revokeObjectURL(audioUrl);
+          };
+          
+          await audio.play();
+        }
         
       } else {
         // Fallback to basic wiki content if no story cuts exist
         console.log('📖 No story cuts found, using basic wiki content');
         console.log('💡 Tip: Create a story cut for richer, AI-generated narration!');
-        const content = extractWikiContent(ember);
+        
+        // Simple fallback content
+        const content = "Let's build this story together by pressing Story Cuts on the bottom left.";
         console.log('📖 Content to narrate:', content);
 
         // Generate speech using ElevenLabs with Ember voice (Lily)
@@ -1690,7 +1734,7 @@ export default function EmberDetail() {
           handleExitPlay();
           URL.revokeObjectURL(audioUrl);
         };
-        
+
         await audio.play();
       }
       

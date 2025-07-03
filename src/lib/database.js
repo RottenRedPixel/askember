@@ -878,7 +878,11 @@ export const saveStoryCut = async (storyCutData) => {
         narrator_voice_id: storyCutData.voiceCasting?.narratorVoice?.voice_id,
         narrator_voice_name: storyCutData.narrator_voice_name,
         selected_contributors: storyCutData.voiceCasting?.contributors,
-        metadata: storyCutData.metadata
+        metadata: {
+          ...storyCutData.metadata,
+          // Include recorded audio URLs for playback
+          recordedAudio: storyCutData.recordedAudio || {}
+        }
       }])
       .select()
       .single();

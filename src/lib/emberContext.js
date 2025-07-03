@@ -554,6 +554,24 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
     const { getAllStoryMessagesForEmber } = await import('./database.js');
     const allStoryMessages = await getAllStoryMessagesForEmber(emberId);
     
+    // Extract recorded audio URLs from story messages
+    const recordedAudioMap = new Map();
+    if (allStoryMessages?.messages) {
+      allStoryMessages.messages.forEach(msg => {
+        if (msg.sender === 'user' && msg.audio_url) {
+          recordedAudioMap.set(msg.user_id, {
+            audio_url: msg.audio_url,
+            audio_filename: msg.audio_filename,
+            audio_duration_seconds: msg.audio_duration_seconds,
+            user_first_name: msg.user_first_name,
+            message_content: msg.content
+          });
+        }
+      });
+    }
+    
+    console.log('🎙️ Found recorded audio for users:', Array.from(recordedAudioMap.keys()));
+    
     // Format story conversations with proper voice attribution
     let storyConversations = 'No story circle conversations available yet.';
     if (allStoryMessages?.messages && allStoryMessages.messages.length > 0) {
@@ -634,6 +652,28 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
         scriptKeys: Object.keys(generatedStoryCut.script || {}),
         fullScript: generatedStoryCut.script?.fullScript?.substring(0, 200) + '...'
       });
+      
+      // Add recorded audio URLs to the story cut data
+      generatedStoryCut.recordedAudio = {};
+      
+      // Map recorded audio to contributors
+      if (voiceCasting.contributors) {
+        voiceCasting.contributors.forEach(contributor => {
+          if (recordedAudioMap.has(contributor.id)) {
+            const audioData = recordedAudioMap.get(contributor.id);
+            generatedStoryCut.recordedAudio[contributor.id] = {
+              audio_url: audioData.audio_url,
+              audio_filename: audioData.audio_filename,
+              audio_duration_seconds: audioData.audio_duration_seconds,
+              user_first_name: audioData.user_first_name,
+              message_content: audioData.message_content
+            };
+          }
+        });
+      }
+      
+      console.log('🎙️ Added recorded audio to story cut:', Object.keys(generatedStoryCut.recordedAudio));
+      
     } catch (parseError) {
       console.error('OpenAI returned invalid JSON:', result.content);
       throw new Error('OpenAI returned invalid JSON response');
