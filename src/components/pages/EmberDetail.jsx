@@ -522,6 +522,11 @@ export default function EmberDetail() {
       
       console.log('📚 Loaded story styles:', styles.map(s => s.name));
       setAvailableStoryStyles(styles);
+      
+      // Force a re-render by updating the story cuts state
+      if (storyCuts.length > 0) {
+        setStoryCuts(prev => [...prev]);
+      }
     } catch (error) {
       console.error('Failed to fetch story styles:', error);
       setAvailableStoryStyles([]);
@@ -651,6 +656,14 @@ export default function EmberDetail() {
     }
   }, [ember?.id]);
 
+  // Force re-render of story cuts when styles are loaded
+  useEffect(() => {
+    if (availableStoryStyles.length > 0 && storyCuts.length > 0) {
+      // Trigger a re-render by updating the story cuts state
+      setStoryCuts(prev => [...prev]);
+    }
+  }, [availableStoryStyles.length]);
+
   // Set up global actions for EmberSettingsPanel to access
   useEffect(() => {
     window.EmberDetailActions = {
@@ -693,6 +706,23 @@ export default function EmberDetail() {
 
   // Helper function to get style display name from database styles
   const getStyleDisplayName = (style) => {
+    // If styles aren't loaded yet, try to provide a readable name
+    if (availableStoryStyles.length === 0) {
+      // Convert common prompt keys to readable names
+      const styleMap = {
+        'documentary_style': 'Documentary Style',
+        'movie_trailer_style': 'Movie Trailer Style',
+        'public_radio_style': 'Public Radio Style',
+        'podcast_style': 'Podcast Style',
+        'sports_commentary_style': 'Sports Commentary Style',
+        'dramatic_monologue_style': 'Dramatic Monologue Style',
+        'fairy_tale_style': 'Fairy Tale Style',
+        'news_report_style': 'News Report Style'
+      };
+      
+      return styleMap[style] || style;
+    }
+    
     const dbStyle = availableStoryStyles.find(s => s.id === style || s.prompt_key === style);
     return dbStyle ? dbStyle.name : style;
   };
@@ -1545,39 +1575,8 @@ export default function EmberDetail() {
 
   // Extract all wiki content as text for narration
   const extractWikiContent = (ember) => {
-    let content = [];
-    
-    // Add title
-    if (ember?.title) {
-      content.push(`This is ${ember.title}.`);
-    }
-    
-    // Add story messages if they exist
-    // Note: We'd need to fetch story messages separately for a real implementation
-    content.push("Here's the story behind this moment...");
-    
-    // Add location info
-    if (ember?.location_name) {
-      content.push(`This took place at ${ember.location_name}.`);
-    }
-    
-    // Add date/time info  
-    if (ember?.date_taken) {
-      const date = new Date(ember.date_taken);
-      content.push(`This photo was taken on ${date.toLocaleDateString()}.`);
-    }
-    
-    // Add image analysis if available
-    if (ember?.analysis_data) {
-      content.push("The image shows " + ember.analysis_data);
-    }
-    
-    // Fallback content
-    if (content.length <= 1) {
-      content.push("This is a beautiful memory captured in time. Each photo tells a unique story waiting to be shared and remembered.");
-    }
-    
-    return content.join(' ');
+    // Simple instructional message directing users to Story Cuts
+    return "Let's build this story together by pressing Story Cuts on the bottom left.";
   };
 
   // Handle smooth exit from fullscreen play
@@ -1661,8 +1660,8 @@ export default function EmberDetail() {
         const content = extractWikiContent(ember);
         console.log('📖 Content to narrate:', content);
 
-        // Generate speech using ElevenLabs (default voice)
-        const audioBlob = await textToSpeech(content);
+        // Generate speech using ElevenLabs with Ember voice (Lily)
+        const audioBlob = await textToSpeech(content, selectedEmberVoice);
         
         // Create audio URL and play
         const audioUrl = URL.createObjectURL(audioBlob);

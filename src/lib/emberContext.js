@@ -570,10 +570,22 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
         .join('\n');
     }
     
-    // Get owner's information for proper voice attribution
-    const { supabase } = await import('./supabase.js');
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    const ownerFirstName = user?.user_metadata?.first_name || user?.user_metadata?.full_name?.split(' ')[0] || 'Owner';
+    // Get ember owner's information for proper voice attribution
+    // Check if owner info is available in voiceCasting.contributors first
+    let ownerFirstName = 'Owner';
+    if (voiceCasting.contributors) {
+      const ownerInfo = voiceCasting.contributors.find(c => c.role === 'owner');
+      if (ownerInfo?.name) {
+        ownerFirstName = ownerInfo.name;
+      }
+    }
+    
+    // If not found in voiceCasting, get from current user (fallback for cases where owner is current user)
+    if (ownerFirstName === 'Owner') {
+      const { supabase } = await import('./supabase.js');
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      ownerFirstName = user?.user_metadata?.first_name || user?.user_metadata?.full_name?.split(' ')[0] || 'Owner';
+    }
 
     // Prepare all the variables for the master prompt
     const promptVariables = {
