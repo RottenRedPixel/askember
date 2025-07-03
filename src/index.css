@@ -14,12 +14,21 @@
 
 @keyframes scaleIn {
   from {
-    transform: scale(0.95);
-    opacity: 0.8;
+    transform: scale(0.50);
+    opacity: 0;
   }
   to {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+@keyframes fadeOutToBlack {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 

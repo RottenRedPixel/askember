@@ -414,6 +414,8 @@ export default function EmberDetail() {
   const [activeAudioSegments, setActiveAudioSegments] = useState([]);
   const playbackStoppedRef = useRef(false);
   const [isExitingPlay, setIsExitingPlay] = useState(false);
+  const [showEndHold, setShowEndHold] = useState(false);
+  const [isFadingOut, setIsFadingOut] = useState(false);
   const [currentVoiceType, setCurrentVoiceType] = useState(null);
   const [availableVoices, setAvailableVoices] = useState([]);
   const [selectedEmberVoice, setSelectedEmberVoice] = useState('');
@@ -1598,6 +1600,47 @@ export default function EmberDetail() {
 
 
 
+  // Handle completion of playback with 3-second fade-out sequence
+  const handlePlaybackComplete = () => {
+    console.log('🎬 Playback complete, starting 3-second fade-out...');
+    
+    // Stop multi-voice playback chain
+    playbackStoppedRef.current = true;
+    
+    // Stop all active audio segments
+    activeAudioSegments.forEach((segment, index) => {
+      if (segment.audio) {
+        console.log(`🛑 Stopping segment ${index + 1}: [${segment.voiceTag}]`);
+        segment.audio.pause();
+        segment.audio.currentTime = 0;
+        
+        // Clean up blob URLs
+        if (segment.url && segment.url.startsWith('blob:')) {
+          URL.revokeObjectURL(segment.url);
+        }
+      }
+    });
+    
+    // Clear states immediately
+    setIsPlaying(false);
+    setCurrentVoiceType(null);
+    setActiveAudioSegments([]);
+    
+    // Start fade-out animation
+    setIsFadingOut(true);
+    
+    // After 3 seconds of fade-out, show black hold then exit
+    setTimeout(() => {
+      setIsFadingOut(false);
+      setShowEndHold(true);
+      
+      // After black hold, exit to normal view
+      setTimeout(() => {
+        handleExitPlay();
+      }, 1000); // Brief black hold after fade-out
+    }, 3000);
+  };
+
   const handleExitPlay = () => {
     setIsExitingPlay(true);
     
@@ -1632,6 +1675,8 @@ export default function EmberDetail() {
       setIsGeneratingAudio(false);
       setShowFullscreenPlay(false);
       setIsExitingPlay(false);
+      setShowEndHold(false);
+      setIsFadingOut(false);
       setCurrentlyPlayingStoryCut(null);
       setCurrentAudio(null);
       setActiveAudioSegments([]);
@@ -1717,6 +1762,7 @@ export default function EmberDetail() {
               setIsGeneratingAudio, 
               setIsPlaying, 
               handleExitPlay, 
+              handlePlaybackComplete,
               setActiveAudioSegments,
               playbackStoppedRef,
               setCurrentVoiceType
@@ -1737,7 +1783,7 @@ export default function EmberDetail() {
             setCurrentAudio(audio);
             
             audio.onended = () => {
-              handleExitPlay();
+              handlePlaybackComplete();
               URL.revokeObjectURL(audioUrl);
             };
             
@@ -1770,7 +1816,7 @@ export default function EmberDetail() {
           
           // Handle audio end
           audio.onended = () => {
-            handleExitPlay();
+            handlePlaybackComplete();
             URL.revokeObjectURL(audioUrl);
           };
           
@@ -1807,7 +1853,7 @@ export default function EmberDetail() {
         
         // Handle audio end
         audio.onended = () => {
-          handleExitPlay();
+          handlePlaybackComplete();
           URL.revokeObjectURL(audioUrl);
           
           // Show helpful message about creating story cuts for richer narration
@@ -3016,46 +3062,55 @@ export default function EmberDetail() {
             animation: isExitingPlay ? 'fadeOut 0.5s ease-out' : 'fadeIn 0.7s ease-out'
           }}
         >
-          {/* Background Image */}
-          <img 
-            src={ember.image_url} 
-            alt={ember.title || 'Ember'}
-            className="absolute inset-0 w-full h-full object-cover transition-all duration-1000 ease-out"
-            style={{
-              animation: 'scaleIn 1s ease-out'
-            }}
-          />
+                    {/* Background Image - only show when not loading and not in end hold */}
+          {!isGeneratingAudio && !showEndHold && (
+            <img 
+              src={ember.image_url} 
+              alt={ember.title || 'Ember'}
+              className="absolute inset-0 w-full h-full object-cover transition-all duration-1000 ease-out"
+              style={{
+                animation: isFadingOut ? 'fadeOutToBlack 3s ease-out' : 'scaleIn 3s ease-out'
+              }}
+            />
+          )}
           
-          {/* Voice Type Overlay */}
-          <div 
-            className={`absolute inset-0 transition-all duration-500 ease-out ${
-              currentVoiceType === 'ember' ? 'voice-overlay-ember' : 
-              currentVoiceType === 'narrator' ? 'voice-overlay-narrator' : 
-              currentVoiceType === 'contributor' ? 'voice-overlay-contributor' : ''
-            }`}
-          />
+          {/* Voice Type Overlay - only show when playing and not fading out */}
+          {!isGeneratingAudio && !showEndHold && !isFadingOut && (
+            <div 
+              className={`absolute inset-0 transition-all duration-500 ease-out ${
+                currentVoiceType === 'ember' ? 'voice-overlay-ember' : 
+                currentVoiceType === 'narrator' ? 'voice-overlay-narrator' : 
+                currentVoiceType === 'contributor' ? 'voice-overlay-contributor' : ''
+              }`}
+            />
+          )}
           
-          {/* Dark overlay */}
-          <div 
-            className="absolute inset-0 bg-black bg-opacity-40 transition-opacity duration-1000 ease-out"
-            style={{
-              animation: 'fadeInOverlay 1.2s ease-out'
-            }}
-          />
+          {/* Dark overlay - only show when playing and not fading out */}
+          {!isGeneratingAudio && !showEndHold && !isFadingOut && (
+            <div 
+              className="absolute inset-0 bg-black bg-opacity-40 transition-opacity duration-1000 ease-out"
+              style={{
+                animation: 'fadeInOverlay 1.2s ease-out'
+              }}
+            />
+          )}
           
-          {/* Title Overlay - Same position as normal view */}
-          <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none z-20">
-            <div className="container mx-auto max-w-4xl">
-              <h1 className="text-white text-2xl font-bold truncate drop-shadow-md text-left pl-2">
-                {ember.title || 'Untitled Ember'}
-              </h1>
-                </div>
-            </div>
+          {/* Title Overlay - only show when playing and not fading out */}
+          {!isGeneratingAudio && !showEndHold && !isFadingOut && (
+            <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none z-20">
+              <div className="container mx-auto max-w-4xl">
+                <h1 className="text-white text-2xl font-bold truncate drop-shadow-md text-left pl-2">
+                  {ember.title || 'Untitled Ember'}
+                </h1>
+                  </div>
+              </div>
+          )}
 
 
 
-          {/* Bottom right capsule: Play controls and exit */}
-          <div className="absolute right-4 bottom-4 z-20">
+          {/* Bottom right capsule: Play controls and exit - hide during fade-out and end hold */}
+          {!showEndHold && !isFadingOut && (
+            <div className="absolute right-4 bottom-4 z-20">
             <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
             
             {/* Play/Pause Button */}
@@ -3096,19 +3151,22 @@ export default function EmberDetail() {
             </button>
             </div>
           </div>
+          )}
           
-          {/* Loading message when generating audio */}
+          {/* Loading screen - pure black with subtle loading indicator */}
           {isGeneratingAudio && (
-            <div className="absolute inset-0 flex items-center justify-center z-30">
-              <div className="bg-black/70 text-white px-6 py-4 rounded-xl backdrop-blur-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span className="text-lg font-medium">Generating voices...</span>
-                </div>
-                <p className="text-sm text-gray-300 mt-1 text-center">
-                  Creating multi-voice audio experience
-                </p>
+            <div className="absolute inset-0 bg-black z-30 flex items-center justify-center">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin opacity-50" />
+                <span className="text-white text-lg font-medium opacity-50">Generating voices...</span>
               </div>
+            </div>
+          )}
+          
+          {/* End hold screen - pure black */}
+          {showEndHold && (
+            <div className="absolute inset-0 bg-black z-30">
+              {/* Completely black screen */}
             </div>
           )}
         </div>
@@ -3320,7 +3378,7 @@ export default function EmberDetail() {
 
   // Play multiple audio segments sequentially
   const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, stateSetters) => {
-    const { setIsGeneratingAudio, setIsPlaying, handleExitPlay, setActiveAudioSegments, playbackStoppedRef, setCurrentVoiceType } = stateSetters;
+    const { setIsGeneratingAudio, setIsPlaying, handleExitPlay, handlePlaybackComplete, setActiveAudioSegments, playbackStoppedRef, setCurrentVoiceType } = stateSetters;
     
     console.log('🎭 Starting multi-voice playback with', segments.length, 'segments');
     
@@ -3364,7 +3422,7 @@ export default function EmberDetail() {
           // All segments finished or playback was stopped
           if (!playbackStoppedRef.current) {
             console.log('🎬 Multi-voice playback complete');
-            handleExitPlay();
+            handlePlaybackComplete();
           } else {
             console.log('🛑 Multi-voice playback stopped');
           }
