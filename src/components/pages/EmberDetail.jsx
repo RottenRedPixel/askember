@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -408,8 +408,11 @@ export default function EmberDetail() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [userPermission, setUserPermission] = useState('none');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [showFullscreenPlay, setShowFullscreenPlay] = useState(false);
   const [currentAudio, setCurrentAudio] = useState(null);
+  const [activeAudioSegments, setActiveAudioSegments] = useState([]);
+  const playbackStoppedRef = useRef(false);
   const [isExitingPlay, setIsExitingPlay] = useState(false);
   const [availableVoices, setAvailableVoices] = useState([]);
   const [selectedEmberVoice, setSelectedEmberVoice] = useState('');
@@ -539,6 +542,19 @@ export default function EmberDetail() {
   useEffect(() => {
     fetchVoices();
     fetchStoryStyles();
+  }, []);
+
+  // Cleanup all audio when component unmounts
+  useEffect(() => {
+    return () => {
+      console.log('🧹 Component unmounting, cleaning up audio...');
+      // Stop any playing audio
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      }
+      playbackStoppedRef.current = true;
+    };
   }, []);
 
   // Fetch tagged people data for the current ember
@@ -1576,25 +1592,52 @@ export default function EmberDetail() {
 
   // Extract all wiki content as text for narration
   const extractWikiContent = (ember) => {
-    // Simple instructional message directing users to Story Cuts
-    return "Let's build this story together by pressing Story Cuts on the bottom left.";
+    return `${ember.title}. ${ember.description}`;
   };
 
-  // Handle smooth exit from fullscreen play
+
+
   const handleExitPlay = () => {
     setIsExitingPlay(true);
+    
+    // Stop multi-voice playback chain
+    playbackStoppedRef.current = true;
+    
+    // Stop current single audio if it exists
     if (currentAudio) {
       currentAudio.pause();
-      setCurrentAudio(null);
+      currentAudio.currentTime = 0;
     }
-    setIsPlaying(false);
-    setCurrentlyPlayingStoryCut(null);
     
-    // Wait for exit animation to complete
+    // Stop all active audio segments from multi-voice playback
+    activeAudioSegments.forEach((segment, index) => {
+      if (segment.audio) {
+        console.log(`🛑 Stopping segment ${index + 1}: [${segment.voiceTag}]`);
+        segment.audio.pause();
+        segment.audio.currentTime = 0;
+        
+        // Clean up blob URLs
+        if (segment.url && segment.url.startsWith('blob:')) {
+          URL.revokeObjectURL(segment.url);
+        }
+      }
+    });
+    
+    // Use React 18's automatic batching - no need for setTimeout
+    // The exit animation is handled by CSS transitions
     setTimeout(() => {
+      // Batch all state updates together
+      setIsPlaying(false);
+      setIsGeneratingAudio(false);
       setShowFullscreenPlay(false);
       setIsExitingPlay(false);
-    }, 500);
+      setCurrentlyPlayingStoryCut(null);
+      setCurrentAudio(null);
+      setActiveAudioSegments([]);
+      
+      // Reset playback flag for next play
+      playbackStoppedRef.current = false;
+    }, 300);
   };
 
   // Handle play button click - now uses story cuts if available
@@ -1607,7 +1650,7 @@ export default function EmberDetail() {
 
     try {
       setShowFullscreenPlay(true);
-      setIsPlaying(true);
+      setIsGeneratingAudio(true); // Show loading state
       setIsExitingPlay(false);
 
       // Check if we have story cuts available
@@ -1646,10 +1689,19 @@ export default function EmberDetail() {
           
           if (segments.length > 0) {
             // Use new multi-voice playback system
-            await playMultiVoiceAudio(segments, selectedStoryCut, recordedAudio);
+            await playMultiVoiceAudio(segments, selectedStoryCut, recordedAudio, { 
+              setIsGeneratingAudio, 
+              setIsPlaying, 
+              handleExitPlay, 
+              setActiveAudioSegments,
+              playbackStoppedRef
+            });
           } else {
             // Fallback if no segments could be parsed
             console.log('⚠️ No segments could be parsed, falling back to single voice');
+            setIsGeneratingAudio(false);
+            setIsPlaying(true);
+            
             const content = selectedStoryCut.full_script;
             const voiceId = selectedStoryCut.ember_voice_id;
             
@@ -1675,6 +1727,8 @@ export default function EmberDetail() {
         } else {
           // No recorded audio, use current synthesized approach
           console.log('🔊 No recorded audio found, using synthesized speech');
+          setIsGeneratingAudio(false);
+          setIsPlaying(true);
           
           // Use the story cut's script and voice
           const content = selectedStoryCut.full_script;
@@ -1709,6 +1763,9 @@ export default function EmberDetail() {
         // Fallback to basic wiki content if no story cuts exist
         console.log('📖 No story cuts found, using basic wiki content');
         console.log('💡 Tip: Create a story cut for richer, AI-generated narration!');
+        
+        setIsGeneratingAudio(false);
+        setIsPlaying(true);
         
         // Simple fallback content
         const content = "Let's build this story together by pressing Story Cuts on the bottom left.";
@@ -1751,6 +1808,7 @@ export default function EmberDetail() {
     } catch (error) {
       console.error('🔊 Play error:', error);
       setIsPlaying(false);
+      setIsGeneratingAudio(false);
       setShowFullscreenPlay(false);
       alert('Failed to generate audio. Please check your ElevenLabs API key configuration.');
     }
@@ -2009,10 +2067,17 @@ export default function EmberDetail() {
                 <button
                   className="p-1 hover:bg-white/50 rounded-full transition-colors"
                   onClick={handlePlay}
-                  aria-label={isPlaying ? "Stop playing" : "Play ember story"}
+                  aria-label={isGeneratingAudio ? "Generating audio..." : (isPlaying ? "Stop playing" : "Play ember story")}
                   type="button"
+                  disabled={isGeneratingAudio}
                 >
-                  <PlayCircle size={24} className={`text-gray-700 ${isPlaying ? 'text-blue-600' : ''}`} />
+                  {isGeneratingAudio ? (
+                    <div className="w-6 h-6 flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : (
+                    <PlayCircle size={24} className={`text-gray-700 ${isPlaying ? 'text-blue-600' : ''}`} />
+                  )}
                 </button>
               </div>
             </div>
@@ -2962,17 +3027,22 @@ export default function EmberDetail() {
             {/* Play/Pause Button */}
             <button
               onClick={handlePlay}
-                className="rounded-full p-1 hover:bg-white/70 transition-colors"
-                aria-label={isPlaying ? "Pause playing" : "Resume playing"}
-                type="button"
+              className="rounded-full p-1 hover:bg-white/70 transition-colors"
+              aria-label={isGeneratingAudio ? "Generating audio..." : (isPlaying ? "Pause playing" : "Resume playing")}
+              type="button"
+              disabled={isGeneratingAudio}
             >
-              {isPlaying ? (
-                  <div className="w-6 h-6 flex items-center justify-center">
-                    <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm transition-all duration-300"></div>
-                    <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm transition-all duration-300"></div>
+              {isGeneratingAudio ? (
+                <div className="w-6 h-6 flex items-center justify-center">
+                  <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : isPlaying ? (
+                <div className="w-6 h-6 flex items-center justify-center">
+                  <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm transition-all duration-300"></div>
+                  <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm transition-all duration-300"></div>
                 </div>
               ) : (
-                  <PlayCircle size={24} className="text-gray-700 transition-all duration-300" />
+                <PlayCircle size={24} className="text-gray-700 transition-all duration-300" />
               )}
             </button>
               
@@ -2982,16 +3052,31 @@ export default function EmberDetail() {
             {/* Close button */}
             <button
               onClick={handleExitPlay}
-                className="rounded-full p-1 hover:bg-white/70 transition-colors"
+              className="rounded-full p-1 hover:bg-white/70 transition-colors"
               aria-label="Close fullscreen"
-                type="button"
+              type="button"
             >
-                <svg className="w-6 h-6 text-gray-700 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-gray-700 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
             </div>
           </div>
+          
+          {/* Loading message when generating audio */}
+          {isGeneratingAudio && (
+            <div className="absolute inset-0 flex items-center justify-center z-30">
+              <div className="bg-black/70 text-white px-6 py-4 rounded-xl backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span className="text-lg font-medium">Generating voices...</span>
+                </div>
+                <p className="text-sm text-gray-300 mt-1 text-center">
+                  Creating multi-voice audio experience
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -3093,14 +3178,27 @@ export default function EmberDetail() {
     
     try {
       if (type === 'contributor') {
-        // Look for recorded audio by matching voice tag (user first name) to recorded audio
+        // Look for recorded audio by matching voice tag (user first name) AND content similarity
         const userWithRecordedAudio = Object.entries(recordedAudio).find(([userId, audioData]) => {
-          return audioData.user_first_name === voiceTag;
+          // First check if the user name matches
+          if (audioData.user_first_name !== voiceTag) {
+            return false;
+          }
+          
+          // Then check if the content is similar (for now, exact match or contains check)
+          const recordedContent = audioData.message_content?.toLowerCase() || '';
+          const segmentContent = content.toLowerCase();
+          
+          // Check for exact match or if the recorded content contains the segment content
+          return recordedContent === segmentContent || 
+                 recordedContent.includes(segmentContent) ||
+                 segmentContent.includes(recordedContent);
         });
         
         if (userWithRecordedAudio) {
           const [userId, audioData] = userWithRecordedAudio;
-          console.log(`🎙️ Using recorded audio for ${voiceTag} from user ${userId}`);
+          console.log(`🎙️ Using recorded audio for ${voiceTag}: "${content}"`);
+          console.log(`🔗 Matched with recorded: "${audioData.message_content}"`);
           console.log(`🔗 Audio URL:`, audioData.audio_url);
           
           // Create a direct audio element from the recorded URL
@@ -3113,12 +3211,13 @@ export default function EmberDetail() {
             content
           };
         } else {
-          // Fall back to narrator voice with attribution
-          console.log(`🔊 No recorded audio for ${voiceTag}, using narrator with attribution`);
-          console.log(`🎤 Narrator voice ID:`, storyCut.narrator_voice_id);
+          // No matching recorded audio - fall back to synthesized voice
+          console.log(`🔊 No matching recorded audio for ${voiceTag}: "${content}"`);
+          console.log(`🎤 Using fallback voice (Callum) for contributor`);
           
-          const attributedContent = `${voiceTag} said: "${content}"`;
-          const audioBlob = await textToSpeech(attributedContent, storyCut.narrator_voice_id);
+          // Use a fallback voice (Callum - British male voice)
+          const fallbackVoiceId = 'N2lVS1w4EtoT3dr4eOWO'; // Callum's voice ID
+          const audioBlob = await textToSpeech(content, fallbackVoiceId);
           const audioUrl = URL.createObjectURL(audioBlob);
           const audio = new Audio(audioUrl);
           
@@ -3128,7 +3227,7 @@ export default function EmberDetail() {
             url: audioUrl,
             blob: audioBlob,
             voiceTag,
-            content: attributedContent
+            content
           };
         }
       } else if (type === 'ember') {
@@ -3186,15 +3285,21 @@ export default function EmberDetail() {
   };
 
   // Play multiple audio segments sequentially
-  const playMultiVoiceAudio = async (segments, storyCut, recordedAudio) => {
+  const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, stateSetters) => {
+    const { setIsGeneratingAudio, setIsPlaying, handleExitPlay, setActiveAudioSegments, playbackStoppedRef } = stateSetters;
+    
     console.log('🎭 Starting multi-voice playback with', segments.length, 'segments');
+    
+    // Reset playback flag
+    playbackStoppedRef.current = false;
     
     try {
       // Generate all audio segments
+      console.log('⏳ Generating audio for all segments...');
       const audioSegments = [];
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
-        console.log(`🔧 Generating segment ${i + 1}/${segments.length}: [${segment.voiceTag}]`);
+        console.log(`🔧 Generating segment ${i + 1}/${segments.length}: [${segment.voiceTag}] "${segment.content}"`);
         
         try {
           const audioSegment = await generateSegmentAudio(segment, storyCut, recordedAudio);
@@ -3202,27 +3307,33 @@ export default function EmberDetail() {
           console.log(`✅ Generated segment ${i + 1}: [${segment.voiceTag}]`);
         } catch (segmentError) {
           console.error(`❌ Failed to generate segment ${i + 1} [${segment.voiceTag}]:`, segmentError);
+          console.error(`❌ Segment content: "${segment.content}"`);
+          console.error(`❌ Segment type: ${segment.type}`);
           throw new Error(`Failed to generate audio for segment "${segment.voiceTag}": ${segmentError.message}`);
         }
       }
       
       console.log('✅ Generated', audioSegments.length, 'audio segments');
+      console.log('🎬 Starting playback...');
+      
+      // Store segments in state for cleanup
+      setActiveAudioSegments(audioSegments);
+      
+      // Switch from generating to playing state
+      setIsGeneratingAudio(false);
+      setIsPlaying(true);
       
       let currentSegmentIndex = 0;
-      const createdUrls = []; // Track URLs for cleanup
       
       const playNextSegment = () => {
-        if (currentSegmentIndex >= audioSegments.length) {
-          // All segments finished
-          console.log('🎬 Multi-voice playback complete');
-          handleExitPlay();
-          
-          // Cleanup blob URLs
-          createdUrls.forEach(url => {
-            if (url.startsWith('blob:')) {
-              URL.revokeObjectURL(url);
-            }
-          });
+        if (playbackStoppedRef.current || currentSegmentIndex >= audioSegments.length) {
+          // All segments finished or playback was stopped
+          if (!playbackStoppedRef.current) {
+            console.log('🎬 Multi-voice playback complete');
+            handleExitPlay();
+          } else {
+            console.log('🛑 Multi-voice playback stopped');
+          }
           return;
         }
         
@@ -3231,13 +3342,10 @@ export default function EmberDetail() {
         
         console.log(`▶️ Playing segment ${currentSegmentIndex + 1}/${audioSegments.length}: [${currentSegment.voiceTag}]`);
         
-        // Track URLs for cleanup
-        if (currentSegment.url) {
-          createdUrls.push(currentSegment.url);
-        }
-        
         // Handle segment completion
         audio.onended = () => {
+          if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
+          
           console.log(`✅ Completed segment: [${currentSegment.voiceTag}]`);
           currentSegmentIndex++;
           playNextSegment();
@@ -3245,6 +3353,8 @@ export default function EmberDetail() {
         
         // Handle errors
         audio.onerror = (error) => {
+          if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
+          
           console.error(`❌ Error playing segment [${currentSegment.voiceTag}]:`, error);
           currentSegmentIndex++;
           playNextSegment(); // Continue to next segment
@@ -3252,6 +3362,8 @@ export default function EmberDetail() {
         
         // Play the segment
         audio.play().catch(error => {
+          if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
+          
           console.error(`❌ Failed to play segment [${currentSegment.voiceTag}]:`, error);
           currentSegmentIndex++;
           playNextSegment(); // Continue to next segment
@@ -3264,6 +3376,12 @@ export default function EmberDetail() {
     } catch (error) {
       console.error('❌ Error in multi-voice playback:', error);
       console.error('❌ Full error details:', error.message, error.stack);
+      
+      // Reset states on error
+      setIsGeneratingAudio(false);
+      setIsPlaying(false);
+      setActiveAudioSegments([]);
+      
       throw error;
     }
   };
