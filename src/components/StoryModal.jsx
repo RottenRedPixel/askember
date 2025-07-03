@@ -135,7 +135,7 @@ const ModalContent = ({
     ) : (
       <>
         {/* Chat Messages */}
-        <div className="space-y-4 max-h-60 overflow-y-auto">
+        <div className="space-y-4">
           {messages.map((message, index) => {
             // Determine display name for user messages
             const getUserDisplayName = (msg) => {
