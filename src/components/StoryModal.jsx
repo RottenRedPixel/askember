@@ -21,6 +21,7 @@ import {
   deleteStoryMessage
 } from '../lib/database';
 import { speechToText, storeVoiceTraining } from '../lib/elevenlabs';
+import { generateEmberAIQuestion } from '@/lib/emberAI';
 
 // Media query hook
 function useMediaQuery(query) {
@@ -589,7 +590,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         console.log('❓ [UI] Current user has answered', currentUserAnswers, 'questions');
         
         if (currentUserAnswers < 10) { // Still have questions to ask
-          const nextQuestion = generateFollowUpQuestion(uiMessages.filter(msg => msg.userId === user.id));
+          const nextQuestion = await generateFollowUpQuestion(uiMessages.filter(msg => msg.userId === user.id));
           console.log('❓ [UI] Generated next question:', nextQuestion);
           setCurrentQuestion(nextQuestion);
         } else {
@@ -1051,7 +1052,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       // Generate next question based on the conversation
       const answerCount = updatedMessages.filter(msg => msg.type === 'answer').length;
       if (answerCount < 10) { // Limit to 10 questions
-        const nextQuestion = generateFollowUpQuestion(updatedMessages);
+        const nextQuestion = await generateFollowUpQuestion(updatedMessages);
         setCurrentQuestion(nextQuestion);
       } else {
         setCurrentQuestion(''); // No more questions - conversation complete
@@ -1080,24 +1081,58 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
     }
   };
 
-  // Generate follow-up questions based on conversation history
-  const generateFollowUpQuestion = (conversationHistory) => {
-    const followUpQuestions = [
-      "What emotions were you feeling in that moment?",
-      "Who else was involved in this experience?",
-      "What led up to this moment?",
-      "How did this experience change you?",
-      "What details from that day do you remember most vividly?",
-      "What was the most surprising thing about this experience?",
-      "If you could go back, what would you do differently?",
-      "What would you want others to learn from this story?",
-      "How does this moment fit into your larger life story?",
-      "What sounds, smells, or textures do you remember from that time?"
-    ];
-    
-    // Simple logic to pick a question based on conversation length
-    const questionIndex = Math.min(conversationHistory.filter(msg => msg.type === 'answer').length, followUpQuestions.length - 1);
-    return followUpQuestions[questionIndex];
+  // Generate AI-powered follow-up questions based on conversation history
+  const generateFollowUpQuestion = async (conversationHistory, lastUserMessage = null) => {
+    try {
+      console.log('🤖 Generating AI-powered follow-up question...');
+      
+      // Use the last user message as the "new comment" for analysis
+      const newComment = lastUserMessage?.content || lastUserMessage?.message || 
+                        (conversationHistory.length > 0 ? 
+                         conversationHistory[conversationHistory.length - 1]?.content || 
+                         conversationHistory[conversationHistory.length - 1]?.message || 
+                         'User shared their story' : 
+                         'User started sharing their story');
+      
+      const commentAuthor = user?.name || user?.user_name || 'User';
+      
+      // Convert conversation history to the format expected by AI
+      const aiFormattedHistory = conversationHistory.map(msg => ({
+        content: msg.content || msg.message || '',
+        message: msg.content || msg.message || '',
+        user_name: msg.user_name || msg.sender || 'User',
+        created_at: msg.created_at || new Date().toISOString(),
+        sender: msg.sender || 'user'
+      }));
+      
+      console.log('📝 Calling AI with:', { 
+        emberId: ember.id, 
+        newComment: newComment.substring(0, 100) + '...', 
+        commentAuthor,
+        historyLength: aiFormattedHistory.length 
+      });
+      
+      const aiResult = await generateEmberAIQuestion(
+        ember.id, 
+        newComment, 
+        commentAuthor, 
+        aiFormattedHistory
+      );
+      
+      if (aiResult.success) {
+        console.log('✅ AI generated question:', aiResult.question);
+        return aiResult.question;
+      } else {
+        console.warn('⚠️ AI question generation failed, using fallback:', aiResult.error);
+        // Fallback to a generic question if AI fails
+        return "What else would you like to share about this moment?";
+      }
+      
+    } catch (error) {
+      console.error('❌ Error generating AI question:', error);
+      // Fallback to a generic question if there's an error
+      return "Can you tell us more about what made this moment special?";
+    }
   };
 
   // Handle refresh functionality

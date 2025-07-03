@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getEmberChatMessages, addChatMessage } from '@/lib/database';
+import { analyzeCommentAndRespond, shouldEmberAIBeActive } from '@/lib/emberAI';
 import useStore from '@/store';
 import { Question, ChatCircle, CheckCircle, Plus, Minus } from 'phosphor-react';
 
@@ -110,6 +111,61 @@ export default function EmberChat({ emberId }) {
       
       // Clear input
       setNewMessage('');
+
+      // 🤖 EMBER AI INTEGRATION: Analyze the comment and potentially respond
+      try {
+        const shouldAIRespond = await shouldEmberAIBeActive(emberId);
+        
+        if (shouldAIRespond && (messageType === 'comment' || messageType === 'answer')) {
+          console.log('🤖 [EMBER AI] Analyzing new message for potential response...');
+          
+          // Build conversation history from current questions and comments
+          const conversationHistory = [
+            ...questions.map(q => ({
+              sender: q.user_name || 'Anonymous',
+              content: q.message,
+              created_at: q.created_at,
+              messageType: 'question'
+            })),
+            ...comments.map(c => ({
+              sender: c.user_name || 'Anonymous', 
+              content: c.message,
+              created_at: c.created_at,
+              messageType: 'comment'
+            }))
+          ].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+          // Trigger AI analysis (this is async and doesn't block the UI)
+          analyzeCommentAndRespond({
+            emberId,
+            conversationId: null, // EmberChat doesn't use conversation IDs
+            newComment: chatData.message,
+            commentAuthor: chatData.user_name,
+            conversationHistory,
+            options: {
+              shouldRespond: true,
+              minCommentLength: 15, // Require slightly longer comments for AI response
+              maxAIQuestionsPerConvo: 2, // Limit AI in this casual chat context
+              cooldownMinutes: 10 // Longer cooldown for casual chat
+            }
+          }).then(result => {
+            if (result.responded) {
+              console.log('🎉 [EMBER AI] Posted question:', result.question);
+              // Optionally reload messages to show the AI question
+              // For now, we'll let users refresh manually to see AI responses
+            } else {
+              console.log('⏭️ [EMBER AI] No response:', result.reason);
+            }
+          }).catch(error => {
+            console.error('❌ [EMBER AI] Error analyzing comment:', error);
+            // Fail silently - don't interrupt user experience
+          });
+        }
+      } catch (error) {
+        console.error('❌ [EMBER AI] Error in AI integration:', error);
+        // Fail silently - don't interrupt user experience
+      }
+
     } catch (error) {
       console.error('Error sending message:', error);
       alert('Failed to send message. Please try again.');

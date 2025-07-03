@@ -2,8 +2,11 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const Sheet = ({ children, open, onOpenChange, ...props }) => {
+  // Filter out sheet-specific props before spreading to DOM element
+  const { open: _, onOpenChange: __, ...domProps } = { open, onOpenChange, ...props };
+  
   return (
-    <div {...props}>
+    <div {...domProps}>
       {React.Children.map(children, child => 
         React.cloneElement(child, { open, onOpenChange })
       )}
@@ -11,7 +14,16 @@ const Sheet = ({ children, open, onOpenChange, ...props }) => {
   );
 };
 
-const SheetTrigger = React.forwardRef(({ className, children, ...props }, ref) => {
+const SheetTrigger = React.forwardRef(({ className, children, asChild, ...props }, ref) => {
+  if (asChild) {
+    return React.cloneElement(children, {
+      ref,
+      className: cn(className, children.props.className),
+      ...props,
+      ...children.props
+    });
+  }
+  
   return (
     <div ref={ref} className={className} {...props}>
       {children}
@@ -48,6 +60,9 @@ const SheetContent = React.forwardRef(({
     right: "inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm"
   };
 
+  // Filter out sheet-specific props before spreading to DOM element
+  const { open: _, onOpenChange: __, side: ___, ...domProps } = props;
+
   return (
     <>
       {/* Backdrop */}
@@ -66,7 +81,7 @@ const SheetContent = React.forwardRef(({
           sideClasses[side],
           className
         )}
-        {...props}
+        {...domProps}
       >
         {children}
       </div>

@@ -37,11 +37,19 @@ const buttonVariants = cva(
 
 const Button = React.forwardRef(({ className, variant, size, asChild = false, ...props }, ref) => {
   const Comp = asChild ? Slot : "button"
+  
+  // When not using asChild, filter out props that aren't valid for DOM button elements
+  let domProps = props;
+  if (!asChild) {
+    const { onOpenChange, onValueChange, onCheckedChange, ...validDomProps } = props;
+    domProps = validDomProps;
+  }
+  
   return (
     <Comp
       className={cn(buttonVariants({ variant, size, className }))}
       ref={ref}
-      {...props} />
+      {...domProps} />
   );
 })
 Button.displayName = "Button"

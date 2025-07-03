@@ -1,147 +1,96 @@
 import { supabase } from './supabase';
-import { getActivePrompt } from './database';
+import { executePrompt } from './promptManager';
+import { emberContextBuilders } from './emberContext';
 
-// Development mode function to call OpenAI directly
+// Function to generate titles using the new prompt management system
 export async function generateTitlesWithOpenAI(emberData, requestType = 'multiple') {
-  // Check if we're in development mode
-  const isDevelopment = import.meta.env.DEV;
-  const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  console.log('generateTitlesWithOpenAI called:', { emberData, requestType });
   
-  console.log('generateTitlesWithOpenAI called:', { isDevelopment, hasApiKey: !!openaiApiKey, emberData });
-  
-  if (!isDevelopment || !openaiApiKey) {
-    throw new Error('OpenAI direct call only available in development with API key');
-  }
-
-  // Build context from all available wiki data
-  let contextParts = [];
-  console.log('Building context from ember data:', emberData);
-  
-  // Image information
-  if (emberData.image_url) {
-    contextParts.push(`This is a photo analysis for creating a title.`);
-  }
-  
-  // Location data
-  if (emberData.latitude && emberData.longitude) {
-    contextParts.push(`Location: ${emberData.address || `${emberData.latitude}, ${emberData.longitude}`}`);
-    if (emberData.city) {
-      contextParts.push(`City: ${emberData.city}`);
-    }
-    if (emberData.state) {
-      contextParts.push(`State: ${emberData.state}`);
-    }
-    if (emberData.country) {
-      contextParts.push(`Country: ${emberData.country}`);
-    }
-  }
-  
-  if (emberData.manual_location) {
-    contextParts.push(`Manual location: ${emberData.manual_location}`);
-  }
-  
-  // Time and date information
-  if (emberData.ember_timestamp) {
-    const date = new Date(emberData.ember_timestamp);
-    contextParts.push(`Date taken: ${date.toLocaleDateString()}`);
-    contextParts.push(`Time taken: ${date.toLocaleTimeString()}`);
-  }
-  
-  if (emberData.manual_datetime) {
-    const date = new Date(emberData.manual_datetime);
-    contextParts.push(`Manual date/time: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`);
-  }
-  
-  // Camera information
-  if (emberData.camera_make && emberData.camera_model) {
-    contextParts.push(`Camera: ${emberData.camera_make} ${emberData.camera_model}`);
-  }
-  
-  // Image analysis data
-  if (emberData.image_analysis) {
-    contextParts.push(`Image analysis: ${emberData.image_analysis}`);
-  }
-  
-  // Current title (if exists)
-  if (emberData.title && emberData.title !== 'Untitled Ember') {
-    contextParts.push(`Current title: ${emberData.title}`);
-  }
-
-  const context = contextParts.join('\n');
-  console.log('Final context built:', context);
-  console.log('Context parts count:', contextParts.length);
-  
-  // Load prompt from database (MUST be present)
-  let dbPrompt = null;
   try {
-    dbPrompt = await getActivePrompt('title_suggestions');
-    if (!dbPrompt || !dbPrompt.system_prompt || !dbPrompt.user_prompt_template) {
-      throw new Error('Title suggestion prompt not found in database. Please configure it in the admin panel.');
+    // Build rich context using the specialized context builder
+    const context = await emberContextBuilders.buildTitleGenerationContext(emberData);
+    console.log('Final context built:', context);
+
+    // Determine how many titles to request
+    const titlesRequested = requestType === 'multiple' ? 3 : 1;
+    
+    // Add the number of titles to context variables
+    const contextVariables = {
+      context,
+      titles_requested: titlesRequested,
+      format_instruction: requestType === 'multiple' 
+        ? 'Return 3 titles, one per line, without numbers or bullets.'
+        : 'Return only the title, no additional text or formatting.'
+    };
+
+    // Execute the prompt using the new system
+    const result = await executePrompt('title_generation', contextVariables);
+
+    if (!result.success) {
+      throw new Error(`Failed to generate title suggestion: ${result.error}`);
     }
-  } catch (e) {
-    throw new Error('Title suggestion prompt not found in database. Please configure it in the admin panel.');
-  }
 
-  // Build user prompt from template
-  const userPrompt = dbPrompt.user_prompt_template.replace('{{context}}', context);
-  const systemPrompt = dbPrompt.system_prompt;
-  
-  let prompt;
-  if (requestType === 'multiple') {
-    prompt = `Based on the following information about a photo/memory, suggest 3 creative, meaningful, and concise titles (each under 30 characters). The titles should capture the essence of the moment, location, time, or emotions. Avoid generic titles like "Perfect Moment" or "Golden Hour" unless they're truly relevant to the specific context.\n\nContext:\n${context}\n\nReturn only 3 titles, one per line, without numbers or bullets. Make them unique and specific to this particular moment/photo.`;
-  } else {
-    prompt = `Based on the following information about a photo/memory, suggest 1 creative, meaningful, and concise title (under 30 characters). The title should capture the essence of the moment, location, time, or emotions. Avoid generic titles unless they're truly relevant to the specific context.\n\nContext:\n${context}\n\nReturn only the title, no additional text or formatting.`;
-  }
-  
-  console.log('Full prompt being sent to OpenAI:', prompt);
+    const aiResponse = result.content?.trim() || '';
+    console.log('Raw AI response:', aiResponse);
+    
+    if (requestType === 'multiple') {
+      // Parse titles more intelligently
+      let titles = aiResponse.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        // Remove explanatory text lines
+        .filter(line => !line.toLowerCase().includes('here are') && 
+                       !line.toLowerCase().includes('suggestions') && 
+                       !line.toLowerCase().includes('provide more') &&
+                       !line.toLowerCase().includes('feel free') &&
+                       !line.toLowerCase().includes('if you can'))
+        // Clean up numbered/bulleted titles
+        .map(line => {
+          // Remove numbers (1., 2., etc.), bullets (•, -, *), and quotes
+          return line.replace(/^\d+\.\s*/, '')           // Remove "1. "
+                    .replace(/^[•\-*]\s*/, '')           // Remove "• ", "- ", "* "
+                    .replace(/^["'`]/g, '')              // Remove starting quotes
+                    .replace(/["'`]$/g, '')              // Remove ending quotes
+                    .trim();
+        })
+        .filter(line => line.length > 0 && line.length < 50) // Reasonable title length
+        .slice(0, 3); // Take first 3 valid titles
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openaiApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: userPrompt
-        }
-      ],
-      max_tokens: 150,
-      temperature: 0.8,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(`OpenAI API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
-  }
-
-  const data = await response.json();
-  const aiResponse = data.choices[0].message.content.trim();
-  console.log('Raw AI response:', aiResponse);
-  
-  if (requestType === 'multiple') {
-    // Split into array of titles
-    const titles = aiResponse.split('\n').filter(title => title.trim().length > 0).slice(0, 3);
-    console.log('Parsed titles:', titles);
-    return { 
-      suggestions: titles,
-      context: context,
-      tokens_used: data.usage.total_tokens
-    };
-  } else {
-    return { 
-      suggestion: aiResponse,
-      context: context,
-      tokens_used: data.usage.total_tokens
-    };
+      console.log('Parsed titles:', titles);
+      
+      // Fallback if parsing failed
+      if (titles.length === 0) {
+        titles = ['Creative Title', 'Memorable Moment', 'Special Memory'];
+      }
+      
+      return { 
+        suggestions: titles,
+        context: context,
+        tokens_used: result.tokensUsed || 0
+      };
+    } else {
+      // For single titles, also clean up
+      let cleanTitle = aiResponse
+        .replace(/^\d+\.\s*/, '')           // Remove "1. "
+        .replace(/^[•\-*]\s*/, '')           // Remove bullets
+        .replace(/^["'`]/g, '')              // Remove starting quotes
+        .replace(/["'`]$/g, '')              // Remove ending quotes
+        .split('\n')[0]                      // Take first line only
+        .trim();
+      
+      if (!cleanTitle || cleanTitle.length === 0) {
+        cleanTitle = 'Creative Title';
+      }
+      
+      return { 
+        suggestion: cleanTitle,
+        context: context,
+        tokens_used: result.tokensUsed || 0
+      };
+    }
+  } catch (error) {
+    console.error('Error in generateTitlesWithOpenAI:', error);
+    throw error;
   }
 }
 
@@ -188,75 +137,19 @@ export async function initializeDefaultSuggestedNames(emberId, emberData = null)
   try {
     let suggestedNames = [];
     if (emberData) {
-      const promptKeys = [
-        'title_suggestion_1',
-        'title_suggestion_2',
-        'title_suggestion_3',
-      ];
-      for (const key of promptKeys) {
-        try {
-          const prompt = await getActivePrompt(key);
-          if (!prompt || !prompt.system_prompt || !prompt.user_prompt_template) {
-            console.error(`Prompt ${key} not found or incomplete in database.`);
-            continue;
-          }
-          // Build context as before
-          let contextParts = [];
-          if (emberData.image_url) contextParts.push(`This is a photo analysis for creating a title.`);
-          if (emberData.latitude && emberData.longitude) {
-            contextParts.push(`Location: ${emberData.address || `${emberData.latitude}, ${emberData.longitude}`}`);
-            if (emberData.city) contextParts.push(`City: ${emberData.city}`);
-            if (emberData.state) contextParts.push(`State: ${emberData.state}`);
-            if (emberData.country) contextParts.push(`Country: ${emberData.country}`);
-          }
-          if (emberData.manual_location) contextParts.push(`Manual location: ${emberData.manual_location}`);
-          if (emberData.ember_timestamp) {
-            const date = new Date(emberData.ember_timestamp);
-            contextParts.push(`Date taken: ${date.toLocaleDateString()}`);
-            contextParts.push(`Time taken: ${date.toLocaleTimeString()}`);
-          }
-          if (emberData.manual_datetime) {
-            const date = new Date(emberData.manual_datetime);
-            contextParts.push(`Manual date/time: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`);
-          }
-          if (emberData.camera_make && emberData.camera_model) contextParts.push(`Camera: ${emberData.camera_make} ${emberData.camera_model}`);
-          if (emberData.image_analysis) contextParts.push(`Image analysis: ${emberData.image_analysis}`);
-          if (emberData.title && emberData.title !== 'Untitled Ember') contextParts.push(`Current title: ${emberData.title}`);
-          const context = contextParts.join('\n');
-          // Build user prompt from template
-          const userPrompt = prompt.user_prompt_template.replace('{{context}}', context);
-          const systemPrompt = prompt.system_prompt;
-          // Call OpenAI
-          const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${openaiApiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-              ],
-              max_tokens: 150,
-              temperature: 0.8,
-            }),
-          });
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error(`OpenAI API error for ${key}:`, response.status, errorData);
-            continue;
-          }
-          const data = await response.json();
-          const aiResponse = data.choices[0].message.content.trim();
-          if (aiResponse) suggestedNames.push(aiResponse);
-        } catch (err) {
-          console.error(`Error generating title for ${key}:`, err);
+      try {
+        // Use the new prompt system to generate 3 titles
+        const result = await generateTitlesWithOpenAI(emberData, 'multiple');
+        if (result.suggestions && result.suggestions.length > 0) {
+          suggestedNames = result.suggestions;
+          console.log('AI generated clean titles for initialization:', suggestedNames);
         }
+      } catch (err) {
+        console.error('Error generating titles with new system:', err);
+        // Continue to fallback
       }
     }
+    
     // Fallback to generic names if AI fails or no ember data provided
     if (!suggestedNames || suggestedNames.length === 0) {
       console.log('Using fallback default names - AI generation failed or returned empty');
@@ -266,6 +159,7 @@ export async function initializeDefaultSuggestedNames(emberId, emberData = null)
         'Title 3'
       ];
     }
+    
     // Ensure we have exactly 3 names
     const namesToAdd = suggestedNames.slice(0, 3);
     const promises = namesToAdd.map(name => 
@@ -310,55 +204,12 @@ export async function deleteSuggestedName(nameId) {
 
 // Helper for Let Ember Try
 export async function generateLetEmberTryTitle(emberData) {
-  const prompt = await getActivePrompt('let_ember_try');
-  if (!prompt || !prompt.system_prompt || !prompt.user_prompt_template) {
-    throw new Error('Let Ember Try prompt not found in database. Please configure it in the admin panel.');
+  try {
+    // Use the standard title generation for now - could be made into a separate prompt later
+    const result = await generateTitlesWithOpenAI(emberData, 'single');
+    return result.suggestion;
+  } catch (error) {
+    console.error('Error generating Let Ember Try title:', error);
+    throw new Error('Failed to generate Let Ember Try title. Please try again.');
   }
-  let contextParts = [];
-  if (emberData.image_url) contextParts.push(`This is a photo analysis for creating a title.`);
-  if (emberData.latitude && emberData.longitude) {
-    contextParts.push(`Location: ${emberData.address || `${emberData.latitude}, ${emberData.longitude}`}`);
-    if (emberData.city) contextParts.push(`City: ${emberData.city}`);
-    if (emberData.state) contextParts.push(`State: ${emberData.state}`);
-    if (emberData.country) contextParts.push(`Country: ${emberData.country}`);
-  }
-  if (emberData.manual_location) contextParts.push(`Manual location: ${emberData.manual_location}`);
-  if (emberData.ember_timestamp) {
-    const date = new Date(emberData.ember_timestamp);
-    contextParts.push(`Date taken: ${date.toLocaleDateString()}`);
-    contextParts.push(`Time taken: ${date.toLocaleTimeString()}`);
-  }
-  if (emberData.manual_datetime) {
-    const date = new Date(emberData.manual_datetime);
-    contextParts.push(`Manual date/time: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`);
-  }
-  if (emberData.camera_make && emberData.camera_model) contextParts.push(`Camera: ${emberData.camera_make} ${emberData.camera_model}`);
-  if (emberData.image_analysis) contextParts.push(`Image analysis: ${emberData.image_analysis}`);
-  if (emberData.title && emberData.title !== 'Untitled Ember') contextParts.push(`Current title: ${emberData.title}`);
-  const context = contextParts.join('\n');
-  const userPrompt = prompt.user_prompt_template.replace('{{context}}', context);
-  const systemPrompt = prompt.system_prompt;
-  const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openaiApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      max_tokens: 150,
-      temperature: 0.8,
-    }),
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(`OpenAI API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
-  }
-  const data = await response.json();
-  return data.choices[0].message.content.trim();
 } 

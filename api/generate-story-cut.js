@@ -1,5 +1,10 @@
 import { OpenAI } from 'openai';
 
+// Import our prompt management system
+// Note: Using relative imports for Vercel API routes
+import { getActivePrompt } from '../src/lib/promptManager.js';
+import { emberContextBuilders } from '../src/lib/emberContext.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -10,7 +15,15 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'OpenAI API key not configured' });
   }
 
-  const { formData, styleConfig, emberContext, voiceCasting } = req.body;
+  const { 
+    formData, 
+    selectedStyle, 
+    emberContext, 
+    storyConversations, 
+    voiceCasting, 
+    emberId,
+    contributorQuotes 
+  } = req.body;
 
   try {
     const openai = new OpenAI({ apiKey });
@@ -18,102 +31,75 @@ export default async function handler(req, res) {
     // Calculate approximate word count (3 words per second)
     const approximateWords = Math.round(formData.duration * 3);
     
-    // Get main generator prompt from database
-    let baseSystemPrompt;
-    try {
-      // In production, we need to use the database functions
-      // This would need to be imported from the database module
-      // For now, we'll use a placeholder that matches our database setup
-      baseSystemPrompt = process.env.STORY_CUT_GENERATOR_PROMPT;
-      
-      if (!baseSystemPrompt) {
-        throw new Error('Story cut generator prompt not configured in environment or database');
-      }
-    } catch (error) {
-      console.error('Failed to load story cut generator prompt:', error);
-      throw new Error('Story cut generation not properly configured');
+    // Get the master story cut generation prompt
+    console.log('🔍 Loading master story cut generation prompt...');
+    const masterPrompt = await getActivePrompt('story_cut_generation');
+    
+    if (!masterPrompt) {
+      throw new Error('Master story cut generation prompt not found in database');
     }
-
-    const systemPrompt = `${baseSystemPrompt}
-
-STYLE: ${styleConfig.name}
-STYLE INSTRUCTIONS: ${styleConfig.systemPrompt}
-
-VOICE CASTING:
-- Ember Voice (${styleConfig.emberVoiceRole}): ${voiceCasting.ember?.name || 'Selected Voice'} (${voiceCasting.ember?.labels?.gender || 'Unknown'})
-- Narrator Voice (${styleConfig.narratorVoiceRole}): ${voiceCasting.narrator?.name || 'Selected Voice'} (${voiceCasting.narrator?.labels?.gender || 'Unknown'})
-
-SELECTED CONTRIBUTORS: ${voiceCasting.contributors?.map(u => `${u.name} (${u.role})`).join(', ') || 'None selected'}
-
-VOICE INSTRUCTIONS: ${styleConfig.voiceInstructions}
-
-DIRECT QUOTES USAGE:
-- When direct quotes from selected contributors are available in the context, use them exactly as spoken to create authentic dialogue
-- You can have contributors speak their own words directly in the story cut
-- Use quotes like: [Contributor Name]: "Their exact words from the story conversation"
-- This creates a more personal and authentic story experience
-- Balance direct quotes with narrative flow - don't just list quotes, weave them into the story
-
-You must create content that makes use of the voice casting and involves the selected contributors in the storytelling when appropriate. When direct quotes are available, incorporate them to make the story more personal and authentic. Return ONLY valid JSON with the exact structure specified.`;
-
-    // Build comprehensive user prompt
-    const userPrompt = `Create a ${formData.duration}-second ${styleConfig.name.toLowerCase()} style story cut for this photo/memory:
-
-STORY INFORMATION:
-Title: "${formData.title}"
-Style: ${styleConfig.name} - ${styleConfig.description}
-Duration: ${formData.duration} seconds (approximately ${approximateWords} words)
-Story Focus: ${formData.focus || 'General storytelling approach'}
-
-EMBER CONTEXT:
-${emberContext}
-
-VOICE INSTRUCTIONS:
-${styleConfig.voiceInstructions}
-
-REQUIREMENTS:
-- Target exactly ${formData.duration} seconds of content (approximately ${approximateWords} words)
-- Follow ${styleConfig.name.toLowerCase()} style: ${styleConfig.description}
-- Use ONLY the specific details provided in the ember context above
-- DO NOT invent any names, places, events, or details not explicitly mentioned
-- ${formData.focus ? `Focus specifically on: ${formData.focus}` : 'Create engaging narrative flow'}
-- Assign appropriate lines to ember voice vs narrator voice
-- Make use of selected contributors: ${voiceCasting.contributors?.map(u => u.name).join(', ') || 'Focus on the image content and provided context only'}
-- When available, incorporate direct quotes from selected contributors to make the story authentic and personal
-- If the context is limited, create atmosphere and emotion rather than fictional specifics
-
-OUTPUT FORMAT:
-Return a JSON object with this exact structure:
-{
-  "title": "Engaging title for this story cut",
-  "duration": ${formData.duration},
-  "style": "${formData.style}",
-  "wordCount": ${approximateWords},
-  "script": {
-    "fullScript": "Complete narration script as one continuous piece of text",
-    "emberVoiceLines": ["First line spoken by the ember voice", "Second line spoken by the ember voice"],
-    "narratorVoiceLines": ["First line spoken by the narrator", "Second line spoken by the narrator"]
-  },
-  "voiceCasting": {
-    "emberVoice": "${voiceCasting.ember?.name || 'Selected Voice'}",
-    "narratorVoice": "${voiceCasting.narrator?.name || 'Selected Voice'}",
-    "contributors": ${JSON.stringify(voiceCasting.contributors || [])}
-  },
-  "metadata": {
-    "focus": "${formData.focus || ''}",
-    "emberTitle": "${formData.title}",
-    "generatedAt": "${new Date().toISOString()}"
-  }
-}`;
+    
+    console.log('✅ Loaded master prompt:', masterPrompt.title);
+    
+    // Get the selected style prompt
+    console.log('🎨 Loading style prompt:', selectedStyle);
+    const stylePrompt = await getActivePrompt(selectedStyle);
+    
+    if (!stylePrompt) {
+      throw new Error(`Style prompt not found: ${selectedStyle}`);
+    }
+    
+    console.log('✅ Loaded style prompt:', stylePrompt.title);
+    
+    // Prepare all the variables for the master prompt
+    const promptVariables = {
+      ember_context: emberContext,
+      story_conversations: storyConversations || 'No story circle conversations available yet.',
+      style_prompt: stylePrompt.system_prompt,
+      story_title: formData.title,
+      duration: formData.duration,
+      word_count: approximateWords,
+      story_focus: formData.focus || 'General storytelling approach',
+      selected_contributors: voiceCasting.contributors?.map(c => c.name).join(', ') || 'None',
+      ember_voice_name: voiceCasting.ember?.name || 'Selected Voice',
+      narrator_voice_name: voiceCasting.narrator?.name || 'Selected Voice',
+      voice_casting_info: JSON.stringify(voiceCasting, null, 2),
+      contributor_quotes: contributorQuotes ? JSON.stringify(contributorQuotes, null, 2) : 'No direct quotes available',
+      selected_style: selectedStyle,
+      selected_contributors_json: JSON.stringify(voiceCasting.contributors || []),
+      contributor_count: voiceCasting.contributors?.length || 0,
+      has_quotes: contributorQuotes && contributorQuotes.length > 0,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Format the master prompt with all variables
+    let systemPrompt = masterPrompt.system_prompt;
+    let userPrompt = masterPrompt.user_prompt_template;
+    
+    // Replace all variables in the prompts
+    Object.keys(promptVariables).forEach(key => {
+      const placeholder = `{{${key}}}`;
+      const value = promptVariables[key];
+      systemPrompt = systemPrompt.replace(new RegExp(placeholder, 'g'), value);
+      userPrompt = userPrompt.replace(new RegExp(placeholder, 'g'), value);
+    });
+    
+    console.log('🤖 Generating story cut with:', {
+      style: stylePrompt.title,
+      duration: formData.duration,
+      wordCount: approximateWords,
+      contributors: voiceCasting.contributors?.length || 0,
+      hasQuotes: contributorQuotes && contributorQuotes.length > 0
+    });
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: masterPrompt.model || 'gpt-4o',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      max_tokens: 2000,
-      temperature: 0.8,
+      max_tokens: masterPrompt.max_tokens || 2000,
+      temperature: masterPrompt.temperature || 0.7,
       response_format: { type: "json_object" }
     });
 
@@ -122,7 +108,8 @@ Return a JSON object with this exact structure:
 
     // Validate that we got valid JSON before returning
     try {
-      JSON.parse(storyCut);
+      const parsed = JSON.parse(storyCut);
+      console.log('✅ Generated story cut:', parsed.title);
     } catch (parseError) {
       console.error('OpenAI returned invalid JSON:', storyCut);
       throw new Error('OpenAI returned invalid JSON response');
@@ -131,10 +118,16 @@ Return a JSON object with this exact structure:
     return res.status(200).json({
       success: true,
       data: storyCut,
-      tokensUsed
+      tokensUsed,
+      promptUsed: masterPrompt.prompt_key,
+      styleUsed: stylePrompt.prompt_key,
+      model: masterPrompt.model
     });
   } catch (error) {
     console.error('Error generating story cut:', error);
-    return res.status(500).json({ error: error.message || 'Failed to generate story cut' });
+    return res.status(500).json({ 
+      error: error.message || 'Failed to generate story cut',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 } 

@@ -1,8 +1,5 @@
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { executePrompt } from '../src/lib/promptManager.js';
+import { emberContextBuilders } from '../src/lib/emberContext.js';
 
 export default async function handler(req, res) {
   // Add CORS headers for mobile compatibility
@@ -18,15 +15,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Verify OpenAI API key is available
-  if (!process.env.OPENAI_API_KEY) {
-    console.error('❌ OPENAI_API_KEY environment variable not set');
-    return res.status(500).json({ 
-      error: 'OpenAI configuration error',
-      details: 'API key not configured on server' 
-    });
-  }
-
   try {
     const { emberData, requestType = 'single' } = req.body;
 
@@ -34,101 +22,32 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Ember data is required' });
     }
 
-    // Build context from all available wiki data
-    let contextParts = [];
+    // Build rich context using the specialized context builder
+    const context = await emberContextBuilders.buildTitleGenerationContext(emberData);
+
+    // Determine how many titles to request
+    const titlesRequested = requestType === 'multiple' ? 3 : 1;
     
-    // Image information
-    if (emberData.image_url) {
-      contextParts.push(`This is a photo analysis for creating a title.`);
-    }
-    
-    // Location data
-    if (emberData.latitude && emberData.longitude) {
-      contextParts.push(`Location: ${emberData.address || `${emberData.latitude}, ${emberData.longitude}`}`);
-      if (emberData.city) {
-        contextParts.push(`City: ${emberData.city}`);
-      }
-      if (emberData.state) {
-        contextParts.push(`State: ${emberData.state}`);
-      }
-      if (emberData.country) {
-        contextParts.push(`Country: ${emberData.country}`);
-      }
-    }
-    
-    if (emberData.manual_location) {
-      contextParts.push(`Manual location: ${emberData.manual_location}`);
-    }
-    
-    // Time and date information
-    if (emberData.ember_timestamp) {
-      const date = new Date(emberData.ember_timestamp);
-      contextParts.push(`Date taken: ${date.toLocaleDateString()}`);
-      contextParts.push(`Time taken: ${date.toLocaleTimeString()}`);
-    }
-    
-    if (emberData.manual_datetime) {
-      const date = new Date(emberData.manual_datetime);
-      contextParts.push(`Manual date/time: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`);
-    }
-    
-    // Camera information
-    if (emberData.camera_make && emberData.camera_model) {
-      contextParts.push(`Camera: ${emberData.camera_make} ${emberData.camera_model}`);
-    }
-    
-    // Image analysis data
-    if (emberData.image_analysis) {
-      contextParts.push(`Image analysis: ${emberData.image_analysis}`);
-    }
-    
-    // Current title (if exists)
-    if (emberData.title && emberData.title !== 'Untitled Ember') {
-      contextParts.push(`Current title: ${emberData.title}`);
+    // Add the number of titles to context variables
+    const contextVariables = {
+      context,
+      titles_requested: titlesRequested,
+      format_instruction: requestType === 'multiple' 
+        ? 'Return 3 titles, one per line, without numbers or bullets.'
+        : 'Return only the title, no additional text or formatting.'
+    };
+
+    // Execute the prompt using the new system
+    const result = await executePrompt('title_generation', contextVariables);
+
+    if (!result.success) {
+      return res.status(500).json({ 
+        error: 'Failed to generate title suggestion',
+        details: result.error 
+      });
     }
 
-    const context = contextParts.join('\n');
-    
-    // Load prompt from database (MUST be present)
-    let dbPrompt = null;
-    try {
-      const { getActivePrompt } = require('../src/lib/database');
-      dbPrompt = await getActivePrompt('title_suggestions');
-      if (!dbPrompt || !dbPrompt.system_prompt || !dbPrompt.user_prompt_template) {
-        throw new Error('Title suggestion prompt not found in database. Please configure it in the admin panel.');
-      }
-    } catch (e) {
-      return res.status(500).json({ error: 'Title suggestion prompt not found in database. Please configure it in the admin panel.' });
-    }
-
-    // Build user prompt from template
-    const userPrompt = dbPrompt.user_prompt_template.replace('{{context}}', context);
-    const systemPrompt = dbPrompt.system_prompt;
-
-    let prompt;
-    if (requestType === 'multiple') {
-      prompt = `Based on the following information about a photo/memory, suggest 3 creative, meaningful, and concise titles (each under 30 characters). The titles should capture the essence of the moment, location, time, or emotions. Avoid generic titles like "Perfect Moment" or "Golden Hour" unless they're truly relevant to the specific context.\n\nContext:\n${context}\n\nReturn only 3 titles, one per line, without numbers or bullets. Make them unique and specific to this particular moment/photo.`;
-    } else {
-      prompt = `Based on the following information about a photo/memory, suggest 1 creative, meaningful, and concise title (under 30 characters). The title should capture the essence of the moment, location, time, or emotions. Avoid generic titles unless they're truly relevant to the specific context.\n\nContext:\n${context}\n\nReturn only the title, no additional text or formatting.`;
-    }
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: userPrompt
-        }
-      ],
-      max_tokens: 150,
-      temperature: 0.8,
-    });
-
-    const aiResponse = completion.choices[0].message.content.trim();
+    const aiResponse = result.content?.trim() || '';
     
     if (requestType === 'multiple') {
       // Split into array of titles
@@ -136,13 +55,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ 
         suggestions: titles,
         context: context,
-        tokens_used: completion.usage.total_tokens
+        tokens_used: result.tokensUsed || 0
       });
     } else {
       return res.status(200).json({ 
         suggestion: aiResponse,
         context: context,
-        tokens_used: completion.usage.total_tokens
+        tokens_used: result.tokensUsed || 0
       });
     }
 

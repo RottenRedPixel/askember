@@ -8,7 +8,8 @@ import {
   ArrowRight,
   Shield,
   Activity,
-  Database
+  Database,
+  Wrench
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import useStore from '@/store';
@@ -45,6 +46,14 @@ const quickActions = [
     href: "/admin/api",
     color: "text-orange-600",
     bgColor: "bg-orange-100"
+  },
+  {
+    title: "Development Tools",
+    description: "Database utilities, prompt seeding, and dev tools",
+    icon: Wrench,
+    href: "/admin/tools",
+    color: "text-indigo-600",
+    bgColor: "bg-indigo-100"
   }
 ];
 

@@ -504,8 +504,23 @@ export default function EmberDetail() {
   const fetchStoryStyles = async () => {
     try {
       setStylesLoading(true);
-      // Story cut styles functionality has been removed
-      const styles = [];
+      
+      // Load story style prompts from our prompt management system
+      const { getPromptsByCategory } = await import('@/lib/promptManager');
+      const storyStylePrompts = await getPromptsByCategory('story_styles');
+      
+      // Transform prompts into the format expected by the UI
+      const styles = storyStylePrompts
+        .filter(prompt => prompt.is_active)
+        .map(prompt => ({
+          id: prompt.prompt_key,
+          name: prompt.title,
+          description: prompt.description,
+          subcategory: prompt.subcategory,
+          prompt_key: prompt.prompt_key
+        }));
+      
+      console.log('📚 Loaded story styles:', styles.map(s => s.name));
       setAvailableStoryStyles(styles);
     } catch (error) {
       console.error('Failed to fetch story styles:', error);
@@ -678,7 +693,7 @@ export default function EmberDetail() {
 
   // Helper function to get style display name from database styles
   const getStyleDisplayName = (style) => {
-    const dbStyle = availableStoryStyles.find(s => s.id === style);
+    const dbStyle = availableStoryStyles.find(s => s.id === style || s.prompt_key === style);
     return dbStyle ? dbStyle.name : style;
   };
 
@@ -921,26 +936,22 @@ export default function EmberDetail() {
         throw new Error('Please select voices for both Ember and Narrator');
       }
 
-      // Get style configuration from database styles instead of hardcoded
-      // Story cut styles functionality has been removed
-      const dbStyles = [];
-      const styleConfig = dbStyles[selectedStoryStyle];
-      if (!styleConfig) {
-        throw new Error('Invalid story style selected');
+      if (!storyTitle.trim()) {
+        throw new Error('Please enter a story title');
       }
 
-      // Log form data for debugging
+      console.log('🎬 STARTING STORY CUT GENERATION');
+      console.log('='.repeat(80));
+
+      // Build form data
       const formData = {
-        title: ember?.title || 'Untitled',
+        title: storyTitle.trim(),
         duration: emberLength,
-        style: selectedStoryStyle,
-        focus: storyFocus,
-        emberVoice: selectedEmberVoice,
-        narratorVoice: selectedNarratorVoice,
-        selectedUsers: selectedVoices
+        focus: storyFocus?.trim() || null
       };
 
       // Get story messages for richer context
+      console.log('📖 Loading story circle conversations...');
       const allStoryMessages = await getAllStoryMessagesForEmber(ember.id);
       
       // Filter story messages to only include selected contributors' responses for direct quotes
@@ -948,7 +959,7 @@ export default function EmberDetail() {
       if (allStoryMessages?.messages) {
         allStoryMessages.messages.forEach(message => {
           // Only include user responses (not AI questions) from selected contributors
-          if (message.sender === 'user' && message.message_type === 'response' && selectedVoices.includes(message.user_id)) {
+          if (message.sender === 'user' && message.message_type === 'answer' && selectedVoices.includes(message.user_id)) {
             selectedContributorQuotes.push({
               contributor_name: message.user_first_name || 'Anonymous',
               user_id: message.user_id,
@@ -958,15 +969,18 @@ export default function EmberDetail() {
           }
         });
       }
+
+      // Format story conversations for the prompt
+      const storyConversations = allStoryMessages?.messages ? 
+        allStoryMessages.messages
+          .map(msg => `[${msg.sender === 'user' ? msg.user_first_name || 'User' : 'Ember AI'}]: ${msg.content}`)
+          .join('\n\n') :
+        'No story circle conversations available yet.';
       
-      // Build comprehensive ember context with story content
-      const emberWithStoryContext = {
-        ...ember,
-        storyMessages: allStoryMessages?.messages || [],
-        selectedContributorQuotes: selectedContributorQuotes
-      };
-      // Ember context building functionality has been removed
-      const emberContext = "";
+      // Build comprehensive ember context using our universal system
+      console.log('🌍 Building universal ember context...');
+      const { emberContextBuilders } = await import('@/lib/emberContext');
+      const emberContext = await emberContextBuilders.forStoryCut(ember.id);
       
       // Get selected voice details
       const emberVoiceInfo = availableVoices.find(v => v.voice_id === selectedEmberVoice);
@@ -991,35 +1005,119 @@ export default function EmberDetail() {
         }
       });
 
-      console.log('🎬 PREPARING OPENAI STORY CUT GENERATION:');
-      console.log('='.repeat(80));
-      console.log('📚 STORY INTEGRATION:', allStoryMessages?.messages?.length > 0 
-        ? `✅ Using ${allStoryMessages.messages.length} total story messages` 
-        : '❌ No story content found - using visual analysis only');
-      console.log('💬 DIRECT QUOTES:', selectedContributorQuotes.length > 0 
-        ? `✅ ${selectedContributorQuotes.length} direct quotes from ${selectedUserDetails.length} selected contributors` 
-        : '❌ No direct quotes from selected contributors');
-      console.log('🎭 STYLE:', styleConfig.name, '-', styleConfig.description);
-      console.log('⏱️ DURATION:', emberLength, 'seconds');
-      console.log('🎤 VOICE CASTING:', {
+      // Build voice casting object
+      const voiceCasting = {
+        ember: {
+          voice_id: selectedEmberVoice,
+          name: emberVoiceInfo?.name || 'Selected Voice',
+          labels: emberVoiceInfo?.labels || {}
+        },
+        narrator: {
+          voice_id: selectedNarratorVoice,
+          name: narratorVoiceInfo?.name || 'Selected Voice',
+          labels: narratorVoiceInfo?.labels || {}
+        },
+        contributors: selectedUserDetails
+      };
+
+      console.log('📊 GENERATION DETAILS:');
+      console.log('🎭 Style:', selectedStoryStyle);
+      console.log('📚 Story Messages:', allStoryMessages?.messages?.length || 0);
+      console.log('💬 Direct Quotes:', selectedContributorQuotes.length);
+      console.log('⏱️ Duration:', emberLength, 'seconds');
+      console.log('🎤 Voice Casting:', {
         ember: emberVoiceInfo?.name,
         narrator: narratorVoiceInfo?.name,
-        contributors: selectedUserDetails.map(u => u.name)
+        contributors: selectedUserDetails.length
       });
-      console.log('🎯 FOCUS:', formData.focus || 'General storytelling');
+      console.log('🎯 Focus:', formData.focus || 'General storytelling');
       console.log('='.repeat(80));
       
-      // Use OpenAI to generate the actual story cut
-      console.log('🤖 Calling OpenAI to generate story cut...');
-      // Story cut generation functionality has been removed
-      throw new Error("Story cut generation has been disabled");
-      
-              // Story cut generation has been disabled
+      // Call our story cut generation API
+      console.log('🤖 Calling story cut generation API...');
+      const response = await fetch('/api/generate-story-cut', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          formData,
+          selectedStyle: selectedStoryStyle,
+          emberContext,
+          storyConversations,
+          voiceCasting,
+          emberId: ember.id,
+          contributorQuotes: selectedContributorQuotes
+        })
+      });
 
-      // Story cut generation has been disabled
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate story cut');
+      }
+
+      // Parse the generated story cut
+      const generatedStoryCut = JSON.parse(result.data);
+      
+      console.log('✅ Story cut generated successfully:', generatedStoryCut.title);
+      console.log('📄 Script length:', generatedStoryCut.script?.fullScript?.length || 0, 'characters');
+
+      // Save the story cut to database
+      console.log('💾 Saving story cut to database...');
+      const storyCutData = {
+        emberId: ember.id,
+        creatorUserId: userProfile.user_id,
+        title: generatedStoryCut.title,
+        style: selectedStoryStyle,
+        duration: generatedStoryCut.duration,
+        wordCount: generatedStoryCut.wordCount,
+        storyFocus: formData.focus,
+        script: generatedStoryCut.script,
+        voiceCasting: {
+          emberVoice: voiceCasting.ember,
+          narratorVoice: voiceCasting.narrator,
+          contributors: voiceCasting.contributors
+        },
+        metadata: {
+          ...generatedStoryCut.metadata,
+          tokensUsed: result.tokensUsed,
+          promptUsed: result.promptUsed,
+          styleUsed: result.styleUsed,
+          model: result.model
+        }
+      };
+
+      const savedStoryCut = await saveStoryCut(storyCutData);
+      
+      console.log('✅ Story cut saved with ID:', savedStoryCut.id);
+
+
+
+      // Refresh the story cuts list to show the new one
+      await fetchStoryCuts();
+      
+      // Close the creation modal
+      setShowStoryCutCreator(false);
+      
+      // Show success message
+      setMessage({
+        type: 'success',
+        text: `Story cut "${generatedStoryCut.title}" created successfully!`
+      });
+
+      // Reset form
+      setStoryTitle('');
+      setStoryFocus('');
+      setSelectedVoices([]);
       
     } catch (error) {
-      console.error('Error generating story cut:', error);
+      console.error('❌ Error generating story cut:', error);
       
       // Provide more specific error messages for different failure types
       let errorMessage = 'Failed to generate story cut. Please try again.';
@@ -1028,10 +1126,14 @@ export default function EmberDetail() {
         errorMessage = 'OpenAI API key not configured. Please check your environment variables.';
       } else if (error.message.includes('quota exceeded')) {
         errorMessage = 'OpenAI API quota exceeded. Please check your billing or try again later.';
-      } else if (error.message.includes('development')) {
-        errorMessage = 'OpenAI integration only available in development mode with API key configured.';
+      } else if (error.message.includes('not found')) {
+        errorMessage = 'Story generation prompts not properly configured. Please contact support.';
       } else if (error.message.includes('JSON')) {
         errorMessage = 'Failed to parse AI response. Please try again with a different configuration.';
+      } else if (error.message.includes('HTTP')) {
+        errorMessage = `API Error: ${error.message}`;
+      } else {
+        errorMessage = error.message;
       }
       
       setMessage({ 
