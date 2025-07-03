@@ -126,12 +126,12 @@ const ModalContent = ({
               <>
                 <span className="inline-flex items-center gap-1">
                   <span className="w-2 h-2 bg-orange-600 rounded-full"></span>
-                  Orange circles: Click anywhere to place manual tags
+                  Orange circles: Manual tags (click anywhere to place)
                 </span>
                 {' • '}
                 <span className="inline-flex items-center gap-1">
                   <span className="w-2 h-2 bg-green-600 rounded-full"></span>
-                  Green circles: Already tagged
+                  Green circles: Auto-detected and tagged
                 </span>
               </>
             )}
@@ -289,8 +289,9 @@ const ModalContent = ({
       <Card className="border-gray-200 bg-gray-50">
         <CardContent className="p-4">
           <div className="text-sm text-gray-600 space-y-1">
-            <p>• Blue circles indicate untagged faces - click to add names</p>
-            <p>• Green circles show already tagged faces</p>
+            <p>• Blue circles: Auto-detected faces - click to add names</p>
+            <p>• Orange circles: Manual tags - always orange whether named or not</p>
+            <p>• Green circles: Auto-detected faces that are already tagged</p>
             <p>• Names will be suggested based on ember contributors</p>
           </div>
         </CardContent>
@@ -398,9 +399,10 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
       }
 
       const canvas = canvasRef.current;
+      const imageRect = imageRef.current.getBoundingClientRect();
       const displaySize = {
-        width: imageRef.current.width,
-        height: imageRef.current.height,
+        width: imageRect.width,
+        height: imageRect.height,
       };
 
       faceapi.matchDimensions(canvas, displaySize);
@@ -414,10 +416,13 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
       resizedDetections.forEach((detection, index) => {
         const { x, y, width, height } = detection.box;
         
-        // Check if this face is already tagged
+        // Check if this face is already tagged (convert stored natural coords to display coords)
         const isTagged = taggedPeople.some(person => {
           const coords = person.face_coordinates;
-          return coords.type === 'auto' && Math.abs(coords.x - x) < 20 && Math.abs(coords.y - y) < 20;
+          if (coords.type !== 'auto') return false;
+          const storedDisplayX = coords.x / scaleX;
+          const storedDisplayY = coords.y / scaleY;
+          return Math.abs(storedDisplayX - x) < 20 && Math.abs(storedDisplayY - y) < 20;
         });
 
         // Draw circle around face
@@ -441,6 +446,10 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
         }
       });
 
+      // Calculate scaling factor for stored coordinates
+      const scaleX = displaySize.width / imageRef.current.naturalWidth;
+      const scaleY = displaySize.height / imageRef.current.naturalHeight;
+
       // Draw manual tags (both placed and already saved)
       const allManualTags = [
         ...manualTags,
@@ -449,49 +458,52 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
 
       allManualTags.forEach((tag) => {
         const coords = tag.face_coordinates || tag;
-        const { x, y } = coords;
+        // Scale stored coordinates to current display size
+        const x = coords.x * scaleX;
+        const y = coords.y * scaleY;
         
-        // Check if this manual tag is already in database
-        const isTagged = taggedPeople.some(person => 
-          person.face_coordinates.type === 'manual' && 
-          Math.abs(person.face_coordinates.x - x) < 20 && 
-          Math.abs(person.face_coordinates.y - y) < 20
-        );
+        // Check if this manual tag is already in database (both coords are in display scale now)
+        const isTagged = taggedPeople.some(person => {
+          if (person.face_coordinates.type !== 'manual') return false;
+          const storedDisplayX = person.face_coordinates.x / scaleX;
+          const storedDisplayY = person.face_coordinates.y / scaleY;
+          return Math.abs(storedDisplayX - x) < 20 && Math.abs(storedDisplayY - y) < 20;
+        });
 
-        // Draw circular marker for manual tags
+        // Draw circular marker for manual tags (always orange to distinguish from auto-detected)
         ctx.beginPath();
         ctx.arc(x, y, 25, 0, 2 * Math.PI);
-        ctx.strokeStyle = isTagged ? '#10b981' : '#f97316'; // green if tagged, orange if not
+        ctx.strokeStyle = '#f97316'; // always orange for manual tags
         ctx.lineWidth = 3;
         ctx.stroke();
 
         // Add inner circle
         ctx.beginPath();
         ctx.arc(x, y, 15, 0, 2 * Math.PI);
-        ctx.fillStyle = isTagged ? '#10b98120' : '#f9731620'; // semi-transparent fill
+        ctx.fillStyle = '#f9731620'; // semi-transparent orange fill
         ctx.fill();
 
-        // Add click indicator for untagged manual markers
-        if (!isTagged) {
-          ctx.fillStyle = '#f97316';
-          ctx.font = '14px Arial';
-          ctx.textAlign = 'center';
-          ctx.fillText('+', x, y + 5);
-        }
-
-        // Add person name if tagged
+        // Add content based on whether manual tag is named or not
         if (isTagged) {
-          const person = taggedPeople.find(p => 
-            p.face_coordinates.type === 'manual' && 
-            Math.abs(p.face_coordinates.x - x) < 20 && 
-            Math.abs(p.face_coordinates.y - y) < 20
-          );
+          // Show person name for tagged manual markers
+          const person = taggedPeople.find(p => {
+            if (p.face_coordinates.type !== 'manual') return false;
+            const storedDisplayX = p.face_coordinates.x / scaleX;
+            const storedDisplayY = p.face_coordinates.y / scaleY;
+            return Math.abs(storedDisplayX - x) < 20 && Math.abs(storedDisplayY - y) < 20;
+          });
           if (person) {
-            ctx.fillStyle = '#10b981';
+            ctx.fillStyle = '#f97316'; // keep orange theme for manual tags
             ctx.font = 'bold 12px Arial';
             ctx.textAlign = 'center';
             ctx.fillText(person.person_name, x, y - 35);
           }
+        } else {
+          // Show + indicator for untagged manual markers
+          ctx.fillStyle = '#f97316';
+          ctx.font = '14px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('+', x, y + 5);
         }
       });
 
@@ -526,6 +538,10 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
     const clickX = event.clientX - rect.left;
     const clickY = event.clientY - rect.top;
 
+    // Calculate scaling factor to convert display coordinates to natural coordinates
+    const scaleX = imageRef.current.naturalWidth / rect.width;
+    const scaleY = imageRef.current.naturalHeight / rect.height;
+
     if (taggingMode === 'auto') {
       // Auto mode: only allow clicking on detected faces
       const clickedFace = detectedFaces.find(detection => {
@@ -534,12 +550,14 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
       });
 
       if (clickedFace) {
-        // Check if this face is already tagged
+        // Check if this face is already tagged (convert stored natural coords to display coords)
         const existingTag = taggedPeople.find(person => {
           const coords = person.face_coordinates;
-          return coords.type === 'auto' && 
-                 Math.abs(coords.x - clickedFace.box.x) < 20 && 
-                 Math.abs(coords.y - clickedFace.box.y) < 20;
+          if (coords.type !== 'auto') return false;
+          const storedDisplayX = coords.x / scaleX;
+          const storedDisplayY = coords.y / scaleY;
+          return Math.abs(storedDisplayX - clickedFace.box.x) < 20 && 
+                 Math.abs(storedDisplayY - clickedFace.box.y) < 20;
         });
 
         if (existingTag) {
@@ -563,7 +581,10 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
 
       const clickedManualTag = allManualTags.find(tag => {
         const coords = tag.face_coordinates || tag;
-        const distance = Math.sqrt(Math.pow(coords.x - clickX, 2) + Math.pow(coords.y - clickY, 2));
+        // Convert stored natural coordinates to display coordinates for comparison
+        const displayX = coords.x / scaleX;
+        const displayY = coords.y / scaleY;
+        const distance = Math.sqrt(Math.pow(displayX - clickX, 2) + Math.pow(displayY - clickY, 2));
         return distance <= 25; // Within the circle radius
       });
 
@@ -581,36 +602,60 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
           return;
         }
 
-        // Tag an existing manual marker
+        // Tag an existing manual marker (use natural coordinates)
+        const coords = clickedManualTag.face_coordinates || clickedManualTag;
         setSelectedFace({
           box: { x: clickX - 25, y: clickY - 25, width: 50, height: 50 },
           isManual: true,
-          coordinates: { x: clickX, y: clickY }
+          coordinates: { x: coords.x, y: coords.y }
         });
         setShowTagForm(true);
         setTagName('');
         setPotentialMatches([]);
       } else {
-        // Place a new manual tag
+        // Place a new manual tag (store in natural coordinates)
+        const naturalX = clickX * scaleX;
+        const naturalY = clickY * scaleY;
+        
         const newManualTag = {
-          x: clickX,
-          y: clickY,
+          x: naturalX,
+          y: naturalY,
           type: 'manual'
         };
 
         setManualTags(prev => [...prev, newManualTag]);
         
-        // Also set it as selected face for tagging
+        // Immediately draw the new manual tag circle
+        const ctx = canvas.getContext('2d');
+        ctx.beginPath();
+        ctx.arc(clickX, clickY, 25, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#f97316'; // orange for new manual tag
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Add inner circle
+        ctx.beginPath();
+        ctx.arc(clickX, clickY, 15, 0, 2 * Math.PI);
+        ctx.fillStyle = '#f9731620'; // semi-transparent orange fill
+        ctx.fill();
+
+        // Add click indicator
+        ctx.fillStyle = '#f97316';
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('+', clickX, clickY + 5);
+        
+        // Also set it as selected face for tagging (keep display coordinates for UI)
         setSelectedFace({
           box: { x: clickX - 25, y: clickY - 25, width: 50, height: 50 },
           isManual: true,
-          coordinates: { x: clickX, y: clickY }
+          coordinates: { x: naturalX, y: naturalY }
         });
         setShowTagForm(true);
         setTagName('');
         setPotentialMatches([]);
 
-        // Redraw canvas to show the new manual tag
+        // Redraw canvas to show all tags after a short delay (to maintain other visual elements)
         setTimeout(() => {
           if (!isDetectingRef.current) {
             detectFaces();
@@ -627,25 +672,30 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
     if (!tagName.trim() || !selectedFace || !ember?.id) return;
 
     try {
+      // Calculate scaling factor to convert display coordinates to natural coordinates
+      const imageRect = imageRef.current.getBoundingClientRect();
+      const scaleX = imageRef.current.naturalWidth / imageRect.width;
+      const scaleY = imageRef.current.naturalHeight / imageRect.height;
+
       // Prepare face coordinates based on whether it's auto-detected or manual
       let faceCoordinates;
       
       if (selectedFace.isManual) {
-        // Manual tag coordinates
+        // Manual tag coordinates (already in natural dimensions)
         faceCoordinates = {
           x: selectedFace.coordinates.x,
           y: selectedFace.coordinates.y,
-          width: 50,
-          height: 50,
+          width: 50 * scaleX,
+          height: 50 * scaleY,
           type: 'manual'
         };
       } else {
-        // Auto-detected face coordinates
+        // Auto-detected face coordinates (convert display to natural dimensions)
         faceCoordinates = {
-          x: selectedFace.box.x,
-          y: selectedFace.box.y,
-          width: selectedFace.box.width,
-          height: selectedFace.box.height,
+          x: selectedFace.box.x * scaleX,
+          y: selectedFace.box.y * scaleY,
+          width: selectedFace.box.width * scaleX,
+          height: selectedFace.box.height * scaleY,
           type: 'auto'
         };
       }
