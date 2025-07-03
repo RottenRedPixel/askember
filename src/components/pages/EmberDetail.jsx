@@ -1634,6 +1634,12 @@ export default function EmberDetail() {
           // Use multi-voice playback with recorded audio
           console.log('🎵 Using multi-voice playback with recorded audio');
           console.log('🎙️ Available recorded audio:', recordedAudio);
+          console.log('🔍 Story cut voice IDs:', {
+            ember: selectedStoryCut.ember_voice_id,
+            narrator: selectedStoryCut.narrator_voice_id,
+            ember_name: selectedStoryCut.ember_voice_name,
+            narrator_name: selectedStoryCut.narrator_voice_name
+          });
           
           // Parse the script into segments
           const segments = parseScriptSegments(selectedStoryCut.full_script);
@@ -3083,6 +3089,7 @@ export default function EmberDetail() {
     const { voiceTag, content, type } = segment;
     
     console.log(`🎵 Generating audio for [${voiceTag}]: "${content.substring(0, 50)}..."`);
+    console.log(`🔍 Segment type: ${type}`);
     
     try {
       if (type === 'contributor') {
@@ -3094,6 +3101,7 @@ export default function EmberDetail() {
         if (userWithRecordedAudio) {
           const [userId, audioData] = userWithRecordedAudio;
           console.log(`🎙️ Using recorded audio for ${voiceTag} from user ${userId}`);
+          console.log(`🔗 Audio URL:`, audioData.audio_url);
           
           // Create a direct audio element from the recorded URL
           const audio = new Audio(audioData.audio_url);
@@ -3107,6 +3115,8 @@ export default function EmberDetail() {
         } else {
           // Fall back to narrator voice with attribution
           console.log(`🔊 No recorded audio for ${voiceTag}, using narrator with attribution`);
+          console.log(`🎤 Narrator voice ID:`, storyCut.narrator_voice_id);
+          
           const attributedContent = `${voiceTag} said: "${content}"`;
           const audioBlob = await textToSpeech(attributedContent, storyCut.narrator_voice_id);
           const audioUrl = URL.createObjectURL(audioBlob);
@@ -3124,6 +3134,12 @@ export default function EmberDetail() {
       } else if (type === 'ember') {
         // Use ember voice
         console.log(`🌟 Using ember voice for: ${content.substring(0, 30)}...`);
+        console.log(`🎤 Ember voice ID:`, storyCut.ember_voice_id);
+        
+        if (!storyCut.ember_voice_id) {
+          throw new Error(`Ember voice ID is missing: ${storyCut.ember_voice_id}`);
+        }
+        
         const audioBlob = await textToSpeech(content, storyCut.ember_voice_id);
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
@@ -3139,6 +3155,12 @@ export default function EmberDetail() {
       } else if (type === 'narrator') {
         // Use narrator voice
         console.log(`📢 Using narrator voice for: ${content.substring(0, 30)}...`);
+        console.log(`🎤 Narrator voice ID:`, storyCut.narrator_voice_id);
+        
+        if (!storyCut.narrator_voice_id) {
+          throw new Error(`Narrator voice ID is missing: ${storyCut.narrator_voice_id}`);
+        }
+        
         const audioBlob = await textToSpeech(content, storyCut.narrator_voice_id);
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
@@ -3154,6 +3176,11 @@ export default function EmberDetail() {
       }
     } catch (error) {
       console.error(`❌ Error generating audio for ${voiceTag}:`, error);
+      console.error(`❌ Error details:`, error.message);
+      console.error(`❌ Story cut voice IDs:`, {
+        ember: storyCut.ember_voice_id,
+        narrator: storyCut.narrator_voice_id
+      });
       throw error;
     }
   };
@@ -3165,9 +3192,18 @@ export default function EmberDetail() {
     try {
       // Generate all audio segments
       const audioSegments = [];
-      for (const segment of segments) {
-        const audioSegment = await generateSegmentAudio(segment, storyCut, recordedAudio);
-        audioSegments.push(audioSegment);
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        console.log(`🔧 Generating segment ${i + 1}/${segments.length}: [${segment.voiceTag}]`);
+        
+        try {
+          const audioSegment = await generateSegmentAudio(segment, storyCut, recordedAudio);
+          audioSegments.push(audioSegment);
+          console.log(`✅ Generated segment ${i + 1}: [${segment.voiceTag}]`);
+        } catch (segmentError) {
+          console.error(`❌ Failed to generate segment ${i + 1} [${segment.voiceTag}]:`, segmentError);
+          throw new Error(`Failed to generate audio for segment "${segment.voiceTag}": ${segmentError.message}`);
+        }
       }
       
       console.log('✅ Generated', audioSegments.length, 'audio segments');
@@ -3230,6 +3266,7 @@ export default function EmberDetail() {
       
     } catch (error) {
       console.error('❌ Error in multi-voice playback:', error);
+      console.error('❌ Full error details:', error.message, error.stack);
       throw error;
     }
   };
