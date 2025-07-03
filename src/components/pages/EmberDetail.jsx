@@ -31,7 +31,7 @@ import EmberNamesModal from '@/components/EmberNamesModal';
 import EmberSettingsPanel from '@/components/EmberSettingsPanel';
 import QRCodeGenerator from '@/components/QRCodeGenerator';
 import { textToSpeech, getVoices } from '@/lib/elevenlabs';
-import { getStoryCutStyles, getStoryCutStylesFromDB, STORY_CUT_PROMPTS, STORY_CUT_STYLES, buildEmberContext, generateStoryCutWithOpenAI } from '@/lib/prompts';
+// Prompts functionality has been removed
 import { cn } from '@/lib/utils';
 import useStore from '@/store';
 
@@ -59,7 +59,8 @@ const StoryModalContent = ({
   voicesLoading,
   availableVoices,
   handleGenerateStoryCut,
-  isGeneratingStoryCut
+  isGeneratingStoryCut,
+  storyMessages
 }) => (
   <div className="space-y-6">
     {/* User Editor Info */}
@@ -98,18 +99,64 @@ const StoryModalContent = ({
       />
     </div>
 
-    {/* Ember Length Slider */}
+    {/* Dropdown Sections */}
+    <div className="space-y-4">
+      <div>
+        <Label className="text-sm font-medium text-gray-900 mb-2 flex items-center gap-2">
+          <Package size={16} className="text-blue-600" />
+          Story Style
+        </Label>
+        <select 
+          value={selectedStoryStyle}
+          onChange={(e) => setSelectedStoryStyle(e.target.value)}
+          disabled={stylesLoading}
+          className="w-full p-2 border border-gray-300 rounded-md text-sm h-10"
+        >
+          {stylesLoading ? (
+            <option>Loading story styles...</option>
+          ) : availableStoryStyles.length === 0 ? (
+            <option>Ember prompts missing</option>
+          ) : (
+            <>
+              <option value="">Select story style...</option>
+              {availableStoryStyles.map((style) => (
+                <option key={style.id} value={style.id}>
+                  {style.name} - {style.description}
+                </option>
+              ))}
+            </>
+          )}
+        </select>
+      </div>
+    </div>
+
+    {/* Story Focus */}
+    <div className="space-y-3">
+      <Label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+        <Eye size={16} className="text-blue-600" />
+        Story Focus
+      </Label>
+      <Input
+        type="text"
+        value={storyFocus}
+        onChange={(e) => setStoryFocus(e.target.value)}
+        placeholder="What should this story focus on? (e.g., emotions, setting, characters, action...)"
+        className="w-full h-10"
+      />
+    </div>
+
+    {/* Story Length Slider */}
     <div className="space-y-4">
       <Label className="text-sm font-medium text-gray-900 flex items-center gap-2">
         <Sliders size={16} className="text-blue-600" />
-        Ember Length
+        Story Length
       </Label>
       
       <div className="space-y-3">
         <div>
           <div className="flex justify-between items-center mb-2">
-            <Label className="text-xs text-gray-600">Duration</Label>
-            <span className="text-xs text-blue-600 font-medium">{emberLength} seconds</span>
+            <p className="text-sm text-gray-600">Duration</p>
+            <span className="text-sm text-blue-600 font-medium">{emberLength} seconds</span>
           </div>
           <input 
             type="range" 
@@ -137,16 +184,17 @@ const StoryModalContent = ({
         <Users size={16} className="text-blue-600" />
         Voices
       </Label>
+      <p className="text-sm text-gray-600">Select which voices you want used in this story.</p>
       
       <div className="grid grid-cols-3 gap-3 md:space-y-3 md:grid-cols-1">
         {/* Owner */}
         {ember?.owner && (
           <div 
-            onClick={() => toggleVoiceSelection(ember.owner.user_id)}
+            onClick={() => toggleVoiceSelection(ember.user_id)}
             className="flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
             style={{
-              borderColor: selectedVoices.includes(ember.owner.user_id) ? '#2563eb' : '#e5e7eb',
-              backgroundColor: selectedVoices.includes(ember.owner.user_id) ? '#eff6ff' : 'white'
+              borderColor: selectedVoices.includes(ember.user_id) ? '#2563eb' : '#e5e7eb',
+              backgroundColor: selectedVoices.includes(ember.user_id) ? '#eff6ff' : 'white'
             }}
           >
             <div className="relative">
@@ -159,7 +207,7 @@ const StoryModalContent = ({
                   {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || 'O'}
                 </AvatarFallback>
               </Avatar>
-              {selectedVoices.includes(ember.owner.user_id) && (
+              {selectedVoices.includes(ember.user_id) && (
                 <div className="absolute -top-1 -right-1 w-3 h-3 md:w-4 md:h-4 bg-blue-600 rounded-full flex items-center justify-center">
                   <span className="text-white text-xs">✓</span>
                 </div>
@@ -171,6 +219,16 @@ const StoryModalContent = ({
               </div>
               <div className="text-xs text-amber-600 bg-amber-100 px-1 md:px-2 py-0.5 md:py-1 rounded-full inline-block mt-0.5 md:mt-1">
                 Owner
+              </div>
+              <div className="text-xs text-gray-600 mt-1">
+                Contributed? 
+                <span className={`ml-1 px-2 py-0.5 rounded-full ${
+                  storyMessages.some(msg => msg.user_id === ember.user_id)
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {storyMessages.some(msg => msg.user_id === ember.user_id) ? 'Yes' : 'No'}
+                </span>
               </div>
             </div>
           </div>
@@ -214,6 +272,16 @@ const StoryModalContent = ({
               }`}>
                 {user.permission_level === 'contributor' ? 'Contributor' : 'Viewer'}
               </div>
+                             <div className="text-xs text-gray-600 mt-1">
+                 Contributed? 
+                 <span className={`ml-1 px-2 py-0.5 rounded-full ${
+                   storyMessages.some(msg => msg.user_id === user.user_id)
+                     ? 'bg-green-100 text-green-700'
+                     : 'bg-gray-100 text-gray-600'
+                 }`}>
+                   {storyMessages.some(msg => msg.user_id === user.user_id) ? 'Yes' : 'No'}
+                 </span>
+               </div>
             </div>
           </div>
         ))}
@@ -225,50 +293,6 @@ const StoryModalContent = ({
           </div>
         )}
       </div>
-    </div>
-
-    {/* Dropdown Sections */}
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-medium text-gray-900 mb-2 flex items-center gap-2">
-          <Package size={16} className="text-blue-600" />
-          Story Style
-        </Label>
-        <select 
-          value={selectedStoryStyle}
-          onChange={(e) => setSelectedStoryStyle(e.target.value)}
-          disabled={stylesLoading}
-          className="w-full p-2 border border-gray-300 rounded-md text-sm h-10"
-        >
-          {stylesLoading ? (
-            <option>Loading story styles...</option>
-          ) : (
-            <>
-          <option value="">Select story style...</option>
-              {availableStoryStyles.map((style) => (
-            <option key={style.id} value={style.id}>
-              {style.name} - {style.description}
-            </option>
-          ))}
-            </>
-          )}
-        </select>
-      </div>
-    </div>
-
-    {/* Story Focus */}
-    <div className="space-y-3">
-      <Label className="text-sm font-medium text-gray-900 flex items-center gap-2">
-        <Eye size={16} className="text-blue-600" />
-        Story Focus
-      </Label>
-      <Input
-        type="text"
-        value={storyFocus}
-        onChange={(e) => setStoryFocus(e.target.value)}
-        placeholder="What should this story focus on? (e.g., emotions, setting, characters, action...)"
-        className="w-full h-10"
-      />
     </div>
 
     {/* Voice Selection */}
@@ -379,7 +403,7 @@ export default function EmberDetail() {
   const [showSupportingMediaModal, setShowSupportingMediaModal] = useState(false);
   const [taggedPeopleCount, setTaggedPeopleCount] = useState(0);
   const [taggedPeopleData, setTaggedPeopleData] = useState([]);
-  const [emberLength, setEmberLength] = useState(30);
+  const [emberLength, setEmberLength] = useState(10);
   const [selectedVoices, setSelectedVoices] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [userPermission, setUserPermission] = useState('none');
@@ -447,12 +471,27 @@ export default function EmberDetail() {
       
       // Set default voices if none selected
       if (!selectedEmberVoice && voices.length > 0) {
+        // Try to find "Lily" for Ember voice
+        const lilyVoice = voices.find(voice => voice.name && voice.name.toLowerCase() === 'lily');
+        if (lilyVoice) {
+          setSelectedEmberVoice(lilyVoice.voice_id);
+        } else {
+          // Fall back to first voice if Lily not found
         setSelectedEmberVoice(voices[0].voice_id);
       }
-      if (!selectedNarratorVoice && voices.length > 1) {
+      }
+      if (!selectedNarratorVoice && voices.length > 0) {
+        // Try to find "George" for Narrator voice
+        const georgeVoice = voices.find(voice => voice.name && voice.name.toLowerCase() === 'george');
+        if (georgeVoice) {
+          setSelectedNarratorVoice(georgeVoice.voice_id);
+        } else if (voices.length > 1) {
+          // Fall back to second voice if George not found
         setSelectedNarratorVoice(voices[1].voice_id);
-      } else if (!selectedNarratorVoice && voices.length > 0) {
+        } else {
+          // Fall back to first voice if only one voice available
         setSelectedNarratorVoice(voices[0].voice_id);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch voices:', error);
@@ -465,16 +504,12 @@ export default function EmberDetail() {
   const fetchStoryStyles = async () => {
     try {
       setStylesLoading(true);
-      const styles = await getStoryCutStyles();
+      // Story cut styles functionality has been removed
+      const styles = [];
       setAvailableStoryStyles(styles);
     } catch (error) {
       console.error('Failed to fetch story styles:', error);
-      // Set fallback styles if database fails
-      setAvailableStoryStyles([
-        { id: 'cinematic', name: 'Cinematic Drama', description: 'Epic, movie-like storytelling' },
-        { id: 'conversational', name: 'Conversational', description: 'Natural, friendly storytelling' },
-        { id: 'documentary', name: 'Documentary Style', description: 'Informative, educational approach' }
-      ]);
+      setAvailableStoryStyles([]);
     } finally {
       setStylesLoading(false);
     }
@@ -887,7 +922,8 @@ export default function EmberDetail() {
       }
 
       // Get style configuration from database styles instead of hardcoded
-      const dbStyles = await getStoryCutStylesFromDB();
+      // Story cut styles functionality has been removed
+      const dbStyles = [];
       const styleConfig = dbStyles[selectedStoryStyle];
       if (!styleConfig) {
         throw new Error('Invalid story style selected');
@@ -905,14 +941,32 @@ export default function EmberDetail() {
       };
 
       // Get story messages for richer context
-      const storyMessages = await getAllStoryMessagesForEmber(ember.id);
+      const allStoryMessages = await getAllStoryMessagesForEmber(ember.id);
+      
+      // Filter story messages to only include selected contributors' responses for direct quotes
+      const selectedContributorQuotes = [];
+      if (allStoryMessages?.messages) {
+        allStoryMessages.messages.forEach(message => {
+          // Only include user responses (not AI questions) from selected contributors
+          if (message.sender === 'user' && message.message_type === 'response' && selectedVoices.includes(message.user_id)) {
+            selectedContributorQuotes.push({
+              contributor_name: message.user_first_name || 'Anonymous',
+              user_id: message.user_id,
+              content: message.content,
+              timestamp: message.created_at
+            });
+          }
+        });
+      }
       
       // Build comprehensive ember context with story content
       const emberWithStoryContext = {
         ...ember,
-        storyMessages: storyMessages || []
+        storyMessages: allStoryMessages?.messages || [],
+        selectedContributorQuotes: selectedContributorQuotes
       };
-      const emberContext = buildEmberContext(emberWithStoryContext);
+      // Ember context building functionality has been removed
+      const emberContext = "";
       
       // Get selected voice details
       const emberVoiceInfo = availableVoices.find(v => v.voice_id === selectedEmberVoice);
@@ -920,9 +974,9 @@ export default function EmberDetail() {
       
       // Get selected users for voice casting
       const selectedUserDetails = [];
-      if (ember?.owner && selectedVoices.includes(ember.owner.user_id)) {
+      if (ember?.owner && selectedVoices.includes(ember.user_id)) {
         selectedUserDetails.push({
-          id: ember.owner.user_id,
+          id: ember.user_id,
           name: ember.owner.first_name || 'Owner',
           role: 'owner'
         });
@@ -939,9 +993,12 @@ export default function EmberDetail() {
 
       console.log('🎬 PREPARING OPENAI STORY CUT GENERATION:');
       console.log('='.repeat(80));
-      console.log('📚 STORY INTEGRATION:', storyMessages && storyMessages.length > 0 
-        ? `✅ Using ${storyMessages.length} story messages from conversations` 
+      console.log('📚 STORY INTEGRATION:', allStoryMessages?.messages?.length > 0 
+        ? `✅ Using ${allStoryMessages.messages.length} total story messages` 
         : '❌ No story content found - using visual analysis only');
+      console.log('💬 DIRECT QUOTES:', selectedContributorQuotes.length > 0 
+        ? `✅ ${selectedContributorQuotes.length} direct quotes from ${selectedUserDetails.length} selected contributors` 
+        : '❌ No direct quotes from selected contributors');
       console.log('🎭 STYLE:', styleConfig.name, '-', styleConfig.description);
       console.log('⏱️ DURATION:', emberLength, 'seconds');
       console.log('🎤 VOICE CASTING:', {
@@ -954,74 +1011,12 @@ export default function EmberDetail() {
       
       // Use OpenAI to generate the actual story cut
       console.log('🤖 Calling OpenAI to generate story cut...');
-      const openaiResult = await generateStoryCutWithOpenAI(
-        formData,
-        styleConfig,
-        emberContext, 
-        {
-          ember: emberVoiceInfo,
-          narrator: narratorVoiceInfo,
-          contributors: selectedUserDetails
-        }
-      );
+      // Story cut generation functionality has been removed
+      throw new Error("Story cut generation has been disabled");
       
-      if (!openaiResult.success) {
-        throw new Error('Failed to generate story cut with OpenAI');
-      }
-      
-      const generatedStoryCut = openaiResult.data;
-      console.log('✅ OpenAI generated story cut:', generatedStoryCut);
-      console.log('📊 Tokens used:', openaiResult.tokensUsed);
+              // Story cut generation has been disabled
 
-      // Save to database
-      const storyCutToSave = {
-        emberId: ember.id,
-        creatorUserId: userProfile?.user_id,
-        title: generatedStoryCut.title,
-        style: generatedStoryCut.style,
-        duration: generatedStoryCut.duration,
-        wordCount: generatedStoryCut.wordCount,
-        storyFocus: formData.focus,
-        script: generatedStoryCut.script,
-        voiceCasting: {
-          emberVoice: {
-            voice_id: selectedEmberVoice,
-            name: emberVoiceInfo?.name || 'Unknown Voice'
-          },
-          narratorVoice: {
-            voice_id: selectedNarratorVoice,
-            name: narratorVoiceInfo?.name || 'Unknown Voice'
-          },
-          contributors: selectedUserDetails
-        },
-        metadata: generatedStoryCut.metadata
-      };
-
-      console.log('💾 Saving story cut to database:', storyCutToSave);
-      
-      const savedStoryCut = await saveStoryCut(storyCutToSave);
-      
-      console.log('✅ Story cut saved successfully:', savedStoryCut);
-      
-      // Refresh the story cuts list
-      await fetchStoryCuts();
-      
-      // Also refresh the EmberSettingsPanel if it's open
-      if (window.EmberDetailActions?.refreshStoryCuts && window.EmberDetailActions.refreshStoryCuts !== fetchStoryCuts) {
-        await window.EmberDetailActions.refreshStoryCuts();
-      }
-      
-      setMessage({ 
-        type: 'success', 
-        text: `Story cut "${generatedStoryCut.title}" created and saved successfully! Generated by OpenAI with ${openaiResult.tokensUsed} tokens.${
-          storyMessages && storyMessages.length > 0 
-            ? ` Used ${storyMessages.length} story messages from conversations.`
-            : ' Build a story first for even richer content.'
-        }` 
-      });
-      
-      // Close the creator modal
-      setShowStoryCutCreator(false);
+      // Story cut generation has been disabled
       
     } catch (error) {
       console.error('Error generating story cut:', error);
@@ -2239,7 +2234,7 @@ export default function EmberDetail() {
           
           {/* Side Panel */}
           <div className={cn(
-            "fixed top-0 right-0 h-full w-[90%] md:w-[50%] bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out",
+            "fixed top-0 right-0 h-full w-[calc(100%-2rem)] max-w-2xl bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out",
             showEmberSharing ? "translate-x-0" : "translate-x-full"
           )}>
             <div className="p-6 border-b">
@@ -2387,7 +2382,7 @@ export default function EmberDetail() {
           
           {/* Side Panel */}
           <div className={cn(
-            "fixed top-0 right-0 h-full w-[90%] md:w-[50%] bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out",
+            "fixed top-0 right-0 h-full w-[calc(100%-2rem)] max-w-2xl bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out",
             showEmberStoryCuts ? "translate-x-0" : "translate-x-full"
           )}>
             <div className="p-6 border-b">
@@ -2589,6 +2584,7 @@ export default function EmberDetail() {
                     availableVoices={availableVoices}
                     handleGenerateStoryCut={handleGenerateStoryCut}
                     isGeneratingStoryCut={isGeneratingStoryCut}
+                    storyMessages={storyMessages}
                   />
                 </div>
               </DrawerContent>
@@ -2629,6 +2625,7 @@ export default function EmberDetail() {
                   availableVoices={availableVoices}
                   handleGenerateStoryCut={handleGenerateStoryCut}
                   isGeneratingStoryCut={isGeneratingStoryCut}
+                  storyMessages={storyMessages}
                 />
               </DialogContent>
             </Dialog>

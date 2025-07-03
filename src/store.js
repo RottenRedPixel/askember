@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from './lib/supabase';
+import { getAllUsersWithEmails } from './lib/database';
 
 let authListener = null;
 
@@ -88,32 +89,12 @@ const useStore = create((set, get) => ({
 
     set({ adminLoading: true });
     try {
-      // Use the custom function to get user profiles with email
-      const { data, error } = await supabase
-        .rpc('get_user_profiles_with_email');
+      const users = await getAllUsersWithEmails();
 
-      if (error) {
-        console.error('Error fetching users:', error);
-        return;
-      }
-
-      // Transform the data to match the expected format
-      const transformedUsers = (data || []).map(user => ({
-        id: user.id,
-        user_id: user.user_id,
-        role: user.role,
-        created_at: user.created_at,
-        updated_at: user.updated_at,
-        auth_users: {
-          email: user.email,
-          created_at: user.auth_created_at,
-          last_sign_in_at: user.last_sign_in_at
-        }
-      }));
-
-      set({ allUsers: transformedUsers });
+      set({ allUsers: users });
     } catch (error) {
       console.error('Error in fetchAllUsers:', error);
+      set({ allUsers: [] });
     } finally {
       set({ adminLoading: false });
     }
@@ -143,12 +124,41 @@ const useStore = create((set, get) => ({
     }
   },
 
+  updateUserProfile: async (userId, profileData) => {
+    const { isAdmin } = get();
+    if (!isAdmin) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update(profileData)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error updating user profile:', error);
+        return false;
+      }
+
+      // Refresh users list
+      await get().fetchAllUsers();
+      return true;
+    } catch (error) {
+      console.error('Error in updateUserProfile:', error);
+      return false;
+    }
+  },
+
   // Initialize auth state
   initializeAuth: async () => {
     console.log('🔐 initializeAuth called');
     try {
+      // Add a small delay to ensure Supabase is fully initialized
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user ?? null;
+      console.log('🔐 Initial session check:', { user: user?.id, session: !!session });
+      
       set({ user, isLoading: false });
 
       if (user) {

@@ -5,22 +5,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import VersionDisplay from '@/components/VersionDisplay';
 
 export default function Header() {
-  const { user, userProfile, isAdmin, logout } = useStore();
+  const { user, userProfile, logout } = useStore();
+  
+  // Check if user is admin
+  const isAdmin = userProfile?.role === 'super_admin' || userProfile?.role === 'admin';
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isDevToolsMenuOpen, setIsDevToolsMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
-  const devToolsMenuRef = useRef(null);
   
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setIsUserMenuOpen(false);
-      }
-      if (devToolsMenuRef.current && !devToolsMenuRef.current.contains(event.target)) {
-        setIsDevToolsMenuOpen(false);
       }
     };
     
@@ -31,10 +29,7 @@ export default function Header() {
   // Helper function to determine if a link is active
   const isActive = (path) => location.pathname === path;
   
-  // Helper function to check if any dev tools are active
-  const isDevToolsActive = () => {
-    return ['/dev', '/eleven', '/style'].includes(location.pathname);
-  };
+
   
   // Helper function to get link classes based on active state
   const getLinkClasses = (path, baseClasses = "px-4 py-2 font-medium transition-colors border-b-2") => {
@@ -114,64 +109,7 @@ export default function Header() {
                   Admin
                 </Link>
               )}
-              {isAdmin && (
-                <div className="relative" ref={devToolsMenuRef}>
-                  <button
-                    onClick={() => setIsDevToolsMenuOpen(!isDevToolsMenuOpen)}
-                    className={`px-4 py-2 font-medium transition-colors border-b-2 flex items-center gap-1 ${
-                      isDevToolsActive() 
-                        ? "text-blue-600 bg-blue-50 border-blue-600" 
-                        : "text-gray-700 hover:text-blue-600 border-transparent"
-                    }`}
-                  >
-                    Dev Tools
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  
-                  {/* Dev Tools dropdown menu */}
-                  {isDevToolsMenuOpen && (
-                    <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                      <div className="py-2">
-                        <Link
-                          to="/dev"
-                          onClick={() => setIsDevToolsMenuOpen(false)}
-                          className={`block px-4 py-2 text-sm transition-colors ${
-                            isActive('/dev') 
-                              ? 'text-blue-600 bg-blue-50' 
-                              : 'text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          Dev Dashboard
-                        </Link>
-                        <Link
-                          to="/eleven"
-                          onClick={() => setIsDevToolsMenuOpen(false)}
-                          className={`block px-4 py-2 text-sm transition-colors ${
-                            isActive('/eleven') 
-                              ? 'text-blue-600 bg-blue-50' 
-                              : 'text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          ElevenLabs Test
-                        </Link>
-                        <Link
-                          to="/style"
-                          onClick={() => setIsDevToolsMenuOpen(false)}
-                          className={`block px-4 py-2 text-sm transition-colors ${
-                            isActive('/style') 
-                              ? 'text-blue-600 bg-blue-50' 
-                              : 'text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          Style Guide
-                        </Link>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+
             </div>
             
             <div className="flex items-center gap-4">
@@ -193,9 +131,6 @@ export default function Header() {
                   {isUserMenuOpen && (
                     <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                       <div className="py-2">
-                        <div className="px-4 py-2 text-sm text-gray-600 border-b border-gray-100">
-                          {user.email}
-                        </div>
                         <Link
                           to="/settings"
                           onClick={() => setIsUserMenuOpen(false)}
@@ -284,7 +219,7 @@ export default function Header() {
                     Embers
                   </Link>
                 )}
-                                {isAdmin && (
+                {isAdmin && (
                   <Link 
                     to="/admin" 
                     className={getMobileLinkClasses("/admin")}
@@ -293,48 +228,17 @@ export default function Header() {
                     Admin
                   </Link>
                 )}
-                {isAdmin && (
-                  <>
-                    <div className="px-4 py-2 text-sm font-semibold text-gray-500 bg-gray-50 border-l-4 border-gray-300">
-                      Dev Tools
-                    </div>
-                    <Link 
-                      to="/dev" 
-                      className={`${getMobileLinkClasses("/dev")} pl-8`}
-                      onClick={handleMobileLinkClick}
-                    >
-                      Dev Dashboard
-                    </Link>
-                    <Link 
-                      to="/eleven" 
-                      className={`${getMobileLinkClasses("/eleven")} pl-8`}
-                      onClick={handleMobileLinkClick}
-                    >
-                      ElevenLabs Test
-                    </Link>
-                    <Link 
-                      to="/style" 
-                      className={`${getMobileLinkClasses("/style")} pl-8`}
-                      onClick={handleMobileLinkClick}
-                    >
-                      Style Guide
-                    </Link>
-                  </>
-                )}
                 
                 <div className="border-t border-gray-200 mt-2 pt-2">
                   {user ? (
                     <div className="px-4 py-3">
-                      <div className="flex items-center gap-3 mb-3">
+                      <div className="flex items-center justify-center mb-3">
                         <Avatar className="h-10 w-10">
                           <AvatarImage src={userProfile?.avatar_url || ""} alt={user.email} />
                           <AvatarFallback className="bg-blue-100 text-blue-800 text-sm">
                             {getUserInitials(user.email, userProfile?.first_name, userProfile?.last_name)}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="text-sm text-gray-600">
-                          {user.email}
-                        </div>
                       </div>
                       <div className="space-y-2">
                         <Link

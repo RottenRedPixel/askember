@@ -18,22 +18,21 @@ export default async function handler(req, res) {
     // Calculate approximate word count (3 words per second)
     const approximateWords = Math.round(formData.duration * 3);
     
-    // Build comprehensive system prompt similar to development version
-    const baseSystemPrompt = `You are an expert storyteller and scriptwriter who creates engaging audio narratives from photos, memories, and personal stories.
-
-CRITICAL ACCURACY REQUIREMENTS:
-- Use ONLY the information provided in the ember context
-- DO NOT invent, fabricate, or make up any names, places, dates, events, or details
-- DO NOT create fictional characters or relationships not mentioned in the context
-- If information is missing, acknowledge it rather than inventing it
-- Stick strictly to the facts and details actually provided
-- When the context is limited, focus on the general atmosphere and emotions rather than specific fabricated details
-
-Your task is to create a compelling audio story script with two distinct voices:
-1. An Ember Voice - represents the memory/moment itself or a character within it
-2. A Narrator Voice - provides context, transitions, and storytelling structure
-
-The story should feel authentic, emotionally resonant, and true to the provided information. Focus on creating an engaging narrative that brings the memory to life without adding fictional elements.`;
+    // Get main generator prompt from database
+    let baseSystemPrompt;
+    try {
+      // In production, we need to use the database functions
+      // This would need to be imported from the database module
+      // For now, we'll use a placeholder that matches our database setup
+      baseSystemPrompt = process.env.STORY_CUT_GENERATOR_PROMPT;
+      
+      if (!baseSystemPrompt) {
+        throw new Error('Story cut generator prompt not configured in environment or database');
+      }
+    } catch (error) {
+      console.error('Failed to load story cut generator prompt:', error);
+      throw new Error('Story cut generation not properly configured');
+    }
 
     const systemPrompt = `${baseSystemPrompt}
 
@@ -48,7 +47,14 @@ SELECTED CONTRIBUTORS: ${voiceCasting.contributors?.map(u => `${u.name} (${u.rol
 
 VOICE INSTRUCTIONS: ${styleConfig.voiceInstructions}
 
-You must create content that makes use of the voice casting and involves the selected contributors in the storytelling when appropriate. Return ONLY valid JSON with the exact structure specified.`;
+DIRECT QUOTES USAGE:
+- When direct quotes from selected contributors are available in the context, use them exactly as spoken to create authentic dialogue
+- You can have contributors speak their own words directly in the story cut
+- Use quotes like: [Contributor Name]: "Their exact words from the story conversation"
+- This creates a more personal and authentic story experience
+- Balance direct quotes with narrative flow - don't just list quotes, weave them into the story
+
+You must create content that makes use of the voice casting and involves the selected contributors in the storytelling when appropriate. When direct quotes are available, incorporate them to make the story more personal and authentic. Return ONLY valid JSON with the exact structure specified.`;
 
     // Build comprehensive user prompt
     const userPrompt = `Create a ${formData.duration}-second ${styleConfig.name.toLowerCase()} style story cut for this photo/memory:
@@ -73,6 +79,7 @@ REQUIREMENTS:
 - ${formData.focus ? `Focus specifically on: ${formData.focus}` : 'Create engaging narrative flow'}
 - Assign appropriate lines to ember voice vs narrator voice
 - Make use of selected contributors: ${voiceCasting.contributors?.map(u => u.name).join(', ') || 'Focus on the image content and provided context only'}
+- When available, incorporate direct quotes from selected contributors to make the story authentic and personal
 - If the context is limited, create atmosphere and emotion rather than fictional specifics
 
 OUTPUT FORMAT:

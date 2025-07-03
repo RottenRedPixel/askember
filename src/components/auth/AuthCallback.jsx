@@ -8,6 +8,8 @@ export default function AuthCallback() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/embers';
+  
+  console.log('AuthCallback: redirectTo =', redirectTo);
 
   useEffect(() => {
     const handleAuthCallback = async () => {

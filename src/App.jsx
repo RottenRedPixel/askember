@@ -6,19 +6,19 @@ import About from './components/pages/About';
 import Create from './components/pages/Create';
 import MyEmbers from './components/pages/MyEmbers';
 import EmberDetail from './components/pages/EmberDetail';
-import Test from './components/pages/Test';
-import ElevenLabsTest from './components/pages/ElevenLabsTest';
-import Sandbox from './components/pages/Sandbox';
 import Settings from './components/pages/Settings';
-import AdminDashboard from './components/pages/AdminDashboard';
-import DevDashboard from './components/pages/DevDashboard';
-import StyleGuide from './components/pages/StyleGuide';
 import AuthGuard from './components/auth/AuthGuard';
 import AdminGuard from './components/auth/AdminGuard';
 import AuthCallback from './components/auth/AuthCallback';
 import AuthPage from './components/auth/AuthPage';
+
+// Admin Components
+import AdminLayout from './components/admin/layout/AdminLayout';
+import AdminDashboard from './components/admin/dashboard/AdminDashboard';
+import UserManagement from './components/admin/users/UserManagement';
 import { addPrimaryStoryCutColumn } from './lib/database';
 import './App.css'
+
 
 export default function App() {
   const { initializeAuth } = useStore();
@@ -51,10 +51,6 @@ export default function App() {
           <Routes>
             <Route path="/" element={<About />} />
             <Route path="/create" element={<Create />} />
-            <Route path="/test" element={<Test />} />
-            <Route path="/eleven" element={<ElevenLabsTest />} />
-            <Route path="/sandbox" element={<Sandbox />} />
-            <Route path="/style" element={<StyleGuide />} />
             <Route path="/login" element={<AuthPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/embers" element={
@@ -67,16 +63,19 @@ export default function App() {
                 <Settings />
               </AuthGuard>
             } />
-            <Route path="/admin" element={
+            
+            {/* Admin Routes */}
+            <Route path="/admin/*" element={
               <AdminGuard>
-                <AdminDashboard />
+                <AdminLayout>
+                  <Routes>
+                    <Route path="/" element={<AdminDashboard />} />
+                    <Route path="/users" element={<UserManagement />} />
+                  </Routes>
+                </AdminLayout>
               </AdminGuard>
             } />
-            <Route path="/dev" element={
-              <AdminGuard>
-                <DevDashboard />
-              </AdminGuard>
-            } />
+
           </Routes>
         </Layout>
       } />

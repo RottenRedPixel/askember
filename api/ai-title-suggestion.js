@@ -89,21 +89,27 @@ export default async function handler(req, res) {
 
     const context = contextParts.join('\n');
     
+    // Load prompt from database (MUST be present)
+    let dbPrompt = null;
+    try {
+      const { getActivePrompt } = require('../src/lib/database');
+      dbPrompt = await getActivePrompt('title_suggestions');
+      if (!dbPrompt || !dbPrompt.system_prompt || !dbPrompt.user_prompt_template) {
+        throw new Error('Title suggestion prompt not found in database. Please configure it in the admin panel.');
+      }
+    } catch (e) {
+      return res.status(500).json({ error: 'Title suggestion prompt not found in database. Please configure it in the admin panel.' });
+    }
+
+    // Build user prompt from template
+    const userPrompt = dbPrompt.user_prompt_template.replace('{{context}}', context);
+    const systemPrompt = dbPrompt.system_prompt;
+
     let prompt;
     if (requestType === 'multiple') {
-      prompt = `Based on the following information about a photo/memory, suggest 3 creative, meaningful, and concise titles (each under 30 characters). The titles should capture the essence of the moment, location, time, or emotions. Avoid generic titles like "Perfect Moment" or "Golden Hour" unless they're truly relevant to the specific context.
-
-Context:
-${context}
-
-Return only 3 titles, one per line, without numbers or bullets. Make them unique and specific to this particular moment/photo.`;
+      prompt = `Based on the following information about a photo/memory, suggest 3 creative, meaningful, and concise titles (each under 30 characters). The titles should capture the essence of the moment, location, time, or emotions. Avoid generic titles like "Perfect Moment" or "Golden Hour" unless they're truly relevant to the specific context.\n\nContext:\n${context}\n\nReturn only 3 titles, one per line, without numbers or bullets. Make them unique and specific to this particular moment/photo.`;
     } else {
-      prompt = `Based on the following information about a photo/memory, suggest 1 creative, meaningful, and concise title (under 30 characters). The title should capture the essence of the moment, location, time, or emotions. Avoid generic titles unless they're truly relevant to the specific context.
-
-Context:
-${context}
-
-Return only the title, no additional text or formatting.`;
+      prompt = `Based on the following information about a photo/memory, suggest 1 creative, meaningful, and concise title (under 30 characters). The title should capture the essence of the moment, location, time, or emotions. Avoid generic titles unless they're truly relevant to the specific context.\n\nContext:\n${context}\n\nReturn only the title, no additional text or formatting.`;
     }
 
     const completion = await openai.chat.completions.create({
@@ -111,11 +117,11 @@ Return only the title, no additional text or formatting.`;
       messages: [
         {
           role: 'system',
-          content: 'You are an expert at creating meaningful, creative titles for photos and memories. You analyze context and create titles that capture the essence of the moment.'
+          content: systemPrompt
         },
         {
           role: 'user',
-          content: prompt
+          content: userPrompt
         }
       ],
       max_tokens: 150,

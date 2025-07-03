@@ -2032,4 +2032,52 @@ export const deleteEmberSupportingMedia = async (mediaId, userId) => {
     console.error('Error deleting supporting media:', error);
     throw error;
   }
+};
+
+/**
+ * Admin function to get all user profiles with emails
+ * This requires super admin privileges
+ */
+export const getAllUsersWithEmails = async () => {
+  try {
+    // NOTE: RPC function exists but doesn't include first_name, last_name, bio, avatar_url
+    // Using direct table query to get all profile fields, then merging with email data
+    
+    const { data: profiles, error: profilesError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (profilesError) {
+      throw new Error(profilesError.message);
+    }
+
+    // Since the RPC function was working for emails, let's try to get them from auth.users
+    // For now, we'll use the RPC function just for emails and merge with our profile data
+    let emailData = [];
+    try {
+      const { data: emailRpcData } = await supabase.rpc('get_user_profiles_with_email');
+      emailData = emailRpcData || [];
+    } catch (e) {
+      console.log('Could not get emails from RPC:', e);
+    }
+    
+    const usersWithEmails = (profiles || []).map(profile => {
+      // Find matching email data
+      const emailInfo = emailData.find(e => e.user_id === profile.user_id);
+      return {
+        ...profile,
+        email: emailInfo?.email || `user-${profile.user_id.substring(0, 8)}@example.com`,
+        last_sign_in_at: emailInfo?.last_sign_in_at || null,
+        auth_created_at: emailInfo?.auth_created_at || profile.created_at
+      };
+    });
+
+
+
+          return usersWithEmails;
+  } catch (error) {
+    console.error('Error fetching all users with emails:', error);
+    throw error;
+  }
 }; 
