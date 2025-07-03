@@ -113,11 +113,17 @@ export const uploadImageWithExif = async (file, userId, emberId = null) => {
           enhanced: true,
           enhancedFields: enhancedResult.extractedFields
         };
+      } else if (response.status === 404) {
+        console.info('Enhanced EXIF processing endpoint not available (development mode) - using client-side data only');
       } else {
-        console.warn('Enhanced EXIF processing failed, using client-side data');
+        console.warn('Enhanced EXIF processing failed with status:', response.status, '- using client-side data');
       }
     } catch (error) {
-      console.warn('Enhanced EXIF processing error:', error.message);
+      if (error.message.includes('Failed to fetch') || error.message.includes('ERR_ABORTED')) {
+        console.info('Enhanced EXIF processing endpoint not available (development mode) - using client-side data only');
+      } else {
+        console.warn('Enhanced EXIF processing error:', error.message);
+      }
     }
 
     return {

@@ -109,6 +109,19 @@ export default function Create() {
         const photoResult = await uploadImageWithExif(selectedImage, user.id, newEmber.id);
         console.log('Photo with EXIF data uploaded:', photoResult);
         supabaseImageUrl = photoResult.storageUrl; // Use Supabase URL for AI analysis
+        
+        // Auto-update ember with location and timestamp data from EXIF
+        if (photoResult.success) {
+          try {
+            console.log('🔄 Auto-updating ember with EXIF data...');
+            const { autoUpdateEmberFromExif } = await import('@/lib/geocoding');
+            await autoUpdateEmberFromExif(newEmber, photoResult, user.id);
+            console.log('✅ Ember auto-updated with location and timestamp data');
+          } catch (autoUpdateError) {
+            console.warn('⚠️ Failed to auto-update ember with EXIF data:', autoUpdateError);
+            // Don't fail ember creation if auto-update fails
+          }
+        }
       } catch (exifError) {
         console.warn('Failed to upload image with EXIF data:', exifError);
         // Don't fail the entire ember creation if EXIF extraction fails
@@ -128,8 +141,10 @@ export default function Create() {
         // Start the analysis process (don't await - let it run in background)
         triggerImageAnalysis(newEmber.id, analysisImageUrl)
           .then(async (analysisResult) => {
-            if (analysisResult.success) {
+            console.log('🔍 Analysis result received:', analysisResult);
+            if (analysisResult && analysisResult.success) {
               // Save the analysis result
+              console.log('💾 Saving analysis result...');
               await saveImageAnalysis(
                 newEmber.id,
                 user.id,
@@ -139,10 +154,13 @@ export default function Create() {
                 analysisResult.tokensUsed
               );
               console.log('✅ AI image analysis completed and saved');
+            } else {
+              console.warn('⚠️ Analysis result was not successful:', analysisResult);
             }
           })
           .catch((analysisError) => {
-            console.warn('⚠️ AI image analysis failed (non-critical):', analysisError);
+            console.error('❌ AI image analysis failed:', analysisError);
+            console.error('Error stack:', analysisError.stack);
             // Analysis failure doesn't prevent ember creation
           });
           

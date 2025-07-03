@@ -412,6 +412,10 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Calculate scaling factor for stored coordinates (move this to top)
+      const scaleX = displaySize.width / imageRef.current.naturalWidth;
+      const scaleY = displaySize.height / imageRef.current.naturalHeight;
+
       // Draw auto-detected face circles
       resizedDetections.forEach((detection, index) => {
         const { x, y, width, height } = detection.box;
@@ -445,10 +449,6 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
           ctx.fillText('+', x + width / 2 - 4, y - 5);
         }
       });
-
-      // Calculate scaling factor for stored coordinates
-      const scaleX = displaySize.width / imageRef.current.naturalWidth;
-      const scaleY = displaySize.height / imageRef.current.naturalHeight;
 
       // Draw manual tags (both placed and already saved)
       const allManualTags = [

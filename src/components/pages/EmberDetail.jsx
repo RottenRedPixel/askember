@@ -414,6 +414,7 @@ export default function EmberDetail() {
   const [activeAudioSegments, setActiveAudioSegments] = useState([]);
   const playbackStoppedRef = useRef(false);
   const [isExitingPlay, setIsExitingPlay] = useState(false);
+  const [currentVoiceType, setCurrentVoiceType] = useState(null);
   const [availableVoices, setAvailableVoices] = useState([]);
   const [selectedEmberVoice, setSelectedEmberVoice] = useState('');
   const [selectedNarratorVoice, setSelectedNarratorVoice] = useState('');
@@ -1634,6 +1635,8 @@ export default function EmberDetail() {
       setCurrentlyPlayingStoryCut(null);
       setCurrentAudio(null);
       setActiveAudioSegments([]);
+      setCurrentVoiceType(null);
+      console.log('🎬 Voice type reset on exit');
       
       // Reset playback flag for next play
       playbackStoppedRef.current = false;
@@ -1641,6 +1644,25 @@ export default function EmberDetail() {
   };
 
   // Handle play button click - now uses story cuts if available
+  // Detect frame type based on image orientation
+  const determineFrameType = (imageUrl) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const aspectRatio = img.naturalWidth / img.naturalHeight;
+        
+        if (aspectRatio > 1) {
+          // Landscape
+          resolve('landscape');
+        } else {
+          // Portrait
+          resolve('portrait');
+        }
+      };
+      img.src = imageUrl;
+    });
+  };
+
   const handlePlay = async () => {
     if (isPlaying) {
       // Stop current audio with smooth exit
@@ -1652,6 +1674,8 @@ export default function EmberDetail() {
       setShowFullscreenPlay(true);
       setIsGeneratingAudio(true); // Show loading state
       setIsExitingPlay(false);
+
+      console.log('🎬 Visual effects will be driven by audio segments');
 
       // Check if we have story cuts available
       if (storyCuts && storyCuts.length > 0) {
@@ -1694,7 +1718,8 @@ export default function EmberDetail() {
               setIsPlaying, 
               handleExitPlay, 
               setActiveAudioSegments,
-              playbackStoppedRef
+              playbackStoppedRef,
+              setCurrentVoiceType
             });
           } else {
             // Fallback if no segments could be parsed
@@ -3001,6 +3026,15 @@ export default function EmberDetail() {
             }}
           />
           
+          {/* Voice Type Overlay */}
+          <div 
+            className={`absolute inset-0 transition-all duration-500 ease-out ${
+              currentVoiceType === 'ember' ? 'voice-overlay-ember' : 
+              currentVoiceType === 'narrator' ? 'voice-overlay-narrator' : 
+              currentVoiceType === 'contributor' ? 'voice-overlay-contributor' : ''
+            }`}
+          />
+          
           {/* Dark overlay */}
           <div 
             className="absolute inset-0 bg-black bg-opacity-40 transition-opacity duration-1000 ease-out"
@@ -3286,7 +3320,7 @@ export default function EmberDetail() {
 
   // Play multiple audio segments sequentially
   const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, stateSetters) => {
-    const { setIsGeneratingAudio, setIsPlaying, handleExitPlay, setActiveAudioSegments, playbackStoppedRef } = stateSetters;
+    const { setIsGeneratingAudio, setIsPlaying, handleExitPlay, setActiveAudioSegments, playbackStoppedRef, setCurrentVoiceType } = stateSetters;
     
     console.log('🎭 Starting multi-voice playback with', segments.length, 'segments');
     
@@ -3341,6 +3375,19 @@ export default function EmberDetail() {
         const audio = currentSegment.audio;
         
         console.log(`▶️ Playing segment ${currentSegmentIndex + 1}/${audioSegments.length}: [${currentSegment.voiceTag}]`);
+        
+        // Trigger visual effect based on voice type
+        const segmentType = segments[currentSegmentIndex].type;
+        if (segmentType === 'ember') {
+          console.log('🎬 Visual effect: Ember voice - applying red overlay');
+          setCurrentVoiceType('ember');
+        } else if (segmentType === 'narrator') {
+          console.log('🎬 Visual effect: Narrator voice - applying blue overlay');
+          setCurrentVoiceType('narrator');
+        } else {
+          console.log('🎬 Visual effect: Contributor voice - applying green overlay');
+          setCurrentVoiceType('contributor');
+        }
         
         // Handle segment completion
         audio.onended = () => {

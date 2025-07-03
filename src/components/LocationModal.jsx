@@ -15,6 +15,7 @@ import {
   Camera,
   Navigation
 } from 'lucide-react';
+import { reverseGeocode } from '@/lib/geocoding';
 
 function formatCoordinates(lat, lng) {
   if (!lat || !lng) return 'Unknown';
@@ -23,67 +24,6 @@ function formatCoordinates(lat, lng) {
   const lngDir = lng >= 0 ? 'E' : 'W';
   
   return `${Math.abs(lat).toFixed(6)}°${latDir}, ${Math.abs(lng).toFixed(6)}°${lngDir}`;
-}
-
-async function reverseGeocode(lat, lng) {
-  if (!lat || !lng) return null;
-  
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-      {
-        headers: {
-          'User-Agent': 'AskEmber-App'
-        }
-      }
-    );
-    
-    if (!response.ok) throw new Error('Geocoding failed');
-    
-    const data = await response.json();
-    
-    if (data && data.address) {
-      const addr = data.address;
-      
-      // Build a formatted address
-      const parts = [];
-      
-      // Building/POI name
-      if (addr.amenity) parts.push(addr.amenity);
-      if (addr.shop) parts.push(addr.shop);
-      if (addr.building) parts.push(addr.building);
-      
-      // House number and street
-      if (addr.house_number && addr.road) {
-        parts.push(`${addr.house_number} ${addr.road}`);
-      } else if (addr.road) {
-        parts.push(addr.road);
-      }
-      
-      // Neighborhood/Suburb
-      if (addr.neighbourhood) parts.push(addr.neighbourhood);
-      if (addr.suburb) parts.push(addr.suburb);
-      
-      const address = parts.slice(0, 3).join(', '); // Limit to first 3 parts
-      
-      const city = addr.city || addr.town || addr.village || addr.municipality;
-      const state = addr.state;
-      const country = addr.country;
-      
-      return {
-        address: address || 'Address not available',
-        city: city || 'Unknown city',
-        state: state || '',
-        country: country || 'Unknown country',
-        fullAddress: data.display_name
-      };
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Reverse geocoding error:', error);
-    return null;
-  }
 }
 
 // Extract ModalContent to prevent re-mounting on every render
