@@ -1631,37 +1631,41 @@ export default function EmberDetail() {
         console.log('🎙️ Recorded audio available:', Object.keys(recordedAudio));
         
         if (Object.keys(recordedAudio).length > 0) {
-          // TODO: Multi-voice playback with recorded audio
-          console.log('🎵 Multi-voice playback with recorded audio will be implemented next');
+          // Use multi-voice playback with recorded audio
+          console.log('🎵 Using multi-voice playback with recorded audio');
           console.log('🎙️ Available recorded audio:', recordedAudio);
           
-          // For now, fall back to synthesized audio but log the availability
-          const content = selectedStoryCut.full_script;
-          const voiceId = selectedStoryCut.ember_voice_id;
+          // Parse the script into segments
+          const segments = parseScriptSegments(selectedStoryCut.full_script);
           
-          // Generate speech using ElevenLabs with the specific voice
-          const audioBlob = await textToSpeech(content, voiceId);
-          
-          // Create audio URL and play
-          const audioUrl = URL.createObjectURL(audioBlob);
-          const audio = new Audio(audioUrl);
-          
-          setCurrentAudio(audio);
-          
-          // Handle audio end
-          audio.onended = () => {
-            handleExitPlay();
-            URL.revokeObjectURL(audioUrl);
-          };
-          
-          // Handle audio error
-          audio.onerror = () => {
-            console.error('Audio playback failed');
-            handleExitPlay();
-            URL.revokeObjectURL(audioUrl);
-          };
-          
-          await audio.play();
+          if (segments.length > 0) {
+            // Use new multi-voice playback system
+            await playMultiVoiceAudio(segments, selectedStoryCut, recordedAudio);
+          } else {
+            // Fallback if no segments could be parsed
+            console.log('⚠️ No segments could be parsed, falling back to single voice');
+            const content = selectedStoryCut.full_script;
+            const voiceId = selectedStoryCut.ember_voice_id;
+            
+            const audioBlob = await textToSpeech(content, voiceId);
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            setCurrentAudio(audio);
+            
+            audio.onended = () => {
+              handleExitPlay();
+              URL.revokeObjectURL(audioUrl);
+            };
+            
+            audio.onerror = () => {
+              console.error('Audio playback failed');
+              handleExitPlay();
+              URL.revokeObjectURL(audioUrl);
+            };
+            
+            await audio.play();
+          }
         } else {
           // No recorded audio, use current synthesized approach
           console.log('🔊 No recorded audio found, using synthesized speech');
@@ -3034,5 +3038,200 @@ export default function EmberDetail() {
     </div>
   );
 }
+
+  // Parse script into voice segments for multi-voice playback
+  const parseScriptSegments = (script) => {
+    if (!script) return [];
+    
+    const segments = [];
+    const lines = script.split('\n');
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) continue;
+      
+      // Match voice tags like [EMBER VOICE], [NARRATOR], [Amado], etc.
+      const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
+      
+      if (voiceMatch) {
+        const voiceTag = voiceMatch[1].trim();
+        const content = voiceMatch[2].trim();
+        
+        if (content) {
+          segments.push({
+            voiceTag,
+            content,
+            type: getVoiceType(voiceTag)
+          });
+        }
+      }
+    }
+    
+    console.log('📝 Parsed script segments:', segments);
+    return segments;
+  };
+  
+  // Determine voice type for segment
+  const getVoiceType = (voiceTag) => {
+    if (voiceTag === 'EMBER VOICE') return 'ember';
+    if (voiceTag === 'NARRATOR') return 'narrator';
+    return 'contributor'; // Everything else is a contributor (user name)
+  };
+
+  // Generate audio for a single voice segment
+  const generateSegmentAudio = async (segment, storyCut, recordedAudio) => {
+    const { voiceTag, content, type } = segment;
+    
+    console.log(`🎵 Generating audio for [${voiceTag}]: "${content.substring(0, 50)}..."`);
+    
+    try {
+      if (type === 'contributor') {
+        // Look for recorded audio by matching voice tag (user first name) to recorded audio
+        const userWithRecordedAudio = Object.entries(recordedAudio).find(([userId, audioData]) => {
+          return audioData.user_first_name === voiceTag;
+        });
+        
+        if (userWithRecordedAudio) {
+          const [userId, audioData] = userWithRecordedAudio;
+          console.log(`🎙️ Using recorded audio for ${voiceTag} from user ${userId}`);
+          
+          // Create a direct audio element from the recorded URL
+          const audio = new Audio(audioData.audio_url);
+          return {
+            type: 'recorded',
+            audio,
+            url: audioData.audio_url,
+            voiceTag,
+            content
+          };
+        } else {
+          // Fall back to narrator voice with attribution
+          console.log(`🔊 No recorded audio for ${voiceTag}, using narrator with attribution`);
+          const attributedContent = `${voiceTag} said: "${content}"`;
+          const audioBlob = await textToSpeech(attributedContent, storyCut.narrator_voice_id);
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+          
+          return {
+            type: 'synthesized',
+            audio,
+            url: audioUrl,
+            blob: audioBlob,
+            voiceTag,
+            content: attributedContent
+          };
+        }
+      } else if (type === 'ember') {
+        // Use ember voice
+        console.log(`🌟 Using ember voice for: ${content.substring(0, 30)}...`);
+        const audioBlob = await textToSpeech(content, storyCut.ember_voice_id);
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        
+        return {
+          type: 'synthesized',
+          audio,
+          url: audioUrl,
+          blob: audioBlob,
+          voiceTag,
+          content
+        };
+      } else if (type === 'narrator') {
+        // Use narrator voice
+        console.log(`📢 Using narrator voice for: ${content.substring(0, 30)}...`);
+        const audioBlob = await textToSpeech(content, storyCut.narrator_voice_id);
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        
+        return {
+          type: 'synthesized',
+          audio,
+          url: audioUrl,
+          blob: audioBlob,
+          voiceTag,
+          content
+        };
+      }
+    } catch (error) {
+      console.error(`❌ Error generating audio for ${voiceTag}:`, error);
+      throw error;
+    }
+  };
+
+  // Play multiple audio segments sequentially
+  const playMultiVoiceAudio = async (segments, storyCut, recordedAudio) => {
+    console.log('🎭 Starting multi-voice playback with', segments.length, 'segments');
+    
+    try {
+      // Generate all audio segments
+      const audioSegments = [];
+      for (const segment of segments) {
+        const audioSegment = await generateSegmentAudio(segment, storyCut, recordedAudio);
+        audioSegments.push(audioSegment);
+      }
+      
+      console.log('✅ Generated', audioSegments.length, 'audio segments');
+      
+      let currentSegmentIndex = 0;
+      const createdUrls = []; // Track URLs for cleanup
+      
+      const playNextSegment = () => {
+        if (currentSegmentIndex >= audioSegments.length) {
+          // All segments finished
+          console.log('🎬 Multi-voice playback complete');
+          handleExitPlay();
+          
+          // Cleanup blob URLs
+          createdUrls.forEach(url => {
+            if (url.startsWith('blob:')) {
+              URL.revokeObjectURL(url);
+            }
+          });
+          return;
+        }
+        
+        const currentSegment = audioSegments[currentSegmentIndex];
+        const audio = currentSegment.audio;
+        
+        console.log(`▶️ Playing segment ${currentSegmentIndex + 1}/${audioSegments.length}: [${currentSegment.voiceTag}]`);
+        
+        // Set current audio for potential stop functionality
+        setCurrentAudio(audio);
+        
+        // Track URLs for cleanup
+        if (currentSegment.url) {
+          createdUrls.push(currentSegment.url);
+        }
+        
+        // Handle segment completion
+        audio.onended = () => {
+          console.log(`✅ Completed segment: [${currentSegment.voiceTag}]`);
+          currentSegmentIndex++;
+          playNextSegment();
+        };
+        
+        // Handle errors
+        audio.onerror = (error) => {
+          console.error(`❌ Error playing segment [${currentSegment.voiceTag}]:`, error);
+          currentSegmentIndex++;
+          playNextSegment(); // Continue to next segment
+        };
+        
+        // Play the segment
+        audio.play().catch(error => {
+          console.error(`❌ Failed to play segment [${currentSegment.voiceTag}]:`, error);
+          currentSegmentIndex++;
+          playNextSegment(); // Continue to next segment
+        });
+      };
+      
+      // Start playing the first segment
+      playNextSegment();
+      
+    } catch (error) {
+      console.error('❌ Error in multi-voice playback:', error);
+      throw error;
+    }
+  };
 
  
