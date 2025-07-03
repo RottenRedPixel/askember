@@ -154,9 +154,10 @@ CORE PRINCIPLES:
 - Create atmosphere and emotion rather than fictional specifics when context is limited
 
 VOICE CASTING INTEGRATION:
-- Ember Voice: Represents the ember owner's perspective, memories, and reflections
+- Ember Voice: A narrative character voice that tells the story (NOT the owner's actual words)
 - Narrator Voice: Provides context, transitions, and objective storytelling
-- Incorporate selected contributors through direct quotes and references
+- Owner & Contributors: Use actual quotes from story circle participants when available
+- Keep story circle participants' contributions separate from narrative voices
 
 STYLE APPLICATION:
 The narrative style will be provided separately and should be seamlessly integrated into your storytelling approach while maintaining authenticity.
@@ -176,6 +177,7 @@ STORY CONFIGURATION:
 - Title: {{story_title}}
 - Duration: {{duration}} seconds (approximately {{word_count}} words)
 - Focus: {{story_focus}}
+- Owner First Name: {{owner_first_name}}
 - Selected Contributors: {{selected_contributors}}
 - Ember Voice: {{ember_voice_name}}
 - Narrator Voice: {{narrator_voice_name}}
@@ -199,18 +201,41 @@ CRITICAL INSTRUCTIONS:
 - Create content suitable for audio narration
 - Make the story personally meaningful while being accessible to listeners
 
+SCRIPT FORMATTING:
+- In full_script, start each voice change on a new line using \n characters
+- Use these voice tags: [EMBER VOICE], [NARRATOR], [{{owner_first_name}}], [CONTRIBUTOR NAME]
+- Format like: "[EMBER VOICE] Narrative line\n[NARRATOR] Context line\n[{{owner_first_name}}] Actual quote from owner\n[CONTRIBUTOR NAME] Quote from contributor"
+- Use clear voice tags and line breaks (\n) for readability
+- Ember Voice and Narrator are for storytelling; Owner/Contributors are for actual quotes
+- Replace {{owner_first_name}} with the actual first name of the ember owner
+
+VOICE LINE ARRAYS REQUIREMENT:
+- MUST populate ember_voice_lines array with all [EMBER VOICE] lines from the full_script
+- MUST populate narrator_voice_lines array with all [NARRATOR] lines from the full_script
+- MUST populate owner_lines array with all [{{owner_first_name}}] quotes from the full_script
+- MUST populate contributor_lines array with all contributor quotes from the full_script
+- Each array should contain the actual spoken text WITHOUT the voice tags
+- If a voice type has no lines, use an empty array []
+- These arrays are CRITICAL for the "Voice Lines Breakdown" section in the UI
+- Example: If full_script contains "[EMBER VOICE] A tense moment\n[NARRATOR] The game begins", then:
+  - ember_voice_lines: ["A tense moment"]
+  - narrator_voice_lines: ["The game begins"]
+
 OUTPUT FORMAT:
 Return a JSON object with this exact structure:
 {
-  "title": "Engaging title for this story cut",
+  "title": "{{story_title}}",
   "duration": {{duration}},
   "style": "{{selected_style}}",
   "wordCount": {{word_count}},
-  "script": {
-    "fullScript": "Complete narration script as one continuous piece of text with [EMBER VOICE] and [NARRATOR] tags",
-    "emberVoiceLines": ["First line spoken by the ember voice", "Second line spoken by the ember voice"],
-    "narratorVoiceLines": ["First line spoken by the narrator", "Second line spoken by the narrator"]
-  },
+  "full_script": "Complete narration script with [EMBER VOICE], [NARRATOR], [OWNER_FIRST_NAME], and [CONTRIBUTOR NAME] tags.\n\nStart each voice on a new line for readability:\n[EMBER VOICE] First narrative line\n[NARRATOR] Context line\n[OWNER_FIRST_NAME] Owner quote\n[CONTRIBUTOR NAME] Contributor quote",
+  "ember_voice_lines": ["A classroom buzzes with anticipation", "Faces filled with determination"],
+  "narrator_voice_lines": ["A dodgeball tournament begins", "Who will claim victory?"],
+  "owner_lines": ["We went to a dodgeball tournament at the kid's school", "Anna, Zia and Luca"],
+  "contributor_lines": ["Potatoes"],
+  "ember_voice_name": "{{ember_voice_name}}",
+  "narrator_voice_name": "{{narrator_voice_name}}",
+  "owner_first_name": "{{owner_first_name}}",
   "voiceCasting": {
     "emberVoice": "{{ember_voice_name}}",
     "narratorVoice": "{{narrator_voice_name}}",
@@ -228,7 +253,7 @@ Return a JSON object with this exact structure:
     
     // Management & Versioning
     is_active: true,
-    version: 'v2.0',
+    version: 'v2.4',
     
     // Metadata
     tags: ['story', 'generation', 'master', 'orchestrator', 'narrative', 'audio'],

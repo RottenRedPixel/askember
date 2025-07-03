@@ -970,17 +970,7 @@ export default function EmberDetail() {
         });
       }
 
-      // Format story conversations for the prompt
-      const storyConversations = allStoryMessages?.messages ? 
-        allStoryMessages.messages
-          .map(msg => `[${msg.sender === 'user' ? msg.user_first_name || 'User' : 'Ember AI'}]: ${msg.content}`)
-          .join('\n\n') :
-        'No story circle conversations available yet.';
-      
-      // Build comprehensive ember context using our universal system
-      console.log('🌍 Building universal ember context...');
-      const { emberContextBuilders } = await import('@/lib/emberContext');
-      const emberContext = await emberContextBuilders.forStoryCut(ember.id);
+      // Note: Direct OpenAI function builds its own context internally
       
       // Get selected voice details
       const emberVoiceInfo = availableVoices.find(v => v.voice_id === selectedEmberVoice);
@@ -1033,40 +1023,68 @@ export default function EmberDetail() {
       console.log('🎯 Focus:', formData.focus || 'General storytelling');
       console.log('='.repeat(80));
       
-      // Call our story cut generation API
-      console.log('🤖 Calling story cut generation API...');
-      const response = await fetch('/api/generate-story-cut', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Generate story cut using direct OpenAI (development) or API (production)
+      console.log('🤖 Generating story cut...');
+      
+      const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost';
+      let result;
+      
+      if (isDevelopment) {
+        console.log('🔧 Development mode detected, calling OpenAI directly...');
+        const { generateStoryCutWithOpenAI } = await import('@/lib/emberContext');
+        
+        result = await generateStoryCutWithOpenAI({
+          emberId: ember.id,
           formData,
           selectedStyle: selectedStoryStyle,
-          emberContext,
-          storyConversations,
           voiceCasting,
-          emberId: ember.id,
           contributorQuotes: selectedContributorQuotes
-        })
-      });
+        });
+      } else {
+        // Production: use API route - build context for API
+        console.log('🌍 Building context for API call...');
+        const { emberContextBuilders } = await import('@/lib/emberContext');
+        const emberContext = await emberContextBuilders.forStoryCut(ember.id);
+        
+        const storyConversations = allStoryMessages?.messages ? 
+          allStoryMessages.messages
+            .map(msg => `[${msg.sender === 'user' ? msg.user_first_name || 'User' : 'Ember AI'}]: ${msg.content}`)
+            .join('\n\n') :
+          'No story circle conversations available yet.';
+        
+        const response = await fetch('/api/generate-story-cut', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            formData,
+            selectedStyle: selectedStoryStyle,
+            emberContext,
+            storyConversations,
+            voiceCasting,
+            emberId: ember.id,
+            contributorQuotes: selectedContributorQuotes
+          })
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        result = await response.json();
       }
-
-      const result = await response.json();
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to generate story cut');
       }
 
-      // Parse the generated story cut
-      const generatedStoryCut = JSON.parse(result.data);
+      // Parse the generated story cut (handle both direct result and API response formats)
+      const generatedStoryCut = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
       
       console.log('✅ Story cut generated successfully:', generatedStoryCut.title);
-      console.log('📄 Script length:', generatedStoryCut.script?.fullScript?.length || 0, 'characters');
+      console.log('📄 Script length:', generatedStoryCut.full_script?.length || 0, 'characters');
 
       // Save the story cut to database
       console.log('💾 Saving story cut to database...');
@@ -1078,7 +1096,11 @@ export default function EmberDetail() {
         duration: generatedStoryCut.duration,
         wordCount: generatedStoryCut.wordCount,
         storyFocus: formData.focus,
-        script: generatedStoryCut.script,
+        full_script: generatedStoryCut.full_script,
+        ember_voice_lines: generatedStoryCut.ember_voice_lines,
+        narrator_voice_lines: generatedStoryCut.narrator_voice_lines,
+        ember_voice_name: generatedStoryCut.ember_voice_name,
+        narrator_voice_name: generatedStoryCut.narrator_voice_name,
         voiceCasting: {
           emberVoice: voiceCasting.ember,
           narratorVoice: voiceCasting.narrator,
@@ -1089,7 +1111,10 @@ export default function EmberDetail() {
           tokensUsed: result.tokensUsed,
           promptUsed: result.promptUsed,
           styleUsed: result.styleUsed,
-          model: result.model
+          model: result.model,
+          owner_lines: generatedStoryCut.owner_lines,
+          contributor_lines: generatedStoryCut.contributor_lines,
+          owner_first_name: generatedStoryCut.owner_first_name
         }
       };
 
@@ -1213,7 +1238,9 @@ export default function EmberDetail() {
 
       {/* Voice Lines Breakdown */}
       {((selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0) || 
-        (selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0)) && (
+        (selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0) ||
+        (selectedStoryCut.metadata?.owner_lines && selectedStoryCut.metadata.owner_lines.length > 0) ||
+        (selectedStoryCut.metadata?.contributor_lines && selectedStoryCut.metadata.contributor_lines.length > 0)) && (
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Voice Lines Breakdown</h3>
         
@@ -1245,6 +1272,68 @@ export default function EmberDetail() {
               {selectedStoryCut.narrator_voice_lines.map((line, index) => (
                 <div key={index} className="p-3 bg-purple-50 rounded-lg border border-purple-200">
                   <p className="text-purple-700">{line}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Owner Lines */}
+        {selectedStoryCut.metadata?.owner_lines && selectedStoryCut.metadata.owner_lines.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="font-medium text-blue-800 flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              {(() => {
+                // Try to get owner name from metadata first, then from selected_contributors
+                const ownerName = selectedStoryCut.metadata?.owner_first_name;
+                if (ownerName) return `${ownerName} (Owner)`;
+                
+                // Fallback: look for owner in selected_contributors
+                const contributors = selectedStoryCut.selected_contributors || [];
+                const owner = contributors.find(c => c?.role === 'owner');
+                if (owner?.name) return `${owner.name} (Owner)`;
+                
+                return 'Owner';
+              })()}
+            </h4>
+            <div className="space-y-2">
+              {selectedStoryCut.metadata.owner_lines.map((line, index) => (
+                <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-blue-700">{line}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Contributor Lines */}
+        {selectedStoryCut.metadata?.contributor_lines && selectedStoryCut.metadata.contributor_lines.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="font-medium text-orange-800 flex items-center gap-2">
+              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+              {(() => {
+                // Get contributor names from various possible sources, excluding the owner
+                const contributors = selectedStoryCut.selected_contributors || [];
+                const contributorNames = contributors
+                  .filter(c => c?.role !== 'owner') // Exclude the owner from contributors
+                  .map(c => {
+                    if (typeof c === 'string') return c;
+                    if (c?.name) return c.name;
+                    if (c?.first_name) return c.first_name;
+                    return 'Contributor';
+                  })
+                  .filter(name => name !== 'Contributor');
+                
+                if (contributorNames.length > 0) {
+                  return `${contributorNames.join(', ')} (Contributor${contributorNames.length > 1 ? 's' : ''})`;
+                }
+                return 'Contributors';
+              })()}
+            </h4>
+            <div className="space-y-2">
+              {selectedStoryCut.metadata.contributor_lines.map((line, index) => (
+                <div key={index} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                  <p className="text-orange-700">{line}</p>
                 </div>
               ))}
             </div>

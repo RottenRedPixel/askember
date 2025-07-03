@@ -41,80 +41,45 @@ export async function buildEmberContext(emberId, options = {}) {
       context.imageAnalysis = ember.image_analysis;
     }
 
-    // 3. Get ALL story messages/conversations (if table exists)
+    // 3. Get ALL story messages/conversations using existing function
     try {
-      const { data: storyMessages, error: storyError } = await supabase
-        .from('story_messages')
-        .select('*')
-        .eq('ember_id', emberId)
-        .order('created_at', { ascending: true });
-
-      if (!storyError && storyMessages) {
-        context.storyMessages = storyMessages;
+      const { getAllStoryMessagesForEmber } = await import('./database.js');
+      const result = await getAllStoryMessagesForEmber(emberId);
+      if (result?.messages) {
+        context.storyMessages = result.messages;
       }
     } catch (error) {
-      console.log('Story messages table not available:', error.message);
+      console.log('Story messages not available:', error.message);
     }
 
-    // 4. Get supporting media files (if table exists)
+    // 4. Get supporting media files using existing function
     try {
-      const { data: supportingMedia, error: mediaError } = await supabase
-        .from('supporting_media')
-        .select('*')
-        .eq('ember_id', emberId)
-        .order('created_at', { ascending: true });
-
-      if (!mediaError && supportingMedia) {
+      const { getEmberSupportingMedia } = await import('./database.js');
+      const supportingMedia = await getEmberSupportingMedia(emberId);
+      if (supportingMedia) {
         context.supportingMedia = supportingMedia;
       }
     } catch (error) {
-      console.log('Supporting media table not available:', error.message);
+      console.log('Supporting media not available:', error.message);
     }
 
-    // 5. Get tagged people (if table exists)
+    // 5. Get tagged people using existing function
     try {
-      const { data: taggedPeople, error: taggedError } = await supabase
-        .from('tagged_people')
-        .select('*')
-        .eq('ember_id', emberId)
-        .order('created_at', { ascending: true });
-
-      if (!taggedError && taggedPeople) {
+      const { getEmberTaggedPeople } = await import('./database.js');
+      const taggedPeople = await getEmberTaggedPeople(emberId);
+      if (taggedPeople) {
         context.taggedPeople = taggedPeople;
       }
     } catch (error) {
-      console.log('Tagged people table not available:', error.message);
+      console.log('Tagged people not available:', error.message);
     }
 
-    // 6. Get contributors (if table exists)
-    try {
-      const { data: contributors, error: contributorsError } = await supabase
-        .from('ember_contributors')
-        .select('*')
-        .eq('ember_id', emberId)
-        .order('last_contributed_at', { ascending: false });
+    // 6. Skip contributors for now (table doesn't exist)
+    // TODO: Implement contributors tracking if needed
+    context.contributors = [];
 
-      if (!contributorsError && contributors) {
-        context.contributors = contributors;
-      }
-    } catch (error) {
-      console.log('Contributors table not available:', error.message);
-    }
-
-    // 7. Get votes/ratings (if table exists)
-    try {
-      const { data: votes, error: votesError } = await supabase
-        .from('ember_votes')
-        .select('*')
-        .eq('ember_id', emberId)
-        .order('created_at', { ascending: true });
-
-      if (!votesError && votes) {
-        context.votes = votes;
-      }
-    } catch (error) {
-      console.log('Votes table not available:', error.message);
-    }
+    // 7. Skip votes for now (table doesn't exist and you mentioned we can disregard)
+    context.votes = [];
 
     // 8. Calculate rich metadata (ensure arrays are defined)
     const storyMessages = context.storyMessages || [];
@@ -458,4 +423,221 @@ export const emberContextBuilders = {
       maxStoryLength: 15000 // Allow longer narratives for rich story cuts
     });
   }
-}; 
+};
+
+/**
+ * Generate story cut using OpenAI directly (for development mode)
+ * @param {Object} storyCutData - Story cut generation parameters
+ * @returns {Promise<Object>} - Generated story cut result
+ */
+export async function generateStoryCutWithOpenAI(storyCutData) {
+  try {
+    console.log('🎬 [DIRECT] Starting story cut generation with OpenAI...');
+    
+    const { 
+      emberId, 
+      formData, 
+      selectedStyle, 
+      voiceCasting, 
+      contributorQuotes 
+    } = storyCutData;
+
+    // Import prompt management functions
+    const { executePrompt, getActivePrompt } = await import('./promptManager.js');
+    
+    // Calculate approximate word count (3 words per second)
+    const approximateWords = Math.round(formData.duration * 3);
+    
+    // Build comprehensive ember context using our universal system
+    console.log('🔍 Building ember context...');
+    const emberContext = await emberContextBuilders.forStoryCut(emberId);
+    
+    // Get the master story cut generation prompt
+    console.log('🔍 Loading master story cut generation prompt...');
+    let masterPrompt = await getActivePrompt('story_cut_generation');
+    
+    if (!masterPrompt) {
+      console.log('⚠️ Master story cut generation prompt not found, attempting to seed it...');
+      
+      // Import seeding functions
+      const { supabase } = await import('./supabase.js');
+      const { initialPrompts } = await import('./initialPrompts.js');
+      
+      // Find the story cut generation prompt in initial prompts
+      const storyCutPrompt = initialPrompts.find(p => p.prompt_key === 'story_cut_generation');
+      
+      if (storyCutPrompt) {
+        // Get current user for seeding
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !user) {
+          throw new Error('Cannot seed prompt: User not authenticated');
+        }
+        
+        // Seed the story cut generation prompt with minimal required fields
+        const promptData = {
+          prompt_key: storyCutPrompt.prompt_key,
+          name: storyCutPrompt.title, // Use "name" field to match database schema
+          description: storyCutPrompt.description,
+          category: storyCutPrompt.category,
+          subcategory: storyCutPrompt.subcategory,
+          model: storyCutPrompt.model,
+          max_tokens: Number(storyCutPrompt.max_tokens), // Ensure integer
+          temperature: Number(storyCutPrompt.temperature), // Ensure decimal
+          response_format: storyCutPrompt.response_format,
+          prompt_type: storyCutPrompt.prompt_type,
+          system_prompt: storyCutPrompt.system_prompt,
+          user_prompt_template: storyCutPrompt.user_prompt_template,
+          is_active: Boolean(storyCutPrompt.is_active), // Ensure boolean
+          // Skip version field temporarily to avoid schema mismatch
+          created_by_user_id: user.id,
+          updated_by_user_id: user.id
+        };
+        
+        console.log('🔍 Seeding prompt data (minimal):', {
+          prompt_key: promptData.prompt_key,
+          max_tokens: promptData.max_tokens,
+          temperature: promptData.temperature,
+          is_active: promptData.is_active
+        });
+        
+        // Use the existing prompt management system for safer insertion
+        const { promptsCRUD } = await import('./promptManager.js');
+        const seededPrompt = await promptsCRUD.create(promptData);
+        
+        if (!seededPrompt) {
+          throw new Error('Failed to seed story cut generation prompt: No data returned');
+        }
+        
+        console.log('✅ Successfully seeded story cut generation prompt');
+        masterPrompt = seededPrompt;
+      } else {
+        throw new Error('Story cut generation prompt not found in initial prompts');
+      }
+    } else {
+      // Check if we need to update existing prompt with latest formatting instructions
+      const { initialPrompts } = await import('./initialPrompts.js');
+      const latestPrompt = initialPrompts.find(p => p.prompt_key === 'story_cut_generation');
+      
+      if (latestPrompt && masterPrompt.user_prompt_template !== latestPrompt.user_prompt_template) {
+        console.log('🔄 Updating existing prompt with latest formatting instructions...');
+        
+        const { promptsCRUD } = await import('./promptManager.js');
+        await promptsCRUD.update(masterPrompt.id, {
+          user_prompt_template: latestPrompt.user_prompt_template,
+          system_prompt: latestPrompt.system_prompt
+        });
+        
+        // Reload the updated prompt
+        masterPrompt = await getActivePrompt('story_cut_generation');
+        console.log('✅ Updated prompt with new formatting instructions');
+      }
+    }
+    
+    if (!masterPrompt) {
+      throw new Error('Master story cut generation prompt not found in database');
+    }
+    
+    console.log('✅ Loaded master prompt:', masterPrompt.title);
+    
+    // Get the selected style prompt
+    console.log('🎨 Loading style prompt:', selectedStyle);
+    const stylePrompt = await getActivePrompt(selectedStyle);
+    
+    if (!stylePrompt) {
+      throw new Error(`Style prompt not found: ${selectedStyle}`);
+    }
+    
+    console.log('✅ Loaded style prompt:', stylePrompt.title);
+    
+    // Get all story messages for the ember
+    const { getAllStoryMessagesForEmber } = await import('./database.js');
+    const allStoryMessages = await getAllStoryMessagesForEmber(emberId);
+    
+    // Format story conversations with proper voice attribution
+    let storyConversations = 'No story circle conversations available yet.';
+    if (allStoryMessages?.messages && allStoryMessages.messages.length > 0) {
+      storyConversations = allStoryMessages.messages
+        .map(msg => {
+          if (msg.sender === 'ember') {
+            return `Ember AI: ${msg.content}`;
+          } else {
+            // Distinguish between owner and contributors in story circle
+            const userLabel = msg.user_first_name || 'User';
+            return `${userLabel} (Story Circle Participant): ${msg.content}`;
+          }
+        })
+        .join('\n');
+    }
+    
+    // Get owner's information for proper voice attribution
+    const { supabase } = await import('./supabase.js');
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const ownerFirstName = user?.user_metadata?.first_name || user?.user_metadata?.full_name?.split(' ')[0] || 'Owner';
+
+    // Prepare all the variables for the master prompt
+    const promptVariables = {
+      ember_context: emberContext,
+      story_conversations: storyConversations,
+      style_prompt: stylePrompt.system_prompt,
+      story_title: formData.title,
+      duration: formData.duration,
+      word_count: approximateWords,
+      story_focus: formData.focus || 'General storytelling approach',
+      owner_first_name: ownerFirstName,
+      selected_contributors: voiceCasting.contributors?.map(c => c.name).join(', ') || 'None',
+      ember_voice_name: voiceCasting.ember?.name || 'Selected Voice',
+      narrator_voice_name: voiceCasting.narrator?.name || 'Selected Voice',
+      voice_casting_info: JSON.stringify(voiceCasting, null, 2),
+      contributor_quotes: contributorQuotes ? JSON.stringify(contributorQuotes, null, 2) : 'No direct quotes available',
+      selected_style: selectedStyle,
+      selected_contributors_json: JSON.stringify(voiceCasting.contributors || []),
+      contributor_count: voiceCasting.contributors?.length || 0,
+      has_quotes: contributorQuotes && contributorQuotes.length > 0,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log('🤖 Generating story cut with:', {
+      style: stylePrompt.title,
+      duration: formData.duration,
+      wordCount: approximateWords,
+      contributors: voiceCasting.contributors?.length || 0,
+      hasQuotes: contributorQuotes && contributorQuotes.length > 0
+    });
+
+    // Execute the prompt using the prompt management system
+    const result = await executePrompt('story_cut_generation', promptVariables, emberId);
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+
+    let generatedStoryCut;
+    try {
+      generatedStoryCut = JSON.parse(result.content);
+      console.log('✅ Generated story cut:', generatedStoryCut.title);
+      console.log('🔍 Generated story cut structure:', {
+        hasOwnerLines: !!generatedStoryCut.script?.ownerLines,
+        hasContributorLines: !!generatedStoryCut.script?.contributorLines,
+        scriptKeys: Object.keys(generatedStoryCut.script || {}),
+        fullScript: generatedStoryCut.script?.fullScript?.substring(0, 200) + '...'
+      });
+    } catch (parseError) {
+      console.error('OpenAI returned invalid JSON:', result.content);
+      throw new Error('OpenAI returned invalid JSON response');
+    }
+
+    return {
+      success: true,
+      data: generatedStoryCut,
+      tokensUsed: result.tokensUsed,
+      promptUsed: masterPrompt.prompt_key,
+      styleUsed: stylePrompt.prompt_key,
+      model: result.model
+    };
+
+  } catch (error) {
+    console.error('❌ [DIRECT] Story cut generation failed:', error);
+    throw error;
+  }
+} 

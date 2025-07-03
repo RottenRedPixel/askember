@@ -870,14 +870,14 @@ export const saveStoryCut = async (storyCutData) => {
         duration: storyCutData.duration,
         word_count: storyCutData.wordCount,
         story_focus: storyCutData.storyFocus,
-        full_script: storyCutData.script.fullScript,
-        ember_voice_lines: storyCutData.script.emberVoiceLines,
-        narrator_voice_lines: storyCutData.script.narratorVoiceLines,
-        ember_voice_id: storyCutData.voiceCasting.emberVoice.voice_id,
-        ember_voice_name: storyCutData.voiceCasting.emberVoice.name,
-        narrator_voice_id: storyCutData.voiceCasting.narratorVoice.voice_id,
-        narrator_voice_name: storyCutData.voiceCasting.narratorVoice.name,
-        selected_contributors: storyCutData.voiceCasting.contributors,
+        full_script: storyCutData.full_script,
+        ember_voice_lines: storyCutData.ember_voice_lines,
+        narrator_voice_lines: storyCutData.narrator_voice_lines,
+        ember_voice_id: storyCutData.voiceCasting?.emberVoice?.voice_id,
+        ember_voice_name: storyCutData.ember_voice_name,
+        narrator_voice_id: storyCutData.voiceCasting?.narratorVoice?.voice_id,
+        narrator_voice_name: storyCutData.narrator_voice_name,
+        selected_contributors: storyCutData.voiceCasting?.contributors,
         metadata: storyCutData.metadata
       }])
       .select()
