@@ -199,6 +199,7 @@ const PromptManagement = () => {
     'image_analysis',
     'title_generation', 
     'story_generation',
+    'story_styles',
     'conversation',
     'general'
   ];

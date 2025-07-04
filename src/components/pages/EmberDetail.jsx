@@ -121,7 +121,7 @@ const StoryModalContent = ({
               <option value="">Select story style...</option>
               {availableStoryStyles.map((style) => (
                 <option key={style.id} value={style.id}>
-                  {style.name} - {style.description}
+                  {style.name}
                 </option>
               ))}
             </>
