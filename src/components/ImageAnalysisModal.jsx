@@ -46,7 +46,9 @@ const ModalContent = ({
   saving,
   hasAnalysis,
   analysisMetadata,
-  ember
+  ember,
+  debugLogs,
+  clearDebugLogs
 }) => (
   <div className="space-y-6">
     {/* Header Info */}
@@ -88,6 +90,43 @@ const ModalContent = ({
             <Sparkles className="w-4 h-4 mr-2" />
             Analyze Image
           </Button>
+          
+          {/* Debug Log Display */}
+          {debugLogs.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-between mb-2">
+                <h5 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-blue-500" />
+                  Debug Log ({debugLogs.length})
+                </h5>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearDebugLogs}
+                  className="text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Clear
+                </Button>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 max-h-32 overflow-y-auto">
+                <div className="space-y-1 text-xs font-mono">
+                  {debugLogs.map((log) => (
+                    <div 
+                      key={log.id} 
+                      className={`flex items-start gap-2 ${
+                        log.type === 'error' ? 'text-red-600' : 
+                        log.type === 'success' ? 'text-green-600' : 
+                        'text-gray-600'
+                      }`}
+                    >
+                      <span className="text-gray-400 shrink-0">{log.timestamp}</span>
+                      <span className="break-all">{log.message}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     ) : (
@@ -174,12 +213,41 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
   const [analysis, setAnalysis] = useState(null);
   const [analysisMetadata, setAnalysisMetadata] = useState(null);
   const [hasAnalysis, setHasAnalysis] = useState(false);
+  const [debugLogs, setDebugLogs] = useState([]);
   
   const { user } = useStore();
   const isMobile = useMediaQuery("(max-width: 768px)");
 
+  // Debug logging function
+  const addDebugLog = (message, type = 'info') => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = {
+      id: Date.now(),
+      timestamp,
+      message,
+      type,
+      userAgent: navigator.userAgent,
+      isMobile,
+      networkStatus: navigator.onLine ? 'online' : 'offline'
+    };
+    
+    setDebugLogs(prev => [logEntry, ...prev.slice(0, 9)]); // Keep last 10 logs
+    console.log(`[DEBUG ${type.toUpperCase()}] ${timestamp}: ${message}`);
+  };
+
+  const clearDebugLogs = () => {
+    setDebugLogs([]);
+  };
+
   useEffect(() => {
     if (isOpen && ember?.id) {
+      // Clear previous debug logs and add initial device info
+      setDebugLogs([]);
+      addDebugLog('Modal opened - collecting device info', 'info');
+      addDebugLog(`Device: ${isMobile ? 'Mobile' : 'Desktop'}`, 'info');
+      addDebugLog(`Screen: ${window.screen.width}x${window.screen.height}`, 'info');
+      addDebugLog(`Viewport: ${window.innerWidth}x${window.innerHeight}`, 'info');
+      
       loadExistingAnalysis();
     }
   }, [isOpen, ember?.id]);
@@ -188,20 +256,25 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
     try {
       setLoading(true);
       setError(null);
-
+      
+      addDebugLog('Loading existing analysis...', 'info');
       const existingAnalysis = await getImageAnalysis(ember.id);
       
       if (existingAnalysis) {
+        addDebugLog('Existing analysis found', 'success');
+        addDebugLog(`Analysis length: ${existingAnalysis.analysis_text?.length || 0} characters`, 'info');
         setAnalysis(existingAnalysis.analysis_text);
         setAnalysisMetadata(existingAnalysis);
         setHasAnalysis(true);
       } else {
+        addDebugLog('No existing analysis found', 'info');
         setAnalysis(null);
         setAnalysisMetadata(null);
         setHasAnalysis(false);
       }
     } catch (error) {
       console.error('Error loading existing analysis:', error);
+      addDebugLog(`Failed to load existing analysis: ${error.message}`, 'error');
       setError('Failed to load existing analysis');
     } finally {
       setLoading(false);
@@ -210,19 +283,35 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
 
   const handleAnalyze = async () => {
     if (!ember?.image_url || !user?.id) {
-      setError('Missing required data for analysis');
+      const errorMsg = 'Missing required data for analysis';
+      addDebugLog(errorMsg, 'error');
+      setError(errorMsg);
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
+      
+      addDebugLog(`Starting analysis for ember ${ember.id}`, 'info');
+      addDebugLog(`Image URL: ${ember.image_url.substring(0, 50)}...`, 'info');
+      addDebugLog(`User Agent: ${navigator.userAgent}`, 'info');
+      addDebugLog(`Network Status: ${navigator.onLine ? 'online' : 'offline'}`, 'info');
+      addDebugLog(`Connection Type: ${navigator.connection?.effectiveType || 'unknown'}`, 'info');
+      addDebugLog(`API Endpoint: /api/analyze-image`, 'info');
 
       // Trigger OpenAI analysis
+      addDebugLog('Calling triggerImageAnalysis...', 'info');
       const result = await triggerImageAnalysis(ember.id, ember.image_url);
+      addDebugLog(`Analysis result received: ${result.success ? 'SUCCESS' : 'FAILED'}`, result.success ? 'success' : 'error');
       
       if (result.success) {
+        addDebugLog(`Analysis length: ${result.analysis?.length || 0} characters`, 'info');
+        addDebugLog(`Model used: ${result.model || 'unknown'}`, 'info');
+        addDebugLog(`Tokens used: ${result.tokensUsed || 0}`, 'info');
+        
         // Save the analysis to database
+        addDebugLog('Saving analysis to database...', 'info');
         await saveImageAnalysis(
           ember.id,
           user.id,
@@ -231,6 +320,7 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
           result.model,
           result.tokensUsed
         );
+        addDebugLog('Analysis saved successfully', 'success');
 
         // Update local state
         setAnalysis(result.analysis);
@@ -250,6 +340,7 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
       }
     } catch (error) {
       console.error('Error during analysis:', error);
+      addDebugLog(`Analysis failed: ${error.message}`, 'error');
       setError(error.message || 'Failed to analyze image');
     } finally {
       setLoading(false);
@@ -308,6 +399,8 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
               hasAnalysis={hasAnalysis}
               analysisMetadata={analysisMetadata}
               ember={ember}
+              debugLogs={debugLogs}
+              clearDebugLogs={clearDebugLogs}
             />
           </div>
         </DrawerContent>
@@ -337,6 +430,8 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
           hasAnalysis={hasAnalysis}
           analysisMetadata={analysisMetadata}
           ember={ember}
+          debugLogs={debugLogs}
+          clearDebugLogs={clearDebugLogs}
         />
       </DialogContent>
     </Dialog>
