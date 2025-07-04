@@ -198,7 +198,7 @@ export default function Create() {
       <div className="text-center space-y-4">
         <h1 className="text-3xl font-bold text-gray-900">Create an Ember</h1>
         <p className="text-lg text-gray-600 leading-relaxed max-w-lg mx-auto">
-          Enhance your treasured memories. Upload an image to create your first ember.
+          Upload an image to create your first ember.
         </p>
       </div>
 
