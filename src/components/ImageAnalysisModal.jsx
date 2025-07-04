@@ -91,42 +91,6 @@ const ModalContent = ({
             Analyze Image
           </Button>
           
-          {/* Debug Log Display */}
-          {debugLogs.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex items-center justify-between mb-2">
-                <h5 className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-blue-500" />
-                  Debug Log ({debugLogs.length})
-                </h5>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearDebugLogs}
-                  className="text-xs text-gray-500 hover:text-gray-700"
-                >
-                  Clear
-                </Button>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-3 max-h-32 overflow-y-auto">
-                <div className="space-y-1 text-xs font-mono">
-                  {debugLogs.map((log) => (
-                    <div 
-                      key={log.id} 
-                      className={`flex items-start gap-2 ${
-                        log.type === 'error' ? 'text-red-600' : 
-                        log.type === 'success' ? 'text-green-600' : 
-                        'text-gray-600'
-                      }`}
-                    >
-                      <span className="text-gray-400 shrink-0">{log.timestamp}</span>
-                      <span className="break-all">{log.message}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     ) : (
@@ -202,6 +166,48 @@ const ModalContent = ({
           </Button>
         </div>
       </div>
+    )}
+    
+    {/* Debug Log Display - Always visible */}
+    {debugLogs.length > 0 && (
+      <Card className="border-gray-200 bg-gray-50">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h5 className="font-medium text-gray-900 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-blue-600" />
+              Debug Log
+              <Badge variant="outline" className="ml-2">
+                {debugLogs.length}
+              </Badge>
+            </h5>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearDebugLogs}
+              className="text-gray-600 hover:text-gray-800"
+            >
+              Clear
+            </Button>
+          </div>
+          <div className="bg-white rounded-lg p-3 max-h-40 overflow-y-auto border">
+            <div className="space-y-1 text-xs font-mono">
+              {debugLogs.map((log) => (
+                <div 
+                  key={log.id} 
+                  className={`flex items-start gap-2 ${
+                    log.type === 'error' ? 'text-red-600' : 
+                    log.type === 'success' ? 'text-green-600' : 
+                    'text-gray-600'
+                  }`}
+                >
+                  <span className="text-gray-400 shrink-0">{log.timestamp}</span>
+                  <span className="break-all">{log.message}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     )}
   </div>
 );
