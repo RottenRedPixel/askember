@@ -1062,6 +1062,8 @@ export const triggerImageAnalysis = async (emberId, imageUrl) => {
     }
 
     // Production: use API route
+    console.log('🌐 [DATABASE] Making API request to /api/analyze-image');
+    
     const response = await fetch('/api/analyze-image', {
       method: 'POST',
       headers: {
@@ -1073,9 +1075,39 @@ export const triggerImageAnalysis = async (emberId, imageUrl) => {
       })
     });
 
+    console.log('📡 [DATABASE] API response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      ok: response.ok
+    });
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Analysis failed: ${errorData.error || response.statusText}`);
+      let errorData = {};
+      let errorText = '';
+      
+      try {
+        const responseText = await response.text();
+        errorText = responseText;
+        
+        // Try to parse as JSON
+        if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
+          errorData = JSON.parse(responseText);
+        }
+      } catch (parseError) {
+        console.log('📝 [DATABASE] Could not parse error response as JSON:', parseError.message);
+      }
+      
+      const errorMessage = errorData.error || errorData.message || errorText || response.statusText || 'Unknown error';
+      
+      console.error('❌ [DATABASE] API request failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData,
+        errorText: errorText.substring(0, 500) // Truncate for logging
+      });
+      
+      throw new Error(`API Error (${response.status}): ${errorMessage}`);
     }
 
     const result = await response.json();
@@ -1088,6 +1120,16 @@ export const triggerImageAnalysis = async (emberId, imageUrl) => {
     return result;
   } catch (error) {
     console.error('❌ [DATABASE] triggerImageAnalysis failed:', error);
+    
+    // Enhance error information
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error(`Network Error: ${error.message} (Check internet connection or API endpoint)`);
+    } else if (error.name === 'AbortError') {
+      throw new Error('Request Timeout: The request was aborted (possibly due to slow network)');
+    } else if (error.message.includes('Failed to fetch')) {
+      throw new Error('Connection Failed: Unable to reach the API server (network or CORS issue)');
+    }
+    
     throw error;
   }
 };

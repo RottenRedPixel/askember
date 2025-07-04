@@ -308,42 +308,63 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
 
       // Trigger OpenAI analysis
       addDebugLog('Calling triggerImageAnalysis...', 'info');
-      const result = await triggerImageAnalysis(ember.id, ember.image_url);
-      addDebugLog(`Analysis result received: ${result.success ? 'SUCCESS' : 'FAILED'}`, result.success ? 'success' : 'error');
+      const startTime = Date.now();
       
-      if (result.success) {
-        addDebugLog(`Analysis length: ${result.analysis?.length || 0} characters`, 'info');
-        addDebugLog(`Model used: ${result.model || 'unknown'}`, 'info');
-        addDebugLog(`Tokens used: ${result.tokensUsed || 0}`, 'info');
-        
-        // Save the analysis to database
-        addDebugLog('Saving analysis to database...', 'info');
-        await saveImageAnalysis(
-          ember.id,
-          user.id,
-          result.analysis,
-          ember.image_url,
-          result.model,
-          result.tokensUsed
-        );
-        addDebugLog('Analysis saved successfully', 'success');
+      try {
+        const result = await triggerImageAnalysis(ember.id, ember.image_url);
+        const duration = Date.now() - startTime;
+        addDebugLog(`API request completed in ${duration}ms`, 'info');
+        addDebugLog(`Analysis result: ${result.success ? 'SUCCESS' : 'FAILED'}`, result.success ? 'success' : 'error');
+              
+          if (result.success) {
+            addDebugLog(`Analysis length: ${result.analysis?.length || 0} characters`, 'info');
+            addDebugLog(`Model used: ${result.model || 'unknown'}`, 'info');
+            addDebugLog(`Tokens used: ${result.tokensUsed || 0}`, 'info');
+            
+            // Save the analysis to database
+            addDebugLog('Saving analysis to database...', 'info');
+            await saveImageAnalysis(
+              ember.id,
+              user.id,
+              result.analysis,
+              ember.image_url,
+              result.model,
+              result.tokensUsed
+            );
+            addDebugLog('Analysis saved successfully', 'success');
 
-        // Update local state
-        setAnalysis(result.analysis);
-        setAnalysisMetadata({
-          analysis_timestamp: result.timestamp,
-          openai_model: result.model,
-          tokens_used: result.tokensUsed
-        });
-        setHasAnalysis(true);
+            // Update local state
+            setAnalysis(result.analysis);
+            setAnalysisMetadata({
+              analysis_timestamp: result.timestamp,
+              openai_model: result.model,
+              tokens_used: result.tokensUsed
+            });
+            setHasAnalysis(true);
 
-        // Refresh parent component if needed
-        if (onRefresh) {
-          await onRefresh();
+            // Refresh parent component if needed
+            if (onRefresh) {
+              await onRefresh();
+            }
+          } else {
+            throw new Error('Analysis was not successful');
+          }
+        } catch (apiError) {
+          const duration = Date.now() - startTime;
+          addDebugLog(`API request failed after ${duration}ms`, 'error');
+          addDebugLog(`Error type: ${apiError.name || 'Unknown'}`, 'error');
+          addDebugLog(`Error message: ${apiError.message}`, 'error');
+          
+          // Log additional error details if available
+          if (apiError.cause) {
+            addDebugLog(`Error cause: ${apiError.cause}`, 'error');
+          }
+          if (apiError.stack) {
+            addDebugLog(`Stack trace available (check console)`, 'error');
+          }
+          
+                    throw apiError;
         }
-      } else {
-        throw new Error('Analysis was not successful');
-      }
     } catch (error) {
       console.error('Error during analysis:', error);
       addDebugLog(`Analysis failed: ${error.message}`, 'error');
