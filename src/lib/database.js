@@ -1061,78 +1061,31 @@ export const triggerImageAnalysis = async (emberId, imageUrl) => {
       return await analyzeImageWithOpenAI(emberId, imageUrl);
     }
 
-    // Production: use API route with mobile-specific improvements
-    console.log('🌐 [DATABASE] Production mode detected, using API endpoint...');
-    
-    // Mobile device detection
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    console.log('📱 [DATABASE] Mobile device detected:', isMobile);
+    // Production: use API route
+    const response = await fetch('/api/analyze-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        emberId,
+        imageUrl
+      })
+    });
 
-    // Extended timeout for mobile devices
-    const timeoutMs = isMobile ? 60000 : 30000; // 60s for mobile, 30s for desktop
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      const response = await fetch('/api/analyze-image', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          emberId,
-          imageUrl
-        }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error || response.statusText;
-        
-        // Mobile-specific error handling
-        if (isMobile && response.status === 0) {
-          throw new Error('Network connection failed on mobile device. Please check your internet connection and try again.');
-        }
-        
-        if (response.status === 429) {
-          throw new Error('Service temporarily unavailable. Please try again in a few moments.');
-        }
-        
-        if (response.status === 500) {
-          throw new Error('Server error occurred. Please try again or contact support if the issue persists.');
-        }
-        
-        throw new Error(`Analysis failed: ${errorMessage}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ [DATABASE] OpenAI image analysis completed:', {
-        success: result.success,
-        analysisLength: result.analysis?.length,
-        tokensUsed: result.tokensUsed,
-        isMobile
-      });
-
-      return result;
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      // Handle network errors specifically for mobile
-      if (fetchError.name === 'AbortError') {
-        throw new Error(`Analysis timed out after ${timeoutMs / 1000} seconds. ${isMobile ? 'Mobile networks may be slower - please try again.' : 'Please try again.'}`);
-      }
-      
-      if (fetchError.message.includes('Failed to fetch')) {
-        throw new Error(`Network error: ${isMobile ? 'Mobile connection issue. Please check your internet connection and try again.' : 'Please check your internet connection and try again.'}`);
-      }
-      
-      throw fetchError;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Analysis failed: ${errorData.error || response.statusText}`);
     }
 
+    const result = await response.json();
+    console.log('✅ [DATABASE] OpenAI image analysis completed:', {
+      success: result.success,
+      analysisLength: result.analysis?.length,
+      tokensUsed: result.tokensUsed
+    });
+
+    return result;
   } catch (error) {
     console.error('❌ [DATABASE] triggerImageAnalysis failed:', error);
     throw error;

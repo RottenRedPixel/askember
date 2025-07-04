@@ -183,103 +183,40 @@ export async function executePrompt(promptKey, variables = {}, emberId = null) {
     // Format the prompt with context and variables
     const formattedPrompt = await formatPrompt(prompt, variables, emberId);
 
-    // Mobile device detection for better handling
-    const isMobile = typeof navigator !== 'undefined' && 
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    // Extended timeout for mobile devices
-    const timeoutMs = isMobile ? 120000 : 60000; // 2 minutes for mobile, 1 minute for desktop
-    
-    console.log(`🚀 [PROMPT] Executing prompt: ${promptKey}`, {
-      model: prompt.model,
-      isMobile,
-      timeoutMs: timeoutMs / 1000 + 's',
-      hasImage: variables.image_url ? true : false
+    // Make the OpenAI API call
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
+      },
+      body: JSON.stringify(formattedPrompt)
     });
 
-    // Create abort controller for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      // Make the OpenAI API call with timeout
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
-        },
-        body: JSON.stringify(formattedPrompt),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        let errorMessage = `OpenAI API error: ${response.status} ${response.statusText}`;
-        
-        // Handle specific error cases
-        if (response.status === 429) {
-          errorMessage = 'OpenAI rate limit reached. Please try again in a few moments.';
-        } else if (response.status === 401) {
-          errorMessage = 'OpenAI authentication failed. Please check API key configuration.';
-        } else if (response.status === 400) {
-          errorMessage = 'Invalid request to OpenAI API. Please check the prompt configuration.';
-        } else if (response.status >= 500) {
-          errorMessage = 'OpenAI service is temporarily unavailable. Please try again.';
-        }
-        
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
-      
-      // Extract usage information
-      tokensUsed = data.usage?.total_tokens || 0;
-      success = true;
-
-      console.log(`✅ [PROMPT] Successfully executed prompt: ${promptKey}`, {
-        tokensUsed,
-        responseTime: Date.now() - startTime + 'ms',
-        contentLength: data.choices?.[0]?.message?.content?.length || 0,
-        isMobile
-      });
-
-      // Track usage
-      await trackPromptUsage(promptKey, tokensUsed, Date.now() - startTime, success);
-
-      return {
-        success: true,
-        data: data,
-        content: data.choices?.[0]?.message?.content || '',
-        tokensUsed,
-        model: prompt.model,
-        promptKey
-      };
-
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      // Handle network errors specifically
-      if (fetchError.name === 'AbortError') {
-        throw new Error(`Request timed out after ${timeoutMs / 1000} seconds. ${isMobile ? 'Mobile networks may be slower - please try again.' : 'Please try again.'}`);
-      }
-      
-      if (fetchError.message.includes('Failed to fetch')) {
-        throw new Error(`Network error: ${isMobile ? 'Mobile connection issue. Please check your internet connection and try again.' : 'Please check your internet connection and try again.'}`);
-      }
-      
-      throw fetchError;
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
     }
 
+    const data = await response.json();
+    
+    // Extract usage information
+    tokensUsed = data.usage?.total_tokens || 0;
+    success = true;
+
+    // Track usage
+    await trackPromptUsage(promptKey, tokensUsed, Date.now() - startTime, success);
+
+    return {
+      success: true,
+      data: data,
+      content: data.choices?.[0]?.message?.content || '',
+      tokensUsed,
+      model: prompt.model,
+      promptKey
+    };
+
   } catch (error) {
-    console.error('❌ [PROMPT] Error executing prompt:', {
-      promptKey,
-      error: error.message,
-      responseTime: Date.now() - startTime + 'ms',
-      tokensUsed
-    });
+    console.error('Error executing prompt:', error);
     
     // Track failed usage
     await trackPromptUsage(promptKey, tokensUsed, Date.now() - startTime, false);
