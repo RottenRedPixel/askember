@@ -58,13 +58,90 @@ const ModalContent = ({
     </div>
 
     {loading ? (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
-        <p className="text-sm text-gray-500 mt-2">Analyzing image with AI...</p>
-        <p className="text-xs text-gray-400 mt-1">This may take 10-30 seconds</p>
-        {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && (
-          <p className="text-xs text-blue-600 mt-2">📱 Mobile networks may be slower - please be patient</p>
-        )}
+      <div className="space-y-4">
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="text-sm text-gray-500 mt-2">Analyzing image with AI...</p>
+          <p className="text-xs text-gray-400 mt-1">This may take 10-30 seconds</p>
+          {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && (
+            <p className="text-xs text-blue-600 mt-2">📱 Mobile networks may be slower - please be patient</p>
+          )}
+        </div>
+        
+        {/* Debug Logs Section - During Loading */}
+        <Card className="border-gray-200 bg-gray-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h5 className="font-medium text-gray-900 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-blue-600" />
+                Debug Logs
+                {debugLogs.length > 0 && (
+                  <Badge variant="outline" className="ml-2">
+                    {debugLogs.length}
+                  </Badge>
+                )}
+              </h5>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearDebugLogs}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  Clear
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDebugLogs(!showDebugLogs)}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  {showDebugLogs ? 'Hide' : 'Show'}
+                </Button>
+              </div>
+            </div>
+            
+            {showDebugLogs && debugLogs.length > 0 && (
+              <div className="max-h-40 overflow-y-auto bg-gray-900 text-gray-100 p-3 rounded-lg font-mono text-xs">
+                {debugLogs.map((log) => (
+                  <div key={log.id} className="mb-2 last:mb-0">
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-400 shrink-0">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                      <span className={`shrink-0 px-1 rounded text-xs ${
+                        log.type === 'error' ? 'bg-red-600 text-white' :
+                        log.type === 'warning' ? 'bg-yellow-600 text-white' :
+                        log.type === 'success' ? 'bg-green-600 text-white' :
+                        'bg-blue-600 text-white'
+                      }`}>
+                        {log.type.toUpperCase()}
+                      </span>
+                      <span className="text-gray-200">{log.message}</span>
+                    </div>
+                    {log.data && (
+                      <div className="mt-1 ml-16 text-gray-400 text-xs">
+                        {typeof log.data === 'string' ? log.data : JSON.stringify(log.data, null, 2)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {showDebugLogs && debugLogs.length === 0 && (
+              <div className="text-center text-gray-500 py-4">
+                Starting analysis - debug logs will appear here...
+              </div>
+            )}
+            
+            {!showDebugLogs && debugLogs.length > 0 && (
+              <div className="text-center text-gray-500 py-2">
+                {debugLogs.length} debug entries captured. Click "Show" to view.
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     ) : error ? (
       <div className="space-y-3">
@@ -77,6 +154,81 @@ const ModalContent = ({
             </div>
           </AlertDescription>
         </Alert>
+        
+        {/* Debug Logs Section - After Error */}
+        <Card className="border-gray-200 bg-gray-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h5 className="font-medium text-gray-900 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-blue-600" />
+                Debug Logs
+                {debugLogs.length > 0 && (
+                  <Badge variant="outline" className="ml-2">
+                    {debugLogs.length}
+                  </Badge>
+                )}
+              </h5>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearDebugLogs}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  Clear
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDebugLogs(!showDebugLogs)}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  {showDebugLogs ? 'Hide' : 'Show'}
+                </Button>
+              </div>
+            </div>
+            
+            {showDebugLogs && debugLogs.length > 0 && (
+              <div className="max-h-40 overflow-y-auto bg-gray-900 text-gray-100 p-3 rounded-lg font-mono text-xs">
+                {debugLogs.map((log) => (
+                  <div key={log.id} className="mb-2 last:mb-0">
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-400 shrink-0">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                      <span className={`shrink-0 px-1 rounded text-xs ${
+                        log.type === 'error' ? 'bg-red-600 text-white' :
+                        log.type === 'warning' ? 'bg-yellow-600 text-white' :
+                        log.type === 'success' ? 'bg-green-600 text-white' :
+                        'bg-blue-600 text-white'
+                      }`}>
+                        {log.type.toUpperCase()}
+                      </span>
+                      <span className="text-gray-200">{log.message}</span>
+                    </div>
+                    {log.data && (
+                      <div className="mt-1 ml-16 text-gray-400 text-xs">
+                        {typeof log.data === 'string' ? log.data : JSON.stringify(log.data, null, 2)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {showDebugLogs && debugLogs.length === 0 && (
+              <div className="text-center text-gray-500 py-4">
+                No debug logs available. Try running the analysis again.
+              </div>
+            )}
+            
+            {!showDebugLogs && debugLogs.length > 0 && (
+              <div className="text-center text-gray-500 py-2">
+                {debugLogs.length} debug entries captured. Click "Show" to view what went wrong.
+              </div>
+            )}
+          </CardContent>
+        </Card>
         
         {/* Mobile-specific troubleshooting tips */}
         {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && (
@@ -110,6 +262,81 @@ const ModalContent = ({
               <Sparkles className="w-4 h-4 mr-2" />
               Analyze Image
             </Button>
+          </CardContent>
+        </Card>
+        
+        {/* Debug Logs Section */}
+        <Card className="border-gray-200 bg-gray-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h5 className="font-medium text-gray-900 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-blue-600" />
+                Debug Logs
+                {debugLogs.length > 0 && (
+                  <Badge variant="outline" className="ml-2">
+                    {debugLogs.length}
+                  </Badge>
+                )}
+              </h5>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearDebugLogs}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  Clear
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDebugLogs(!showDebugLogs)}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  {showDebugLogs ? 'Hide' : 'Show'}
+                </Button>
+              </div>
+            </div>
+            
+            {showDebugLogs && debugLogs.length > 0 && (
+              <div className="max-h-40 overflow-y-auto bg-gray-900 text-gray-100 p-3 rounded-lg font-mono text-xs">
+                {debugLogs.map((log) => (
+                  <div key={log.id} className="mb-2 last:mb-0">
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-400 shrink-0">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                      <span className={`shrink-0 px-1 rounded text-xs ${
+                        log.type === 'error' ? 'bg-red-600 text-white' :
+                        log.type === 'warning' ? 'bg-yellow-600 text-white' :
+                        log.type === 'success' ? 'bg-green-600 text-white' :
+                        'bg-blue-600 text-white'
+                      }`}>
+                        {log.type.toUpperCase()}
+                      </span>
+                      <span className="text-gray-200">{log.message}</span>
+                    </div>
+                    {log.data && (
+                      <div className="mt-1 ml-16 text-gray-400 text-xs">
+                        {typeof log.data === 'string' ? log.data : JSON.stringify(log.data, null, 2)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {showDebugLogs && debugLogs.length === 0 && (
+              <div className="text-center text-gray-500 py-4">
+                No debug logs yet. Click "Analyze Image" to start debugging.
+              </div>
+            )}
+            
+            {!showDebugLogs && debugLogs.length > 0 && (
+              <div className="text-center text-gray-500 py-2">
+                {debugLogs.length} debug entries captured. Click "Show" to view.
+              </div>
+            )}
           </CardContent>
         </Card>
         
@@ -210,9 +437,31 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
   const [analysis, setAnalysis] = useState(null);
   const [analysisMetadata, setAnalysisMetadata] = useState(null);
   const [hasAnalysis, setHasAnalysis] = useState(false);
+  const [debugLogs, setDebugLogs] = useState([]);
+  const [showDebugLogs, setShowDebugLogs] = useState(false);
   
   const { user } = useStore();
   const isMobile = useMediaQuery("(max-width: 768px)");
+
+  // Debug logging function
+  const addDebugLog = (message, type = 'info', data = null) => {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      message,
+      type, // 'info', 'warning', 'error', 'success'
+      data,
+      id: Date.now() + Math.random()
+    };
+    
+    setDebugLogs(prev => [...prev, logEntry]);
+    console.log(`[DEBUG ${type.toUpperCase()}] ${message}`, data || '');
+  };
+
+  // Clear debug logs
+  const clearDebugLogs = () => {
+    setDebugLogs([]);
+  };
 
   useEffect(() => {
     if (isOpen && ember?.id) {
@@ -224,6 +473,7 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
     try {
       setLoading(true);
       setError(null);
+      addDebugLog('Loading existing analysis...', 'info');
 
       const existingAnalysis = await getImageAnalysis(ember.id);
       
@@ -231,14 +481,17 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
         setAnalysis(existingAnalysis.analysis_text);
         setAnalysisMetadata(existingAnalysis);
         setHasAnalysis(true);
+        addDebugLog('Existing analysis loaded successfully', 'success');
       } else {
         setAnalysis(null);
         setAnalysisMetadata(null);
         setHasAnalysis(false);
+        addDebugLog('No existing analysis found', 'info');
       }
     } catch (error) {
       console.error('Error loading existing analysis:', error);
       setError('Failed to load existing analysis');
+      addDebugLog('Failed to load existing analysis', 'error', error.message);
     } finally {
       setLoading(false);
     }
@@ -246,27 +499,49 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
 
   const handleAnalyze = async () => {
     if (!ember?.image_url || !user?.id) {
-      setError('Missing required data for analysis');
+      const errorMsg = 'Missing required data for analysis';
+      setError(errorMsg);
+      addDebugLog(errorMsg, 'error', { hasEmber: !!ember, hasImageUrl: !!ember?.image_url, hasUser: !!user?.id });
       return;
     }
 
+    // Clear previous logs and start fresh
+    clearDebugLogs();
+    
     // Detect mobile device for better error messaging
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // System information logging
+    addDebugLog('Starting image analysis...', 'info', {
+      emberId: ember.id,
+      imageUrl: ember.image_url?.substring(0, 50) + '...',
+      userId: user.id,
+      isMobile,
+      userAgent: navigator.userAgent,
+      hostname: window.location.hostname,
+      isDevelopment: import.meta.env.MODE === 'development'
+    });
 
     try {
       setLoading(true);
       setError(null);
       
-      console.log('🔍 Starting image analysis...', { 
-        emberId: ember.id, 
-        imageUrl: ember.image_url?.substring(0, 50) + '...',
-        isMobile 
-      });
-
+      addDebugLog('Calling triggerImageAnalysis...', 'info');
+      
       // Trigger OpenAI analysis
       const result = await triggerImageAnalysis(ember.id, ember.image_url);
       
+      addDebugLog('triggerImageAnalysis response received', 'info', {
+        success: result.success,
+        hasAnalysis: !!result.analysis,
+        analysisLength: result.analysis?.length,
+        model: result.model,
+        tokensUsed: result.tokensUsed
+      });
+      
       if (result.success) {
+        addDebugLog('Saving analysis to database...', 'info');
+        
         // Save the analysis to database
         await saveImageAnalysis(
           ember.id,
@@ -277,7 +552,7 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
           result.tokensUsed
         );
 
-        console.log('✅ Image analysis completed successfully');
+        addDebugLog('Analysis saved successfully', 'success');
 
         // Update local state
         setAnalysis(result.analysis);
@@ -292,11 +567,18 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
         if (onRefresh) {
           await onRefresh();
         }
+        
+        addDebugLog('Analysis completed successfully', 'success');
       } else {
         throw new Error('Analysis was not successful');
       }
     } catch (error) {
       console.error('❌ Error during image analysis:', error);
+      addDebugLog('Analysis failed', 'error', {
+        message: error.message,
+        stack: error.stack?.substring(0, 200),
+        name: error.name
+      });
       
       // Enhanced error messaging for mobile users
       let errorMessage = error.message || 'Failed to analyze image';
@@ -315,8 +597,13 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
       }
       
       setError(errorMessage);
+      addDebugLog('Final error message set', 'error', errorMessage);
+      
+      // Auto-show debug logs when there's an error
+      setShowDebugLogs(true);
     } finally {
       setLoading(false);
+      addDebugLog('Analysis process completed', 'info');
     }
   };
 
