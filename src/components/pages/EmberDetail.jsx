@@ -36,6 +36,247 @@ import { cn } from '@/lib/utils';
 import useStore from '@/store';
 
 // ✅ Extract StoryModalContent OUTSIDE the main component (prevents cursor jumping)
+const StoryCutDetailContent = ({ 
+  selectedStoryCut,
+  isEditingScript,
+  setIsEditingScript,
+  editedScript,
+  setEditedScript,
+  handleSaveScript,
+  handleCancelScriptEdit,
+  isSavingScript,
+  formatDuration,
+  getStyleDisplayName,
+  formatRelativeTime
+}) => (
+  <div className="space-y-6">
+    {/* Story Cut Info */}
+    <div className="flex flex-col sm:flex-row gap-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+      <div className="flex items-center gap-3">
+        <div className="text-sm text-gray-600">
+          <div className="font-medium">{formatDuration(selectedStoryCut.duration)}</div>
+          <div>{selectedStoryCut.word_count || 'Unknown'} words</div>
+        </div>
+      </div>
+      
+      {/* Style Badge */}
+      <div className="flex items-center">
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+          {getStyleDisplayName(selectedStoryCut.style)}
+        </span>
+      </div>
+    </div>
+
+    {/* Voice Casting */}
+    <div className="space-y-3">
+      <h3 className="text-lg font-semibold text-gray-900">Voice Casting</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+          <div className="text-sm font-medium text-green-800">Ember Voice</div>
+          <div className="text-green-700">{selectedStoryCut.ember_voice_name}</div>
+        </div>
+        <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+          <div className="text-sm font-medium text-purple-800">Narrator Voice</div>
+          <div className="text-purple-700">{selectedStoryCut.narrator_voice_name}</div>
+        </div>
+      </div>
+    </div>
+
+    {/* Story Focus */}
+    {selectedStoryCut.story_focus && (
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold text-gray-900">Story Focus</h3>
+        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-700">{selectedStoryCut.story_focus}</p>
+        </div>
+      </div>
+    )}
+
+    {/* Full Script */}
+    {selectedStoryCut.full_script && (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Complete Script</h3>
+        {!isEditingScript && (
+          <button
+            onClick={() => setIsEditingScript(true)}
+            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+          >
+            Edit
+          </button>
+        )}
+      </div>
+      
+      {isEditingScript ? (
+        <div className="space-y-3">
+          <textarea
+            value={editedScript}
+            onChange={(e) => setEditedScript(e.target.value)}
+            className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm leading-relaxed resize-none"
+            rows={Math.max(10, (editedScript.match(/\n/g) || []).length + 3)}
+            placeholder="Enter your script here..."
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleSaveScript}
+              disabled={isSavingScript}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 font-medium text-sm"
+            >
+              {isSavingScript ? 'Saving...' : 'Save'}
+            </button>
+            <button
+              onClick={handleCancelScriptEdit}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+            {selectedStoryCut.full_script}
+          </p>
+        </div>
+      )}
+    </div>
+    )}
+
+    {/* Voice Lines Breakdown */}
+    {((selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0) || 
+      (selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0) ||
+      (selectedStoryCut.metadata?.owner_lines && selectedStoryCut.metadata.owner_lines.length > 0) ||
+      (selectedStoryCut.metadata?.contributor_lines && selectedStoryCut.metadata.contributor_lines.length > 0)) && (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-gray-900">Voice Lines Breakdown</h3>
+      
+      {/* Ember Voice Lines */}
+      {selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-medium text-green-800 flex items-center gap-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            Ember Voice Lines ({selectedStoryCut.ember_voice_name})
+          </h4>
+          <div className="space-y-2">
+            {selectedStoryCut.ember_voice_lines.map((line, index) => (
+              <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
+                <p className="text-green-700">{line}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Narrator Voice Lines */}
+      {selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-medium text-purple-800 flex items-center gap-2">
+            <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+            Narrator Voice Lines ({selectedStoryCut.narrator_voice_name})
+          </h4>
+          <div className="space-y-2">
+            {selectedStoryCut.narrator_voice_lines.map((line, index) => (
+              <div key={index} className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                <p className="text-purple-700">{line}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Owner Lines */}
+      {selectedStoryCut.metadata?.owner_lines && selectedStoryCut.metadata.owner_lines.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-medium text-blue-800 flex items-center gap-2">
+            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+            {(() => {
+              // Try to get owner name from metadata first, then from selected_contributors
+              const ownerName = selectedStoryCut.metadata?.owner_first_name;
+              if (ownerName) return `${ownerName} (Owner)`;
+              
+              // Fallback: look for owner in selected_contributors
+              const contributors = selectedStoryCut.selected_contributors || [];
+              const owner = contributors.find(c => c?.role === 'owner');
+              if (owner?.name) return `${owner.name} (Owner)`;
+              
+              return 'Owner';
+            })()}
+          </h4>
+          <div className="space-y-2">
+            {selectedStoryCut.metadata.owner_lines.map((line, index) => (
+              <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-blue-700">{line}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Contributor Lines */}
+      {selectedStoryCut.metadata?.contributor_lines && selectedStoryCut.metadata.contributor_lines.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-medium text-orange-800 flex items-center gap-2">
+            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+            {(() => {
+              // Get contributor names from various possible sources, excluding the owner
+              const contributors = selectedStoryCut.selected_contributors || [];
+              const contributorNames = contributors
+                .filter(c => c?.role !== 'owner') // Exclude the owner from contributors
+                .map(c => {
+                  if (typeof c === 'string') return c;
+                  if (c?.name) return c.name;
+                  if (c?.first_name) return c.first_name;
+                  return 'Contributor';
+                })
+                .filter(name => name !== 'Contributor');
+              
+              if (contributorNames.length > 0) {
+                return `${contributorNames.join(', ')} (Contributor${contributorNames.length > 1 ? 's' : ''})`;
+              }
+              return 'Contributors';
+            })()}
+          </h4>
+          <div className="space-y-2">
+            {selectedStoryCut.metadata.contributor_lines.map((line, index) => (
+              <div key={index} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                <p className="text-orange-700">{line}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+    )}
+
+    {/* Contributors */}
+    {selectedStoryCut.selected_contributors && selectedStoryCut.selected_contributors.length > 0 && (
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold text-gray-900">Selected Contributors</h3>
+        <div className="flex flex-wrap gap-2">
+          {selectedStoryCut.selected_contributors.map((contributor, index) => (
+            <span 
+              key={index}
+              className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700"
+            >
+              {contributor.name} ({contributor.role})
+            </span>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Metadata */}
+    <div className="pt-4 border-t border-gray-200">
+      <div className="text-sm text-gray-500 space-y-1">
+        <div>Created: {formatRelativeTime(selectedStoryCut.created_at)}</div>
+        {selectedStoryCut.metadata?.generatedAt && (
+          <div>Generated: {new Date(selectedStoryCut.metadata.generatedAt).toLocaleString()}</div>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
 const StoryModalContent = ({ 
   userProfile,
   storyTitle, 
@@ -448,6 +689,11 @@ export default function EmberDetail() {
 
   // Supporting media state
   const [supportingMedia, setSupportingMedia] = useState([]);
+
+  // Script editing state
+  const [isEditingScript, setIsEditingScript] = useState(false);
+  const [editedScript, setEditedScript] = useState('');
+  const [isSavingScript, setIsSavingScript] = useState(false);
 
   // Media query hook for responsive design
   const useMediaQuery = (query) => {
@@ -1230,196 +1476,7 @@ export default function EmberDetail() {
     );
   };
 
-  const StoryCutDetailContent = () => (
-    <div className="space-y-6">
-      {/* Story Cut Info */}
-      <div className="flex flex-col sm:flex-row gap-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-        <div className="flex items-center gap-3">
-          <div className="text-sm text-gray-600">
-            <div className="font-medium">{formatDuration(selectedStoryCut.duration)}</div>
-            <div>{selectedStoryCut.word_count || 'Unknown'} words</div>
-          </div>
-        </div>
-        
-        {/* Style Badge */}
-        <div className="flex items-center">
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-            {getStyleDisplayName(selectedStoryCut.style)}
-          </span>
-        </div>
-      </div>
 
-      {/* Voice Casting */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-gray-900">Voice Casting</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-            <div className="text-sm font-medium text-green-800">Ember Voice</div>
-            <div className="text-green-700">{selectedStoryCut.ember_voice_name}</div>
-          </div>
-          <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-            <div className="text-sm font-medium text-purple-800">Narrator Voice</div>
-            <div className="text-purple-700">{selectedStoryCut.narrator_voice_name}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Story Focus */}
-      {selectedStoryCut.story_focus && (
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold text-gray-900">Story Focus</h3>
-          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-gray-700">{selectedStoryCut.story_focus}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Full Script */}
-      {selectedStoryCut.full_script && (
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-gray-900">Complete Script</h3>
-        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-            {selectedStoryCut.full_script}
-          </p>
-        </div>
-      </div>
-      )}
-
-      {/* Voice Lines Breakdown */}
-      {((selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0) || 
-        (selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0) ||
-        (selectedStoryCut.metadata?.owner_lines && selectedStoryCut.metadata.owner_lines.length > 0) ||
-        (selectedStoryCut.metadata?.contributor_lines && selectedStoryCut.metadata.contributor_lines.length > 0)) && (
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">Voice Lines Breakdown</h3>
-        
-        {/* Ember Voice Lines */}
-        {selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="font-medium text-green-800 flex items-center gap-2">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              Ember Voice Lines ({selectedStoryCut.ember_voice_name})
-            </h4>
-            <div className="space-y-2">
-              {selectedStoryCut.ember_voice_lines.map((line, index) => (
-                <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
-                  <p className="text-green-700">{line}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Narrator Voice Lines */}
-        {selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="font-medium text-purple-800 flex items-center gap-2">
-              <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-              Narrator Voice Lines ({selectedStoryCut.narrator_voice_name})
-            </h4>
-            <div className="space-y-2">
-              {selectedStoryCut.narrator_voice_lines.map((line, index) => (
-                <div key={index} className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                  <p className="text-purple-700">{line}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Owner Lines */}
-        {selectedStoryCut.metadata?.owner_lines && selectedStoryCut.metadata.owner_lines.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="font-medium text-blue-800 flex items-center gap-2">
-              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-              {(() => {
-                // Try to get owner name from metadata first, then from selected_contributors
-                const ownerName = selectedStoryCut.metadata?.owner_first_name;
-                if (ownerName) return `${ownerName} (Owner)`;
-                
-                // Fallback: look for owner in selected_contributors
-                const contributors = selectedStoryCut.selected_contributors || [];
-                const owner = contributors.find(c => c?.role === 'owner');
-                if (owner?.name) return `${owner.name} (Owner)`;
-                
-                return 'Owner';
-              })()}
-            </h4>
-            <div className="space-y-2">
-              {selectedStoryCut.metadata.owner_lines.map((line, index) => (
-                <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-blue-700">{line}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Contributor Lines */}
-        {selectedStoryCut.metadata?.contributor_lines && selectedStoryCut.metadata.contributor_lines.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="font-medium text-orange-800 flex items-center gap-2">
-              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-              {(() => {
-                // Get contributor names from various possible sources, excluding the owner
-                const contributors = selectedStoryCut.selected_contributors || [];
-                const contributorNames = contributors
-                  .filter(c => c?.role !== 'owner') // Exclude the owner from contributors
-                  .map(c => {
-                    if (typeof c === 'string') return c;
-                    if (c?.name) return c.name;
-                    if (c?.first_name) return c.first_name;
-                    return 'Contributor';
-                  })
-                  .filter(name => name !== 'Contributor');
-                
-                if (contributorNames.length > 0) {
-                  return `${contributorNames.join(', ')} (Contributor${contributorNames.length > 1 ? 's' : ''})`;
-                }
-                return 'Contributors';
-              })()}
-            </h4>
-            <div className="space-y-2">
-              {selectedStoryCut.metadata.contributor_lines.map((line, index) => (
-                <div key={index} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                  <p className="text-orange-700">{line}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-      )}
-
-      {/* Contributors */}
-      {selectedStoryCut.selected_contributors && selectedStoryCut.selected_contributors.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold text-gray-900">Selected Contributors</h3>
-          <div className="flex flex-wrap gap-2">
-            {selectedStoryCut.selected_contributors.map((contributor, index) => (
-              <span 
-                key={index}
-                className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700"
-              >
-                {contributor.name} ({contributor.role})
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Metadata */}
-      <div className="pt-4 border-t border-gray-200">
-        <div className="text-sm text-gray-500 space-y-1">
-          <div>Created: {formatRelativeTime(selectedStoryCut.created_at)}</div>
-          {selectedStoryCut.metadata?.generatedAt && (
-            <div>Generated: {new Date(selectedStoryCut.metadata.generatedAt).toLocaleString()}</div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 
 
 
@@ -1592,6 +1649,57 @@ export default function EmberDetail() {
     // Refresh supporting media data when updated
     await fetchSupportingMedia();
   };
+
+  // Script editing handlers
+  const handleSaveScript = async () => {
+    if (!selectedStoryCut || !editedScript.trim()) return;
+    
+    try {
+      setIsSavingScript(true);
+      
+      // Import the update function
+      const { updateStoryCut } = await import('@/lib/database');
+      
+      // Update the story cut with the new script
+      const updatedStoryCut = await updateStoryCut(
+        selectedStoryCut.id,
+        { full_script: editedScript.trim() },
+        user.id
+      );
+      
+      // Update the local state
+      setSelectedStoryCut(updatedStoryCut);
+      setStoryCuts(prev => 
+        prev.map(cut => 
+          cut.id === selectedStoryCut.id 
+            ? { ...cut, full_script: editedScript.trim() }
+            : cut
+        )
+      );
+      
+      // Exit editing mode
+      setIsEditingScript(false);
+      setMessage({ type: 'success', text: 'Script updated successfully!' });
+      
+    } catch (error) {
+      console.error('Failed to update script:', error);
+      setMessage({ type: 'error', text: 'Failed to update script. Please try again.' });
+    } finally {
+      setIsSavingScript(false);
+    }
+  };
+
+  const handleCancelScriptEdit = () => {
+    setEditedScript(selectedStoryCut.full_script || '');
+    setIsEditingScript(false);
+  };
+
+  // Set edited script when selectedStoryCut changes
+  useEffect(() => {
+    if (selectedStoryCut && selectedStoryCut.full_script) {
+      setEditedScript(selectedStoryCut.full_script);
+    }
+  }, [selectedStoryCut]);
 
   // Extract all wiki content as text for narration
   const extractWikiContent = (ember) => {
@@ -3029,7 +3137,19 @@ export default function EmberDetail() {
                   </DrawerDescription>
                 </DrawerHeader>
                 <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
-                  <StoryCutDetailContent />
+                  <StoryCutDetailContent 
+                    selectedStoryCut={selectedStoryCut}
+                    isEditingScript={isEditingScript}
+                    setIsEditingScript={setIsEditingScript}
+                    editedScript={editedScript}
+                    setEditedScript={setEditedScript}
+                    handleSaveScript={handleSaveScript}
+                    handleCancelScriptEdit={handleCancelScriptEdit}
+                    isSavingScript={isSavingScript}
+                    formatDuration={formatDuration}
+                    getStyleDisplayName={getStyleDisplayName}
+                    formatRelativeTime={formatRelativeTime}
+                  />
                 </div>
               </DrawerContent>
             </Drawer>
@@ -3045,7 +3165,19 @@ export default function EmberDetail() {
                     {getStyleDisplayName(selectedStoryCut.style)} • {formatDuration(selectedStoryCut.duration)} • Created by {`${selectedStoryCut.creator?.first_name || ''} ${selectedStoryCut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
                   </DialogDescription>
                 </DialogHeader>
-                <StoryCutDetailContent />
+                <StoryCutDetailContent 
+                  selectedStoryCut={selectedStoryCut}
+                  isEditingScript={isEditingScript}
+                  setIsEditingScript={setIsEditingScript}
+                  editedScript={editedScript}
+                  setEditedScript={setEditedScript}
+                  handleSaveScript={handleSaveScript}
+                  handleCancelScriptEdit={handleCancelScriptEdit}
+                  isSavingScript={isSavingScript}
+                  formatDuration={formatDuration}
+                  getStyleDisplayName={getStyleDisplayName}
+                  formatRelativeTime={formatRelativeTime}
+                />
               </DialogContent>
             </Dialog>
           )}

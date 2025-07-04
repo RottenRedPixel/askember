@@ -959,6 +959,29 @@ export const getStoryCutById = async (storyCutId) => {
 };
 
 /**
+ * Update a story cut
+ */
+export const updateStoryCut = async (storyCutId, updates, userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_story_cuts')
+      .update(updates)
+      .eq('id', storyCutId)
+      .eq('creator_user_id', userId) // Only creator can update
+      .select();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data[0];
+  } catch (error) {
+    console.error('Error updating story cut:', error);
+    throw error;
+  }
+};
+
+/**
  * Delete a story cut
  */
 export const deleteStoryCut = async (storyCutId, userId) => {
