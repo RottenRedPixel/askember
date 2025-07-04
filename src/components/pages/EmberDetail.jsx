@@ -47,7 +47,9 @@ const StoryCutDetailContent = ({
   isSavingScript,
   formatDuration,
   getStyleDisplayName,
-  formatRelativeTime
+  formatRelativeTime,
+  storyMessages,
+  ember
 }) => (
   <div className="space-y-6">
     {/* Story Cut Info */}
@@ -161,6 +163,10 @@ const StoryCutDetailContent = ({
             {selectedStoryCut.ember_voice_lines.map((line, index) => (
               <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
                 <p className="text-green-700">{line}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-xs opacity-70">AI Generated</span>
+                </div>
               </div>
             ))}
           </div>
@@ -178,6 +184,10 @@ const StoryCutDetailContent = ({
             {selectedStoryCut.narrator_voice_lines.map((line, index) => (
               <div key={index} className="p-3 bg-purple-50 rounded-lg border border-purple-200">
                 <p className="text-purple-700">{line}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                  <span className="text-xs opacity-70">AI Generated</span>
+                </div>
               </div>
             ))}
           </div>
@@ -203,11 +213,57 @@ const StoryCutDetailContent = ({
             })()}
           </h4>
           <div className="space-y-2">
-            {selectedStoryCut.metadata.owner_lines.map((line, index) => (
-              <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-blue-700">{line}</p>
-              </div>
-            ))}
+            {selectedStoryCut.metadata.owner_lines.map((line, index) => {
+              // Try to match this line to original story messages to determine type
+              const getOriginalMessageType = (line, lineIndex) => {
+                if (!storyMessages || storyMessages.length === 0) return 'unknown';
+                
+                // Look for owner messages (filter by user_id matching ember owner)
+                const ownerMessages = storyMessages.filter(msg => msg.user_id === ember?.user_id)
+                  .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // Sort by creation time
+                
+                // Try to match by index first (most reliable)
+                if (ownerMessages[lineIndex]) {
+                  return ownerMessages[lineIndex].has_audio ? 'audio' : 'text';
+                }
+                
+                // Try to find a message that could correspond to this line by content
+                for (const msg of ownerMessages) {
+                  if (msg.content && msg.content.trim()) {
+                    // Check if the line contains significant parts of the message content
+                    const msgWords = msg.content.toLowerCase().split(/\s+/).filter(word => word.length > 3);
+                    const lineWords = line.toLowerCase().split(/\s+/);
+                    
+                    // If at least 2 significant words match, consider it a match
+                    const matchingWords = msgWords.filter(word => lineWords.some(lineWord => lineWord.includes(word)));
+                    if (matchingWords.length >= 2) {
+                      return msg.has_audio ? 'audio' : 'text';
+                    }
+                  }
+                }
+                
+                // If we can't match by content, try by position
+                const audioMessages = ownerMessages.filter(msg => msg.has_audio);
+                const textMessages = ownerMessages.filter(msg => !msg.has_audio);
+                
+                // Default to 'text' if we can't determine
+                return 'text';
+                              };
+
+                const messageType = getOriginalMessageType(line, index);
+                
+                return (
+                  <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-blue-700">{line}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-blue-500 animate-pulse' : 'bg-blue-400'}`}></div>
+                    <span className="text-xs opacity-70">
+                      {messageType === 'audio' ? 'Audio message' : 'Text response'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -237,11 +293,53 @@ const StoryCutDetailContent = ({
             })()}
           </h4>
           <div className="space-y-2">
-            {selectedStoryCut.metadata.contributor_lines.map((line, index) => (
-              <div key={index} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                <p className="text-orange-700">{line}</p>
-              </div>
-            ))}
+            {selectedStoryCut.metadata.contributor_lines.map((line, index) => {
+              // Try to match this line to original story messages to determine type
+              const getOriginalMessageType = (line, lineIndex) => {
+                if (!storyMessages || storyMessages.length === 0) return 'unknown';
+                
+                // Look for contributor messages (filter by user_id not matching ember owner)
+                const contributorMessages = storyMessages.filter(msg => msg.user_id !== ember?.user_id)
+                  .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // Sort by creation time
+                
+                // Try to match by index first (most reliable)
+                if (contributorMessages[lineIndex]) {
+                  return contributorMessages[lineIndex].has_audio ? 'audio' : 'text';
+                }
+                
+                // Try to find a message that could correspond to this line by content
+                for (const msg of contributorMessages) {
+                  if (msg.content && msg.content.trim()) {
+                    // Check if the line contains significant parts of the message content
+                    const msgWords = msg.content.toLowerCase().split(/\s+/).filter(word => word.length > 3);
+                    const lineWords = line.toLowerCase().split(/\s+/);
+                    
+                    // If at least 2 significant words match, consider it a match
+                    const matchingWords = msgWords.filter(word => lineWords.some(lineWord => lineWord.includes(word)));
+                    if (matchingWords.length >= 2) {
+                      return msg.has_audio ? 'audio' : 'text';
+                    }
+                  }
+                }
+                
+                // Default to 'text' if we can't determine
+                return 'text';
+                              };
+
+                const messageType = getOriginalMessageType(line, index);
+                
+                return (
+                  <div key={index} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                  <p className="text-orange-700">{line}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-orange-500 animate-pulse' : 'bg-orange-400'}`}></div>
+                    <span className="text-xs opacity-70">
+                      {messageType === 'audio' ? 'Audio message' : 'Text response'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -3149,6 +3247,8 @@ export default function EmberDetail() {
                     formatDuration={formatDuration}
                     getStyleDisplayName={getStyleDisplayName}
                     formatRelativeTime={formatRelativeTime}
+                    storyMessages={storyMessages}
+                    ember={ember}
                   />
                 </div>
               </DrawerContent>
@@ -3177,6 +3277,8 @@ export default function EmberDetail() {
                   formatDuration={formatDuration}
                   getStyleDisplayName={getStyleDisplayName}
                   formatRelativeTime={formatRelativeTime}
+                  storyMessages={storyMessages}
+                  ember={ember}
                 />
               </DialogContent>
             </Dialog>
@@ -3435,13 +3537,18 @@ export default function EmberDetail() {
             content
           };
         } else {
-          // No matching recorded audio - fall back to synthesized voice
+          // No matching recorded audio - use narrator voice to attribute the quote
           console.log(`🔊 No matching recorded audio for ${voiceTag}: "${content}"`);
-          console.log(`🎤 Using fallback voice (Callum) for contributor`);
+          console.log(`🎤 Using narrator voice to say "${voiceTag} said..."`);
           
-          // Use a fallback voice (Callum - British male voice)
-          const fallbackVoiceId = 'N2lVS1w4EtoT3dr4eOWO'; // Callum's voice ID
-          const audioBlob = await textToSpeech(content, fallbackVoiceId);
+          // Format content with attribution using narrator voice
+          const narratedContent = `${voiceTag} said, "${content}"`;
+          
+          if (!storyCut.narrator_voice_id) {
+            throw new Error(`Narrator voice ID is missing: ${storyCut.narrator_voice_id}`);
+          }
+          
+          const audioBlob = await textToSpeech(narratedContent, storyCut.narrator_voice_id);
           const audioUrl = URL.createObjectURL(audioBlob);
           const audio = new Audio(audioUrl);
           
@@ -3451,7 +3558,7 @@ export default function EmberDetail() {
             url: audioUrl,
             blob: audioBlob,
             voiceTag,
-            content
+            content: narratedContent
           };
         }
       } else if (type === 'ember') {
