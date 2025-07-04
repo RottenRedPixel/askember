@@ -62,34 +62,70 @@ const ModalContent = ({
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
         <p className="text-sm text-gray-500 mt-2">Analyzing image with AI...</p>
         <p className="text-xs text-gray-400 mt-1">This may take 10-30 seconds</p>
+        {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && (
+          <p className="text-xs text-blue-600 mt-2">📱 Mobile networks may be slower - please be patient</p>
+        )}
       </div>
     ) : error ? (
-      <Alert className="border-red-200 bg-red-50">
-        <AlertCircle className="h-4 w-4 text-red-600" />
-        <AlertDescription className="text-red-800">
-          <div className="space-y-2">
-            <p className="font-medium">Analysis Failed</p>
-            <p className="text-sm">{error}</p>
-          </div>
-        </AlertDescription>
-      </Alert>
+      <div className="space-y-3">
+        <Alert className="border-red-200 bg-red-50">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            <div className="space-y-2">
+              <p className="font-medium">Analysis Failed</p>
+              <p className="text-sm">{error}</p>
+            </div>
+          </AlertDescription>
+        </Alert>
+        
+        {/* Mobile-specific troubleshooting tips */}
+        {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="p-4">
+              <h5 className="font-medium text-blue-900 mb-2">📱 Mobile Troubleshooting Tips</h5>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Ensure you have a strong WiFi or cellular connection</li>
+                <li>• Try switching between WiFi and cellular data</li>
+                <li>• Close other apps to free up memory</li>
+                <li>• If using cellular, ensure you have good signal strength</li>
+                <li>• Try again in a few moments if the service is busy</li>
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     ) : !hasAnalysis ? (
-      <Card className="border-purple-200 bg-purple-50">
-        <CardContent className="p-6 text-center">
-          <Brain size={32} className="text-purple-600 mx-auto mb-3" />
-          <h4 className="font-medium text-purple-900 mb-2">Ready for AI Analysis</h4>
-          <p className="text-sm text-purple-700 mb-4">
-            Get detailed insights about people, objects, emotions, environment, and more in your image.
-          </p>
-          <Button 
-            onClick={onAnalyze}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
-          >
-            <Sparkles className="w-4 h-4 mr-2" />
-            Analyze Image
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <Card className="border-purple-200 bg-purple-50">
+          <CardContent className="p-6 text-center">
+            <Brain size={32} className="text-purple-600 mx-auto mb-3" />
+            <h4 className="font-medium text-purple-900 mb-2">Ready for AI Analysis</h4>
+            <p className="text-sm text-purple-700 mb-4">
+              Get detailed insights about people, objects, emotions, environment, and more in your image.
+            </p>
+            <Button 
+              onClick={onAnalyze}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Analyze Image
+            </Button>
+          </CardContent>
+        </Card>
+        
+        {/* Mobile-specific info */}
+        {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="p-4">
+              <h5 className="font-medium text-blue-900 mb-2">📱 Mobile Analysis Info</h5>
+              <p className="text-sm text-blue-800">
+                Image analysis on mobile devices may take longer due to network conditions. 
+                For best results, ensure you have a stable WiFi connection.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     ) : (
       <div className="space-y-4">
         {/* Analysis Status */}
@@ -214,9 +250,18 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
       return;
     }
 
+    // Detect mobile device for better error messaging
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('🔍 Starting image analysis...', { 
+        emberId: ember.id, 
+        imageUrl: ember.image_url?.substring(0, 50) + '...',
+        isMobile 
+      });
 
       // Trigger OpenAI analysis
       const result = await triggerImageAnalysis(ember.id, ember.image_url);
@@ -231,6 +276,8 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
           result.model,
           result.tokensUsed
         );
+
+        console.log('✅ Image analysis completed successfully');
 
         // Update local state
         setAnalysis(result.analysis);
@@ -249,8 +296,25 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
         throw new Error('Analysis was not successful');
       }
     } catch (error) {
-      console.error('Error during analysis:', error);
-      setError(error.message || 'Failed to analyze image');
+      console.error('❌ Error during image analysis:', error);
+      
+      // Enhanced error messaging for mobile users
+      let errorMessage = error.message || 'Failed to analyze image';
+      
+      // Mobile-specific error guidance
+      if (isMobile) {
+        if (errorMessage.includes('timeout')) {
+          errorMessage = 'Analysis timed out on mobile. Mobile networks can be slower - please ensure you have a strong connection and try again.';
+        } else if (errorMessage.includes('network') || errorMessage.includes('Failed to fetch')) {
+          errorMessage = 'Mobile network issue detected. Please check your internet connection and try again. Consider switching to WiFi for better stability.';
+        } else if (errorMessage.includes('Service temporarily unavailable')) {
+          errorMessage = 'Service is busy. This can happen more often on mobile networks. Please wait a moment and try again.';
+        } else if (errorMessage.includes('Analysis failed') && !errorMessage.includes('Mobile')) {
+          errorMessage = `Mobile analysis failed: ${errorMessage}. Please ensure you have a stable internet connection and try again.`;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

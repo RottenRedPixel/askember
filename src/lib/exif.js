@@ -1,6 +1,18 @@
 import PIEXIF from 'piexifjs';
 
 /**
+ * Detect if user is likely on Android device
+ * @returns {boolean} - True if likely Android
+ */
+const isLikelyAndroid = () => {
+  const userAgent = navigator.userAgent.toLowerCase();
+  return userAgent.includes('android') || 
+         userAgent.includes('chrome') && !userAgent.includes('safari');
+};
+
+export { isLikelyAndroid };
+
+/**
  * Extract EXIF data from an image file
  * @param {File} file - Image file to extract EXIF from
  * @returns {Promise<Object>} - Extracted EXIF data
@@ -166,7 +178,14 @@ export const extractExifData = async (file) => {
 
         resolve(extractedData);
       } catch (error) {
+        const isAndroid = isLikelyAndroid();
         console.error('Error extracting EXIF data:', error);
+        
+        if (isAndroid) {
+          console.warn('🤖 Android device detected - EXIF extraction failed, possibly due to privacy settings');
+          console.info('💡 Fallback: Will attempt browser geolocation if available');
+        }
+        
         // Return basic file info even if EXIF extraction fails
         resolve({
           originalFilename: file.name,
@@ -186,7 +205,9 @@ export const extractExifData = async (file) => {
           orientation: null,
           imageWidth: null,
           imageHeight: null,
-          colorSpace: null
+          colorSpace: null,
+          locationSource: 'none',
+          extractionError: isAndroid ? 'android_privacy_likely' : 'generic_error'
         });
       }
     };
@@ -280,4 +301,116 @@ export const formatCoordinates = (lat, lon) => {
   const lonDirection = lon >= 0 ? 'E' : 'W';
   
   return `${Math.abs(lat).toFixed(6)}°${latDirection}, ${Math.abs(lon).toFixed(6)}°${lonDirection}`;
+}; 
+
+/**
+ * Get current location using browser geolocation API
+ * Fallback for when EXIF GPS data is missing (common on Android)
+ * @returns {Promise<Object>} - Location data or null
+ */
+export const getCurrentLocation = async () => {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      console.warn('Geolocation not supported by browser');
+      resolve(null);
+      return;
+    }
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000 // 5 minutes
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        console.log('✅ Browser geolocation successful');
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          altitude: position.coords.altitude,
+          accuracy: position.coords.accuracy,
+          source: 'browser_geolocation'
+        });
+      },
+      (error) => {
+        console.warn('❌ Browser geolocation failed:', error.message);
+        resolve(null);
+      },
+      options
+    );
+  });
+};
+
+/**
+ * Enhanced EXIF extraction with browser geolocation fallback
+ * @param {File} file - Image file to extract EXIF from
+ * @param {boolean} useLocationFallback - Whether to use browser geolocation if EXIF GPS is missing
+ * @returns {Promise<Object>} - Extracted EXIF data with potential location fallback
+ */
+export const extractExifDataWithLocationFallback = async (file, useLocationFallback = true) => {
+  // First, try normal EXIF extraction
+  const exifData = await extractExifData(file);
+  
+  // If GPS data is missing and fallback is enabled, try browser geolocation
+  if (useLocationFallback && (!exifData.latitude || !exifData.longitude)) {
+    console.log('📍 EXIF GPS data missing, attempting browser geolocation fallback...');
+    
+    const browserLocation = await getCurrentLocation();
+    if (browserLocation) {
+      console.log('✅ Using browser geolocation as fallback');
+      return {
+        ...exifData,
+        latitude: browserLocation.latitude,
+        longitude: browserLocation.longitude,
+        altitude: browserLocation.altitude || exifData.altitude,
+        locationSource: browserLocation.source,
+        locationAccuracy: browserLocation.accuracy
+      };
+    }
+  }
+  
+  return {
+    ...exifData,
+    locationSource: exifData.latitude ? 'exif_gps' : 'none'
+  };
+}; 
+
+
+
+/**
+ * Get user-friendly location source explanation
+ * @param {string} locationSource - Source of location data
+ * @param {boolean} isAndroid - Whether user is on Android
+ * @returns {Object} - User-friendly explanation
+ */
+export const getLocationSourceInfo = (locationSource, isAndroid = false) => {
+  switch (locationSource) {
+    case 'exif_gps':
+      return {
+        icon: '📷',
+        title: 'Photo GPS Data',
+        description: 'Location extracted from photo metadata',
+        accuracy: 'High'
+      };
+    case 'browser_geolocation':
+      return {
+        icon: '🌐',
+        title: 'Browser Location',
+        description: isAndroid 
+          ? 'Used current location (Android privacy may strip photo GPS)' 
+          : 'Used current location as fallback',
+        accuracy: 'Medium'
+      };
+    case 'none':
+    default:
+      return {
+        icon: '❌',
+        title: 'No Location Data',
+        description: isAndroid 
+          ? 'Android privacy settings may have removed GPS data. Try using camera directly.' 
+          : 'No GPS data available in photo',
+        accuracy: 'None'
+      };
+  }
 }; 

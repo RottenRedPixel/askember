@@ -224,6 +224,7 @@ export default function Create() {
                     <input
                       type="file"
                       accept="image/*"
+                      capture="environment"
                       onChange={handleImageSelect}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       required
@@ -239,6 +240,11 @@ export default function Create() {
                         <p className="text-sm text-gray-500">
                           Supports JPG, PNG, GIF, WebP up to 10MB
                         </p>
+                        {navigator.userAgent.toLowerCase().includes('android') && (
+                          <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                            📱 Android tip: For best location data, use "Take photo" to capture directly from camera
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>

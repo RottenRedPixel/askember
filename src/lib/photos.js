@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { extractExifData, hasGPSData, hasTimestampData } from './exif';
+import { extractExifData, extractExifDataWithLocationFallback, hasGPSData, hasTimestampData } from './exif';
 
 /**
  * Upload image to Supabase storage and save EXIF metadata to database
@@ -10,10 +10,11 @@ import { extractExifData, hasGPSData, hasTimestampData } from './exif';
  */
 export const uploadImageWithExif = async (file, userId, emberId = null) => {
   try {
-    // Extract EXIF data first
-    console.log('Extracting EXIF data...');
-    const exifData = await extractExifData(file);
-    console.log('Extracted EXIF data:', exifData);
+      // Extract EXIF data with browser geolocation fallback for Android devices
+  console.log('Extracting EXIF data with location fallback...');
+  const exifData = await extractExifDataWithLocationFallback(file, true);
+  console.log('Extracted EXIF data:', exifData);
+  console.log('Location source:', exifData.locationSource || 'none');
 
     // Generate unique filename
     const timestamp = Date.now();
@@ -51,6 +52,8 @@ export const uploadImageWithExif = async (file, userId, emberId = null) => {
       latitude: exifData.latitude,
       longitude: exifData.longitude,
       altitude: exifData.altitude,
+      location_source: exifData.locationSource || 'none',
+      location_accuracy: exifData.locationAccuracy || null,
       camera_make: exifData.cameraMake,
       camera_model: exifData.cameraModel,
       lens_model: exifData.lensModel,
