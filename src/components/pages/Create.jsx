@@ -170,19 +170,12 @@ export default function Create() {
         // Don't fail ember creation if analysis can't be started
       }
       
-      setMessage({ 
-        type: 'success', 
-        text: 'Ember created successfully! Redirecting to your ember...' 
-      });
-
       // Reset form
       setSelectedImage(null);
       setImagePreview(null);
 
-      // Redirect to the newly created ember detail page after a short delay
-      setTimeout(() => {
-        navigate(`/embers/${newEmber.id}`);
-      }, 2000);
+      // Redirect directly to the newly created ember detail page
+      navigate(`/embers/${newEmber.id}`);
 
     } catch (error) {
       console.error('Error creating ember:', error);
