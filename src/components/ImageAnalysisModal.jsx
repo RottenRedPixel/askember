@@ -106,9 +106,9 @@ const ModalContent = ({
                     </span>
                   )}
                   {analysisMetadata?.openai_model && (
-                    <Badge variant="outline" className="text-xs bg-green-100 text-green-800 border-green-300">
+                    <span className="text-xs bg-green-100 text-green-800 border border-green-300 px-2 py-1 rounded">
                       {analysisMetadata.openai_model}
-                    </Badge>
+                    </span>
                   )}
                   {analysisMetadata?.tokens_used && (
                     <span className="text-green-600">
