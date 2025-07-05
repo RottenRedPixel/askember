@@ -122,9 +122,54 @@ const StoryCutDetailContent = ({
         </div>
       ) : (
         <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-            {selectedStoryCut.full_script}
-          </p>
+          <div className="space-y-2">
+            {selectedStoryCut.full_script.split('\n').map((line, index) => {
+              const trimmedLine = line.trim();
+              if (!trimmedLine) return null;
+              
+              // Check if line has a voice tag
+              const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
+              
+              if (voiceMatch) {
+                const voiceTag = voiceMatch[1].trim();
+                const content = voiceMatch[2].trim();
+                
+                // Determine styling based on voice type
+                let voiceStyle = '';
+                let contentStyle = '';
+                
+                if (voiceTag === 'EMBER VOICE') {
+                  voiceStyle = 'text-purple-600 bg-purple-100 border-purple-200';
+                  contentStyle = 'text-purple-800';
+                } else if (voiceTag === 'NARRATOR') {
+                  voiceStyle = 'text-blue-600 bg-blue-100 border-blue-200';
+                  contentStyle = 'text-blue-800';
+                } else {
+                  // Contributor voice
+                  voiceStyle = 'text-green-600 bg-green-100 border-green-200';
+                  contentStyle = 'text-green-800';
+                }
+                
+                return (
+                  <div key={index} className="flex flex-col space-y-1">
+                    <div className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${voiceStyle} w-fit`}>
+                      {voiceTag}
+                    </div>
+                    <div className={`pl-4 ${contentStyle} leading-relaxed`}>
+                      {content}
+                    </div>
+                  </div>
+                );
+              } else {
+                // Line without voice tag (shouldn't happen with properly formatted scripts)
+                return (
+                  <div key={index} className="text-gray-700 leading-relaxed pl-4">
+                    {trimmedLine}
+                  </div>
+                );
+              }
+            }).filter(Boolean)}
+          </div>
         </div>
       )}
     </div>
