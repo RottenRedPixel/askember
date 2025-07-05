@@ -51,6 +51,15 @@ export default async function handler(req, res) {
     
     console.log('✅ Loaded style prompt:', stylePrompt.title);
     
+    // Get ember owner's information for proper voice attribution
+    let ownerFirstName = 'Owner';
+    if (voiceCasting.contributors) {
+      const ownerInfo = voiceCasting.contributors.find(c => c.role === 'owner');
+      if (ownerInfo?.name) {
+        ownerFirstName = ownerInfo.name;
+      }
+    }
+    
     // Prepare all the variables for the master prompt
     const promptVariables = {
       ember_context: emberContext,
@@ -60,6 +69,7 @@ export default async function handler(req, res) {
       duration: formData.duration,
       word_count: approximateWords,
       story_focus: formData.focus || 'General storytelling approach',
+      owner_first_name: ownerFirstName,
       selected_contributors: voiceCasting.contributors?.map(c => c.name).join(', ') || 'None',
       ember_voice_name: voiceCasting.ember?.name || 'Selected Voice',
       narrator_voice_name: voiceCasting.narrator?.name || 'Selected Voice',
@@ -69,12 +79,80 @@ export default async function handler(req, res) {
       selected_contributors_json: JSON.stringify(voiceCasting.contributors || []),
       contributor_count: voiceCasting.contributors?.length || 0,
       has_quotes: contributorQuotes && contributorQuotes.length > 0,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      use_ember_voice: voiceCasting.ember !== null,
+      use_narrator_voice: voiceCasting.narrator !== null
     };
+    
+    // Dynamically modify the prompt based on voice selections
+    let userPrompt = masterPrompt.user_prompt_template;
+    
+    // Build voice-specific instructions
+    const hasEmber = voiceCasting.ember !== null;
+    const hasNarrator = voiceCasting.narrator !== null;
+    
+    if (hasEmber && hasNarrator) {
+      // Both voices selected - use original template
+      console.log('🎭 Using both Ember and Narrator voices');
+    } else if (hasEmber && !hasNarrator) {
+      // Only Ember voice selected
+      console.log('🎭 Using only Ember voice - modifying prompt');
+      
+      // Update voice tag instructions to only mention Ember voice
+      userPrompt = userPrompt.replace(
+        /- Use these voice tags: \[EMBER VOICE\], \[NARRATOR\], \[\{\{owner_first_name\}\}\], \[ACTUAL_CONTRIBUTOR_FIRST_NAME\]/,
+        '- Use these voice tags: [EMBER VOICE], [{{owner_first_name}}], [ACTUAL_CONTRIBUTOR_FIRST_NAME]'
+      );
+      
+      // Update format example to exclude narrator
+      userPrompt = userPrompt.replace(
+        /Format like: "\[EMBER VOICE\] Narrative line\\n\[NARRATOR\] Context line\\n\[\{\{owner_first_name\}\}\] Actual quote from owner\\n\[CONTRIBUTOR_FIRST_NAME\] Quote from contributor"/,
+        'Format like: "[EMBER VOICE] Narrative line\\n[{{owner_first_name}}] Actual quote from owner\\n[CONTRIBUTOR_FIRST_NAME] Quote from contributor"'
+      );
+      
+      // Update output format to exclude narrator_voice_lines
+      userPrompt = userPrompt.replace(
+        /"narrator_voice_lines": \["A dodgeball tournament begins", "Who will claim victory\?"\],/,
+        ''
+      );
+      
+      // Update voiceCasting object to exclude narratorVoice
+      userPrompt = userPrompt.replace(
+        /"narratorVoice": "\{\{narrator_voice_name\}\}",/,
+        ''
+      );
+      
+    } else if (!hasEmber && hasNarrator) {
+      // Only Narrator voice selected
+      console.log('🎭 Using only Narrator voice - modifying prompt');
+      
+      // Update voice tag instructions to only mention Narrator voice
+      userPrompt = userPrompt.replace(
+        /- Use these voice tags: \[EMBER VOICE\], \[NARRATOR\], \[\{\{owner_first_name\}\}\], \[ACTUAL_CONTRIBUTOR_FIRST_NAME\]/,
+        '- Use these voice tags: [NARRATOR], [{{owner_first_name}}], [ACTUAL_CONTRIBUTOR_FIRST_NAME]'
+      );
+      
+      // Update format example to exclude ember voice
+      userPrompt = userPrompt.replace(
+        /Format like: "\[EMBER VOICE\] Narrative line\\n\[NARRATOR\] Context line\\n\[\{\{owner_first_name\}\}\] Actual quote from owner\\n\[CONTRIBUTOR_FIRST_NAME\] Quote from contributor"/,
+        'Format like: "[NARRATOR] Context line\\n[{{owner_first_name}}] Actual quote from owner\\n[CONTRIBUTOR_FIRST_NAME] Quote from contributor"'
+      );
+      
+      // Update output format to exclude ember_voice_lines
+      userPrompt = userPrompt.replace(
+        /"ember_voice_lines": \["A classroom buzzes with anticipation", "Faces filled with determination"\],/,
+        ''
+      );
+      
+      // Update voiceCasting object to exclude emberVoice
+      userPrompt = userPrompt.replace(
+        /"emberVoice": "\{\{ember_voice_name\}\}",/,
+        ''
+      );
+    }
     
     // Format the master prompt with all variables
     let systemPrompt = masterPrompt.system_prompt;
-    let userPrompt = masterPrompt.user_prompt_template;
     
     // Replace all variables in the prompts
     Object.keys(promptVariables).forEach(key => {
@@ -89,7 +167,9 @@ export default async function handler(req, res) {
       duration: formData.duration,
       wordCount: approximateWords,
       contributors: voiceCasting.contributors?.length || 0,
-      hasQuotes: contributorQuotes && contributorQuotes.length > 0
+      hasQuotes: contributorQuotes && contributorQuotes.length > 0,
+      useEmberVoice: hasEmber,
+      useNarratorVoice: hasNarrator
     });
 
     const completion = await openai.chat.completions.create({

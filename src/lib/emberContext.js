@@ -624,7 +624,9 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
       selected_contributors_json: JSON.stringify(voiceCasting.contributors || []),
       contributor_count: voiceCasting.contributors?.length || 0,
       has_quotes: contributorQuotes && contributorQuotes.length > 0,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      use_ember_voice: voiceCasting.ember !== null,
+      use_narrator_voice: voiceCasting.narrator !== null
     };
     
     console.log('🤖 Generating story cut with:', {
@@ -632,11 +634,112 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
       duration: formData.duration,
       wordCount: approximateWords,
       contributors: voiceCasting.contributors?.length || 0,
-      hasQuotes: contributorQuotes && contributorQuotes.length > 0
+      hasQuotes: contributorQuotes && contributorQuotes.length > 0,
+      useEmberVoice: voiceCasting.ember !== null,
+      useNarratorVoice: voiceCasting.narrator !== null
     });
 
-    // Execute the prompt using the prompt management system
-    const result = await executePrompt('story_cut_generation', promptVariables, emberId);
+    // Dynamically modify the prompt based on voice selections
+    let modifiedPrompt = { ...masterPrompt };
+    let promptTemplate = masterPrompt.user_prompt_template;
+    
+    // Build voice-specific instructions
+    const hasEmberId = voiceCasting.ember !== null;
+    const hasNarrator = voiceCasting.narrator !== null;
+    
+    if (hasEmberId && hasNarrator) {
+      // Both voices selected - use original template
+      console.log('🎭 Using both Ember and Narrator voices');
+    } else if (hasEmberId && !hasNarrator) {
+      // Only Ember voice selected
+      console.log('🎭 Using only Ember voice - modifying prompt');
+      
+      // Update voice tag instructions to only mention Ember voice
+      promptTemplate = promptTemplate.replace(
+        /- Use these voice tags: \[EMBER VOICE\], \[NARRATOR\], \[\{\{owner_first_name\}\}\], \[ACTUAL_CONTRIBUTOR_FIRST_NAME\]/,
+        '- Use these voice tags: [EMBER VOICE], [{{owner_first_name}}], [ACTUAL_CONTRIBUTOR_FIRST_NAME]'
+      );
+      
+      // Update format example to exclude narrator
+      promptTemplate = promptTemplate.replace(
+        /Format like: "\[EMBER VOICE\] Narrative line\\n\[NARRATOR\] Context line\\n\[\{\{owner_first_name\}\}\] Actual quote from owner\\n\[CONTRIBUTOR_FIRST_NAME\] Quote from contributor"/,
+        'Format like: "[EMBER VOICE] Narrative line\\n[{{owner_first_name}}] Actual quote from owner\\n[CONTRIBUTOR_FIRST_NAME] Quote from contributor"'
+      );
+      
+      // Update output format to exclude narrator_voice_lines
+      promptTemplate = promptTemplate.replace(
+        /"narrator_voice_lines": \["A dodgeball tournament begins", "Who will claim victory\?"\],/,
+        ''
+      );
+      
+      // Update voiceCasting object to exclude narratorVoice
+      promptTemplate = promptTemplate.replace(
+        /"narratorVoice": "\{\{narrator_voice_name\}\}",/,
+        ''
+      );
+      
+    } else if (!hasEmberId && hasNarrator) {
+      // Only Narrator voice selected
+      console.log('🎭 Using only Narrator voice - modifying prompt');
+      
+      // Update voice tag instructions to only mention Narrator voice
+      promptTemplate = promptTemplate.replace(
+        /- Use these voice tags: \[EMBER VOICE\], \[NARRATOR\], \[\{\{owner_first_name\}\}\], \[ACTUAL_CONTRIBUTOR_FIRST_NAME\]/,
+        '- Use these voice tags: [NARRATOR], [{{owner_first_name}}], [ACTUAL_CONTRIBUTOR_FIRST_NAME]'
+      );
+      
+      // Update format example to exclude ember voice
+      promptTemplate = promptTemplate.replace(
+        /Format like: "\[EMBER VOICE\] Narrative line\\n\[NARRATOR\] Context line\\n\[\{\{owner_first_name\}\}\] Actual quote from owner\\n\[CONTRIBUTOR_FIRST_NAME\] Quote from contributor"/,
+        'Format like: "[NARRATOR] Context line\\n[{{owner_first_name}}] Actual quote from owner\\n[CONTRIBUTOR_FIRST_NAME] Quote from contributor"'
+      );
+      
+      // Update output format to exclude ember_voice_lines
+      promptTemplate = promptTemplate.replace(
+        /"ember_voice_lines": \["A classroom buzzes with anticipation", "Faces filled with determination"\],/,
+        ''
+      );
+      
+      // Update voiceCasting object to exclude emberVoice
+      promptTemplate = promptTemplate.replace(
+        /"emberVoice": "\{\{ember_voice_name\}\}",/,
+        ''
+      );
+    }
+    
+    // Update the prompt object with the modified template
+    modifiedPrompt.user_prompt_template = promptTemplate;
+    
+    // Execute the prompt using the modified prompt template
+    const { formatPrompt } = await import('./promptManager.js');
+    
+    // Format the modified prompt with variables
+    const formattedPrompt = await formatPrompt(modifiedPrompt, promptVariables, emberId);
+    
+    // Make the OpenAI API call directly with the modified prompt
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
+      },
+      body: JSON.stringify(formattedPrompt)
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
+    const apiData = await response.json();
+    
+    const result = {
+      success: true,
+      data: apiData,
+      content: apiData.choices?.[0]?.message?.content || '',
+      tokensUsed: apiData.usage?.total_tokens || 0,
+      model: modifiedPrompt.model,
+      promptKey: 'story_cut_generation'
+    };
 
     if (!result.success) {
       throw new Error(result.error);
