@@ -74,7 +74,7 @@ export default async function handler(req, res) {
     // Get all story messages for the ember to extract recorded audio (using same RPC as frontend)
     console.log('🎙️ Loading story messages for recorded audio...');
     const { data: storyMessages, error: messagesError } = await supabase.rpc('get_all_story_messages_for_ember', {
-      ember_id_param: emberId
+      input_ember_id: emberId
     });
     
     if (messagesError) {
