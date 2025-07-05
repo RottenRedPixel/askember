@@ -100,6 +100,8 @@ export default async function handler(req, res) {
     }
     
     console.log('🎙️ Found recorded audio for users:', Array.from(recordedAudioMap.keys()));
+    console.log('🔍 API DEBUG - Story messages loaded:', storyMessages?.length || 0);
+    console.log('🔍 API DEBUG - Voice casting contributors:', voiceCasting.contributors?.length || 0);
     
     // Get the master story cut generation prompt
     console.log('🔍 Loading master story cut generation prompt...');
@@ -275,6 +277,8 @@ export default async function handler(req, res) {
       }
       
       console.log('🎙️ Added recorded audio to story cut:', Object.keys(generatedStoryCut.recordedAudio));
+      console.log('🔍 API DEBUG - Contributors to map:', voiceCasting.contributors?.map(c => ({id: c.id, name: c.name})) || []);
+      console.log('🔍 API DEBUG - Available audio users:', Array.from(recordedAudioMap.keys()));
       
     } catch (parseError) {
       console.error('OpenAI returned invalid JSON:', storyCut);
