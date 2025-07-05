@@ -1,9 +1,49 @@
 import { OpenAI } from 'openai';
+import { createClient } from '@supabase/supabase-js';
 
-// Import our prompt management system
-// Note: Using relative imports for Vercel API routes
-import { getActivePrompt } from '../src/lib/promptManager.js';
-import { emberContextBuilders } from '../src/lib/emberContext.js';
+// Self-contained Supabase client setup (no import issues)
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase configuration');
+}
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Self-contained prompt management functions (copied from promptManager.js)
+async function getActivePrompt(promptKey) {
+  try {
+    const { data, error } = await supabase.rpc('get_active_prompt', {
+      prompt_key_param: promptKey
+    });
+
+    if (error) {
+      console.error('Error fetching active prompt:', error);
+      return null;
+    }
+
+    return data && data.length > 0 ? data[0] : null;
+  } catch (error) {
+    console.error('Error in getActivePrompt:', error);
+    return null;
+  }
+}
+
+// Self-contained variable replacement (copied from promptManager.js)
+function replaceVariables(text, variables) {
+  if (!text) return '';
+  
+  let result = text;
+  
+  // Replace standard variables like {{variable_name}}
+  Object.entries(variables).forEach(([key, value]) => {
+    const regex = new RegExp(`{{${key}}}`, 'g');
+    result = result.replace(regex, value || '');
+  });
+  
+  return result;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -152,15 +192,8 @@ export default async function handler(req, res) {
     }
     
     // Format the master prompt with all variables
-    let systemPrompt = masterPrompt.system_prompt;
-    
-    // Replace all variables in the prompts
-    Object.keys(promptVariables).forEach(key => {
-      const placeholder = `{{${key}}}`;
-      const value = promptVariables[key];
-      systemPrompt = systemPrompt.replace(new RegExp(placeholder, 'g'), value);
-      userPrompt = userPrompt.replace(new RegExp(placeholder, 'g'), value);
-    });
+    let systemPrompt = replaceVariables(masterPrompt.system_prompt, promptVariables);
+    userPrompt = replaceVariables(userPrompt, promptVariables);
     
     console.log('🤖 Generating story cut with:', {
       style: stylePrompt.title,
