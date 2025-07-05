@@ -1543,7 +1543,7 @@ export default function EmberDetail() {
           'No story circle conversations available yet.';
         
         console.log('🔍 FRONTEND DEBUG - Voice casting being sent to API:', voiceCasting);
-        console.log('🔍 FRONTEND DEBUG - Contributors array:', voiceCasting.contributors?.map(c => ({id: c.id, name: c.name})));
+        console.log('🔍 FRONTEND DEBUG - Contributors array:', JSON.stringify(voiceCasting.contributors?.map(c => ({id: c.id, name: c.name})), null, 2));
         
         const response = await fetch('/api/generate-story-cut', {
           method: 'POST',
