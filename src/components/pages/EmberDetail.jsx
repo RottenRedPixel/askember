@@ -400,7 +400,11 @@ const StoryModalContent = ({
   availableVoices,
   handleGenerateStoryCut,
   isGeneratingStoryCut,
-  storyMessages
+  storyMessages,
+  useEmberVoice,
+  toggleEmberVoice,
+  useNarratorVoice,
+  toggleNarratorVoice
 }) => (
   <div className="space-y-6">
     {/* User Editor Info */}
@@ -526,38 +530,38 @@ const StoryModalContent = ({
       </Label>
       <p className="text-sm text-gray-600">Select which voices you want used in this story.</p>
       
-      <div className="grid grid-cols-3 gap-3 md:space-y-3 md:grid-cols-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {/* Owner */}
         {ember?.owner && (
           <div 
             onClick={() => toggleVoiceSelection(ember.user_id)}
-            className="flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
+            className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
             style={{
               borderColor: selectedVoices.includes(ember.user_id) ? '#2563eb' : '#e5e7eb',
               backgroundColor: selectedVoices.includes(ember.user_id) ? '#eff6ff' : 'white'
             }}
           >
             <div className="relative">
-              <Avatar className="h-8 w-8 md:h-10 md:w-10">
+              <Avatar className="h-10 w-10">
                 <AvatarImage 
                   src={ember.owner.avatar_url} 
                   alt={ember.owner.first_name || 'Owner'} 
                 />
-                <AvatarFallback className="text-xs md:text-sm bg-gray-200 text-gray-700">
+                <AvatarFallback className="text-sm bg-gray-200 text-gray-700">
                   {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || 'O'}
                 </AvatarFallback>
               </Avatar>
               {selectedVoices.includes(ember.user_id) && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 md:w-4 md:h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
                   <span className="text-white text-xs">✓</span>
                 </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs md:text-sm font-medium text-gray-900 truncate">
+              <div className="text-sm font-medium text-gray-900 truncate">
                 {ember.owner.first_name || 'Owner'}
               </div>
-              <div className="text-xs text-amber-600 bg-amber-100 px-1 md:px-2 py-0.5 md:py-1 rounded-full inline-block mt-0.5 md:mt-1">
+              <div className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded-full inline-block mt-1">
                 Owner
               </div>
               <div className="text-xs text-gray-600 mt-1">
@@ -579,33 +583,33 @@ const StoryModalContent = ({
           <div 
             key={user.user_id}
             onClick={() => toggleVoiceSelection(user.user_id)}
-            className="flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
+            className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
             style={{
               borderColor: selectedVoices.includes(user.user_id) ? '#2563eb' : '#e5e7eb',
               backgroundColor: selectedVoices.includes(user.user_id) ? '#eff6ff' : 'white'
             }}
           >
             <div className="relative">
-              <Avatar className="h-8 w-8 md:h-10 md:w-10">
+              <Avatar className="h-10 w-10">
                 <AvatarImage 
                   src={user.avatar_url} 
                   alt={user.first_name || 'User'} 
                 />
-                <AvatarFallback className="text-xs md:text-sm bg-gray-200 text-gray-700">
+                <AvatarFallback className="text-sm bg-gray-200 text-gray-700">
                   {user.first_name?.[0] || user.last_name?.[0] || 'U'}
                 </AvatarFallback>
               </Avatar>
               {selectedVoices.includes(user.user_id) && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 md:w-4 md:h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
                   <span className="text-white text-xs">✓</span>
                 </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs md:text-sm font-medium text-gray-900 truncate">
+              <div className="text-sm font-medium text-gray-900 truncate">
                 {user.first_name || 'User'}
               </div>
-              <div className={`text-xs px-1 md:px-2 py-0.5 md:py-1 rounded-full inline-block mt-0.5 md:mt-1 ${
+              <div className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${
                 user.permission_level === 'contributor' 
                   ? 'text-blue-600 bg-blue-100' 
                   : 'text-gray-600 bg-gray-100'
@@ -628,70 +632,139 @@ const StoryModalContent = ({
 
         {/* No users message */}
         {!ember?.owner && sharedUsers.length === 0 && (
-          <div className="col-span-3 md:col-span-1 text-center text-gray-500 text-sm py-4">
+          <div className="col-span-full text-center text-gray-500 text-sm py-4">
             No users invited to this ember yet
           </div>
         )}
       </div>
     </div>
 
-    {/* Voice Selection */}
+    {/* Ember Agents */}
     <div className="space-y-4">
       <Label className="text-sm font-medium text-gray-900 flex items-center gap-2">
-        <Microphone size={16} className="text-purple-600" />
-        Voice Selection
+        <Sparkles size={16} className="text-blue-600" />
+        Ember Agents
       </Label>
+      <p className="text-sm text-gray-600">Select which voice agents you want included in this story.</p>
       
-      <div className="grid grid-cols-1 gap-4">
-        {/* Ember Voice */}
-        <div className="space-y-2">
-          <Label className="text-xs font-medium text-gray-700">Ember Voice</Label>
-          <select 
-            value={selectedEmberVoice}
-            onChange={(e) => setSelectedEmberVoice(e.target.value)}
-            disabled={voicesLoading}
-            className="w-full p-2 border border-gray-300 rounded-md text-sm h-10 bg-white"
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Ember AI */}
+        <div className="space-y-3">
+          <div 
+            onClick={toggleEmberVoice}
+            className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
+            style={{
+              borderColor: useEmberVoice ? '#2563eb' : '#e5e7eb',
+              backgroundColor: useEmberVoice ? '#eff6ff' : 'white'
+            }}
           >
-            {voicesLoading ? (
-              <option>Loading voices...</option>
-            ) : (
-              <>
-                <option value="">Select ember voice...</option>
-                {availableVoices.map((voice) => (
-                  <option key={voice.voice_id} value={voice.voice_id}>
-                    {voice.name} {voice.labels?.gender ? `(${voice.labels.gender})` : ''}
-                  </option>
-                ))}
-              </>
-            )}
-          </select>
+            <div className="relative">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
+                <Sparkles size={20} className="text-white" />
+              </div>
+              {useEmberVoice && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs">✓</span>
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-gray-900 truncate">
+                Ember AI
+              </div>
+              <div className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full inline-block mt-1">
+                AI Storyteller
+              </div>
+            </div>
+          </div>
+          
+          {/* Ember Voice Dropdown */}
+          {useEmberVoice && (
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-gray-700">Voice Selection</Label>
+              <select 
+                value={selectedEmberVoice}
+                onChange={(e) => setSelectedEmberVoice(e.target.value)}
+                disabled={voicesLoading}
+                className="w-full p-2 border border-gray-300 rounded-md text-sm h-10 bg-white"
+              >
+                {voicesLoading ? (
+                  <option>Loading voices...</option>
+                ) : (
+                  <>
+                    <option value="">Select ember voice...</option>
+                    {availableVoices.map((voice) => (
+                      <option key={voice.voice_id} value={voice.voice_id}>
+                        {voice.name} {voice.labels?.gender ? `(${voice.labels.gender})` : ''}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+            </div>
+          )}
         </div>
 
-        {/* Story Narrator Voice */}
-        <div className="space-y-2">
-          <Label className="text-xs font-medium text-gray-700">Story Narrator Voice</Label>
-          <select 
-            value={selectedNarratorVoice}
-            onChange={(e) => setSelectedNarratorVoice(e.target.value)}
-            disabled={voicesLoading}
-            className="w-full p-2 border border-gray-300 rounded-md text-sm h-10 bg-white"
+        {/* Narrator */}
+        <div className="space-y-3">
+          <div 
+            onClick={toggleNarratorVoice}
+            className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
+            style={{
+              borderColor: useNarratorVoice ? '#2563eb' : '#e5e7eb',
+              backgroundColor: useNarratorVoice ? '#eff6ff' : 'white'
+            }}
           >
-            {voicesLoading ? (
-              <option>Loading voices...</option>
-            ) : (
-              <>
-                <option value="">Select narrator voice...</option>
-                {availableVoices.map((voice) => (
-                  <option key={voice.voice_id} value={voice.voice_id}>
-                    {voice.name} {voice.labels?.gender ? `(${voice.labels.gender})` : ''}
-                  </option>
-                ))}
-              </>
-            )}
-          </select>
+            <div className="relative">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
+                <Microphone size={20} className="text-white" />
+              </div>
+              {useNarratorVoice && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs">✓</span>
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-gray-900 truncate">
+                Narrator
+              </div>
+              <div className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded-full inline-block mt-1">
+                Story Guide
+              </div>
+            </div>
+          </div>
+          
+          {/* Narrator Voice Dropdown */}
+          {useNarratorVoice && (
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-gray-700">Voice Selection</Label>
+              <select 
+                value={selectedNarratorVoice}
+                onChange={(e) => setSelectedNarratorVoice(e.target.value)}
+                disabled={voicesLoading}
+                className="w-full p-2 border border-gray-300 rounded-md text-sm h-10 bg-white"
+              >
+                {voicesLoading ? (
+                  <option>Loading voices...</option>
+                ) : (
+                  <>
+                    <option value="">Select narrator voice...</option>
+                    {availableVoices.map((voice) => (
+                      <option key={voice.voice_id} value={voice.voice_id}>
+                        {voice.name} {voice.labels?.gender ? `(${voice.labels.gender})` : ''}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+            </div>
+          )}
         </div>
       </div>
     </div>
+
+
 
     {/* Action Buttons */}
     <div className="mt-6 pt-4">
@@ -699,14 +772,25 @@ const StoryModalContent = ({
         size="lg" 
         className="w-full" 
         onClick={handleGenerateStoryCut}
-        disabled={isGeneratingStoryCut || !selectedStoryStyle || !selectedEmberVoice || !selectedNarratorVoice || !storyTitle.trim()}
+        disabled={isGeneratingStoryCut || !selectedStoryStyle || !storyTitle.trim() || 
+                  (!useEmberVoice && !useNarratorVoice) ||
+                  (useEmberVoice && !selectedEmberVoice) ||
+                  (useNarratorVoice && !selectedNarratorVoice)}
       >
         {isGeneratingStoryCut ? 'Generating Story Cut...' : 'Generate New Story Cut'}
       </Button>
       
-      {(!selectedStoryStyle || !selectedEmberVoice || !selectedNarratorVoice || !storyTitle.trim()) && (
+      {(!selectedStoryStyle || !storyTitle.trim() || 
+        (!useEmberVoice && !useNarratorVoice) ||
+        (useEmberVoice && !selectedEmberVoice) ||
+        (useNarratorVoice && !selectedNarratorVoice)) && (
         <p className="text-xs text-gray-500 mt-2 text-center">
-          Please enter title, select story style and both voices to generate
+          {!selectedStoryStyle ? 'Please select a story style' :
+           !storyTitle.trim() ? 'Please enter a story title' :
+           (!useEmberVoice && !useNarratorVoice) ? 'Please select at least one voice agent' :
+           (useEmberVoice && !selectedEmberVoice) ? 'Please select an Ember voice' :
+           (useNarratorVoice && !selectedNarratorVoice) ? 'Please select a Narrator voice' :
+           'Please complete all required fields'}
         </p>
       )}
     </div>
@@ -761,6 +845,8 @@ export default function EmberDetail() {
   const [selectedEmberVoice, setSelectedEmberVoice] = useState('');
   const [selectedNarratorVoice, setSelectedNarratorVoice] = useState('');
   const [voicesLoading, setVoicesLoading] = useState(false);
+  const [useEmberVoice, setUseEmberVoice] = useState(true);
+  const [useNarratorVoice, setUseNarratorVoice] = useState(true);
   const [selectedStoryStyle, setSelectedStoryStyle] = useState('');
   const [isGeneratingStoryCut, setIsGeneratingStoryCut] = useState(false);
   const [storyTitle, setStoryTitle] = useState('');
@@ -1326,8 +1412,16 @@ export default function EmberDetail() {
         throw new Error('Duration must be between 10 and 300 seconds');
       }
 
-      if (!selectedEmberVoice || !selectedNarratorVoice) {
-        throw new Error('Please select voices for both Ember and Narrator');
+      if (!useEmberVoice && !useNarratorVoice) {
+        throw new Error('Please select at least one voice agent');
+      }
+
+      if (useEmberVoice && !selectedEmberVoice) {
+        throw new Error('Please select an Ember voice');
+      }
+
+      if (useNarratorVoice && !selectedNarratorVoice) {
+        throw new Error('Please select a Narrator voice');
       }
 
       if (!storyTitle.trim()) {
@@ -1367,8 +1461,8 @@ export default function EmberDetail() {
       // Note: Direct OpenAI function builds its own context internally
       
       // Get selected voice details
-      const emberVoiceInfo = availableVoices.find(v => v.voice_id === selectedEmberVoice);
-      const narratorVoiceInfo = availableVoices.find(v => v.voice_id === selectedNarratorVoice);
+      const emberVoiceInfo = useEmberVoice ? availableVoices.find(v => v.voice_id === selectedEmberVoice) : null;
+      const narratorVoiceInfo = useNarratorVoice ? availableVoices.find(v => v.voice_id === selectedNarratorVoice) : null;
       
       // Get selected users for voice casting
       const selectedUserDetails = [];
@@ -1391,16 +1485,18 @@ export default function EmberDetail() {
 
       // Build voice casting object
       const voiceCasting = {
-        ember: {
+        useEmberVoice: useEmberVoice,
+        useNarratorVoice: useNarratorVoice,
+        ember: useEmberVoice ? {
           voice_id: selectedEmberVoice,
           name: emberVoiceInfo?.name || 'Selected Voice',
           labels: emberVoiceInfo?.labels || {}
-        },
-        narrator: {
+        } : null,
+        narrator: useNarratorVoice ? {
           voice_id: selectedNarratorVoice,
           name: narratorVoiceInfo?.name || 'Selected Voice',
           labels: narratorVoiceInfo?.labels || {}
-        },
+        } : null,
         contributors: selectedUserDetails
       };
 
@@ -1573,6 +1669,15 @@ export default function EmberDetail() {
         ? prev.filter(id => id !== userId)
         : [...prev, userId]
     );
+  };
+
+  // Handle ember agent voice selection
+  const toggleEmberVoice = () => {
+    setUseEmberVoice(prev => !prev);
+  };
+
+  const toggleNarratorVoice = () => {
+    setUseNarratorVoice(prev => !prev);
   };
 
 
@@ -2345,7 +2450,7 @@ export default function EmberDetail() {
                 <button
                   className="p-1 hover:bg-white/50 rounded-full transition-colors"
                   onClick={handlePlay}
-                  aria-label={isGeneratingAudio ? "Generating audio..." : (isPlaying ? "Stop playing" : "Play ember story")}
+                  aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Stop playing" : "Play ember story")}
                   type="button"
                   disabled={isGeneratingAudio}
                 >
@@ -3181,6 +3286,10 @@ export default function EmberDetail() {
                     handleGenerateStoryCut={handleGenerateStoryCut}
                     isGeneratingStoryCut={isGeneratingStoryCut}
                     storyMessages={storyMessages}
+                    useEmberVoice={useEmberVoice}
+                    toggleEmberVoice={toggleEmberVoice}
+                    useNarratorVoice={useNarratorVoice}
+                    toggleNarratorVoice={toggleNarratorVoice}
                   />
                 </div>
               </DrawerContent>
@@ -3222,6 +3331,10 @@ export default function EmberDetail() {
                   handleGenerateStoryCut={handleGenerateStoryCut}
                   isGeneratingStoryCut={isGeneratingStoryCut}
                   storyMessages={storyMessages}
+                  useEmberVoice={useEmberVoice}
+                  toggleEmberVoice={toggleEmberVoice}
+                  useNarratorVoice={useNarratorVoice}
+                  toggleNarratorVoice={toggleNarratorVoice}
                 />
               </DialogContent>
             </Dialog>
@@ -3361,7 +3474,7 @@ export default function EmberDetail() {
             <button
               onClick={handlePlay}
               className="rounded-full p-1 hover:bg-white/70 transition-colors"
-              aria-label={isGeneratingAudio ? "Generating audio..." : (isPlaying ? "Pause playing" : "Resume playing")}
+              aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Pause playing" : "Resume playing")}
               type="button"
               disabled={isGeneratingAudio}
             >
@@ -3402,7 +3515,7 @@ export default function EmberDetail() {
             <div className="absolute inset-0 bg-black z-30 flex items-center justify-center">
               <div className="flex items-center gap-3">
                 <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin opacity-50" />
-                <span className="text-white text-lg font-medium opacity-50">Generating voices...</span>
+                <span className="text-white text-lg font-medium opacity-50">Preparing Story...</span>
               </div>
             </div>
           )}

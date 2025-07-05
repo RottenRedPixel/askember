@@ -860,30 +860,41 @@ export const clearAllStoriesForEmber = async (emberId, userId) => {
  */
 export const saveStoryCut = async (storyCutData) => {
   try {
+    // Build the story cut data object, only including voice IDs for selected agents
+    const insertData = {
+      ember_id: storyCutData.emberId,
+      creator_user_id: storyCutData.creatorUserId,
+      title: storyCutData.title,
+      style: storyCutData.style,
+      duration: storyCutData.duration,
+      word_count: storyCutData.wordCount,
+      story_focus: storyCutData.storyFocus,
+      full_script: storyCutData.full_script,
+      ember_voice_lines: storyCutData.ember_voice_lines,
+      narrator_voice_lines: storyCutData.narrator_voice_lines,
+      selected_contributors: storyCutData.voiceCasting?.contributors,
+      metadata: {
+        ...storyCutData.metadata,
+        // Include recorded audio URLs for playback
+        recordedAudio: storyCutData.recordedAudio || {}
+      }
+    };
+
+    // Only include Ember voice data if Ember voice object has a voice_id
+    if (storyCutData.voiceCasting?.emberVoice?.voice_id) {
+      insertData.ember_voice_id = storyCutData.voiceCasting.emberVoice.voice_id;
+      insertData.ember_voice_name = storyCutData.ember_voice_name;
+    }
+
+    // Only include Narrator voice data if Narrator voice object has a voice_id
+    if (storyCutData.voiceCasting?.narratorVoice?.voice_id) {
+      insertData.narrator_voice_id = storyCutData.voiceCasting.narratorVoice.voice_id;
+      insertData.narrator_voice_name = storyCutData.narrator_voice_name;
+    }
+
     const { data, error } = await supabase
       .from('ember_story_cuts')
-      .insert([{
-        ember_id: storyCutData.emberId,
-        creator_user_id: storyCutData.creatorUserId,
-        title: storyCutData.title,
-        style: storyCutData.style,
-        duration: storyCutData.duration,
-        word_count: storyCutData.wordCount,
-        story_focus: storyCutData.storyFocus,
-        full_script: storyCutData.full_script,
-        ember_voice_lines: storyCutData.ember_voice_lines,
-        narrator_voice_lines: storyCutData.narrator_voice_lines,
-        ember_voice_id: storyCutData.voiceCasting?.emberVoice?.voice_id,
-        ember_voice_name: storyCutData.ember_voice_name,
-        narrator_voice_id: storyCutData.voiceCasting?.narratorVoice?.voice_id,
-        narrator_voice_name: storyCutData.narrator_voice_name,
-        selected_contributors: storyCutData.voiceCasting?.contributors,
-        metadata: {
-          ...storyCutData.metadata,
-          // Include recorded audio URLs for playback
-          recordedAudio: storyCutData.recordedAudio || {}
-        }
-      }])
+      .insert([insertData])
       .select()
       .single();
 
