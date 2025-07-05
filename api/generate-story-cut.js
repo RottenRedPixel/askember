@@ -71,21 +71,19 @@ export default async function handler(req, res) {
     // Calculate approximate word count (3 words per second)
     const approximateWords = Math.round(formData.duration * 3);
     
-    // Get all story messages for the ember to extract recorded audio
+    // Get all story messages for the ember to extract recorded audio (using same RPC as frontend)
     console.log('🎙️ Loading story messages for recorded audio...');
-    const { data: storyMessages, error: messagesError } = await supabase
-      .from('ember_story_messages')
-      .select('*')
-      .eq('ember_id', emberId)
-      .order('created_at', { ascending: true });
+    const { data: storyMessages, error: messagesError } = await supabase.rpc('get_all_story_messages_for_ember', {
+      ember_id_param: emberId
+    });
     
     if (messagesError) {
       console.warn('Could not load story messages for recorded audio:', messagesError);
     }
     
-    // Extract recorded audio URLs from story messages
+    // Extract recorded audio URLs from story messages (RPC returns array directly)
     const recordedAudioMap = new Map();
-    if (storyMessages) {
+    if (storyMessages && Array.isArray(storyMessages)) {
       storyMessages.forEach(msg => {
         if (msg.sender === 'user' && msg.audio_url) {
           recordedAudioMap.set(msg.user_id, {
@@ -99,8 +97,8 @@ export default async function handler(req, res) {
       });
     }
     
-    console.log('🎙️ Found recorded audio for users:', Array.from(recordedAudioMap.keys()));
-    console.log('🔍 API DEBUG - Story messages loaded:', storyMessages?.length || 0);
+    console.log('🎙️ API - Found recorded audio for users:', Array.from(recordedAudioMap.keys()));
+    console.log('🔍 API DEBUG - Story messages loaded from RPC:', storyMessages?.length || 0);
     console.log('🔍 API DEBUG - Voice casting contributors:', voiceCasting.contributors?.length || 0);
     
     // Get the master story cut generation prompt
@@ -276,9 +274,17 @@ export default async function handler(req, res) {
         });
       }
       
-      console.log('🎙️ Added recorded audio to story cut:', Object.keys(generatedStoryCut.recordedAudio));
+      console.log('🎙️ API - Added recorded audio to story cut:', Object.keys(generatedStoryCut.recordedAudio));
       console.log('🔍 API DEBUG - Contributors to map:', voiceCasting.contributors?.map(c => ({id: c.id, name: c.name})) || []);
-      console.log('🔍 API DEBUG - Available audio users:', Array.from(recordedAudioMap.keys()));
+      console.log('🔍 API DEBUG - Available audio users in map:', Array.from(recordedAudioMap.keys()));
+      
+      // Debug the mapping process
+      if (voiceCasting.contributors) {
+        voiceCasting.contributors.forEach(contributor => {
+          const hasAudio = recordedAudioMap.has(contributor.id);
+          console.log(`🔍 API DEBUG - Contributor ${contributor.name} (${contributor.id}): ${hasAudio ? 'HAS AUDIO' : 'NO AUDIO'}`);
+        });
+      }
       
     } catch (parseError) {
       console.error('OpenAI returned invalid JSON:', storyCut);
