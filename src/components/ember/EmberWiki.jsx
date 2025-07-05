@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -12,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ArrowClockwise, PencilSimple, TrashSimple } from 'phosphor-react';
+import { ArrowClockwise } from 'phosphor-react';
 import { 
   FileText,
   MapPin,
@@ -25,8 +24,10 @@ import {
   File,
   ExternalLink,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles
 } from 'lucide-react';
+import { PenNib, UsersThree, UserCirclePlus, ImageSquare } from 'phosphor-react';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getImageAnalysis, getAllStoryMessagesForEmber, deleteEmber, getEmberTaggedPeople, getEmberSupportingMedia } from '@/lib/database';
 import useStore from '@/store';
@@ -35,14 +36,6 @@ export default function EmberWiki({
   ember, 
   onRefresh, 
   isRefreshing,
-  isEditingTitle,
-  setIsEditingTitle,
-  newTitle,
-  setNewTitle,
-  handleTitleSave,
-  handleTitleCancel,
-  handleTitleEdit,
-  handleTitleDelete,
   onClose
 }) {
   const navigate = useNavigate();
@@ -257,200 +250,129 @@ export default function EmberWiki({
           <div className="space-y-3">
             <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4" />
+                <PenNib className="w-4 h-4 text-blue-600" />
                 Title
               </div>
               <StatusBadge isComplete={getSectionStatus('title')} />
             </h3>
             <div className="text-sm text-gray-600 text-left space-y-3">
-              {isEditingTitle ? (
+              {ember.title && ember.title !== 'Untitled Ember' ? (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <FileText size={16} className="text-gray-600" />
-                    <span className="text-sm font-medium text-gray-900">Edit Title</span>
+                    <PenNib size={16} className="text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">Ember Title</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      value={newTitle}
-                      onChange={(e) => setNewTitle(e.target.value)}
-                      maxLength="30"
-                      className="h-10 flex-1"
-                    />
-                    <Button size="lg" variant="blue" onClick={handleTitleSave}>Save</Button>
-                    <Button size="sm" variant="outline" onClick={handleTitleCancel}>Cancel</Button>
+                  <div className="text-gray-900 font-medium">
+                    {ember.title}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Source: {ember.title_source === 'ai' ? 'AI generated' : 'Manual entry'}
                   </div>
                 </div>
               ) : (
-                ember.title && ember.title !== 'Untitled Ember' ? (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FileText size={16} className="text-gray-600" />
-                      <span className="text-sm font-medium text-gray-900">Ember Title</span>
-                      <div className="flex items-center gap-1 ml-auto">
-                        <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
-                          <PencilSimple size={16} />
-                        </button>
-                        <button onClick={handleTitleDelete} className="text-gray-400 hover:text-red-600">
-                          <TrashSimple size={16} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="text-gray-900 font-medium">
-                      {ember.title}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-2">
-                      Source: {ember.title_source === 'ai' ? 'AI generated' : 'Manual entry'}
-                    </div>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <PenNib size={16} className="text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">No Title Set</span>
+                  </div>
+                  <div className="text-gray-500 font-medium">
+                    No title has been set for this ember
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Contributors Section */}
+          <div className="space-y-3">
+            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserCirclePlus className="w-4 h-4 text-blue-600" />
+                Contributors
+              </div>
+              <StatusBadge isComplete={getSectionStatus('contributors')} />
+            </h3>
+            <div className="space-y-4">
+              
+              {/* Owner Section */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
+                <h4 className="text-sm font-medium text-amber-900">Owner</h4>
+                {ember?.owner ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-900">
+                      {`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
+                    </span>
+                    <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">Owner</span>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FileText size={16} className="text-gray-600" />
-                      <span className="text-sm font-medium text-gray-900">No Title Set</span>
-                      <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600 ml-auto">
-                        <PencilSimple size={16} />
-                      </button>
-                    </div>
-                    <div className="text-gray-500 font-medium">
-                      No title has been set for this ember
-                    </div>
-                    <div className="text-xs text-gray-500 mt-2">
-                      Click the edit button to add a title
-                    </div>
+                  <div className="text-sm text-amber-700">
+                    Owner information not available
                   </div>
-                )
-              )}
+                )}
+              </div>
+
+              {/* Invited (Accounts Created) Section */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                <h4 className="text-sm font-medium text-blue-900">Invited (Accounts Created)</h4>
+                {sharedUsers.length > 0 ? (
+                  <div className="space-y-1">
+                    {sharedUsers.map((contributor, index) => (
+                      <div key={contributor.id || index} className="flex items-center gap-2">
+                        <span className="text-blue-900">
+                          {`${contributor.first_name || ''} ${contributor.last_name || ''}`.trim() || contributor.email}
+                        </span>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          contributor.permission_level === 'contributor' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {contributor.permission_level === 'contributor' ? 'Contributor' : 'Viewer'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-blue-700">
+                    No users with accounts have been invited yet
+                  </div>
+                )}
+              </div>
+
+              {/* Invited (Accounts Not Created Yet) Section */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
+                <h4 className="text-sm font-medium text-gray-700">Invited (Accounts Not Created Yet)</h4>
+                {emailOnlyInvites.length > 0 ? (
+                  <div className="space-y-1">
+                    {emailOnlyInvites.map((invite, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <span className="text-gray-900">{invite.email}</span>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          invite.permission_level === 'contributor' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {invite.permission_level === 'contributor' ? 'Contributor' : 'Viewer'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500">
+                    No pending email invitations
+                  </div>
+                )}
+              </div>
+              
             </div>
           </div>
 
-          {/* Location Section */}
-          <div className="space-y-3">
-            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                Location
-              </div>
-              <StatusBadge isComplete={getSectionStatus('location')} />
-            </h3>
-            <div className="text-sm text-gray-600 text-left space-y-3">
-              {ember?.latitude && ember?.longitude ? (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <MapPin size={16} className="text-orange-600" />
-                    <span className="text-sm font-medium text-orange-900">GPS Location</span>
-                  </div>
-                  <div className="text-gray-900 font-medium">
-                    {ember.address || `${ember.latitude.toFixed(6)}°, ${ember.longitude.toFixed(6)}°`}
-                  </div>
-                  {ember.city && (
-                    <div className="text-gray-600 mt-1">
-                      {ember.city}{ember.state ? `, ${ember.state}` : ''} • {ember.country}
-                    </div>
-                  )}
-                  {ember.altitude && (
-                    <div className="text-gray-600 mt-1">
-                      <strong>Altitude:</strong> {ember.altitude > 0 ? `${ember.altitude.toFixed(1)}m above sea level` : `${Math.abs(ember.altitude).toFixed(1)}m below sea level`}
-                    </div>
-                  )}
-                  <div className="text-xs text-gray-500 mt-2">
-                    Source: Photo GPS data
-                  </div>
-                  {ember.camera_make && ember.camera_model && (
-                    <div className="mt-2 text-xs text-orange-800">
-                      <strong>Camera:</strong> {ember.camera_make} {ember.camera_model}
-                    </div>
-                  )}
-                </div>
-              ) : null}
-              
-              {ember?.manual_location ? (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <MapPin size={16} className="text-gray-600" />
-                    <span className="text-sm font-medium text-gray-900">Manual Location</span>
-                  </div>
-                  <div className="text-gray-900 font-medium">{ember.manual_location}</div>
-                  <div className="text-xs text-gray-500 mt-2">Source: Manual entry</div>
-                </div>
-              ) : null}
-              
-              {!ember?.latitude && !ember?.longitude && !ember?.manual_location && (
-                <div className="text-gray-500">No location data available</div>
-              )}
-            </div>
-          </div>
 
-          {/* Time & Date Section */}
-          <div className="space-y-3">
-            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                Time & Date
-              </div>
-              <StatusBadge isComplete={getSectionStatus('time-date')} />
-            </h3>
-            <div className="text-sm text-gray-600 text-left space-y-3">
-              {ember?.ember_timestamp ? (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock size={16} className="text-orange-600" />
-                    <span className="text-sm font-medium text-orange-900">Photo Timestamp</span>
-                  </div>
-                  <div className="text-gray-900 font-medium">
-                    {new Date(ember.ember_timestamp).toLocaleString('en-US', {
-                      weekday: 'short',
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: true
-                    })}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-2">
-                    Source: {ember.datetime_source === 'photo' ? 'Photo EXIF data' : 'Manual entry'}
-                  </div>
-                  {ember.camera_make && ember.camera_model && (
-                    <div className="mt-2 text-xs text-orange-800">
-                      <strong>Camera:</strong> {ember.camera_make} {ember.camera_model}
-                    </div>
-                  )}
-                </div>
-              ) : null}
-              
-              {ember?.manual_datetime ? (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock size={16} className="text-gray-600" />
-                    <span className="text-sm font-medium text-gray-900">Manual Date & Time</span>
-                  </div>
-                  <div className="text-gray-900 font-medium">
-                    {new Date(ember.manual_datetime).toLocaleString('en-US', {
-                      weekday: 'short',
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: true
-                    })}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-2">Source: Manual entry</div>
-                </div>
-              ) : null}
-              
-              {!ember?.ember_timestamp && !ember?.manual_datetime && (
-                <div className="text-gray-500">No date & time data available</div>
-              )}
-            </div>
-          </div>
 
           {/* The Story Section */}
           <div className="space-y-3">
             <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4" />
+                <BookOpen className="w-4 h-4 text-blue-600" />
                 Story Circle
               </div>
               <StatusBadge isComplete={getSectionStatus('story')} />
@@ -462,7 +384,7 @@ export default function EmberWiki({
                     <BookOpen size={16} className="text-gray-600" />
                     <span className="text-sm font-medium text-gray-900">Story Conversation</span>
                   </div>
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                  <div className="space-y-3">
                     {storyMessages.map((message, index) => (
                       <div key={message.id || index} className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -560,7 +482,7 @@ export default function EmberWiki({
           <div className="space-y-3">
             <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
+                <UsersThree className="w-4 h-4 text-blue-600" />
                 Tagged People
               </div>
               <StatusBadge isComplete={getSectionStatus('people')} />
@@ -570,7 +492,7 @@ export default function EmberWiki({
                 taggedPeople.map((person, index) => (
                   <div key={person.id || index} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-2">
-                      <Users size={16} className="text-blue-600" />
+                      <UsersThree size={16} className="text-blue-600" />
                       <span className="text-sm font-medium text-blue-900">{person.person_name}</span>
                       {person.contributor_info && (
                         <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
@@ -600,7 +522,7 @@ export default function EmberWiki({
           <div className="space-y-3">
             <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Image className="w-4 h-4" />
+                <ImageSquare className="w-4 h-4 text-blue-600" />
                 Supporting Media
               </div>
               <StatusBadge isComplete={getSectionStatus('supporting-media')} />
@@ -625,15 +547,15 @@ export default function EmberWiki({
                   };
 
                   return (
-                    <div key={media.id || index} className="bg-teal-50 border border-teal-200 rounded-lg p-3">
+                    <div key={media.id || index} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                       <div className="flex items-center gap-2 mb-2">
-                        <IconComponent size={16} className="text-teal-600" />
-                        <span className="text-sm font-medium text-teal-900">{media.file_name}</span>
+                        <IconComponent size={16} className="text-gray-600" />
+                        <span className="text-sm font-medium text-gray-900">{media.file_name}</span>
                         <a 
                           href={media.file_url} 
                           target="_blank" 
                           rel="noopener noreferrer" 
-                          className="ml-auto text-teal-600 hover:text-teal-800"
+                          className="ml-auto text-gray-600 hover:text-gray-800"
                           title="Open file"
                         >
                           <ExternalLink size={14} />
@@ -672,11 +594,133 @@ export default function EmberWiki({
             </div>
           </div>
 
+          {/* Location Section */}
+          <div className="space-y-3">
+            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-blue-600" />
+                Location
+              </div>
+              <StatusBadge isComplete={getSectionStatus('location')} />
+            </h3>
+            <div className="text-sm text-gray-600 text-left space-y-3">
+              {ember?.latitude && ember?.longitude ? (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin size={16} className="text-orange-600" />
+                    <span className="text-sm font-medium text-orange-900">GPS Location</span>
+                  </div>
+                  <div className="text-gray-900 font-medium">
+                    {ember.address || `${ember.latitude.toFixed(6)}°, ${ember.longitude.toFixed(6)}°`}
+                  </div>
+                  {ember.city && (
+                    <div className="text-gray-600 mt-1">
+                      {ember.city}{ember.state ? `, ${ember.state}` : ''} • {ember.country}
+                    </div>
+                  )}
+                  {ember.altitude && (
+                    <div className="text-gray-600 mt-1">
+                      <strong>Altitude:</strong> {ember.altitude > 0 ? `${ember.altitude.toFixed(1)}m above sea level` : `${Math.abs(ember.altitude).toFixed(1)}m below sea level`}
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-500 mt-2">
+                    Source: Photo GPS data
+                  </div>
+                  {ember.camera_make && ember.camera_model && (
+                    <div className="mt-2 text-xs text-orange-800">
+                      <strong>Camera:</strong> {ember.camera_make} {ember.camera_model}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+              
+              {ember?.manual_location ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin size={16} className="text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">Manual Location</span>
+                  </div>
+                  <div className="text-gray-900 font-medium">{ember.manual_location}</div>
+                  <div className="text-xs text-gray-500 mt-2">Source: Manual entry</div>
+                </div>
+              ) : null}
+              
+              {!ember?.latitude && !ember?.longitude && !ember?.manual_location && (
+                <div className="text-gray-500">No location data available</div>
+              )}
+            </div>
+          </div>
+
+          {/* Time & Date Section */}
+          <div className="space-y-3">
+            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-blue-600" />
+                Time & Date
+              </div>
+              <StatusBadge isComplete={getSectionStatus('time-date')} />
+            </h3>
+            <div className="text-sm text-gray-600 text-left space-y-3">
+              {ember?.ember_timestamp ? (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock size={16} className="text-orange-600" />
+                    <span className="text-sm font-medium text-orange-900">Photo Timestamp</span>
+                  </div>
+                  <div className="text-gray-900 font-medium">
+                    {new Date(ember.ember_timestamp).toLocaleString('en-US', {
+                      weekday: 'short',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Source: {ember.datetime_source === 'photo' ? 'Photo EXIF data' : 'Manual entry'}
+                  </div>
+                  {ember.camera_make && ember.camera_model && (
+                    <div className="mt-2 text-xs text-orange-800">
+                      <strong>Camera:</strong> {ember.camera_make} {ember.camera_model}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+              
+              {ember?.manual_datetime ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock size={16} className="text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">Manual Date & Time</span>
+                  </div>
+                  <div className="text-gray-900 font-medium">
+                    {new Date(ember.manual_datetime).toLocaleString('en-US', {
+                      weekday: 'short',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">Source: Manual entry</div>
+                </div>
+              ) : null}
+              
+              {!ember?.ember_timestamp && !ember?.manual_datetime && (
+                <div className="text-gray-500">No date & time data available</div>
+              )}
+            </div>
+          </div>
+
           {/* Image Analysis Section */}
           <div className="space-y-3">
             <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Eye className="w-4 h-4" />
+                <Sparkles className="w-4 h-4 text-blue-600" />
                 Image Analysis
               </div>
               <StatusBadge isComplete={getSectionStatus('analysis')} />
@@ -685,7 +729,7 @@ export default function EmberWiki({
               {imageAnalysis && imageAnalysis.analysis_text ? (
                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <Eye size={16} className="text-purple-600" />
+                    <Sparkles size={16} className="text-purple-600" />
                     <span className="text-sm font-medium text-purple-900">AI Image Analysis</span>
                   </div>
                   <div className="text-gray-900 whitespace-pre-wrap">
@@ -714,88 +758,7 @@ export default function EmberWiki({
             </div>
           </div>
 
-          {/* Contributors Section */}
-          <div className="space-y-3">
-            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Contributors
-              </div>
-              <StatusBadge isComplete={getSectionStatus('contributors')} />
-            </h3>
-            <div className="space-y-4">
-              
-              {/* Owner Section */}
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
-                <h4 className="text-sm font-medium text-amber-900">Owner</h4>
-                {ember?.owner ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-amber-900">
-                      {`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
-                    </span>
-                    <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">Owner</span>
-                  </div>
-                ) : (
-                  <div className="text-sm text-amber-700">
-                    Owner information not available
-                  </div>
-                )}
-              </div>
 
-              {/* Invited (Accounts Created) Section */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-                <h4 className="text-sm font-medium text-blue-900">Invited (Accounts Created)</h4>
-                {sharedUsers.length > 0 ? (
-                  <div className="space-y-1">
-                    {sharedUsers.map((contributor, index) => (
-                      <div key={contributor.id || index} className="flex items-center gap-2">
-                        <span className="text-blue-900">
-                          {`${contributor.first_name || ''} ${contributor.last_name || ''}`.trim() || contributor.email}
-                        </span>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          contributor.permission_level === 'contributor' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {contributor.permission_level === 'contributor' ? 'Contributor' : 'Viewer'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-blue-700">
-                    No users with accounts have been invited yet
-                  </div>
-                )}
-              </div>
-
-              {/* Invited (Accounts Not Created Yet) Section */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
-                <h4 className="text-sm font-medium text-gray-700">Invited (Accounts Not Created Yet)</h4>
-                {emailOnlyInvites.length > 0 ? (
-                  <div className="space-y-1">
-                    {emailOnlyInvites.map((invite, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <span className="text-gray-900">{invite.email}</span>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          invite.permission_level === 'contributor' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {invite.permission_level === 'contributor' ? 'Contributor' : 'Viewer'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-500">
-                    No pending email invitations
-                  </div>
-                )}
-              </div>
-              
-            </div>
-          </div>
 
           {/* Danger Zone - Only for owners */}
           {isOwner && (
