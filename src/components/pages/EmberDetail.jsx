@@ -2054,85 +2054,53 @@ export default function EmberDetail() {
         const recordedAudio = selectedStoryCut.metadata?.recordedAudio || {};
         console.log('🎙️ Recorded audio available:', Object.keys(recordedAudio));
         
-        if (Object.keys(recordedAudio).length > 0) {
-          // Use multi-voice playback with recorded audio
-          console.log('🎵 Using multi-voice playback with recorded audio');
-          console.log('🎙️ Available recorded audio:', recordedAudio);
-          console.log('🔍 Story cut voice IDs:', {
-            ember: selectedStoryCut.ember_voice_id,
-            narrator: selectedStoryCut.narrator_voice_id,
-            ember_name: selectedStoryCut.ember_voice_name,
-            narrator_name: selectedStoryCut.narrator_voice_name
+        // Always use multi-voice playback system (recorded audio is optional)
+        console.log('🎵 Using multi-voice playback system');
+        console.log('🎙️ Available recorded audio:', recordedAudio);
+        console.log('🔍 Story cut voice IDs:', {
+          ember: selectedStoryCut.ember_voice_id,
+          narrator: selectedStoryCut.narrator_voice_id,
+          ember_name: selectedStoryCut.ember_voice_name,
+          narrator_name: selectedStoryCut.narrator_voice_name
+        });
+        
+        // Parse the script into segments
+        console.log('🎬 About to parse script. Full script:', selectedStoryCut.full_script);
+        const segments = parseScriptSegments(selectedStoryCut.full_script);
+        console.log('🎬 Script parsing complete. Segments found:', segments.length);
+        
+        if (segments.length > 0) {
+          console.log('🎬 Using multi-voice playback system with', segments.length, 'segments');
+          // Use multi-voice playback system (works with or without recorded audio)
+          await playMultiVoiceAudio(segments, selectedStoryCut, recordedAudio, { 
+            setIsGeneratingAudio, 
+            setIsPlaying, 
+            handleExitPlay, 
+            handlePlaybackComplete,
+            setActiveAudioSegments,
+            playbackStoppedRef,
+            setCurrentVoiceType
           });
-          
-          // Parse the script into segments
-          const segments = parseScriptSegments(selectedStoryCut.full_script);
-          
-          if (segments.length > 0) {
-            // Use new multi-voice playback system
-            await playMultiVoiceAudio(segments, selectedStoryCut, recordedAudio, { 
-              setIsGeneratingAudio, 
-              setIsPlaying, 
-              handleExitPlay, 
-              handlePlaybackComplete,
-              setActiveAudioSegments,
-              playbackStoppedRef,
-              setCurrentVoiceType
-            });
-          } else {
-            // Fallback if no segments could be parsed
-            console.log('⚠️ No segments could be parsed, falling back to single voice');
-            setIsGeneratingAudio(false);
-            setIsPlaying(true);
-            
-            const content = selectedStoryCut.full_script;
-            const voiceId = selectedStoryCut.ember_voice_id;
-            
-            const audioBlob = await textToSpeech(content, voiceId);
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            
-            setCurrentAudio(audio);
-            
-            audio.onended = () => {
-              handlePlaybackComplete();
-              URL.revokeObjectURL(audioUrl);
-            };
-            
-            audio.onerror = () => {
-              console.error('Audio playback failed');
-              handleExitPlay();
-              URL.revokeObjectURL(audioUrl);
-            };
-            
-            await audio.play();
-          }
         } else {
-          // No recorded audio, use current synthesized approach
-          console.log('🔊 No recorded audio found, using synthesized speech');
+          // Fallback if no segments could be parsed
+          console.log('⚠️ No segments could be parsed, falling back to single voice');
           setIsGeneratingAudio(false);
           setIsPlaying(true);
           
-          // Use the story cut's script and voice
           const content = selectedStoryCut.full_script;
-          const voiceId = selectedStoryCut.ember_voice_id; // Use the ember voice from the story cut
+          const voiceId = selectedStoryCut.ember_voice_id;
           
-          // Generate speech using ElevenLabs with the specific voice
           const audioBlob = await textToSpeech(content, voiceId);
-          
-          // Create audio URL and play
           const audioUrl = URL.createObjectURL(audioBlob);
           const audio = new Audio(audioUrl);
           
           setCurrentAudio(audio);
           
-          // Handle audio end
           audio.onended = () => {
             handlePlaybackComplete();
             URL.revokeObjectURL(audioUrl);
           };
           
-          // Handle audio error
           audio.onerror = () => {
             console.error('Audio playback failed');
             handleExitPlay();
@@ -3581,14 +3549,23 @@ export default function EmberDetail() {
 
   // Parse script into voice segments for multi-voice playback
   const parseScriptSegments = (script) => {
-    if (!script) return [];
+    if (!script) {
+      console.log('⚠️ No script provided to parseScriptSegments');
+      return [];
+    }
+    
+    console.log('📝 Parsing script:', script.substring(0, 500) + '...');
     
     const segments = [];
     const lines = script.split('\n');
     
+    console.log('📝 Script split into', lines.length, 'lines');
+    
     for (const line of lines) {
       const trimmedLine = line.trim();
       if (!trimmedLine) continue;
+      
+      console.log('📝 Processing line:', trimmedLine);
       
       // Match voice tags like [EMBER VOICE], [NARRATOR], [Amado], etc.
       const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
@@ -3597,6 +3574,8 @@ export default function EmberDetail() {
         const voiceTag = voiceMatch[1].trim();
         const content = voiceMatch[2].trim();
         
+        console.log('📝 Found voice tag:', voiceTag, 'Content:', content.substring(0, 50) + '...');
+        
         if (content) {
           segments.push({
             voiceTag,
@@ -3604,10 +3583,16 @@ export default function EmberDetail() {
             type: getVoiceType(voiceTag)
           });
         }
+      } else {
+        console.log('📝 No voice tag found in line:', trimmedLine);
       }
     }
     
-    console.log('📝 Parsed script segments:', segments);
+    console.log('📝 Final parsed segments:', segments.length, 'segments');
+    segments.forEach((segment, index) => {
+      console.log(`📝 Segment ${index + 1}: [${segment.voiceTag}] (${segment.type}) - "${segment.content.substring(0, 50)}..."`);
+    });
+    
     return segments;
   };
   
