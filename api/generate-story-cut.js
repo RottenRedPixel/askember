@@ -71,6 +71,36 @@ export default async function handler(req, res) {
     // Calculate approximate word count (3 words per second)
     const approximateWords = Math.round(formData.duration * 3);
     
+    // Get all story messages for the ember to extract recorded audio
+    console.log('🎙️ Loading story messages for recorded audio...');
+    const { data: storyMessages, error: messagesError } = await supabase
+      .from('ember_story_messages')
+      .select('*')
+      .eq('ember_id', emberId)
+      .order('created_at', { ascending: true });
+    
+    if (messagesError) {
+      console.warn('Could not load story messages for recorded audio:', messagesError);
+    }
+    
+    // Extract recorded audio URLs from story messages
+    const recordedAudioMap = new Map();
+    if (storyMessages) {
+      storyMessages.forEach(msg => {
+        if (msg.sender === 'user' && msg.audio_url) {
+          recordedAudioMap.set(msg.user_id, {
+            audio_url: msg.audio_url,
+            audio_filename: msg.audio_filename,
+            audio_duration_seconds: msg.audio_duration_seconds,
+            user_first_name: msg.user_first_name,
+            message_content: msg.content
+          });
+        }
+      });
+    }
+    
+    console.log('🎙️ Found recorded audio for users:', Array.from(recordedAudioMap.keys()));
+    
     // Get the master story cut generation prompt
     console.log('🔍 Loading master story cut generation prompt...');
     const masterPrompt = await getActivePrompt('story_cut_generation');
@@ -220,9 +250,32 @@ export default async function handler(req, res) {
     const tokensUsed = completion.usage?.total_tokens || 0;
 
     // Validate that we got valid JSON before returning
+    let generatedStoryCut;
     try {
-      const parsed = JSON.parse(storyCut);
-      console.log('✅ Generated story cut:', parsed.title);
+      generatedStoryCut = JSON.parse(storyCut);
+      console.log('✅ Generated story cut:', generatedStoryCut.title);
+      
+      // Add recorded audio URLs to the story cut data (MISSING LOGIC FROM LOCALHOST)
+      generatedStoryCut.recordedAudio = {};
+      
+      // Map recorded audio to contributors
+      if (voiceCasting.contributors) {
+        voiceCasting.contributors.forEach(contributor => {
+          if (recordedAudioMap.has(contributor.id)) {
+            const audioData = recordedAudioMap.get(contributor.id);
+            generatedStoryCut.recordedAudio[contributor.id] = {
+              audio_url: audioData.audio_url,
+              audio_filename: audioData.audio_filename,
+              audio_duration_seconds: audioData.audio_duration_seconds,
+              user_first_name: audioData.user_first_name,
+              message_content: audioData.message_content
+            };
+          }
+        });
+      }
+      
+      console.log('🎙️ Added recorded audio to story cut:', Object.keys(generatedStoryCut.recordedAudio));
+      
     } catch (parseError) {
       console.error('OpenAI returned invalid JSON:', storyCut);
       throw new Error('OpenAI returned invalid JSON response');
@@ -230,7 +283,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      data: storyCut,
+      data: JSON.stringify(generatedStoryCut), // Return the enhanced data with recorded audio
       tokensUsed,
       promptUsed: masterPrompt.prompt_key,
       styleUsed: stylePrompt.prompt_key,
