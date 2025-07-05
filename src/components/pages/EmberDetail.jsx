@@ -3625,18 +3625,29 @@ export default function EmberDetail() {
             content
           };
         } else {
-          // No matching recorded audio - use narrator voice to attribute the quote
+          // No matching recorded audio - use available voice to attribute the quote
           console.log(`🔊 No matching recorded audio for ${voiceTag}: "${content}"`);
-          console.log(`🎤 Using narrator voice to say "${voiceTag} said..."`);
           
-          // Format content with attribution using narrator voice
-          const narratedContent = `${voiceTag} said, "${content}"`;
+          // Try narrator first, then ember as fallback
+          let fallbackVoiceId = null;
+          let fallbackVoiceName = null;
           
-          if (!storyCut.narrator_voice_id) {
-            throw new Error(`Narrator voice ID is missing: ${storyCut.narrator_voice_id}`);
+          if (storyCut.narrator_voice_id) {
+            fallbackVoiceId = storyCut.narrator_voice_id;
+            fallbackVoiceName = 'narrator';
+            console.log(`🎤 Using narrator voice to say "${voiceTag} said..."`);
+          } else if (storyCut.ember_voice_id) {
+            fallbackVoiceId = storyCut.ember_voice_id;
+            fallbackVoiceName = 'ember';
+            console.log(`🎤 Using ember voice to say "${voiceTag} said..." (narrator not available)`);
+          } else {
+            throw new Error(`No voice available to synthesize contributor quote from ${voiceTag}`);
           }
           
-          const audioBlob = await textToSpeech(narratedContent, storyCut.narrator_voice_id);
+          // Format content with attribution using fallback voice
+          const narratedContent = `${voiceTag} said, "${content}"`;
+          
+          const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
           const audioUrl = URL.createObjectURL(audioBlob);
           const audio = new Audio(audioUrl);
           
@@ -3646,7 +3657,8 @@ export default function EmberDetail() {
             url: audioUrl,
             blob: audioBlob,
             voiceTag,
-            content: narratedContent
+            content: narratedContent,
+            fallbackVoice: fallbackVoiceName
           };
         }
       } else if (type === 'ember') {
