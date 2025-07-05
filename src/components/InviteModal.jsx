@@ -35,6 +35,7 @@ import {
   Edit3,
   Crown
 } from 'lucide-react';
+import { UserCirclePlus } from 'phosphor-react';
 
 // Custom hook to detect mobile devices
 function useMediaQuery(query) {
@@ -360,7 +361,7 @@ export default function InviteModal({ ember, isOpen, onClose, onUpdate }) {
         <DrawerContent className="bg-white focus:outline-none">
           <DrawerHeader className="bg-white">
             <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-              <Users className="w-5 h-5 text-blue-600" />
+              <UserCirclePlus size={22} className="text-blue-600" />
               Invite Contributors
             </DrawerTitle>
             <DrawerDescription className="text-left text-gray-600">
@@ -399,7 +400,7 @@ export default function InviteModal({ ember, isOpen, onClose, onUpdate }) {
                     <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-            <Users className="w-5 h-5 text-blue-600" />
+            <UserCirclePlus size={22} className="text-blue-600" />
             Invite Contributors
           </DialogTitle>
           <DialogDescription className="text-gray-600">

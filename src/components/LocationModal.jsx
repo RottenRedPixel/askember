@@ -41,14 +41,6 @@ const ModalContent = ({
   saving
 }) => (
     <div className="space-y-6">
-      {/* Header Info */}
-      <div className="text-center">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Location Information</h3>
-        <p className="text-sm text-gray-600">
-          Location data extracted from image GPS metadata
-        </p>
-      </div>
-
       {loading ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>

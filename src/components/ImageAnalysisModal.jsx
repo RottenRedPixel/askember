@@ -47,14 +47,6 @@ const ModalContent = ({
   ember
 }) => (
   <div className="space-y-6">
-    {/* Header Info */}
-    <div className="text-center">
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Image Analysis</h3>
-      <p className="text-sm text-gray-600">
-        Deep analysis of your image using artificial intelligence
-      </p>
-    </div>
-
     {loading ? (
       <div className="text-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
@@ -289,7 +281,7 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
         <DrawerContent className="bg-white focus:outline-none">
           <DrawerHeader className="bg-white">
             <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-              <Eye className="w-5 h-5 text-purple-600" />
+              <Sparkles size={22} className="text-blue-600" />
               AI Image Analysis
             </DrawerTitle>
             <DrawerDescription className="text-left text-gray-600">
@@ -319,7 +311,7 @@ export default function ImageAnalysisModal({ isOpen, onClose, ember, onRefresh }
       <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-            <Eye className="w-5 h-5 text-purple-600" />
+            <Sparkles size={22} className="text-blue-600" />
             AI Image Analysis
           </DialogTitle>
           <DialogDescription className="text-gray-600">

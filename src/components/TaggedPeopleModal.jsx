@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Users, X, Plus, Edit2, Trash2, UserCheck, Eye, Brain } from 'lucide-react';
+import { UsersThree } from 'phosphor-react';
 import { 
   getEmberTaggedPeople, 
   addTaggedPerson, 
@@ -844,7 +845,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
         <DrawerContent className="bg-white focus:outline-none">
           <DrawerHeader className="bg-white">
             <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-              <Users className="w-5 h-5 text-blue-600" />
+              <UsersThree size={22} className="text-blue-600" />
               Tagged People
             </DrawerTitle>
             <DrawerDescription className="text-left text-gray-600">
@@ -886,7 +887,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
       <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-            <Users className="w-5 h-5 text-blue-600" />
+            <UsersThree size={22} className="text-blue-600" />
             Tagged People
           </DialogTitle>
           <DialogDescription className="text-gray-600">

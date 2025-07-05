@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Aperture, Plus, Check, ChartBar, Users, Sparkle, ArrowClockwise, XCircle } from 'phosphor-react';
+import { Plus, Check, ChartBar, Users, Sparkle, ArrowClockwise, XCircle, PenNib } from 'phosphor-react';
 import { submitVote, getVotingResults, getUserVote, getParticipantVotingStatus, deleteVote } from '@/lib/voting';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getEmberSuggestedNames, addSuggestedName, initializeDefaultSuggestedNames, deleteSuggestedName } from '@/lib/suggestedNames';
@@ -767,7 +767,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
         <DrawerContent className="bg-white focus:outline-none">
           <DrawerHeader className="bg-white">
             <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-              <Aperture size={20} className="text-blue-600" />
+              <PenNib size={20} className="text-blue-600" />
               Ember Title
               <button
                 onClick={loadVotingData}
@@ -829,7 +829,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
                   <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-            <Aperture size={20} className="text-blue-600" />
+            <PenNib size={20} className="text-blue-600" />
             Ember Title
             <button
               onClick={loadVotingData}

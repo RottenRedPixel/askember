@@ -79,14 +79,6 @@ const ModalContent = ({
   formatExposureTime
 }) => (
   <div className="space-y-6">
-    {/* Header Info */}
-    <div className="text-center">
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">Time & Date Information</h3>
-      <p className="text-sm text-gray-600">
-        Timestamp and camera data extracted from image EXIF metadata
-      </p>
-    </div>
-
     {loading ? (
       <div className="text-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -387,7 +379,7 @@ export default function TimeDateModal({ isOpen, onClose, ember, isMobile, onRefr
         <DrawerContent className="bg-white focus:outline-none">
           <DrawerHeader className="bg-white">
             <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-              <Calendar className="w-5 h-5 text-orange-600" />
+              <Clock className="w-5 h-5 text-blue-600" />
               Time & Date Information
             </DrawerTitle>
             <DrawerDescription className="text-left text-gray-600">
@@ -420,7 +412,7 @@ export default function TimeDateModal({ isOpen, onClose, ember, isMobile, onRefr
                     <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-            <Calendar className="w-5 h-5 text-orange-600" />
+            <Clock className="w-5 h-5 text-blue-600" />
             Time & Date Information
           </DialogTitle>
           <DialogDescription className="text-gray-600">

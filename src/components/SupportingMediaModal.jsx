@@ -21,6 +21,7 @@ import {
   ExternalLink,
   Copy
 } from 'lucide-react';
+import { ImageSquare } from 'phosphor-react';
 
 // Custom hook to detect mobile devices
 function useMediaQuery(query) {
@@ -58,14 +59,6 @@ const ModalContent = ({
   handleDeleteExistingMedia
 }) => (
   <div className="space-y-6">
-    {/* Header Info */}
-    <div className="text-center">
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">Supporting Media</h3>
-      <p className="text-sm text-gray-600">
-        Add images and audio clips that support the story of this ember
-      </p>
-    </div>
-
     {/* Existing Media */}
     {(existingMedia.length > 0 || loadingExisting) && (
       <Card className="border-gray-200">
@@ -585,7 +578,7 @@ export default function SupportingMediaModal({ isOpen, onClose, ember, onUpdate 
         <DrawerContent className="bg-white focus:outline-none">
           <DrawerHeader className="bg-white">
             <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-              <Upload className="w-5 h-5 text-blue-600" />
+              <ImageSquare size={20} className="text-blue-600" />
               Supporting Media
             </DrawerTitle>
             <DrawerDescription className="text-left text-gray-600">
@@ -605,7 +598,7 @@ export default function SupportingMediaModal({ isOpen, onClose, ember, onUpdate 
       <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-            <Upload className="w-5 h-5 text-blue-600" />
+            <ImageSquare size={20} className="text-blue-600" />
             Supporting Media
           </DialogTitle>
           <DialogDescription className="text-gray-600">
