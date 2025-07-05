@@ -16,6 +16,7 @@ import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Flower, Microphone, Keyboard, CornersOut, ArrowCircleUp, Aperture, Chats, Smiley, ShareNetwork, PencilSimple, Info, Camera, MapPin, MagnifyingGlass, Campfire, Gear, PenNib, CheckCircle, BookOpen, Users, Lightbulb, Eye, Clock, Package, UsersThree, PlayCircle, Sliders, CirclesFour, FilmSlate, ImageSquare, House, UserCirclePlus, Trash, Link, Copy, QrCode, ArrowsClockwise, Heart, HeartStraight, Calendar, Play, Pause, X, Circle, Share, Export, Star } from 'phosphor-react';
+import { Sparkles } from 'lucide-react';
 
 import FeaturesCard from '@/components/FeaturesCard';
 
@@ -62,7 +63,7 @@ const StoryCutDetailContent = ({
       </div>
       
       {/* Style Badge */}
-      <div className="flex items-center">
+      <div className="flex items-center justify-start">
         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
           {getStyleDisplayName(selectedStoryCut.style)}
         </span>
@@ -2220,7 +2221,7 @@ export default function EmberDetail() {
                 aria-label="Story Cuts"
                 type="button"
               >
-                <CirclesFour size={24} className="text-gray-700" />
+                <FilmSlate size={24} className="text-gray-700" />
               </button>
               
               {/* Share button - View-only sharing for everyone */}
@@ -2373,7 +2374,10 @@ export default function EmberDetail() {
           {/* Progress Message */}
           <div className="w-full px-4 pt-2 pb-2 md:px-6">
             <p className="text-lg font-bold text-gray-800 text-center">
-              {userProfile?.first_name || 'User'}, we have to complete all these cards...
+              {wikiProgress.percentage === 100 
+                ? `Congrats ${userProfile?.first_name || 'User'}! We did it! Now let's try Story Cuts!`
+                : `${userProfile?.first_name || 'User'}, we have to complete all these cards...`
+              }
             </p>
           </div>
           
@@ -2465,7 +2469,7 @@ export default function EmberDetail() {
                     {
                       id: 'people',
                       sectionType: 'people',
-                      icon: Users,
+                      icon: UsersThree,
                       title: () => 'Tagged People',
                       description: (isComplete) => (!isComplete ? 'Identify and tag people in this image' : `${taggedPeopleCount} ${taggedPeopleCount !== 1 ? 'people' : 'person'} tagged`),
                       onClick: () => () => setShowTaggedPeopleModal(true)
@@ -2486,7 +2490,7 @@ export default function EmberDetail() {
                     {
                       id: 'analysis',
                       sectionType: 'analysis',
-                      icon: Eye,
+                      icon: Sparkles,
                       title: () => 'Image Analysis',
                       description: (isComplete) => {
                         if (isComplete && imageAnalysisData?.tokens_used) {
@@ -2974,7 +2978,7 @@ export default function EmberDetail() {
             <div className="p-6 border-b">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CirclesFour size={24} className="text-blue-600" />
+                  <FilmSlate size={24} className="text-blue-600" />
                   <h2 className="text-xl font-bold text-gray-900">Story Cuts</h2>
                 </div>
                 <button
@@ -3007,39 +3011,12 @@ export default function EmberDetail() {
                   {/* Primary Badge - Matches media section "Cover" badge style */}
                   {isPrimary && (
                     <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 z-10">
-                      <Play size={12} weight="fill" />
+                      <Star size={12} weight="fill" />
                       The One
                     </div>
                   )}
 
-                  {/* Delete Button - Only show for creators */}
-                  {canDeleteStoryCut(cut) && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setStoryCutToDelete(cut);
-                        setShowDeleteConfirm(true);
-                      }}
-                      className="absolute bottom-2 right-2 p-1.5 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors duration-200 z-10"
-                      title="Delete story cut"
-                    >
-                      <Trash size={14} />
-                    </button>
-                  )}
 
-                  {/* Make Primary Button - Only show for owner and non-primary cuts */}
-                  {!isPrimary && userPermission === 'owner' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSetPrimary(cut.id);
-                      }}
-                      className="absolute bottom-2 right-10 p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors duration-200 z-10"
-                      title="Make This The One"
-                    >
-                      <Star size={14} weight="fill" />
-                    </button>
-                  )}
 
                   {/* Clickable content area */}
                   <div 
@@ -3060,44 +3037,77 @@ export default function EmberDetail() {
                      </div>
                     
                     {/* Content */}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0" style={{ textAlign: 'left' }}>
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-gray-900 truncate">{cut.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                              {cut.story_focus || (cut.full_script ? cut.full_script.substring(0, 100) + '...' : '') || 'No description available'}
+                        <div className="flex-1 min-w-0 text-left" style={{ textAlign: 'left' }}>
+                          <h3 className="font-medium text-gray-900 truncate text-left" style={{ textAlign: 'left' }}>{cut.title}</h3>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2 text-left" style={{ textAlign: 'left' }}>
+                              {cut.story_focus || (cut.full_script ? (() => {
+                                // Remove voice tags like [EMBER VOICE], [NARRATOR], [NAME] from script snippet
+                                const cleanScript = cut.full_script.replace(/\[[^\]]+\]/g, '').trim();
+                                return cleanScript.substring(0, 100) + (cleanScript.length > 100 ? '...' : '');
+                              })() : '') || 'No description available'}
                           </p>
                         </div>
-                        
-                        {/* Creator Avatar */}
-                        <div className="flex-shrink-0">
-                          <Avatar className="h-8 w-8">
+                      </div>
+                      
+                      {/* Metadata */}
+                      <div className="mt-3 text-xs text-gray-500" style={{ textAlign: 'left' }}>
+                        <div className="flex items-center gap-1 mb-1">
+                          <Avatar className="h-3 w-3">
                             <AvatarImage src={cut.creator?.avatar_url} alt={`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim()} />
                             <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
                               {cut.creator?.first_name?.[0] || cut.creator?.last_name?.[0] || 'U'}
                             </AvatarFallback>
                           </Avatar>
+                          {`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="flex items-center gap-1">
+                            <Clock size={12} />
+                            {formatDuration(cut.duration)}
+                          </span>
+                          <span>{formatRelativeTime(cut.created_at)}</span>
                         </div>
                       </div>
                       
-                      {/* Metadata */}
-                      <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Users size={12} />
-                          {`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} />
-                          {formatDuration(cut.duration)}
-                        </span>
-                        <span>{formatRelativeTime(cut.created_at)}</span>
-                      </div>
-                      
-                      {/* Style Badge */}
-                      <div className="mt-2">
+                      {/* Style Badge with Actions */}
+                      <div className="mt-2 text-left flex items-center justify-between" style={{ textAlign: 'left' }}>
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                           {getStyleDisplayName(cut.style)}
                         </span>
+                        
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-1">
+                          {/* Make Primary Button - Only show for owner and non-primary cuts */}
+                          {!isPrimary && userPermission === 'owner' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSetPrimary(cut.id);
+                              }}
+                              className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors duration-200"
+                              title="Make This The One"
+                            >
+                              <Star size={12} weight="fill" />
+                            </button>
+                          )}
+                          
+                          {/* Delete Button - Only show for creators */}
+                          {canDeleteStoryCut(cut) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setStoryCutToDelete(cut);
+                                setShowDeleteConfirm(true);
+                              }}
+                              className="p-1 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors duration-200"
+                              title="Delete story cut"
+                            >
+                              <Trash size={12} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                     </div>
@@ -3109,7 +3119,7 @@ export default function EmberDetail() {
               {/* Empty State - Show when no cuts exist */}
               {!storyCutsLoading && storyCuts.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12">
-                  <CirclesFour size={48} className="text-gray-300 mb-4" />
+                  <FilmSlate size={48} className="text-gray-300 mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2 text-center">No Story Cuts Yet</h3>
                   <p className="text-gray-600 mb-4 text-center">Create your first story cut to get started</p>
                   <Button 
@@ -3225,9 +3235,9 @@ export default function EmberDetail() {
           {isMobile ? (
             <Drawer open={showStoryCutDetail} onOpenChange={setShowStoryCutDetail}>
               <DrawerContent className="bg-white focus:outline-none">
-                <DrawerHeader className="bg-white">
-                  <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-                    <PlayCircle size={20} className="text-blue-600" />
+                <DrawerHeader className="bg-white text-left">
+                  <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900 text-left">
+                    <FilmSlate size={20} className="text-blue-600" />
                     {selectedStoryCut.title}
                   </DrawerTitle>
                   <DrawerDescription className="text-left text-gray-600">
@@ -3256,12 +3266,12 @@ export default function EmberDetail() {
           ) : (
             <Dialog open={showStoryCutDetail} onOpenChange={setShowStoryCutDetail}>
               <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-                    <PlayCircle size={20} className="text-blue-600" />
+                <DialogHeader className="text-left">
+                  <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900 text-left">
+                    <FilmSlate size={20} className="text-blue-600" />
                     {selectedStoryCut.title}
                   </DialogTitle>
-                  <DialogDescription className="text-gray-600">
+                  <DialogDescription className="text-left text-gray-600">
                     {getStyleDisplayName(selectedStoryCut.style)} • {formatDuration(selectedStoryCut.duration)} • Created by {`${selectedStoryCut.creator?.first_name || ''} ${selectedStoryCut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
                   </DialogDescription>
                 </DialogHeader>

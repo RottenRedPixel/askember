@@ -108,6 +108,7 @@ const ModalContent = ({
   startRecording,
   stopRecording,
   isProcessing,
+  isGeneratingQuestion,
   handleSubmit,
   recordingDuration,
   hasRecording,
@@ -223,12 +224,16 @@ const ModalContent = ({
                           : 'bg-blue-50 text-blue-900 rounded-tr-none'
                     }`}
                   >
-                    <p className="text-sm">{message.content}</p>
+                    <p className={`text-sm ${message.isThinking ? 'italic text-purple-600' : ''}`}>
+                      {message.content}
+                    </p>
                     {/* Message type indicators */}
                     {message.sender === 'ember' ? (
                       <div className="flex items-center gap-2 mt-2">
-                        <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                        <span className="text-xs opacity-70">AI Generated</span>
+                        <div className={`w-2 h-2 bg-purple-500 rounded-full ${message.isThinking ? 'animate-pulse' : ''}`}></div>
+                        <span className="text-xs opacity-70">
+                          {message.isThinking ? 'Thinking...' : 'AI Generated'}
+                        </span>
                       </div>
                     ) : message.hasVoiceRecording ? (
                       <div className="flex items-center gap-2 mt-2">
@@ -319,7 +324,16 @@ const ModalContent = ({
           <Textarea
             value={currentAnswer}
             onChange={(e) => setCurrentAnswer(e.target.value)}
-            placeholder="Type your response or record your voice..."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                // Only submit if we have content and not already processing
+                if ((currentAnswer.trim() || hasRecording) && !isProcessing && !isGeneratingQuestion) {
+                  handleSubmit();
+                }
+              }
+            }}
+            placeholder="Type your response or record your voice... (Press Enter to submit, Shift+Enter for new line)"
             className="min-h-20 resize-none"
             disabled={isProcessing}
           />
@@ -333,7 +347,7 @@ const ModalContent = ({
                 size="sm"
                 onClick={isRecording ? stopRecording : startRecording}
                 disabled={isProcessing}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 h-9"
               >
                 {isRecording ? (
                   <>
@@ -365,7 +379,7 @@ const ModalContent = ({
                   size="sm"
                   onClick={playRecording}
                   disabled={isProcessing || isPlaying}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 h-9"
                 >
                   {isPlaying ? <Pause size={16} /> : <Play size={16} />}
                   {isPlaying ? 'Pause' : 'Play'}
@@ -376,11 +390,11 @@ const ModalContent = ({
             {/* Submit Response Button - Full Width */}
             <Button
               onClick={handleSubmit}
-              disabled={(!currentAnswer.trim() && !hasRecording) || isProcessing}
+              disabled={(!currentAnswer.trim() && !hasRecording) || isProcessing || isGeneratingQuestion}
               className="w-full flex items-center justify-center gap-2"
             >
               <Send size={16} />
-              {isProcessing ? (hasRecording ? 'Processing Audio...' : 'Sending...') : 'Submit Response'}
+              {isGeneratingQuestion ? 'AI is thinking...' : isProcessing ? (hasRecording ? 'Processing Audio...' : 'Sending...') : 'Submit Response'}
             </Button>
           </div>
         </div>
@@ -398,6 +412,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [conversation, setConversation] = useState(null);
+  const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false);
   
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -498,6 +513,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       setCurrentAnswer('');
       setIsRecording(false);
       setIsProcessing(false);
+      setIsGeneratingQuestion(false);
       setRecordingDuration(0);
       setHasRecording(false);
       setIsPlaying(false);
@@ -608,9 +624,17 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         console.log('❓ [UI] Current user has answered', currentUserAnswers, 'questions');
         
         if (currentUserAnswers < 10) { // Still have questions to ask
-          const nextQuestion = await generateFollowUpQuestion(uiMessages.filter(msg => msg.userId === user.id));
-          console.log('❓ [UI] Generated next question:', nextQuestion);
-          setCurrentQuestion(nextQuestion);
+          setIsGeneratingQuestion(true);
+          try {
+            const nextQuestion = await generateFollowUpQuestion(uiMessages.filter(msg => msg.userId === user.id));
+            console.log('❓ [UI] Generated next question:', nextQuestion);
+            setCurrentQuestion(nextQuestion);
+          } catch (error) {
+            console.error('Error generating initial question:', error);
+            setCurrentQuestion("What else would you like to share about this moment?");
+          } finally {
+            setIsGeneratingQuestion(false);
+          }
         } else {
           console.log('✅ [UI] User has completed all questions');
           setCurrentQuestion(''); // No more questions for current user
@@ -1070,8 +1094,34 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       // Generate next question based on the conversation
       const answerCount = updatedMessages.filter(msg => msg.type === 'answer').length;
       if (answerCount < 10) { // Limit to 10 questions
-        const nextQuestion = await generateFollowUpQuestion(updatedMessages);
-        setCurrentQuestion(nextQuestion);
+        setIsGeneratingQuestion(true);
+        setCurrentQuestion(''); // Clear current question while generating
+        
+        // Add a "thinking" message to show AI is working
+        const thinkingMessage = {
+          sender: 'ember',
+          content: 'Ember AI is thinking...',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          type: 'thinking',
+          hasVoiceRecording: false,
+          isThinking: true
+        };
+        
+        setMessages([...updatedMessages, thinkingMessage]);
+        
+        try {
+          const nextQuestion = await generateFollowUpQuestion(updatedMessages);
+          setCurrentQuestion(nextQuestion);
+          
+          // Remove thinking message and add real question
+          setMessages(updatedMessages); // Remove thinking message
+        } catch (error) {
+          console.error('Error generating question:', error);
+          setCurrentQuestion("What else would you like to share about this moment?");
+          setMessages(updatedMessages); // Remove thinking message
+        } finally {
+          setIsGeneratingQuestion(false);
+        }
       } else {
         setCurrentQuestion(''); // No more questions - conversation complete
         
@@ -1245,32 +1295,23 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         <Drawer open={isOpen} onOpenChange={onClose}>
           <DrawerContent className="bg-white focus:outline-none">
             <DrawerHeader className="bg-white">
-              <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-                <BookOpen size={20} className="text-blue-600" />
-                Story Circle
-                {onRefresh && (
-                  <button
-                    onClick={handleRefresh}
-                    disabled={isRefreshing}
-                    className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-                    title="Refresh story data"
-                  >
-                    <ArrowClockwise 
-                      size={16} 
-                      className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
-                    />
-                  </button>
-                )}
-                {isEmberOwner && (
-                  <button
-                    onClick={() => setShowClearConfirm(true)}
-                    className="p-1 hover:bg-red-50 rounded transition-colors text-red-600 hover:text-red-700"
-                    title="Clear all stories (Owner only)"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-              </DrawerTitle>
+                          <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+              <BookOpen size={20} className="text-blue-600" />
+              Story Circle
+              {onRefresh && (
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                  title="Refresh story data"
+                >
+                  <ArrowClockwise 
+                    size={16} 
+                    className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
+                  />
+                </button>
+              )}
+            </DrawerTitle>
               <DrawerDescription className="text-left text-gray-600">
                 Share the story behind this moment
               </DrawerDescription>
@@ -1285,6 +1326,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
                 startRecording={startRecording}
                 stopRecording={stopRecording}
                 isProcessing={isProcessing}
+                isGeneratingQuestion={isGeneratingQuestion}
                 handleSubmit={handleSubmit}
                 recordingDuration={recordingDuration}
                 hasRecording={hasRecording}
@@ -1307,54 +1349,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           </DrawerContent>
         </Drawer>
 
-        {/* Clear Stories Confirmation Dialog - Mobile version moved outside drawer */}
-        <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
-          <DialogContent className="max-w-md bg-white focus:outline-none">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-red-600">
-                <Trash2 size={20} />
-                Clear All Stories
-              </DialogTitle>
-              <DialogDescription className="text-gray-600">
-                Are you sure you want to clear all story conversations and messages for this ember? This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-3 mt-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <p className="text-sm text-yellow-800">
-                  <strong>Warning:</strong> This will permanently delete all story responses from all users who have contributed to this ember's story.
-                </p>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowClearConfirm(false)}
-                  disabled={isClearing}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleClearAllStories}
-                  disabled={isClearing}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  {isClearing ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                      Clearing...
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 size={16} className="mr-2" />
-                      Clear All Stories
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+
       </>
     );
   }
@@ -1381,15 +1376,6 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
                   />
                 </button>
               )}
-              {isEmberOwner && (
-                <button
-                  onClick={() => setShowClearConfirm(true)}
-                  className="p-1 hover:bg-red-50 rounded transition-colors text-red-600 hover:text-red-700"
-                  title="Clear all stories (Owner only)"
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
             </DialogTitle>
             <DialogDescription className="text-gray-600">
               Share the story behind this moment
@@ -1404,6 +1390,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
             startRecording={startRecording}
             stopRecording={stopRecording}
             isProcessing={isProcessing}
+            isGeneratingQuestion={isGeneratingQuestion}
             handleSubmit={handleSubmit}
             recordingDuration={recordingDuration}
             hasRecording={hasRecording}
@@ -1425,54 +1412,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         </DialogContent>
       </Dialog>
 
-      {/* Clear Stories Confirmation Dialog - Moved outside main dialog */}
-      <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
-        <DialogContent className="max-w-md bg-white focus:outline-none">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
-              <Trash2 size={20} />
-              Clear All Stories
-            </DialogTitle>
-            <DialogDescription className="text-gray-600">
-              Are you sure you want to clear all story conversations and messages for this ember? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 mt-4">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <p className="text-sm text-yellow-800">
-                <strong>Warning:</strong> This will permanently delete all story responses from all users who have contributed to this ember's story.
-              </p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowClearConfirm(false)}
-                disabled={isClearing}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleClearAllStories}
-                disabled={isClearing}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                {isClearing ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Clearing...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 size={16} className="mr-2" />
-                    Clear All Stories
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+
     </>
   );
 } 
