@@ -51,56 +51,56 @@ const ModalContent = ({
 
       {loading ? (
         <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
           <p className="text-sm text-gray-500 mt-2">Loading location data...</p>
         </div>
       ) : (
         <div className="space-y-6">
           {/* Current Location Display */}
           {selectedPhoto?.latitude && selectedPhoto?.longitude ? (
-            <Card className="border-blue-200 bg-blue-50">
+            <Card className="border-orange-200 bg-orange-50">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <MapPin size={20} className="text-blue-600 mt-0.5" />
+                  <MapPin size={20} className="text-orange-600 mt-0.5" />
                   <div className="flex-1">
-                    <h4 className="font-medium text-blue-900 mb-1">Photo Location</h4>
-                    <p className="text-sm text-blue-800 mb-1">
+                    <h4 className="font-medium text-orange-900 mb-1">Photo Location</h4>
+                    <p className="text-sm text-orange-800 mb-1">
                       {formatCoordinates(selectedPhoto.latitude, selectedPhoto.longitude)}
                     </p>
                     
                     {loadingGeocode ? (
-                      <div className="flex items-center gap-2 text-xs text-blue-600">
-                        <div className="w-3 h-3 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      <div className="flex items-center gap-2 text-xs text-orange-600">
+                        <div className="w-3 h-3 border border-orange-600 border-t-transparent rounded-full animate-spin"></div>
                         Loading address...
                       </div>
                     ) : locationInfo ? (
                       <div className="space-y-1">
-                        <p className="text-xs text-blue-700 font-medium">
+                        <p className="text-xs text-orange-700 font-medium">
                           {locationInfo.address}
                         </p>
-                        <p className="text-xs text-blue-600">
+                        <p className="text-xs text-orange-600">
                           {locationInfo.city}{locationInfo.state ? `, ${locationInfo.state}` : ''} • {locationInfo.country}
                         </p>
                       </div>
                     ) : (
-                      <p className="text-xs text-blue-700">
+                      <p className="text-xs text-orange-700">
                         Address information not available
                       </p>
                     )}
                     
                     {/* Camera Info */}
                     {(selectedPhoto.camera_make || selectedPhoto.camera_model) && (
-                      <div className="mt-3 pt-3 border-t border-blue-200">
+                      <div className="mt-3 pt-3 border-t border-orange-200">
                         <div className="flex items-center gap-2 mb-2">
-                          <Camera size={16} className="text-blue-600" />
-                          <span className="text-sm font-medium text-blue-900">Photo Details</span>
+                          <Camera size={16} className="text-orange-600" />
+                          <span className="text-sm font-medium text-orange-900">Photo Details</span>
                         </div>
-                        <div className="space-y-1 text-xs text-blue-800">
+                        <div className="space-y-1 text-xs text-orange-800">
                           {selectedPhoto.camera_make && selectedPhoto.camera_model && (
                             <p><strong>Camera:</strong> {selectedPhoto.camera_make} {selectedPhoto.camera_model}</p>
                           )}
                           {selectedPhoto.original_filename && (
-                            <p className="text-blue-700 truncate"><strong>File:</strong> {selectedPhoto.original_filename}</p>
+                            <p className="text-orange-700 truncate"><strong>File:</strong> {selectedPhoto.original_filename}</p>
                           )}
                         </div>
                       </div>
@@ -132,7 +132,7 @@ const ModalContent = ({
                     key={photo.id}
                     className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                       selectedPhoto?.id === photo.id
-                        ? 'border-blue-500 bg-blue-50'
+                        ? 'border-orange-500 bg-orange-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                     onClick={() => setSelectedPhoto(photo)}
@@ -152,7 +152,7 @@ const ModalContent = ({
                         </p>
                       </div>
                       {selectedPhoto?.id === photo.id && (
-                        <Globe size={16} className="text-blue-600" />
+                        <Globe size={16} className="text-orange-600" />
                       )}
                     </div>
                   </div>

@@ -174,7 +174,7 @@ const ModalContent = ({
                 {message.sender === 'ember' && (
                   <Avatar className="h-8 w-8 flex-shrink-0">
                     <AvatarImage src="/ember-ai-avatar.png" alt="Ember AI" />
-                    <AvatarFallback className="bg-blue-500 text-white">
+                    <AvatarFallback className="bg-purple-500 text-white">
                       <Sparkles size={16} />
                     </AvatarFallback>
                   </Avatar>
@@ -191,10 +191,10 @@ const ModalContent = ({
                   }`}>
                     <span className={`text-xs font-medium ${
                       message.sender === 'ember' 
-                        ? 'text-blue-700' 
+                        ? 'text-purple-700' 
                         : message.isCurrentUser 
                           ? 'text-green-700' 
-                          : 'text-purple-700'
+                          : 'text-blue-700'
                     }`}>
                       {getUserDisplayName(message)}
                     </span>
@@ -217,17 +217,30 @@ const ModalContent = ({
                   <div
                     className={`p-3 rounded-lg ${
                       message.sender === 'ember'
-                        ? 'bg-blue-100 text-blue-900 rounded-tl-none'
+                        ? 'bg-purple-50 text-purple-900 rounded-tl-none'
                         : message.isCurrentUser
-                          ? 'bg-green-100 text-green-900 rounded-tr-none'
-                          : 'bg-purple-100 text-purple-900 rounded-tr-none'
+                          ? 'bg-green-50 text-green-900 rounded-tr-none'
+                          : 'bg-blue-50 text-blue-900 rounded-tr-none'
                     }`}
                   >
                     <p className="text-sm">{message.content}</p>
-                    {message.hasVoiceRecording && (
+                    {/* Message type indicators */}
+                    {message.sender === 'ember' ? (
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                        <span className="text-xs opacity-70">AI Generated</span>
+                      </div>
+                    ) : message.hasVoiceRecording ? (
                       <div className="flex items-center gap-2 mt-2">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                         <span className="text-xs opacity-70">Audio message</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          message.isCurrentUser ? 'bg-green-500' : 'bg-blue-500'
+                        }`}></div>
+                        <span className="text-xs opacity-70">Text response</span>
                       </div>
                     )}
                   </div>
@@ -241,7 +254,7 @@ const ModalContent = ({
                       alt={getUserDisplayName(message)} 
                     />
                     <AvatarFallback className={`text-white ${
-                      message.isCurrentUser ? 'bg-green-500' : 'bg-purple-500'
+                      message.isCurrentUser ? 'bg-green-500' : 'bg-blue-500'
                     }`}>
                       <User size={16} />
                     </AvatarFallback>
@@ -258,14 +271,14 @@ const ModalContent = ({
           <div className="flex w-full gap-3 justify-start">
             <Avatar className="h-8 w-8 flex-shrink-0">
               <AvatarImage src="/ember-ai-avatar.png" alt="Ember AI" />
-              <AvatarFallback className="bg-blue-500 text-white">
+              <AvatarFallback className="bg-purple-500 text-white">
                 <Sparkles size={16} />
               </AvatarFallback>
             </Avatar>
             
             <div className="max-w-[75%]">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-medium text-blue-700">
+                <span className="text-xs font-medium text-purple-700">
                   Ember AI
                 </span>
                 <span className="text-xs text-gray-400">
@@ -273,10 +286,15 @@ const ModalContent = ({
                 </span>
               </div>
               
-              <div className="bg-blue-50 border border-blue-200 rounded-lg rounded-tl-none p-3">
-                <p className="text-sm text-blue-900 font-medium">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg rounded-tl-none p-3">
+                <p className="text-sm text-purple-900 font-medium">
                   {currentQuestion}
                 </p>
+                {/* AI Generated indicator for current question */}
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                  <span className="text-xs opacity-70">AI Generated</span>
+                </div>
               </div>
             </div>
           </div>

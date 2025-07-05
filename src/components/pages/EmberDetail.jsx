@@ -69,21 +69,6 @@ const StoryCutDetailContent = ({
       </div>
     </div>
 
-    {/* Voice Casting */}
-    <div className="space-y-3">
-      <h3 className="text-lg font-semibold text-gray-900">Voice Casting</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-          <div className="text-sm font-medium text-green-800">Ember Voice</div>
-          <div className="text-green-700">{selectedStoryCut.ember_voice_name}</div>
-        </div>
-        <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-          <div className="text-sm font-medium text-purple-800">Narrator Voice</div>
-          <div className="text-purple-700">{selectedStoryCut.narrator_voice_name}</div>
-        </div>
-      </div>
-    </div>
-
     {/* Story Focus */}
     {selectedStoryCut.story_focus && (
       <div className="space-y-3">
@@ -144,6 +129,21 @@ const StoryCutDetailContent = ({
     </div>
     )}
 
+    {/* Voice Casting */}
+    <div className="space-y-3">
+      <h3 className="text-lg font-semibold text-gray-900">Voice Casting</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="text-sm font-medium text-gray-800">Ember Voice</div>
+          <div className="text-gray-700">{selectedStoryCut.ember_voice_name}</div>
+        </div>
+        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="text-sm font-medium text-gray-800">Narrator Voice</div>
+          <div className="text-gray-700">{selectedStoryCut.narrator_voice_name}</div>
+        </div>
+      </div>
+    </div>
+
     {/* Voice Lines Breakdown */}
     {((selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0) || 
       (selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0) ||
@@ -155,16 +155,16 @@ const StoryCutDetailContent = ({
       {/* Ember Voice Lines */}
       {selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0 && (
         <div className="space-y-2">
-          <h4 className="font-medium text-green-800 flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+          <h4 className="font-medium text-purple-800 flex items-center gap-2">
+            <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
             Ember Voice Lines ({selectedStoryCut.ember_voice_name})
           </h4>
           <div className="space-y-2">
             {selectedStoryCut.ember_voice_lines.map((line, index) => (
-              <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-green-700">{line}</p>
+              <div key={index} className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                <p className="text-purple-700">{line}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                   <span className="text-xs opacity-70">AI Generated</span>
                 </div>
               </div>
@@ -197,8 +197,8 @@ const StoryCutDetailContent = ({
       {/* Owner Lines */}
       {selectedStoryCut.metadata?.owner_lines && selectedStoryCut.metadata.owner_lines.length > 0 && (
         <div className="space-y-2">
-          <h4 className="font-medium text-blue-800 flex items-center gap-2">
-            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+          <h4 className="font-medium text-green-800 flex items-center gap-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
             {(() => {
               // Try to get owner name from metadata first, then from selected_contributors
               const ownerName = selectedStoryCut.metadata?.owner_first_name;
@@ -253,10 +253,10 @@ const StoryCutDetailContent = ({
                 const messageType = getOriginalMessageType(line, index);
                 
                 return (
-                  <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-blue-700">{line}</p>
+                  <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-green-700">{line}</p>
                   <div className="flex items-center gap-2 mt-2">
-                    <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-blue-500 animate-pulse' : 'bg-blue-400'}`}></div>
+                    <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-green-500 animate-pulse' : 'bg-green-400'}`}></div>
                     <span className="text-xs opacity-70">
                       {messageType === 'audio' ? 'Audio message' : 'Text response'}
                     </span>
@@ -271,8 +271,8 @@ const StoryCutDetailContent = ({
       {/* Contributor Lines */}
       {selectedStoryCut.metadata?.contributor_lines && selectedStoryCut.metadata.contributor_lines.length > 0 && (
         <div className="space-y-2">
-          <h4 className="font-medium text-orange-800 flex items-center gap-2">
-            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+          <h4 className="font-medium text-blue-800 flex items-center gap-2">
+            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
             {(() => {
               // Get contributor names from various possible sources, excluding the owner
               const contributors = selectedStoryCut.selected_contributors || [];
@@ -329,10 +329,10 @@ const StoryCutDetailContent = ({
                 const messageType = getOriginalMessageType(line, index);
                 
                 return (
-                  <div key={index} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                  <p className="text-orange-700">{line}</p>
+                  <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-blue-700">{line}</p>
                   <div className="flex items-center gap-2 mt-2">
-                    <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-orange-500 animate-pulse' : 'bg-orange-400'}`}></div>
+                    <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-blue-500 animate-pulse' : 'bg-blue-400'}`}></div>
                     <span className="text-xs opacity-70">
                       {messageType === 'audio' ? 'Audio message' : 'Text response'}
                     </span>

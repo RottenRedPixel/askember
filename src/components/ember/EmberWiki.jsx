@@ -264,10 +264,10 @@ export default function EmberWiki({
             </h3>
             <div className="text-sm text-gray-600 text-left space-y-3">
               {isEditingTitle ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <FileText size={16} className="text-green-600" />
-                    <span className="text-sm font-medium text-green-900">Edit Title</span>
+                    <FileText size={16} className="text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">Edit Title</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
@@ -283,10 +283,10 @@ export default function EmberWiki({
                 </div>
               ) : (
                 ember.title && ember.title !== 'Untitled Ember' ? (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-2">
-                      <FileText size={16} className="text-green-600" />
-                      <span className="text-sm font-medium text-green-900">Ember Title</span>
+                      <FileText size={16} className="text-gray-600" />
+                      <span className="text-sm font-medium text-gray-900">Ember Title</span>
                       <div className="flex items-center gap-1 ml-auto">
                         <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
                           <PencilSimple size={16} />
@@ -335,10 +335,10 @@ export default function EmberWiki({
             </h3>
             <div className="text-sm text-gray-600 text-left space-y-3">
               {ember?.latitude && ember?.longitude ? (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <MapPin size={16} className="text-blue-600" />
-                    <span className="text-sm font-medium text-blue-900">GPS Location</span>
+                    <MapPin size={16} className="text-orange-600" />
+                    <span className="text-sm font-medium text-orange-900">GPS Location</span>
                   </div>
                   <div className="text-gray-900 font-medium">
                     {ember.address || `${ember.latitude.toFixed(6)}°, ${ember.longitude.toFixed(6)}°`}
@@ -357,7 +357,7 @@ export default function EmberWiki({
                     Source: Photo GPS data
                   </div>
                   {ember.camera_make && ember.camera_model && (
-                    <div className="mt-2 text-xs text-blue-800">
+                    <div className="mt-2 text-xs text-orange-800">
                       <strong>Camera:</strong> {ember.camera_make} {ember.camera_model}
                     </div>
                   )}
@@ -457,10 +457,10 @@ export default function EmberWiki({
             </h3>
             <div className="text-sm text-gray-600 text-left space-y-3">
               {storyMessages && storyMessages.length > 0 ? (
-                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-3">
-                    <BookOpen size={16} className="text-indigo-600" />
-                    <span className="text-sm font-medium text-indigo-900">Story Conversation</span>
+                    <BookOpen size={16} className="text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">Story Conversation</span>
                   </div>
                   <div className="space-y-3 max-h-96 overflow-y-auto">
                     {storyMessages.map((message, index) => (
@@ -468,9 +468,9 @@ export default function EmberWiki({
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1">
                                                          {message.sender === 'ember' ? (
-                               <div className="w-2 h-2 bg-purple-500 rounded-full" />
+                               <div className="w-2 h-2 bg-gray-400 rounded-full" />
                              ) : (
-                               <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                               <div className="w-2 h-2 bg-gray-400 rounded-full" />
                              )}
                              <span className="text-xs font-medium text-gray-700">
                                {message.sender === 'ember' ? 'Ember AI' : (
@@ -493,16 +493,38 @@ export default function EmberWiki({
                                                  <div className={`p-3 rounded-lg text-sm ${
                            message.sender === 'ember' 
                              ? 'bg-purple-50 text-purple-900 border border-purple-200' 
-                             : 'bg-blue-50 text-blue-900 border border-blue-200'
+                             : message.user_id === user?.id
+                               ? 'bg-green-50 text-green-900 border border-green-200'
+                               : 'bg-blue-50 text-blue-900 border border-blue-200'
                          }`}>
                           <div className="whitespace-pre-wrap">
                             {message.content}
                           </div>
+                          {/* Message type indicators */}
+                          {message.sender === 'ember' ? (
+                            <div className="flex items-center gap-2 mt-2">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                              <span className="text-xs opacity-70">AI Generated</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 mt-2">
+                              <div className={`w-2 h-2 rounded-full ${
+                                message.has_audio 
+                                  ? 'bg-green-500 animate-pulse' 
+                                  : message.user_id === user?.id
+                                    ? 'bg-green-500'
+                                    : 'bg-blue-500'
+                              }`}></div>
+                              <span className="text-xs opacity-70">
+                                {message.has_audio ? 'Audio message' : 'Text response'}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
-                  <div className="text-xs text-gray-500 mt-3 pt-2 border-t border-indigo-200">
+                  <div className="text-xs text-gray-500 mt-3 pt-2 border-t border-gray-200">
                     <div className="flex items-center justify-between">
                       <span>
                         {storyMessages.length} message{storyMessages.length !== 1 ? 's' : ''} • Source: Story Modal conversations
