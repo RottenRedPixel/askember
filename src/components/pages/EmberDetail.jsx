@@ -2065,12 +2065,9 @@ export default function EmberDetail() {
         });
         
         // Parse the script into segments
-        console.log('🎬 About to parse script. Full script:', selectedStoryCut.full_script);
         const segments = parseScriptSegments(selectedStoryCut.full_script);
-        console.log('🎬 Script parsing complete. Segments found:', segments.length);
         
         if (segments.length > 0) {
-          console.log('🎬 Using multi-voice playback system with', segments.length, 'segments');
           // Use multi-voice playback system (works with or without recorded audio)
           await playMultiVoiceAudio(segments, selectedStoryCut, recordedAudio, { 
             setIsGeneratingAudio, 
@@ -3549,23 +3546,14 @@ export default function EmberDetail() {
 
   // Parse script into voice segments for multi-voice playback
   const parseScriptSegments = (script) => {
-    if (!script) {
-      console.log('⚠️ No script provided to parseScriptSegments');
-      return [];
-    }
-    
-    console.log('📝 Parsing script:', script.substring(0, 500) + '...');
+    if (!script) return [];
     
     const segments = [];
     const lines = script.split('\n');
     
-    console.log('📝 Script split into', lines.length, 'lines');
-    
     for (const line of lines) {
       const trimmedLine = line.trim();
       if (!trimmedLine) continue;
-      
-      console.log('📝 Processing line:', trimmedLine);
       
       // Match voice tags like [EMBER VOICE], [NARRATOR], [Amado], etc.
       const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
@@ -3574,8 +3562,6 @@ export default function EmberDetail() {
         const voiceTag = voiceMatch[1].trim();
         const content = voiceMatch[2].trim();
         
-        console.log('📝 Found voice tag:', voiceTag, 'Content:', content.substring(0, 50) + '...');
-        
         if (content) {
           segments.push({
             voiceTag,
@@ -3583,16 +3569,10 @@ export default function EmberDetail() {
             type: getVoiceType(voiceTag)
           });
         }
-      } else {
-        console.log('📝 No voice tag found in line:', trimmedLine);
       }
     }
     
-    console.log('📝 Final parsed segments:', segments.length, 'segments');
-    segments.forEach((segment, index) => {
-      console.log(`📝 Segment ${index + 1}: [${segment.voiceTag}] (${segment.type}) - "${segment.content.substring(0, 50)}..."`);
-    });
-    
+    console.log('📝 Parsed script segments:', segments.length, 'segments');
     return segments;
   };
   
