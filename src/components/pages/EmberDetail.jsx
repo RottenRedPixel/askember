@@ -1513,67 +1513,51 @@ export default function EmberDetail() {
       console.log('🎯 Focus:', formData.focus || 'General storytelling');
       console.log('='.repeat(80));
       
-      // Generate story cut using direct OpenAI (development) or API (production)
+      // Generate story cut using unified API route (both localhost and deployed)
       console.log('🤖 Generating story cut...');
       
-      const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost';
-      let result;
+      // Build context for API call
+      console.log('🌍 Building context for API call...');
+      const { emberContextBuilders } = await import('@/lib/emberContext');
+      const emberContext = await emberContextBuilders.forStoryCut(ember.id);
       
-      if (isDevelopment) {
-        console.log('🔧 Development mode detected, calling OpenAI directly...');
-        const { generateStoryCutWithOpenAI } = await import('@/lib/emberContext');
-        
-        result = await generateStoryCutWithOpenAI({
-          emberId: ember.id,
+      const storyConversations = allStoryMessages?.messages ? 
+        allStoryMessages.messages
+          .map(msg => `[${msg.sender === 'user' ? msg.user_first_name || 'User' : 'Ember AI'}]: ${msg.content}`)
+          .join('\n\n') :
+        'No story circle conversations available yet.';
+      
+      console.log('🔍 FRONTEND DEBUG - Voice casting being sent to API:', voiceCasting);
+      console.log('🔍 FRONTEND DEBUG - Contributors array:', JSON.stringify(voiceCasting.contributors?.map(c => ({id: c.id, name: c.name})), null, 2));
+      
+      const response = await fetch('/api/generate-story-cut', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           formData,
           selectedStyle: selectedStoryStyle,
+          emberContext,
+          storyConversations,
           voiceCasting,
+          emberId: ember.id,
           contributorQuotes: selectedContributorQuotes
-        });
-      } else {
-        // Production: use API route - build context for API
-        console.log('🌍 Building context for API call...');
-        const { emberContextBuilders } = await import('@/lib/emberContext');
-        const emberContext = await emberContextBuilders.forStoryCut(ember.id);
-        
-        const storyConversations = allStoryMessages?.messages ? 
-          allStoryMessages.messages
-            .map(msg => `[${msg.sender === 'user' ? msg.user_first_name || 'User' : 'Ember AI'}]: ${msg.content}`)
-            .join('\n\n') :
-          'No story circle conversations available yet.';
-        
-        console.log('🔍 FRONTEND DEBUG - Voice casting being sent to API:', voiceCasting);
-        console.log('🔍 FRONTEND DEBUG - Contributors array:', JSON.stringify(voiceCasting.contributors?.map(c => ({id: c.id, name: c.name})), null, 2));
-        
-        const response = await fetch('/api/generate-story-cut', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            formData,
-            selectedStyle: selectedStoryStyle,
-            emberContext,
-            storyConversations,
-            voiceCasting,
-            emberId: ember.id,
-            contributorQuotes: selectedContributorQuotes
-          })
-        });
+        })
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        result = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
+
+      const result = await response.json();
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to generate story cut');
       }
 
-      // Parse the generated story cut (handle both direct result and API response formats)
+      // Parse the generated story cut
       const generatedStoryCut = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
       
       console.log('✅ Story cut generated successfully:', generatedStoryCut.title);
