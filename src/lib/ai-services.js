@@ -187,17 +187,58 @@ export async function analyzeImage(emberId, imageUrl) {
 }
 
 /**
- * Generate a story cut (if needed - currently uses API route everywhere)
- * This is here for completeness but story cuts already use API routes
+ * Generate a story cut with smart environment detection
  * @param {Object} storyCutData - The story cut data object
  * @returns {Promise<Object>} - The story cut result
  */
 export async function generateStoryCut(storyCutData) {
-  // Note: Story cuts already use API routes everywhere and work fine
-  // This function is here for completeness if we ever need environment detection for story cuts
-  console.log('📝 [AI-SERVICES] Story cuts already use unified API route approach');
+  // Smart environment detection (same pattern as other functions)
+  const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost';
   
-  // For now, this just delegates to the API route approach
-  // Could be enhanced with environment detection if needed
-  throw new Error('Story cuts already handled by EmberDetail.jsx - this function not yet implemented');
+  if (isDevelopment) {
+    // Localhost: Use direct function call with database prompts
+    console.log('🔧 [AI-SERVICES] Development mode detected - using direct function for story cut generation');
+    
+    try {
+      const { generateStoryCutWithOpenAI } = await import('./emberContext.js');
+      
+      // Use the existing direct function (already uses database prompts)
+      const result = await generateStoryCutWithOpenAI(storyCutData);
+      
+      console.log('✅ [AI-SERVICES] Direct story cut generation completed');
+      return result;
+      
+    } catch (error) {
+      console.error('❌ [AI-SERVICES] Direct story cut generation failed:', error);
+      throw error;
+    }
+    
+  } else {
+    // Deployed: Use API route with database prompts
+    console.log('🌍 [AI-SERVICES] Production mode detected - using API route for story cut generation');
+    
+    try {
+      const response = await fetch('/api/generate-story-cut', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(storyCutData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ [AI-SERVICES] API story cut generation completed');
+      
+      return result;
+      
+    } catch (error) {
+      console.error('❌ [AI-SERVICES] API story cut generation failed:', error);
+      throw error;
+    }
+  }
 } 

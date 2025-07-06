@@ -288,7 +288,7 @@ const StoryCutDetailContent = ({
                 .filter(name => name !== 'Contributor');
               
               if (contributorNames.length > 0) {
-                return `${contributorNames.join(', ')} (Contributor${contributorNames.length > 1 ? 's' : ''})`;
+                return `${contributorNames.join(', ')} (Contributor${contributorNames.length > 1 ? 's' : ''} invited)`;
               }
               return 'Contributors';
             })()}
@@ -880,6 +880,13 @@ export default function EmberDetail() {
   const [editedScript, setEditedScript] = useState('');
   const [isSavingScript, setIsSavingScript] = useState(false);
 
+  // Synchronized text display state (Option 1B: Sentence-by-Sentence)
+  const [currentDisplayText, setCurrentDisplayText] = useState('');
+  const [currentVoiceTag, setCurrentVoiceTag] = useState('');
+  const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
+  const [currentSegmentSentences, setCurrentSegmentSentences] = useState([]);
+  const [sentenceTimeouts, setSentenceTimeouts] = useState([]);
+
   // Media query hook for responsive design
   const useMediaQuery = (query) => {
     const [matches, setMatches] = useState(false);
@@ -1128,6 +1135,14 @@ export default function EmberDetail() {
       delete window.EmberDetailActions;
     };
   }, []);
+
+  // Auto-select owner's voice when story cut creator opens
+  useEffect(() => {
+    if (showStoryCutCreator && ember?.user_id && !selectedVoices.includes(ember.user_id)) {
+      console.log('🎤 Auto-selecting owner\'s voice for story cut creator');
+      setSelectedVoices(prev => [...prev, ember.user_id]);
+    }
+  }, [showStoryCutCreator, ember?.user_id]);
 
   // Helper function to format relative time
   const formatRelativeTime = (dateString) => {
@@ -1530,28 +1545,18 @@ export default function EmberDetail() {
       console.log('🔍 FRONTEND DEBUG - Voice casting being sent to API:', voiceCasting);
       console.log('🔍 FRONTEND DEBUG - Contributors array:', JSON.stringify(voiceCasting.contributors?.map(c => ({id: c.id, name: c.name})), null, 2));
       
-      const response = await fetch('/api/generate-story-cut', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          formData,
-          selectedStyle: selectedStoryStyle,
-          emberContext,
-          storyConversations,
-          voiceCasting,
-          emberId: ember.id,
-          contributorQuotes: selectedContributorQuotes
-        })
+      // Use universal function with smart environment detection
+      const { generateStoryCut } = await import('@/lib/ai-services');
+      
+      const result = await generateStoryCut({
+        formData,
+        selectedStyle: selectedStoryStyle,
+        emberContext,
+        storyConversations,
+        voiceCasting,
+        emberId: ember.id,
+        contributorQuotes: selectedContributorQuotes
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to generate story cut');
@@ -1966,6 +1971,14 @@ export default function EmberDetail() {
       }
     });
     
+    // 🎯 Clean up sentence-by-sentence display
+    sentenceTimeouts.forEach(timeout => clearTimeout(timeout));
+    setSentenceTimeouts([]);
+    setCurrentDisplayText('');
+    setCurrentVoiceTag('');
+    setCurrentSentenceIndex(0);
+    setCurrentSegmentSentences([]);
+
     // Use React 18's automatic batching - no need for setTimeout
     // The exit animation is handled by CSS transitions
     setTimeout(() => {
@@ -2063,7 +2076,14 @@ export default function EmberDetail() {
             handlePlaybackComplete,
             setActiveAudioSegments,
             playbackStoppedRef,
-            setCurrentVoiceType
+            setCurrentVoiceType,
+            // 🎯 Add sentence-by-sentence display state setters
+            setCurrentDisplayText,
+            setCurrentVoiceTag,
+            setCurrentSentenceIndex,
+            setCurrentSegmentSentences,
+            setSentenceTimeouts,
+            sentenceTimeouts
           });
         } else {
           // Fallback if no segments could be parsed
@@ -3415,6 +3435,42 @@ export default function EmberDetail() {
               </div>
           )}
 
+          {/* 🎯 Synchronized Text Display (Option 1B: Sentence-by-Sentence) */}
+          {!isGeneratingAudio && !showEndHold && !isFadingOut && currentDisplayText && (
+            <div className="absolute bottom-20 left-0 right-0 p-4 pointer-events-none z-20">
+              <div className="container mx-auto max-w-4xl">
+                <div className="bg-black/70 backdrop-blur-sm rounded-2xl p-6 shadow-2xl">
+                  {/* Current sentence text */}
+                  <p 
+                    className="text-white text-xl leading-relaxed font-medium drop-shadow-lg transition-all duration-500 ease-out"
+                    style={{
+                      animation: 'fadeInText 0.6s ease-out'
+                    }}
+                    key={currentDisplayText} // Force re-render for animation
+                  >
+                    {currentDisplayText}
+                  </p>
+                  
+                  {/* Progress indicator for sentences */}
+                  {currentSegmentSentences.length > 1 && (
+                    <div className="flex justify-center mt-4">
+                      <div className="flex gap-1">
+                        {currentSegmentSentences.map((_, index) => (
+                          <div
+                            key={index}
+                            className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                              index === currentSentenceIndex ? 'bg-white' : 'bg-white/30'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
 
 
           {/* Bottom right capsule: Play controls and exit - hide during fade-out and end hold */}
@@ -3562,6 +3618,55 @@ export default function EmberDetail() {
     console.log('📝 Parsed script segments:', segments.length, 'segments');
     return segments;
   };
+
+  // Parse text into sentences for synchronized display (Option 1B)
+  const parseSentences = (text) => {
+    if (!text) return [];
+    
+    // Split by sentence-ending punctuation, keeping the punctuation
+    const sentences = text.split(/([.!?]+)/).filter(s => s.trim()).reduce((acc, part, index, array) => {
+      if (index % 2 === 0) {
+        // This is the text part
+        const nextPart = array[index + 1];
+        const sentence = nextPart ? part + nextPart : part;
+        if (sentence.trim()) {
+          acc.push(sentence.trim());
+        }
+      }
+      return acc;
+    }, []);
+    
+    // If no sentences found, return the whole text as one sentence
+    if (sentences.length === 0) {
+      return [text.trim()];
+    }
+    
+    return sentences;
+  };
+
+  // Estimate timing for sentence display within an audio segment
+  const estimateSentenceTimings = (sentences, totalDuration) => {
+    if (!sentences || sentences.length === 0) return [];
+    
+    // Simple estimation: divide time proportionally by sentence length
+    const totalCharacters = sentences.reduce((sum, sentence) => sum + sentence.length, 0);
+    let accumulatedTime = 0;
+    
+    return sentences.map((sentence, index) => {
+      const sentenceWeight = sentence.length / totalCharacters;
+      const sentenceStartTime = accumulatedTime;
+      const sentenceDuration = totalDuration * sentenceWeight;
+      
+      accumulatedTime += sentenceDuration;
+      
+      return {
+        sentence,
+        startTime: sentenceStartTime,
+        duration: sentenceDuration,
+        index
+      };
+    });
+  };
   
   // Determine voice type for segment
   const getVoiceType = (voiceTag) => {
@@ -3704,7 +3809,22 @@ export default function EmberDetail() {
 
   // Play multiple audio segments sequentially
   const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, stateSetters) => {
-    const { setIsGeneratingAudio, setIsPlaying, handleExitPlay, handlePlaybackComplete, setActiveAudioSegments, playbackStoppedRef, setCurrentVoiceType } = stateSetters;
+    const { 
+      setIsGeneratingAudio, 
+      setIsPlaying, 
+      handleExitPlay, 
+      handlePlaybackComplete, 
+      setActiveAudioSegments, 
+      playbackStoppedRef, 
+      setCurrentVoiceType,
+      // 🎯 Sentence-by-sentence display state setters
+      setCurrentDisplayText,
+      setCurrentVoiceTag,
+      setCurrentSentenceIndex,
+      setCurrentSegmentSentences,
+      setSentenceTimeouts,
+      sentenceTimeouts
+    } = stateSetters;
     
     console.log('🎭 Starting multi-voice playback with', segments.length, 'segments');
     
@@ -3771,6 +3891,56 @@ export default function EmberDetail() {
         } else {
           console.log('🎬 Visual effect: Contributor voice - applying green overlay');
           setCurrentVoiceType('contributor');
+        }
+
+        // 🎯 Option 1B: Sentence-by-Sentence Text Display
+        const currentSegmentData = segments[currentSegmentIndex];
+        const sentences = parseSentences(currentSegmentData.content);
+        const voiceTag = currentSegmentData.voiceTag;
+        
+        console.log(`📝 Segment ${currentSegmentIndex + 1} sentences:`, sentences);
+        
+        // Set up sentence display
+        setCurrentVoiceTag(voiceTag);
+        setCurrentSegmentSentences(sentences);
+        setCurrentSentenceIndex(0);
+        
+        // Clear any existing sentence timeouts
+        sentenceTimeouts.forEach(timeout => clearTimeout(timeout));
+        setSentenceTimeouts([]);
+        
+        if (sentences.length > 0) {
+          // Show first sentence immediately
+          setCurrentDisplayText(sentences[0]);
+          console.log(`📖 Showing sentence 1/${sentences.length}: "${sentences[0]}"`);
+          
+          // Set up timers for remaining sentences if there are multiple
+          if (sentences.length > 1) {
+            // Estimate audio duration (rough estimate based on text length)
+            const estimatedDuration = Math.max(3, currentSegmentData.content.length * 0.08); // ~80ms per character
+            const timings = estimateSentenceTimings(sentences, estimatedDuration);
+            
+            console.log(`⏱️ Estimated segment duration: ${estimatedDuration}s`);
+            console.log(`⏱️ Sentence timings:`, timings);
+            
+            const newTimeouts = [];
+            
+            // Schedule remaining sentences
+            for (let i = 1; i < sentences.length; i++) {
+              const timing = timings[i];
+              const timeout = setTimeout(() => {
+                if (!playbackStoppedRef.current) {
+                  console.log(`📖 Showing sentence ${i + 1}/${sentences.length}: "${sentences[i]}"`);
+                  setCurrentDisplayText(sentences[i]);
+                  setCurrentSentenceIndex(i);
+                }
+              }, timing.startTime * 1000);
+              
+              newTimeouts.push(timeout);
+            }
+            
+            setSentenceTimeouts(newTimeouts);
+          }
         }
         
         // Handle segment completion
