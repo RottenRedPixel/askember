@@ -1,14 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client for database access
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Initialize Supabase client for database access (using same env vars as working API routes)
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseServiceKey) {
+if (!supabaseUrl || !supabaseAnonKey) {
   console.error('❌ Missing Supabase configuration');
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Database function: Get active prompt by key (copied from database.js)
 async function getActivePrompt(promptKey) {
