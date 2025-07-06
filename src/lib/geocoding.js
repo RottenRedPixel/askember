@@ -66,49 +66,23 @@ export const reverseGeocode = async (lat, lng) => {
 };
 
 /**
- * Auto-update ember with location and timestamp data from EXIF
+ * Auto-update ember with timestamp data from EXIF (immediate, synchronous)
  * @param {Object} ember - Ember record
  * @param {Object} photoResult - Result from uploadImageWithExif
  * @param {string} userId - User ID
  */
-export const autoUpdateEmberFromExif = async (ember, photoResult, userId) => {
+export const autoUpdateEmberTimestamp = async (ember, photoResult, userId) => {
   if (!ember || !photoResult || !userId) return;
   
   try {
     // Import database functions
-    const { updateEmberLocation, updateEmberDateTime } = await import('./database');
+    const { updateEmberDateTime } = await import('./database');
     
-    const { photo, exifData, hasGPS, hasTimestamp } = photoResult;
-    
-    // Auto-update location if GPS data is available
-    if (hasGPS && photo.latitude && photo.longitude) {
-      console.log('📍 Auto-updating ember location from GPS data...');
-      
-      try {
-        // Get address information via reverse geocoding
-        const locationInfo = await reverseGeocode(photo.latitude, photo.longitude);
-        
-        const locationData = {
-          latitude: photo.latitude,
-          longitude: photo.longitude,
-          altitude: photo.altitude || null,
-          address: locationInfo?.address || null,
-          city: locationInfo?.city || null,
-          state: locationInfo?.state || null,
-          country: locationInfo?.country || null,
-          location_source: 'photo'
-        };
-        
-        await updateEmberLocation(ember.id, locationData, userId);
-        console.log('✅ Location auto-updated successfully');
-      } catch (error) {
-        console.warn('⚠️ Failed to auto-update location:', error);
-      }
-    }
+    const { photo, exifData, hasTimestamp } = photoResult;
     
     // Auto-update timestamp if available
     if (hasTimestamp && photo.timestamp) {
-      console.log('🕐 Auto-updating ember timestamp from photo data...');
+      console.log('🕐 [IMMEDIATE] Auto-updating ember timestamp from photo data...');
       
       try {
         // Prepare camera settings
@@ -129,15 +103,85 @@ export const autoUpdateEmberFromExif = async (ember, photoResult, userId) => {
         };
         
         await updateEmberDateTime(ember.id, dateTimeData, userId);
-        console.log('✅ Timestamp auto-updated successfully');
+        console.log('✅ [IMMEDIATE] Timestamp auto-updated successfully');
       } catch (error) {
-        console.warn('⚠️ Failed to auto-update timestamp:', error);
+        console.warn('⚠️ [IMMEDIATE] Failed to auto-update timestamp:', error);
       }
     }
     
-    if (hasGPS || hasTimestamp) {
-      console.log('🎯 Ember auto-updated with EXIF data');
+  } catch (error) {
+    console.error('Failed to auto-update ember timestamp from EXIF:', error);
+    // Don't throw - this is a background enhancement
+  }
+};
+
+/**
+ * Auto-update ember with location data from EXIF (deferred, background processing)
+ * @param {Object} ember - Ember record
+ * @param {Object} photoResult - Result from uploadImageWithExif
+ * @param {string} userId - User ID
+ */
+export const autoUpdateEmberLocation = async (ember, photoResult, userId) => {
+  if (!ember || !photoResult || !userId) return;
+  
+  try {
+    // Import database functions
+    const { updateEmberLocation } = await import('./database');
+    
+    const { photo, exifData, hasGPS } = photoResult;
+    
+    // Auto-update location if GPS data is available
+    if (hasGPS && photo.latitude && photo.longitude) {
+      console.log('📍 [DEFERRED] Auto-updating ember location from GPS data...');
+      
+      try {
+        // Get address information via reverse geocoding
+        const locationInfo = await reverseGeocode(photo.latitude, photo.longitude);
+        
+        const locationData = {
+          latitude: photo.latitude,
+          longitude: photo.longitude,
+          altitude: photo.altitude || null,
+          address: locationInfo?.address || null,
+          city: locationInfo?.city || null,
+          state: locationInfo?.state || null,
+          country: locationInfo?.country || null,
+          location_source: 'photo'
+        };
+        
+        await updateEmberLocation(ember.id, locationData, userId);
+        console.log('✅ [DEFERRED] Location auto-updated successfully');
+        
+        return true; // Success indicator
+      } catch (error) {
+        console.warn('⚠️ [DEFERRED] Failed to auto-update location:', error);
+        return false; // Failure indicator
+      }
     }
+    
+    return false; // No GPS data available
+    
+  } catch (error) {
+    console.error('Failed to auto-update ember location from EXIF:', error);
+    return false; // Failure indicator
+  }
+};
+
+/**
+ * Auto-update ember with location and timestamp data from EXIF (legacy function)
+ * @param {Object} ember - Ember record
+ * @param {Object} photoResult - Result from uploadImageWithExif
+ * @param {string} userId - User ID
+ */
+export const autoUpdateEmberFromExif = async (ember, photoResult, userId) => {
+  if (!ember || !photoResult || !userId) return;
+  
+  try {
+    // Only do timestamp processing immediately (fast, synchronous)
+    await autoUpdateEmberTimestamp(ember, photoResult, userId);
+    
+    // Location processing is now deferred to EmberDetail.jsx (slow, async)
+    console.log('🎯 [IMMEDIATE] Ember timestamp updated - location processing deferred');
     
   } catch (error) {
     console.error('Failed to auto-update ember from EXIF:', error);

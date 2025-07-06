@@ -110,15 +110,15 @@ export default function Create() {
         console.log('Photo with EXIF data uploaded:', photoResult);
         supabaseImageUrl = photoResult.storageUrl; // Use Supabase URL for AI analysis
         
-        // Auto-update ember with location and timestamp data from EXIF
+        // Auto-update ember with timestamp data from EXIF (immediate)
         if (photoResult.success) {
           try {
-            console.log('🔄 Auto-updating ember with EXIF data...');
-            const { autoUpdateEmberFromExif } = await import('@/lib/geocoding');
-            await autoUpdateEmberFromExif(newEmber, photoResult, user.id);
-            console.log('✅ Ember auto-updated with location and timestamp data');
+            console.log('🔄 Auto-updating ember with EXIF timestamp data...');
+            const { autoUpdateEmberTimestamp } = await import('@/lib/geocoding');
+            await autoUpdateEmberTimestamp(newEmber, photoResult, user.id);
+            console.log('✅ Ember auto-updated with timestamp data - location processing deferred');
           } catch (autoUpdateError) {
-            console.warn('⚠️ Failed to auto-update ember with EXIF data:', autoUpdateError);
+            console.warn('⚠️ Failed to auto-update ember with EXIF timestamp data:', autoUpdateError);
             // Don't fail ember creation if auto-update fails
           }
         }
@@ -127,48 +127,9 @@ export default function Create() {
         // Don't fail the entire ember creation if EXIF extraction fails
       }
 
-      // Trigger AI image analysis in the background
-      try {
-        console.log('🔍 Triggering AI image analysis...');
-        
-        // Use Supabase URL if available, fallback to Vercel Blob URL
-        const analysisImageUrl = supabaseImageUrl || imageResult.url;
-        console.log('Using image URL for analysis:', analysisImageUrl);
-        
-        // Import the analysis functions dynamically to avoid loading issues
-        const { triggerImageAnalysis, saveImageAnalysis } = await import('@/lib/database');
-        
-        // Start the analysis process (don't await - let it run in background)
-        triggerImageAnalysis(newEmber.id, analysisImageUrl)
-          .then(async (analysisResult) => {
-            console.log('🔍 Analysis result received:', analysisResult);
-            if (analysisResult && analysisResult.success) {
-              // Save the analysis result
-              console.log('💾 Saving analysis result...');
-              await saveImageAnalysis(
-                newEmber.id,
-                user.id,
-                analysisResult.analysis,
-                analysisImageUrl,
-                analysisResult.model,
-                analysisResult.tokensUsed
-              );
-              console.log('✅ AI image analysis completed and saved');
-            } else {
-              console.warn('⚠️ Analysis result was not successful:', analysisResult);
-            }
-          })
-          .catch((analysisError) => {
-            console.error('❌ AI image analysis failed:', analysisError);
-            console.error('Error stack:', analysisError.stack);
-            // Analysis failure doesn't prevent ember creation
-          });
-          
-        console.log('🚀 AI analysis started in background');
-      } catch (error) {
-        console.warn('⚠️ Failed to start AI analysis (non-critical):', error);
-        // Don't fail ember creation if analysis can't be started
-      }
+      // 🎯 AI image analysis moved to EmberDetail.jsx to fix mobile navigation race condition
+      // Analysis will start automatically when user arrives at ember detail page
+      console.log('📝 Ember created successfully - AI analysis will start on detail page');
       
       // Reset form
       setSelectedImage(null);

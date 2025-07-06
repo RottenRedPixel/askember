@@ -886,6 +886,12 @@ export default function EmberDetail() {
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
   const [currentSegmentSentences, setCurrentSegmentSentences] = useState([]);
   const [sentenceTimeouts, setSentenceTimeouts] = useState([]);
+  
+  // 🎯 State for auto-analysis loading indicator
+  const [isAutoAnalyzing, setIsAutoAnalyzing] = useState(false);
+  
+  // 🎯 State for auto-location processing loading indicator
+  const [isAutoLocationProcessing, setIsAutoLocationProcessing] = useState(false);
 
   // Media query hook for responsive design
   const useMediaQuery = (query) => {
@@ -1143,6 +1149,131 @@ export default function EmberDetail() {
       setSelectedVoices(prev => [...prev, ember.user_id]);
     }
   }, [showStoryCutCreator, ember?.user_id]);
+
+  // 🎯 Auto-trigger image analysis if not yet completed (mobile fix)
+  const autoTriggerImageAnalysis = async (ember) => {
+    if (!ember?.id || !ember?.image_url || !user?.id) {
+      console.log('🔍 [AUTO-ANALYSIS] Missing required data for auto-analysis');
+      return;
+    }
+
+    // Check if analysis already exists or is in progress
+    if (ember.image_analysis_completed || imageAnalysisData || isAutoAnalyzing) {
+      console.log('🔍 [AUTO-ANALYSIS] Analysis already exists/in progress, skipping auto-trigger');
+      return;
+    }
+
+    try {
+      console.log('🔍 [AUTO-ANALYSIS] Starting automatic image analysis for ember:', ember.id);
+      console.log('📸 [AUTO-ANALYSIS] Image URL:', ember.image_url.substring(0, 50) + '...');
+
+      // Set loading state
+      setIsAutoAnalyzing(true);
+
+      // Import the analysis functions dynamically
+      const { triggerImageAnalysis, saveImageAnalysis } = await import('@/lib/database');
+
+      // Trigger the analysis
+      const analysisResult = await triggerImageAnalysis(ember.id, ember.image_url);
+      
+      if (analysisResult && analysisResult.success) {
+        console.log('💾 [AUTO-ANALYSIS] Saving analysis result...');
+        
+        // Save the analysis result
+        await saveImageAnalysis(
+          ember.id,
+          user.id,
+          analysisResult.analysis,
+          ember.image_url,
+          analysisResult.model,
+          analysisResult.tokensUsed
+        );
+        
+        console.log('✅ [AUTO-ANALYSIS] Image analysis completed and saved automatically');
+        
+        // Refresh ember data to show the analysis
+        await fetchEmber();
+        
+      } else {
+        console.warn('⚠️ [AUTO-ANALYSIS] Analysis result was not successful:', analysisResult);
+      }
+      
+    } catch (error) {
+      console.error('❌ [AUTO-ANALYSIS] Automatic image analysis failed:', error);
+      // Don't show user error for background auto-analysis - they can always trigger manually
+    } finally {
+      // Clear loading state
+      setIsAutoAnalyzing(false);
+    }
+  };
+
+  // 🎯 Auto-trigger location processing if not yet completed (Android mobile fix)
+  const autoTriggerLocationProcessing = async (ember) => {
+    if (!ember?.id || !user?.id) {
+      console.log('📍 [AUTO-LOCATION] Missing required data for auto-location processing');
+      return;
+    }
+
+    // Check if location already exists or is in progress
+    if (ember.latitude && ember.longitude || isAutoLocationProcessing) {
+      console.log('📍 [AUTO-LOCATION] Location already exists/in progress, skipping auto-trigger');
+      return;
+    }
+
+    try {
+      console.log('📍 [AUTO-LOCATION] Starting automatic location processing for ember:', ember.id);
+
+      // Set loading state
+      setIsAutoLocationProcessing(true);
+
+      // Import the photo functions dynamically
+      const { getEmberPhotos } = await import('@/lib/photos');
+      const { autoUpdateEmberLocation } = await import('@/lib/geocoding');
+
+      // Get photos for this ember
+      const photos = await getEmberPhotos(ember.id);
+      
+      if (photos && photos.length > 0) {
+        // Find the first photo with GPS data
+        const photoWithGPS = photos.find(photo => photo.latitude && photo.longitude);
+        
+        if (photoWithGPS) {
+          console.log('📍 [AUTO-LOCATION] Found photo with GPS data, processing location...');
+          
+          // Create photoResult-like object for the location processing function
+          const photoResult = {
+            success: true,
+            photo: photoWithGPS,
+            hasGPS: true,
+            hasTimestamp: !!photoWithGPS.timestamp
+          };
+          
+          // Trigger the location processing
+          const locationResult = await autoUpdateEmberLocation(ember, photoResult, user.id);
+          
+          if (locationResult) {
+            console.log('✅ [AUTO-LOCATION] Location processing completed successfully');
+            
+            // Refresh ember data to show the location
+            await fetchEmber();
+          } else {
+            console.log('📍 [AUTO-LOCATION] Location processing completed but no update needed');
+          }
+        } else {
+          console.log('📍 [AUTO-LOCATION] No photos with GPS data found for this ember');
+        }
+      } else {
+        console.log('📍 [AUTO-LOCATION] No photos found for this ember');
+      }
+      
+    } catch (error) {
+      console.error('❌ [AUTO-LOCATION] Automatic location processing failed:', error);
+      // Don't show user error for background auto-location - location isn't critical
+    } finally {
+      // Clear loading state
+      setIsAutoLocationProcessing(false);
+    }
+  };
 
   // Helper function to format relative time
   const formatRelativeTime = (dateString) => {
@@ -1761,6 +1892,12 @@ export default function EmberDetail() {
       fetchTaggedPeopleData();
       fetchStoryCuts();
       fetchSupportingMedia();
+      
+      // 🎯 Auto-trigger image analysis if needed (mobile fix)
+      autoTriggerImageAnalysis(ember);
+      
+      // 🎯 Auto-trigger location processing if needed (Android mobile fix)
+      autoTriggerLocationProcessing(ember);
     }
   }, [ember?.id]);
 
@@ -2507,6 +2644,9 @@ export default function EmberDetail() {
                       icon: MapPin,
                       title: () => 'Location',
                       description: (isComplete) => {
+                        if (isAutoLocationProcessing) {
+                          return 'Processing location...';
+                        }
                         if (isComplete) {
                           const formattedLocation = formatDisplayLocation(ember);
                           return formattedLocation || 'Location information available';
@@ -2570,6 +2710,9 @@ export default function EmberDetail() {
                       icon: Sparkles,
                       title: () => 'Image Analysis',
                       description: (isComplete) => {
+                        if (isAutoAnalyzing) {
+                          return 'Auto-analyzing image...';
+                        }
                         if (isComplete && imageAnalysisData?.tokens_used) {
                           return `${imageAnalysisData.tokens_used} tokens used to complete`;
                         }
