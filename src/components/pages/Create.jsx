@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { uploadToBlob, validateFile, getFileCategory } from '@/lib/storage';
-import { uploadImageWithExif } from '@/lib/photos';
 import { createEmber } from '@/lib/database';
 import useStore from '@/store';
 import { Upload, Image, X } from 'lucide-react';
@@ -102,34 +101,10 @@ export default function Create() {
       const newEmber = await createEmber(emberData);
       console.log('Ember created:', newEmber);
 
-      // Upload the same image with EXIF data and associate it with the ember
-      let supabaseImageUrl = null;
-      try {
-        console.log('Uploading image with EXIF data...');
-        const photoResult = await uploadImageWithExif(selectedImage, user.id, newEmber.id);
-        console.log('Photo with EXIF data uploaded:', photoResult);
-        supabaseImageUrl = photoResult.storageUrl; // Use Supabase URL for AI analysis
-        
-        // Auto-update ember with timestamp data from EXIF (immediate)
-        if (photoResult.success) {
-          try {
-            console.log('🔄 Auto-updating ember with EXIF timestamp data...');
-            const { autoUpdateEmberTimestamp } = await import('@/lib/geocoding');
-            await autoUpdateEmberTimestamp(newEmber, photoResult, user.id);
-            console.log('✅ Ember auto-updated with timestamp data - location processing deferred');
-          } catch (autoUpdateError) {
-            console.warn('⚠️ Failed to auto-update ember with EXIF timestamp data:', autoUpdateError);
-            // Don't fail ember creation if auto-update fails
-          }
-        }
-      } catch (exifError) {
-        console.warn('Failed to upload image with EXIF data:', exifError);
-        // Don't fail the entire ember creation if EXIF extraction fails
-      }
-
-      // 🎯 AI image analysis moved to EmberDetail.jsx to fix mobile navigation race condition
-      // Analysis will start automatically when user arrives at ember detail page
-      console.log('📝 Ember created successfully - AI analysis will start on detail page');
+      // 🎯 ALL post-upload processing moved to EmberDetail.jsx for ultra-fast creation
+      // EXIF processing, timestamp updates, image analysis, and location processing
+      // will all happen in the background after navigation
+      console.log('📝 Ember created successfully - all enhancement processing will start on detail page');
       
       // Reset form
       setSelectedImage(null);

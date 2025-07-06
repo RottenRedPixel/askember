@@ -892,6 +892,9 @@ export default function EmberDetail() {
   
   // 🎯 State for auto-location processing loading indicator
   const [isAutoLocationProcessing, setIsAutoLocationProcessing] = useState(false);
+  
+  // 🎯 State for EXIF processing loading indicator
+  const [isExifProcessing, setIsExifProcessing] = useState(false);
 
   // Media query hook for responsive design
   const useMediaQuery = (query) => {
@@ -1204,6 +1207,83 @@ export default function EmberDetail() {
     } finally {
       // Clear loading state
       setIsAutoAnalyzing(false);
+    }
+  };
+
+  // 🎯 Auto-trigger EXIF processing if not yet completed (ultra-fast creation)
+  const autoTriggerExifProcessing = async (ember) => {
+    if (!ember?.id || !ember?.image_url || !user?.id) {
+      console.log('📸 [AUTO-EXIF] Missing required data for auto-EXIF processing');
+      return;
+    }
+
+    // Check if EXIF processing already done or in progress
+    if (isExifProcessing) {
+      console.log('📸 [AUTO-EXIF] EXIF processing already in progress, skipping');
+      return;
+    }
+
+    // Check if we already have photos with EXIF data for this ember
+    try {
+      const { getEmberPhotos } = await import('@/lib/photos');
+      const photos = await getEmberPhotos(ember.id);
+      
+      if (photos && photos.length > 0) {
+        console.log('📸 [AUTO-EXIF] EXIF processing already completed, skipping');
+        return;
+      }
+    } catch (error) {
+      console.log('📸 [AUTO-EXIF] Could not check existing photos, proceeding with EXIF processing');
+    }
+
+    try {
+      console.log('📸 [AUTO-EXIF] Starting automatic EXIF processing for ember:', ember.id);
+      console.log('📸 [AUTO-EXIF] Image URL:', ember.image_url.substring(0, 50) + '...');
+
+      // Set loading state
+      setIsExifProcessing(true);
+
+      // Fetch the image from the blob URL
+      console.log('📸 [AUTO-EXIF] Fetching image from blob URL...');
+      const response = await fetch(ember.image_url);
+      const blob = await response.blob();
+      
+      // Convert blob to File object
+      const file = new File([blob], 'ember-image.jpg', { type: blob.type });
+      
+      // Import the photo functions dynamically
+      const { uploadImageWithExif } = await import('@/lib/photos');
+      const { autoUpdateEmberTimestamp } = await import('@/lib/geocoding');
+
+      // Process EXIF data
+      console.log('📸 [AUTO-EXIF] Processing EXIF data...');
+      const photoResult = await uploadImageWithExif(file, user.id, ember.id);
+      
+      if (photoResult.success) {
+        console.log('📸 [AUTO-EXIF] EXIF processing completed successfully');
+        
+        // Process timestamp data
+        try {
+          console.log('🕐 [AUTO-EXIF] Processing timestamp data...');
+          await autoUpdateEmberTimestamp(ember, photoResult, user.id);
+          console.log('✅ [AUTO-EXIF] Timestamp data processed successfully');
+        } catch (timestampError) {
+          console.warn('⚠️ [AUTO-EXIF] Failed to process timestamp data:', timestampError);
+        }
+        
+        // Refresh ember data to show the updates
+        await fetchEmber();
+        
+      } else {
+        console.warn('⚠️ [AUTO-EXIF] EXIF processing was not successful:', photoResult);
+      }
+      
+    } catch (error) {
+      console.error('❌ [AUTO-EXIF] Automatic EXIF processing failed:', error);
+      // Don't show user error for background auto-EXIF - not critical for user experience
+    } finally {
+      // Clear loading state
+      setIsExifProcessing(false);
     }
   };
 
@@ -1892,6 +1972,9 @@ export default function EmberDetail() {
       fetchTaggedPeopleData();
       fetchStoryCuts();
       fetchSupportingMedia();
+      
+      // 🎯 Auto-trigger EXIF processing if needed (ultra-fast creation)
+      autoTriggerExifProcessing(ember);
       
       // 🎯 Auto-trigger image analysis if needed (mobile fix)
       autoTriggerImageAnalysis(ember);
@@ -2661,6 +2744,9 @@ export default function EmberDetail() {
                       icon: Clock,
                       title: () => 'Time & Date',
                       description: (isComplete) => {
+                        if (isExifProcessing) {
+                          return 'Processing image data...';
+                        }
                         if (isComplete) {
                           const dateToShow = ember?.ember_timestamp || ember?.manual_datetime;
                           const formattedDate = formatDisplayDate(dateToShow);
