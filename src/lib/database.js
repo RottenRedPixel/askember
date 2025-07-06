@@ -1087,56 +1087,10 @@ export const triggerImageAnalysis = async (emberId, imageUrl) => {
   try {
     console.log('🚀 [DATABASE] Triggering OpenAI image analysis:', { emberId, imageUrl });
 
-    // Use unified API route for both localhost and deployed
-    console.log('🌐 [DATABASE] Making API request to /api/analyze-image');
-    
-    const response = await fetch('/api/analyze-image', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        emberId,
-        imageUrl
-      })
-    });
+    // Use universal AI service with smart environment detection
+    const { analyzeImage } = await import('./ai-services.js');
+    const result = await analyzeImage(emberId, imageUrl);
 
-    console.log('📡 [DATABASE] API response received:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries()),
-      ok: response.ok
-    });
-
-    if (!response.ok) {
-      let errorData = {};
-      let errorText = '';
-      
-      try {
-        const responseText = await response.text();
-        errorText = responseText;
-        
-        // Try to parse as JSON
-        if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
-          errorData = JSON.parse(responseText);
-        }
-      } catch (parseError) {
-        console.log('📝 [DATABASE] Could not parse error response as JSON:', parseError.message);
-      }
-      
-      const errorMessage = errorData.error || errorData.message || errorText || response.statusText || 'Unknown error';
-      
-      console.error('❌ [DATABASE] API request failed:', {
-        status: response.status,
-        statusText: response.statusText,
-        errorData,
-        errorText: errorText.substring(0, 500) // Truncate for logging
-      });
-      
-      throw new Error(`API Error (${response.status}): ${errorMessage}`);
-    }
-
-    const result = await response.json();
     console.log('✅ [DATABASE] OpenAI image analysis completed:', {
       success: result.success,
       analysisLength: result.analysis?.length,
