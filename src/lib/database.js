@@ -1087,15 +1087,7 @@ export const triggerImageAnalysis = async (emberId, imageUrl) => {
   try {
     console.log('🚀 [DATABASE] Triggering OpenAI image analysis:', { emberId, imageUrl });
 
-    // Check if we're in development and use direct OpenAI call
-    const isDevelopment = import.meta.env.MODE === 'development' || window.location.hostname === 'localhost';
-    
-    if (isDevelopment) {
-      console.log('🔧 [DATABASE] Development mode detected, calling OpenAI directly...');
-      return await analyzeImageWithOpenAI(emberId, imageUrl);
-    }
-
-    // Production: use API route
+    // Use unified API route for both localhost and deployed
     console.log('🌐 [DATABASE] Making API request to /api/analyze-image');
     
     const response = await fetch('/api/analyze-image', {
@@ -1164,56 +1156,6 @@ export const triggerImageAnalysis = async (emberId, imageUrl) => {
       throw new Error('Connection Failed: Unable to reach the API server (network or CORS issue)');
     }
     
-    throw error;
-  }
-};
-
-/**
- * Direct OpenAI image analysis for development mode
- * @param {string} emberId - Ember ID
- * @param {string} imageUrl - URL of the image to analyze
- * @returns {Promise<Object>} - Analysis result
- */
-const analyzeImageWithOpenAI = async (emberId, imageUrl) => {
-  try {
-    // Import the new prompt system
-    const { executePrompt } = await import('./promptManager.js');
-    const { emberContextBuilders } = await import('./emberContext.js');
-
-    console.log('🔍 [DATABASE] Starting prompt-based image analysis...');
-
-    // Build comprehensive ember context
-    const emberContext = await emberContextBuilders.forImageAnalysis(emberId);
-    
-    // Execute the image analysis prompt with context and image
-    const result = await executePrompt('image_analysis_comprehensive', {
-      ember_context: emberContext,
-      image_url: imageUrl,
-      image_detail: 'high'
-    }, emberId);
-
-    if (!result.success) {
-      throw new Error(result.error);
-    }
-
-    console.log('✅ [DATABASE] Prompt-based image analysis completed');
-    console.log('📊 [DATABASE] Analysis length:', result.content.length, 'characters');
-    console.log('🔧 [DATABASE] Model used:', result.model);
-    console.log('📈 [DATABASE] Tokens used:', result.tokensUsed);
-
-    return {
-      success: true,
-      analysis: result.content,
-      emberId,
-      imageUrl,
-      timestamp: new Date().toISOString(),
-      model: result.model,
-      tokensUsed: result.tokensUsed,
-      promptKey: result.promptKey
-    };
-
-  } catch (error) {
-    console.error('❌ [DATABASE] Prompt-based image analysis failed:', error);
     throw error;
   }
 };

@@ -613,50 +613,42 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
   };
 
   const handleAiSuggestion = async () => {
+    if (isAiLoading) return;
+    
+    setIsAiLoading(true);
+    setAiSuggestedName(null);
+    
     try {
-      setIsAiLoading(true);
+      // Extract all the wiki data for the ember
+      const emberData = {
+        id: ember.id,
+        title: ember.title,
+        description: ember.description,
+        location: ember.location,
+        date: ember.date,
+        time: ember.time,
+        tagged_people: ember.tagged_people,
+        supporting_media: ember.supporting_media,
+        image_analysis: ember.image_analysis
+      };
       
-      // Gather all wiki data for AI analysis
-      const emberData = { ...ember };
-      
-      // Get image analysis data if available
-      try {
-        const imageAnalysis = await getImageAnalysis(ember.id);
-        if (imageAnalysis && imageAnalysis.analysis_text) {
-          emberData.image_analysis = imageAnalysis.analysis_text;
-        }
-      } catch (analysisError) {
-        console.log('No image analysis available for title suggestion');
-      }
-      
-      // Call OpenAI API to get suggestion based on all wiki data
-      const isDevelopment = import.meta.env.DEV;
-      let data;
-      
-      if (isDevelopment) {
-        // In development, we need to import the function dynamically
-        const { generateTitlesWithOpenAI } = await import('@/lib/suggestedNames');
-        data = await generateTitlesWithOpenAI(emberData, 'single');
-      } else {
-        // In production, use the serverless API
-        const response = await fetch('/api/ai-title-suggestion', {
-          method: 'POST',  
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            emberData: emberData,
-            requestType: 'single'
-          }),
-        });
+      // Use unified API route for both localhost and deployed
+      const response = await fetch('/api/ai-title-suggestion', {
+        method: 'POST',  
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          emberData: emberData,
+          requestType: 'single'
+        }),
+      });
 
-        if (!response.ok) {
-          throw new Error('Failed to get AI suggestion');
-        }
-
-        data = await response.json();
+      if (!response.ok) {
+        throw new Error('Failed to get AI suggestion');
       }
-      
+
+      const data = await response.json();
       setAiSuggestedName(data.suggestion);
       
     } catch (error) {
