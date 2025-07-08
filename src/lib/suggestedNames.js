@@ -6,6 +6,8 @@ import { emberContextBuilders } from './emberContext';
 export async function generateTitlesWithOpenAI(emberData, requestType = 'multiple') {
   try {
     console.log('🎯 [SUGGESTED-NAMES] Starting title generation...');
+    console.log('🔍 [SUGGESTED-NAMES] Request type:', requestType);
+    console.log('🔍 [SUGGESTED-NAMES] Ember data keys:', Object.keys(emberData || {}));
     
     // Use unified API approach instead of dynamic imports
     const response = await fetch('/api/ai-title-suggestion', {
@@ -23,6 +25,7 @@ export async function generateTitlesWithOpenAI(emberData, requestType = 'multipl
     const result = await response.json();
 
     console.log('✅ [SUGGESTED-NAMES] Title generation completed');
+    console.log('🔍 [SUGGESTED-NAMES] API Response:', result);
     
     if (requestType === 'multiple') {
       // The AI service already returns the proper format
@@ -34,6 +37,8 @@ export async function generateTitlesWithOpenAI(emberData, requestType = 'multipl
         };
       } else {
         // Fallback if no suggestions returned
+        console.log('⚠️ [SUGGESTED-NAMES] No suggestions returned from API, using fallback');
+        console.log('🔍 [SUGGESTED-NAMES] result.suggestions:', result.suggestions);
         return {
           suggestions: ['Creative Title', 'Memorable Moment', 'Special Memory'],
           context: '',
@@ -49,6 +54,8 @@ export async function generateTitlesWithOpenAI(emberData, requestType = 'multipl
           tokens_used: result.tokens_used || 0
         };
       } else {
+        console.log('⚠️ [SUGGESTED-NAMES] No suggestion returned from API, using fallback');
+        console.log('🔍 [SUGGESTED-NAMES] result.suggestion:', result.suggestion);
         return {
           suggestion: 'Creative Title',
           context: '',
@@ -58,6 +65,7 @@ export async function generateTitlesWithOpenAI(emberData, requestType = 'multipl
     }
   } catch (error) {
     console.error('❌ [SUGGESTED-NAMES] Title generation failed:', error);
+    console.log('🔍 [SUGGESTED-NAMES] Request details:', { emberData, requestType });
     throw error;
   }
 }

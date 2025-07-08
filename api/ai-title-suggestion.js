@@ -94,7 +94,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { emberData, requestType = 'single' } = req.body;
+    const { emberData, type = 'single' } = req.body;
+    const requestType = type; // Frontend sends 'type', normalize to requestType
 
     if (!emberData) {
       return res.status(400).json({ error: 'Ember data is required' });
@@ -116,18 +117,17 @@ export default async function handler(req, res) {
     // Determine how many titles to request
     const titlesRequested = requestType === 'multiple' ? 3 : 1;
     
-    // Add the number of titles to context variables
+    // Build context variables to match template expectations
     const contextVariables = {
-      context,
-      titles_requested: titlesRequested,
-      format_instruction: requestType === 'multiple' 
-        ? 'Return 3 titles, one per line, without numbers or bullets.'
-        : 'Return only the title, no additional text or formatting.'
+      ember_context: context  // Template expects {{ember_context}}
     };
 
     // Replace variables in the prompt template
     const promptText = replaceVariables(prompt.user_prompt_template, contextVariables);
 
+    console.log('🔍 [API] Final prompt being sent to OpenAI:');
+    console.log(promptText);
+    console.log('🔍 [API] Request type:', requestType);
     console.log('🔍 [API] Calling OpenAI with database prompt...');
 
     // Call OpenAI API directly
@@ -159,13 +159,26 @@ export default async function handler(req, res) {
     const aiResponse = openaiData.choices[0]?.message?.content?.trim() || '';
 
     console.log('✅ [API] OpenAI response received');
+    console.log('🔍 [API] Raw AI response:', aiResponse);
     console.log('🔍 [API] Used database prompt:', prompt.name);
     console.log('🔍 [API] Model:', prompt.model);
     console.log('🔍 [API] Tokens used:', openaiData.usage?.total_tokens);
     
     if (requestType === 'multiple') {
-      // Split into array of titles
-      const titles = aiResponse.split('\n').filter(title => title.trim().length > 0).slice(0, 3);
+      // Split into array of titles and clean them up
+      let titles = aiResponse.split('\n')
+        .filter(title => title.trim().length > 0)
+        .map(title => {
+          // Remove numbers, bullets, and extra whitespace
+          return title.replace(/^\d+\.?\s*/, '').replace(/^[-•*]\s*/, '').trim();
+        })
+        .filter(title => title.length > 0);
+      
+      console.log('🔍 [API] Parsed titles:', titles);
+      
+      // Take up to 5 titles as the prompt suggests, but at least 3
+      titles = titles.slice(0, 5);
+      
       return res.status(200).json({ 
         suggestions: titles,
         context: context,
