@@ -214,9 +214,18 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('❌ [API] Title suggestion error:', error);
     
-    // If rich context failed or other errors, return obvious fallback
-    if (error.message.includes('Rich context failed') || error.message.includes('buildTitleGenerationContext')) {
-      console.log('🔍 [API] Returning fallback due to context failure');
+    // For any context-related error, return obvious fallback instead of 500 error
+    console.log('🔍 [API] Error message:', error.message);
+    console.log('🔍 [API] Error type:', error.constructor.name);
+    
+    // If it's any context building error, return fallback instead of 500
+    if (error.message.includes('Rich context failed') || 
+        error.message.includes('buildTitleGenerationContext') ||
+        error.message.includes('buildEmberContext') ||
+        error.message.includes('formatEmberContextForAI') ||
+        error.message.includes('Cannot resolve module') ||
+        error.message.includes('import')) {
+      console.log('🔍 [API] Returning fallback due to context/import failure');
       if (requestType === 'single') {
         return res.status(200).json({ 
           suggestion: 'Title 4',
