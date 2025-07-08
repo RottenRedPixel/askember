@@ -834,6 +834,7 @@ export default function EmberDetail() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [showFullscreenPlay, setShowFullscreenPlay] = useState(false);
+  const [zoomAnimationDuration, setZoomAnimationDuration] = useState(30); // Default 30 seconds
   const [currentAudio, setCurrentAudio] = useState(null);
   const [activeAudioSegments, setActiveAudioSegments] = useState([]);
   const playbackStoppedRef = useRef(false);
@@ -2278,6 +2279,10 @@ export default function EmberDetail() {
         
         setCurrentlyPlayingStoryCut(selectedStoryCut);
         
+        // Set zoom animation duration to match the story cut duration
+        setZoomAnimationDuration(selectedStoryCut.duration || 30);
+        console.log('🎬 Setting zoom animation duration to:', selectedStoryCut.duration || 30, 'seconds');
+        
         console.log('📖 Story cut script:', selectedStoryCut.full_script);
         
         // Check if we have recorded audio URLs in the story cut
@@ -2348,6 +2353,10 @@ export default function EmberDetail() {
         // Fallback to basic wiki content if no story cuts exist
         console.log('📖 No story cuts found, using basic wiki content');
         console.log('💡 Tip: Create a story cut for richer, AI-generated narration!');
+        
+        // Set default zoom animation duration for fallback content
+        setZoomAnimationDuration(15); // 15 seconds for fallback content
+        console.log('🎬 Setting zoom animation duration to: 15 seconds (fallback)');
         
         setIsGeneratingAudio(false);
         setIsPlaying(true);
@@ -3622,22 +3631,38 @@ export default function EmberDetail() {
 
       {/* Fullscreen Play Mode */}
       {showFullscreenPlay && (
-        <div 
-          className={`fixed inset-0 bg-black z-50 transition-all duration-500 ease-out ${
-            isExitingPlay ? 'opacity-0' : 'opacity-100'
-          }`}
-          style={{
-            animation: isExitingPlay ? 'fadeOut 0.5s ease-out' : 'fadeIn 0.7s ease-out'
-          }}
-        >
+        <>
+          {/* Dynamic CSS for zoom animation */}
+          <style>{`
+            @keyframes zoomInAnimation {
+              0% {
+                transform: scale(1.75);
+              }
+              100% {
+                transform: scale(1.0);
+              }
+            }
+          `}</style>
+          
+          <div 
+            className={`fixed inset-0 bg-black z-50 transition-all duration-500 ease-out ${
+              isExitingPlay ? 'opacity-0' : 'opacity-100'
+            }`}
+            style={{
+              animation: isExitingPlay ? 'fadeOut 0.5s ease-out' : 'fadeIn 0.7s ease-out'
+            }}
+          >
                     {/* Background Image - only show when not loading and not in end hold */}
           {!isGeneratingAudio && !showEndHold && (
             <img 
               src={ember.image_url} 
               alt={ember.title || 'Ember'}
-              className="absolute inset-0 w-full h-full object-cover transition-all duration-1000 ease-out"
+              className="absolute inset-0 w-full h-full object-cover"
               style={{
-                animation: isFadingOut ? 'fadeOutToBlack 3s ease-out' : 'scaleIn 3s ease-out'
+                animation: isFadingOut 
+                  ? 'fadeOutToBlack 3s ease-out' 
+                  : `zoomInAnimation ${zoomAnimationDuration}s ease-out`,
+                transformOrigin: 'center center'
               }}
             />
           )}
@@ -3773,7 +3798,8 @@ export default function EmberDetail() {
               {/* Completely black screen */}
             </div>
           )}
-        </div>
+          </div>
+        </>
       )}
 
       {/* Delete Confirmation Dialog */}
