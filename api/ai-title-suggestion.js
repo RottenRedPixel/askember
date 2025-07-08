@@ -45,33 +45,58 @@ function replaceVariables(template, variables) {
   return result;
 }
 
-// Context builder function: Build title generation context (simplified)
+// Enhanced context builder: Build rich title generation context with wiki data
 async function buildTitleGenerationContext(emberData) {
   try {
-    console.log('🔍 [API] Building title generation context for ember:', emberData.id);
+    console.log('🔍 [API] Building rich title generation context for ember:', emberData.id);
     
-    const context = {
-      title: emberData.title || '',
-      description: emberData.description || '',
-      location: emberData.location || '',
-      date: emberData.date || '',
-      time: emberData.time || '',
-      tagged_people: emberData.tagged_people || [],
-      image_analysis: emberData.image_analysis || ''
-    };
+    // Use the rich context builder from emberContext.js if available
+    let contextText = '';
     
-    // Format context as readable text
-    const contextText = `
-Title: ${context.title}
-Description: ${context.description}
-Location: ${context.location}
-Date: ${context.date}
-Time: ${context.time}
-Tagged People: ${context.tagged_people.map(p => p.name).join(', ')}
-Image Analysis: ${context.image_analysis}
-    `.trim();
+    try {
+      // Import the rich context builder
+      const emberContextModule = await import('../src/lib/emberContext.js');
+      const context = await emberContextModule.buildEmberContext(emberData.id);
+      contextText = emberContextModule.formatEmberContextForAI(context, {
+        includeSystemInfo: true,
+        includeMetadata: true,
+        includeNarrative: true,
+        includeMediaDetails: true,
+        includePeopleDetails: true,
+        maxStoryLength: 3000
+      });
+      
+      console.log('✅ [API] Rich context built successfully');
+      console.log('🔍 [API] Context length:', contextText.length, 'characters');
+      
+    } catch (richContextError) {
+      console.warn('⚠️ [API] Rich context builder failed, using basic context:', richContextError.message);
+      
+      // Fallback to basic context if rich builder fails
+      const basicContext = {
+        title: emberData.title || '',
+        description: emberData.description || '',
+        location: emberData.location || '',
+        date: emberData.date || '',
+        time: emberData.time || '',
+        tagged_people: emberData.tagged_people || [],
+        image_analysis: emberData.image_analysis || ''
+      };
+      
+      contextText = `
+=== EMBER BASIC INFO ===
+Title: ${basicContext.title}
+Description: ${basicContext.description}
+Location: ${basicContext.location}
+Date: ${basicContext.date}
+Time: ${basicContext.time}
+Tagged People: ${basicContext.tagged_people.map(p => p.name || p).join(', ')}
+
+=== IMAGE ANALYSIS ===
+${basicContext.image_analysis}
+      `.trim();
+    }
     
-    console.log('✅ [API] Context built successfully');
     return contextText;
   } catch (error) {
     console.error('❌ [API] buildTitleGenerationContext failed:', error);
@@ -103,8 +128,22 @@ export default async function handler(req, res) {
 
     console.log('🔍 [API] Loading database prompt for title generation...');
     
+    // Use different prompts for single vs multiple title generation
+    const promptKey = requestType === 'single' 
+      ? 'title_generation_single'    // For "Let Ember Try" 
+      : 'title_generation_creative'; // For multiple suggestions
+    
+    console.log('🔍 [API] Using prompt key:', promptKey, 'for request type:', requestType);
+    
     // Get the active prompt from database
-    const prompt = await getActivePrompt('title_generation_creative');
+    let prompt = await getActivePrompt(promptKey);
+    
+    // Fallback to creative prompt if single prompt doesn't exist yet
+    if (!prompt && requestType === 'single') {
+      console.log('⚠️ [API] Single title prompt not found, falling back to creative prompt');
+      prompt = await getActivePrompt('title_generation_creative');
+    }
+    
     if (!prompt) {
       throw new Error('Title generation prompt not found in database');
     }
