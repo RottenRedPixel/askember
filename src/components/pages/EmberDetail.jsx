@@ -2532,12 +2532,16 @@ export default function EmberDetail() {
               
               {/* Story Cuts button - Show for all users */}
               <button
-                className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                className="rounded-full p-1 hover:bg-white/70 transition-colors relative"
                 onClick={() => setShowEmberStoryCuts(true)}
                 aria-label="Story Cuts"
                 type="button"
               >
                 <FilmSlate size={24} className="text-gray-700" />
+                {/* Indicator dot when story cuts exist */}
+                {storyCuts.length > 0 && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full shadow-sm"></div>
+                )}
               </button>
               
               {/* Share button - View-only sharing for everyone */}
