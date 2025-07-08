@@ -131,7 +131,28 @@ export default async function handler(req, res) {
     console.log('✅ [API] Database prompt loaded:', prompt.name);
 
     // Build rich context using the specialized context builder
-    const context = await buildTitleGenerationContext(emberData);
+    let context;
+    try {
+      context = await buildTitleGenerationContext(emberData);
+    } catch (contextError) {
+      console.error('❌ [API] Context building failed:', contextError.message);
+      console.log('🔍 [API] Returning fallback due to context failure');
+      
+      // Return fallback immediately instead of continuing
+      if (requestType === 'single') {
+        return res.status(200).json({ 
+          suggestion: 'Title 4',
+          context: '',
+          tokens_used: 0
+        });
+      } else {
+        return res.status(200).json({ 
+          suggestions: ['Title 1', 'Title 2', 'Title 3'],
+          context: '',
+          tokens_used: 0
+        });
+      }
+    }
 
     // Determine how many titles to request
     const titlesRequested = requestType === 'multiple' ? 3 : 1;
