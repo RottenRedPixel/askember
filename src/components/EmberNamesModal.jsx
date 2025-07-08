@@ -632,9 +632,20 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
         image_analysis: ember.image_analysis
       };
       
-      // Use universal AI service with smart environment detection
-      const { generateTitle } = await import('@/lib/ai-services');
-      const data = await generateTitle(emberData, 'single');
+      // Use unified API approach instead of dynamic imports
+      const response = await fetch('/api/ai-title-suggestion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ emberData, type: 'single' })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
       
       setAiSuggestedName(data.suggestion);
       

@@ -1756,18 +1756,28 @@ export default function EmberDetail() {
       console.log('🔍 FRONTEND DEBUG - Voice casting being sent to API:', voiceCasting);
       console.log('🔍 FRONTEND DEBUG - Contributors array:', JSON.stringify(voiceCasting.contributors?.map(c => ({id: c.id, name: c.name})), null, 2));
       
-      // Use universal function with smart environment detection
-      const { generateStoryCut } = await import('@/lib/ai-services');
-      
-      const result = await generateStoryCut({
-        formData,
-        selectedStyle: selectedStoryStyle,
-        emberContext,
-        storyConversations,
-        voiceCasting,
-        emberId: ember.id,
-        contributorQuotes: selectedContributorQuotes
+      // Use unified API approach instead of dynamic imports
+      const response = await fetch('/api/generate-story-cut', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          formData,
+          selectedStyle: selectedStoryStyle,
+          emberContext,
+          storyConversations,
+          voiceCasting,
+          emberId: ember.id,
+          contributorQuotes: selectedContributorQuotes
+        })
       });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to generate story cut');

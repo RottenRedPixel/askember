@@ -1087,9 +1087,20 @@ export const triggerImageAnalysis = async (emberId, imageUrl) => {
   try {
     console.log('🚀 [DATABASE] Triggering OpenAI image analysis:', { emberId, imageUrl });
 
-    // Use universal AI service with smart environment detection
-    const { analyzeImage } = await import('./ai-services.js');
-    const result = await analyzeImage(emberId, imageUrl);
+    // Use unified API approach instead of dynamic imports
+    const response = await fetch('/api/analyze-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ emberId, imageUrl })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
 
     console.log('✅ [DATABASE] OpenAI image analysis completed:', {
       success: result.success,

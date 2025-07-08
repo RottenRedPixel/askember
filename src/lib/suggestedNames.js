@@ -7,9 +7,20 @@ export async function generateTitlesWithOpenAI(emberData, requestType = 'multipl
   try {
     console.log('🎯 [SUGGESTED-NAMES] Starting title generation...');
     
-    // Use the unified AI service instead of direct prompt execution
-    const { generateTitle } = await import('./ai-services.js');
-    const result = await generateTitle(emberData, requestType);
+    // Use unified API approach instead of dynamic imports
+    const response = await fetch('/api/ai-title-suggestion', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ emberData, type: requestType })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
 
     console.log('✅ [SUGGESTED-NAMES] Title generation completed');
     
