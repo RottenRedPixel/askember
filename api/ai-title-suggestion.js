@@ -70,31 +70,11 @@ async function buildTitleGenerationContext(emberData) {
       console.log('🔍 [API] Context length:', contextText.length, 'characters');
       
     } catch (richContextError) {
-      console.warn('⚠️ [API] Rich context builder failed, using basic context:', richContextError.message);
+      console.error('❌ [API] Rich context builder failed:', richContextError.message);
+      console.log('🔍 [API] Returning fallback title instead of basic context');
       
-      // Fallback to basic context if rich builder fails
-      const basicContext = {
-        title: emberData.title || '',
-        description: emberData.description || '',
-        location: emberData.location || '',
-        date: emberData.date || '',
-        time: emberData.time || '',
-        tagged_people: emberData.tagged_people || [],
-        image_analysis: emberData.image_analysis || ''
-      };
-      
-      contextText = `
-=== EMBER BASIC INFO ===
-Title: ${basicContext.title}
-Description: ${basicContext.description}
-Location: ${basicContext.location}
-Date: ${basicContext.date}
-Time: ${basicContext.time}
-Tagged People: ${basicContext.tagged_people.map(p => p.name || p).join(', ')}
-
-=== IMAGE ANALYSIS ===
-${basicContext.image_analysis}
-      `.trim();
+      // Don't use basic context - return fallback title instead
+      throw new Error('Rich context failed - using fallback title');
     }
     
     return contextText;
@@ -233,6 +213,24 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('❌ [API] Title suggestion error:', error);
+    
+    // If rich context failed or other errors, return obvious fallback
+    if (error.message.includes('Rich context failed') || error.message.includes('buildTitleGenerationContext')) {
+      console.log('🔍 [API] Returning fallback due to context failure');
+      if (requestType === 'single') {
+        return res.status(200).json({ 
+          suggestion: 'Title 4',
+          context: '',
+          tokens_used: 0
+        });
+      } else {
+        return res.status(200).json({ 
+          suggestions: ['Title 1', 'Title 2', 'Title 3'],
+          context: '',
+          tokens_used: 0
+        });
+      }
+    }
     
     if (error.code === 'insufficient_quota') {
       return res.status(429).json({ 

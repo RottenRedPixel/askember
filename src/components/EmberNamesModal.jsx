@@ -615,6 +615,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
   const handleAiSuggestion = async () => {
     if (isAiLoading) return;
     
+    console.log('🎯 [FRONTEND] Let Ember Try clicked - starting AI suggestion...');
     setIsAiLoading(true);
     setAiSuggestedName(null);
     
@@ -632,7 +633,18 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
         image_analysis: ember.image_analysis
       };
       
+      console.log('🔍 [FRONTEND] Ember data being sent:', {
+        id: emberData.id,
+        hasTitle: !!emberData.title,
+        hasDescription: !!emberData.description,
+        hasLocation: !!emberData.location,
+        hasImageAnalysis: !!emberData.image_analysis,
+        taggedPeopleCount: emberData.tagged_people?.length || 0,
+        supportingMediaCount: emberData.supporting_media?.length || 0
+      });
+      
       // Use unified API approach instead of dynamic imports
+      console.log('🔍 [FRONTEND] Calling API with type: single');
       const response = await fetch('/api/ai-title-suggestion', {
         method: 'POST',
         headers: {
@@ -647,13 +659,18 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
 
       const data = await response.json();
       
+      console.log('✅ [FRONTEND] API response received:', data);
+      console.log('🔍 [FRONTEND] AI suggestion:', data.suggestion);
+      
       setAiSuggestedName(data.suggestion);
       
     } catch (error) {
-      console.error('Error getting AI suggestion:', error);
+      console.error('❌ [FRONTEND] Error getting AI suggestion:', error);
+      console.log('🔍 [FRONTEND] Error details:', error.message);
       setMessage({ type: 'error', text: 'Failed to get AI suggestion' });
       setTimeout(() => setMessage(null), 2000);
     } finally {
+      console.log('🔍 [FRONTEND] Let Ember Try completed');
       setIsAiLoading(false);
     }
   };
