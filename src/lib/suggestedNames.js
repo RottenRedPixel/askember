@@ -4,92 +4,49 @@ import { emberContextBuilders } from './emberContext';
 
 // Function to generate titles using the new prompt management system
 export async function generateTitlesWithOpenAI(emberData, requestType = 'multiple') {
-  console.log('generateTitlesWithOpenAI called:', { emberData, requestType });
-  
   try {
-    // Build rich context using the specialized context builder
-    const context = await emberContextBuilders.buildTitleGenerationContext(emberData);
-    console.log('Final context built:', context);
-
-    // Determine how many titles to request
-    const titlesRequested = requestType === 'multiple' ? 3 : 1;
+    console.log('🎯 [SUGGESTED-NAMES] Starting title generation...');
     
-    // Add the number of titles to context variables
-    const contextVariables = {
-      context,
-      titles_requested: titlesRequested,
-      format_instruction: requestType === 'multiple' 
-        ? 'Return 3 titles, one per line, without numbers or bullets.'
-        : 'Return only the title, no additional text or formatting.'
-    };
+    // Use the unified AI service instead of direct prompt execution
+    const { generateTitle } = await import('./ai-services.js');
+    const result = await generateTitle(emberData, requestType);
 
-    // Execute the prompt using the new system
-    const result = await executePrompt('title_generation', contextVariables);
-
-    if (!result.success) {
-      throw new Error(`Failed to generate title suggestion: ${result.error}`);
-    }
-
-    const aiResponse = result.content?.trim() || '';
-    console.log('Raw AI response:', aiResponse);
+    console.log('✅ [SUGGESTED-NAMES] Title generation completed');
     
     if (requestType === 'multiple') {
-      // Parse titles more intelligently
-      let titles = aiResponse.split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0)
-        // Remove explanatory text lines
-        .filter(line => !line.toLowerCase().includes('here are') && 
-                       !line.toLowerCase().includes('suggestions') && 
-                       !line.toLowerCase().includes('provide more') &&
-                       !line.toLowerCase().includes('feel free') &&
-                       !line.toLowerCase().includes('if you can'))
-        // Clean up numbered/bulleted titles
-        .map(line => {
-          // Remove numbers (1., 2., etc.), bullets (•, -, *), and quotes
-          return line.replace(/^\d+\.\s*/, '')           // Remove "1. "
-                    .replace(/^[•\-*]\s*/, '')           // Remove "• ", "- ", "* "
-                    .replace(/^["'`]/g, '')              // Remove starting quotes
-                    .replace(/["'`]$/g, '')              // Remove ending quotes
-                    .trim();
-        })
-        .filter(line => line.length > 0 && line.length < 50) // Reasonable title length
-        .slice(0, 3); // Take first 3 valid titles
-
-      console.log('Parsed titles:', titles);
-      
-      // Fallback if parsing failed
-      if (titles.length === 0) {
-        titles = ['Creative Title', 'Memorable Moment', 'Special Memory'];
+      // The AI service already returns the proper format
+      if (result.suggestions && result.suggestions.length > 0) {
+        return { 
+          suggestions: result.suggestions,
+          context: result.context || '',
+          tokens_used: result.tokens_used || 0
+        };
+      } else {
+        // Fallback if no suggestions returned
+        return {
+          suggestions: ['Creative Title', 'Memorable Moment', 'Special Memory'],
+          context: '',
+          tokens_used: 0
+        };
       }
-      
-      return { 
-        suggestions: titles,
-        context: context,
-        tokens_used: result.tokensUsed || 0
-      };
     } else {
-      // For single titles, also clean up
-      let cleanTitle = aiResponse
-        .replace(/^\d+\.\s*/, '')           // Remove "1. "
-        .replace(/^[•\-*]\s*/, '')           // Remove bullets
-        .replace(/^["'`]/g, '')              // Remove starting quotes
-        .replace(/["'`]$/g, '')              // Remove ending quotes
-        .split('\n')[0]                      // Take first line only
-        .trim();
-      
-      if (!cleanTitle || cleanTitle.length === 0) {
-        cleanTitle = 'Creative Title';
+      // Single title request
+      if (result.suggestion) {
+        return { 
+          suggestion: result.suggestion,
+          context: result.context || '',
+          tokens_used: result.tokens_used || 0
+        };
+      } else {
+        return {
+          suggestion: 'Creative Title',
+          context: '',
+          tokens_used: 0
+        };
       }
-      
-      return { 
-        suggestion: cleanTitle,
-        context: context,
-        tokens_used: result.tokensUsed || 0
-      };
     }
   } catch (error) {
-    console.error('Error in generateTitlesWithOpenAI:', error);
+    console.error('❌ [SUGGESTED-NAMES] Title generation failed:', error);
     throw error;
   }
 }

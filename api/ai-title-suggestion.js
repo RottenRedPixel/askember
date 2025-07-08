@@ -103,7 +103,7 @@ export default async function handler(req, res) {
     console.log('🔍 [API] Loading database prompt for title generation...');
     
     // Get the active prompt from database
-    const prompt = await getActivePrompt('title_generation');
+    const prompt = await getActivePrompt('title_generation_creative');
     if (!prompt) {
       throw new Error('Title generation prompt not found in database');
     }

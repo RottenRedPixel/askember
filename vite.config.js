@@ -10,6 +10,26 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src')
     }
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://askember.ai',
+        changeOrigin: true,
+        secure: true,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('🔴 API Proxy Error:', err.message);
+          });
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('🔄 Proxying API request:', req.method, req.url, '→', 'https://askember.ai' + req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log('✅ Received response:', proxyRes.statusCode, 'for', req.url);
+          });
+        },
+      }
+    }
+  },
   build: {
     rollupOptions: {
       output: {
