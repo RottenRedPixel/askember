@@ -36,11 +36,11 @@ export async function generateTitlesWithOpenAI(emberData, requestType = 'multipl
           tokens_used: result.tokens_used || 0
         };
       } else {
-        // Fallback if no suggestions returned
-        console.log('⚠️ [SUGGESTED-NAMES] No suggestions returned from API, using fallback');
+        // Fallback if no suggestions returned - use obvious placeholders
+        console.log('⚠️ [SUGGESTED-NAMES] No suggestions returned from API, using obvious fallbacks');
         console.log('🔍 [SUGGESTED-NAMES] result.suggestions:', result.suggestions);
         return {
-          suggestions: ['Creative Title', 'Memorable Moment', 'Special Memory'],
+          suggestions: ['Title 1', 'Title 2', 'Title 3'],
           context: '',
           tokens_used: 0
         };
@@ -54,10 +54,10 @@ export async function generateTitlesWithOpenAI(emberData, requestType = 'multipl
           tokens_used: result.tokens_used || 0
         };
       } else {
-        console.log('⚠️ [SUGGESTED-NAMES] No suggestion returned from API, using fallback');
+        console.log('⚠️ [SUGGESTED-NAMES] No suggestion returned from API, using obvious fallback');
         console.log('🔍 [SUGGESTED-NAMES] result.suggestion:', result.suggestion);
         return {
-          suggestion: 'Creative Title',
+          suggestion: 'Title 4',
           context: '',
           tokens_used: 0
         };
@@ -66,7 +66,23 @@ export async function generateTitlesWithOpenAI(emberData, requestType = 'multipl
   } catch (error) {
     console.error('❌ [SUGGESTED-NAMES] Title generation failed:', error);
     console.log('🔍 [SUGGESTED-NAMES] Request details:', { emberData, requestType });
-    throw error;
+    
+    // Return obvious fallbacks instead of throwing errors
+    if (requestType === 'multiple') {
+      console.log('⚠️ [SUGGESTED-NAMES] Returning fallback titles due to error');
+      return {
+        suggestions: ['Title 1', 'Title 2', 'Title 3'],
+        context: '',
+        tokens_used: 0
+      };
+    } else {
+      console.log('⚠️ [SUGGESTED-NAMES] Returning fallback title due to error');
+      return {
+        suggestion: 'Title 4',
+        context: '',
+        tokens_used: 0
+      };
+    }
   }
 }
 
@@ -126,9 +142,9 @@ export async function initializeDefaultSuggestedNames(emberId, emberData = null)
       }
     }
     
-    // Fallback to generic names if AI fails or no ember data provided
+    // Fallback to obvious placeholders if AI fails or no ember data provided
     if (!suggestedNames || suggestedNames.length === 0) {
-      console.log('Using fallback default names - AI generation failed or returned empty');
+      console.log('⚠️ Using obvious fallback names - AI generation failed or returned empty');
       suggestedNames = [
         'Title 1',
         'Title 2',
@@ -145,8 +161,9 @@ export async function initializeDefaultSuggestedNames(emberId, emberData = null)
     return true;
   } catch (error) {
     console.error('Error initializing default suggested names:', error);
-    // Final fallback - use generic names if everything fails
+    // Final fallback - use obvious placeholders if everything fails
     try {
+      console.log('⚠️ Using final fallback names - even basic AI generation failed');
       const fallbackNames = ['Title 1', 'Title 2', 'Title 3'];
       const promises = fallbackNames.map(name => 
         addSuggestedName(emberId, name, false)
@@ -154,7 +171,7 @@ export async function initializeDefaultSuggestedNames(emberId, emberData = null)
       await Promise.all(promises);
       return true;
     } catch (fallbackError) {
-      console.error('Even fallback failed:', fallbackError);
+      console.error('❌ Even obvious fallback names failed to save:', fallbackError);
       throw error;
     }
   }
@@ -185,7 +202,8 @@ export async function generateLetEmberTryTitle(emberData) {
     const result = await generateTitlesWithOpenAI(emberData, 'single');
     return result.suggestion;
   } catch (error) {
-    console.error('Error generating Let Ember Try title:', error);
-    throw new Error('Failed to generate Let Ember Try title. Please try again.');
+    console.error('❌ Error generating Let Ember Try title:', error);
+    console.log('⚠️ Returning obvious fallback for Let Ember Try');
+    return 'Title 4';
   }
 } 
