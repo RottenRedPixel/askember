@@ -49,32 +49,58 @@ function replaceVariables(template, variables) {
 async function buildTitleGenerationContext(emberData) {
   try {
     console.log('🔍 [API] Building rich title generation context for ember:', emberData.id);
+    console.log('🔍 [API] Available emberData keys:', Object.keys(emberData));
     
-    // Use the rich context builder from emberContext.js if available
-    let contextText = '';
+    // Build context directly from the rich emberData sent from frontend
+    let contextParts = [];
     
-    try {
-      // Import the rich context builder
-      const emberContextModule = await import('../src/lib/emberContext.js');
-      const context = await emberContextModule.buildEmberContext(emberData.id);
-      contextText = emberContextModule.formatEmberContextForAI(context, {
-        includeSystemInfo: true,
-        includeMetadata: true,
-        includeNarrative: true,
-        includeMediaDetails: true,
-        includePeopleDetails: true,
-        maxStoryLength: 3000
-      });
-      
-      console.log('✅ [API] Rich context built successfully');
-      console.log('🔍 [API] Context length:', contextText.length, 'characters');
-      
-    } catch (richContextError) {
-      console.error('❌ [API] Rich context builder failed:', richContextError.message);
-      console.log('🔍 [API] Returning fallback title instead of basic context');
-      
-      // Don't use basic context - return fallback title instead
-      throw new Error('Rich context failed - using fallback title');
+    // Basic ember info
+    if (emberData.title && emberData.title !== 'Untitled Ember') {
+      contextParts.push(`Current title: ${emberData.title}`);
+    }
+    
+    if (emberData.description) {
+      contextParts.push(`Description: ${emberData.description}`);
+    }
+    
+    // Location information
+    if (emberData.location) {
+      contextParts.push(`Location: ${emberData.location}`);
+    }
+    
+    // Date and time information
+    if (emberData.date) {
+      contextParts.push(`Date: ${emberData.date}`);
+    }
+    
+    if (emberData.time) {
+      contextParts.push(`Time: ${emberData.time}`);
+    }
+    
+    // Tagged people information
+    if (emberData.tagged_people && emberData.tagged_people.length > 0) {
+      const peopleNames = emberData.tagged_people.map(person => person.person_name).join(', ');
+      contextParts.push(`People in photo: ${peopleNames} (${emberData.tagged_people.length} people)`);
+    }
+    
+    // Supporting media information
+    if (emberData.supporting_media && emberData.supporting_media.length > 0) {
+      contextParts.push(`Additional media: ${emberData.supporting_media.length} supporting files`);
+    }
+    
+    // Image analysis (most important for title generation)
+    if (emberData.image_analysis) {
+      contextParts.push(`Image analysis: ${emberData.image_analysis}`);
+    }
+    
+    const contextText = contextParts.join('\n\n');
+    
+    console.log('✅ [API] Context built successfully from emberData');
+    console.log('🔍 [API] Context length:', contextText.length, 'characters');
+    console.log('🔍 [API] Context parts included:', contextParts.length);
+    
+    if (contextText.length === 0) {
+      throw new Error('No context available - emberData appears to be empty');
     }
     
     return contextText;

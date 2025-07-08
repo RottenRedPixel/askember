@@ -620,7 +620,7 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
     setAiSuggestedName(null);
     
     try {
-      // Extract all the wiki data for the ember
+      // Start with basic ember data
       const emberData = {
         id: ember.id,
         title: ember.title,
@@ -632,6 +632,50 @@ export default function EmberNamesModal({ isOpen, onClose, ember, onEmberUpdate 
         supporting_media: ember.supporting_media,
         image_analysis: ember.image_analysis
       };
+      
+      // Fetch missing wiki data if not already in ember prop
+      console.log('🔍 [FRONTEND] Fetching missing wiki data...');
+      
+      // Get image analysis data if not already present
+      if (!emberData.image_analysis) {
+        try {
+          const imageAnalysis = await getImageAnalysis(ember.id);
+          if (imageAnalysis && imageAnalysis.analysis_text) {
+            emberData.image_analysis = imageAnalysis.analysis_text;
+            console.log('✅ [FRONTEND] Fetched image analysis data');
+          }
+        } catch (analysisError) {
+          console.log('⚠️ [FRONTEND] No image analysis available');
+        }
+      }
+      
+      // Get tagged people data if not already present
+      if (!emberData.tagged_people) {
+        try {
+          const { getEmberTaggedPeople } = await import('@/lib/database');
+          const taggedPeople = await getEmberTaggedPeople(ember.id);
+          if (taggedPeople && taggedPeople.length > 0) {
+            emberData.tagged_people = taggedPeople;
+            console.log('✅ [FRONTEND] Fetched tagged people data:', taggedPeople.length, 'people');
+          }
+        } catch (taggedError) {
+          console.log('⚠️ [FRONTEND] No tagged people data available');
+        }
+      }
+      
+      // Get supporting media data if not already present
+      if (!emberData.supporting_media) {
+        try {
+          const { getEmberSupportingMedia } = await import('@/lib/database');
+          const supportingMedia = await getEmberSupportingMedia(ember.id);
+          if (supportingMedia && supportingMedia.length > 0) {
+            emberData.supporting_media = supportingMedia;
+            console.log('✅ [FRONTEND] Fetched supporting media data:', supportingMedia.length, 'files');
+          }
+        } catch (mediaError) {
+          console.log('⚠️ [FRONTEND] No supporting media data available');
+        }
+      }
       
       console.log('🔍 [FRONTEND] Ember data being sent:', {
         id: emberData.id,
