@@ -340,38 +340,7 @@ const ModalContent = ({
 
           {/* Recording Controls */}
           <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant={isRecording ? "destructive" : "outline"}
-                size="sm"
-                onClick={isRecording ? stopRecording : startRecording}
-                disabled={isProcessing}
-                className="flex items-center gap-2 h-9"
-              >
-                {isRecording ? (
-                  <>
-                    <MicOff size={16} />
-                    Stop ({recordingDuration}s)
-                  </>
-                ) : (
-                  <>
-                    <Mic size={16} />
-                    Record
-                  </>
-                )}
-              </Button>
-
-              {/* Microphone Selection Combobox */}
-              {availableMicrophones.length > 1 && (
-                <MicrophoneCombobox 
-                  microphones={availableMicrophones}
-                  selectedMicrophone={selectedMicrophone}
-                  onSelectMicrophone={setSelectedMicrophone}
-                  disabled={isProcessing}
-                />
-              )}
-
+            <div className="flex items-center gap-3 justify-end">
               {hasRecording && (
                 <Button
                   type="button"
@@ -385,6 +354,37 @@ const ModalContent = ({
                   {isPlaying ? 'Pause' : 'Play'}
                 </Button>
               )}
+
+              {/* Microphone Selection Combobox */}
+              {availableMicrophones.length > 1 && (
+                <MicrophoneCombobox 
+                  microphones={availableMicrophones}
+                  selectedMicrophone={selectedMicrophone}
+                  onSelectMicrophone={setSelectedMicrophone}
+                  disabled={isProcessing}
+                />
+              )}
+
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={isProcessing}
+                className="flex items-center gap-2 h-9 !bg-red-600 !text-white hover:!bg-red-700"
+              >
+                {isRecording ? (
+                  <>
+                    <MicOff size={16} />
+                    Stop ({recordingDuration}s)
+                  </>
+                ) : (
+                  <>
+                    <Mic size={16} />
+                    Record Your Answer
+                  </>
+                )}
+              </Button>
             </div>
             
             {/* Submit Response Button - Full Width */}
