@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
+import { updateUserVoiceModel, getUserVoiceModel } from '@/lib/database';
 
 export default function Settings() {
   const { user, userProfile, fetchUserProfile } = useStore();
@@ -19,6 +20,12 @@ export default function Settings() {
     firstName: '',
     lastName: '',
     avatarUrl: ''
+  });
+  
+  // Voice model form state
+  const [voiceData, setVoiceData] = useState({
+    elevenlabsVoiceId: '',
+    elevenlabsVoiceName: ''
   });
   
   // Password form state
@@ -35,6 +42,12 @@ export default function Settings() {
         firstName: userProfile.first_name || '',
         lastName: userProfile.last_name || '',
         avatarUrl: userProfile.avatar_url || ''
+      });
+      
+      // Load voice model data
+      setVoiceData({
+        elevenlabsVoiceId: userProfile.elevenlabs_voice_id || '',
+        elevenlabsVoiceName: userProfile.elevenlabs_voice_name || ''
       });
     }
   }, [userProfile]);
@@ -75,6 +88,37 @@ export default function Settings() {
       await fetchUserProfile(user.id);
       
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update voice model
+  const handleVoiceModelUpdate = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+
+    // Validate voice ID format (ElevenLabs voice IDs are typically alphanumeric)
+    if (voiceData.elevenlabsVoiceId && !/^[a-zA-Z0-9_-]+$/.test(voiceData.elevenlabsVoiceId)) {
+      setMessage({ type: 'error', text: 'Voice ID contains invalid characters' });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      await updateUserVoiceModel(
+        user.id, 
+        voiceData.elevenlabsVoiceId || null, 
+        voiceData.elevenlabsVoiceName || null
+      );
+
+      // Refresh the user profile in the store
+      await fetchUserProfile(user.id);
+      
+      setMessage({ type: 'success', text: 'Voice model updated successfully!' });
     } catch (error) {
       setMessage({ type: 'error', text: error.message });
     } finally {
@@ -308,6 +352,84 @@ export default function Settings() {
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? 'Updating...' : 'Update Password'}
               </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Voice Model */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Voice Model</CardTitle>
+            <CardDescription>
+              Associate your account with an ElevenLabs voice model for personalized story narration
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleVoiceModelUpdate} className="space-y-4">
+              <div className="space-y-3">
+                <Label htmlFor="elevenlabsVoiceId">ElevenLabs Voice ID</Label>
+                <Input
+                  id="elevenlabsVoiceId"
+                  value={voiceData.elevenlabsVoiceId}
+                  onChange={(e) => setVoiceData(prev => ({ ...prev, elevenlabsVoiceId: e.target.value }))}
+                  placeholder="e.g., 21m00Tcm4TlvDq8ikWAM"
+                />
+                <p className="text-xs text-gray-500">
+                  Your ElevenLabs voice ID from your voice library
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="elevenlabsVoiceName">Voice Name (Display)</Label>
+                <Input
+                  id="elevenlabsVoiceName"
+                  value={voiceData.elevenlabsVoiceName}
+                  onChange={(e) => setVoiceData(prev => ({ ...prev, elevenlabsVoiceName: e.target.value }))}
+                  placeholder="e.g., My Personal Voice"
+                />
+                <p className="text-xs text-gray-500">
+                  A friendly name for your voice model
+                </p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-blue-800 mb-2">How to find your Voice ID:</h4>
+                <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+                  <li>Go to ElevenLabs Voice Library</li>
+                  <li>Click on your voice model</li>
+                  <li>Copy the Voice ID from the URL or settings</li>
+                  <li>Paste it in the field above</li>
+                </ol>
+              </div>
+
+              <div className="flex space-x-2">
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Updating...' : 'Update Voice Model'}
+                </Button>
+                
+                {(voiceData.elevenlabsVoiceId || voiceData.elevenlabsVoiceName) && (
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={() => {
+                      setVoiceData({ elevenlabsVoiceId: '', elevenlabsVoiceName: '' });
+                    }}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+
+              {voiceData.elevenlabsVoiceId && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm text-green-800">
+                    ✅ Voice model configured: <strong>{voiceData.elevenlabsVoiceName || 'Unnamed Voice'}</strong>
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Your voice will be used when you're selected as a contributor in story cuts
+                  </p>
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>

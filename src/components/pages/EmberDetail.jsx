@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Label } from '@/components/ui/label';
-import { getEmber, updateEmberTitle, saveStoryCut, getStoryCutsForEmber, getAllStoryMessagesForEmber, deleteStoryCut, setPrimaryStoryCut, getPrimaryStoryCut, getEmberSupportingMedia } from '@/lib/database';
+import { getEmber, updateEmberTitle, saveStoryCut, getStoryCutsForEmber, getAllStoryMessagesForEmber, deleteStoryCut, setPrimaryStoryCut, getPrimaryStoryCut, getEmberSupportingMedia, getUserVoiceModel, getStoryCutAudioPreferences, updateMessageAudioPreference } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,161 @@ import { textToSpeech, getVoices } from '@/lib/elevenlabs';
 // Prompts functionality has been removed
 import { cn } from '@/lib/utils';
 import useStore from '@/store';
+
+// ✅ Per-Message Audio Controls Component
+const OwnerMessageAudioControls = ({ line, messageIndex, messageType, storyMessages, ember, storyCutId }) => {
+  const [messagePreferences, setMessagePreferences] = useState({});
+  
+  // Expose data globally for debugging
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.storyMessages = storyMessages;
+    }
+  }, [storyMessages]);
+  
+  // Load preferences from database when component mounts
+  useEffect(() => {
+    const loadPreferences = async () => {
+      if (!storyCutId) return;
+      
+      try {
+        const savedPreferences = await getStoryCutAudioPreferences(storyCutId);
+        if (savedPreferences) {
+          setMessagePreferences(savedPreferences);
+        }
+      } catch (error) {
+        console.error('Error loading audio preferences:', error);
+      }
+    };
+    
+    loadPreferences();
+  }, [storyCutId]);
+  
+  // Analyze this specific message
+  useEffect(() => {
+    const analyzeMessage = async () => {
+      if (!line || !storyMessages?.length || !ember?.user_id) return;
+      
+      const messageKey = `${messageIndex}-${line.substring(0, 50)}`;
+      
+      try {
+        // Check if owner has a personal voice model
+        const userVoiceModel = await getUserVoiceModel(ember.user_id);
+        const hasPersonalVoice = userVoiceModel && userVoiceModel.elevenlabs_voice_id;
+        
+                 // Check if this message has recorded audio
+         const hasRecordedAudio = messageType === 'audio';
+         
+         console.log(`🎤 Message ${messageIndex}: Recorded=${hasRecordedAudio}, Personal Voice=${hasPersonalVoice}, Type=${messageType}`);
+         
+         // Set smart defaults based on message type and available options
+         let defaultPreference = 'text'; // fallback default
+         
+         if (messageType === 'audio') {
+           // Audio messages: prefer recorded → personal voice → text response
+           if (hasRecordedAudio) {
+             defaultPreference = 'recorded';
+           } else if (hasPersonalVoice) {
+             defaultPreference = 'personal';
+           } else {
+             defaultPreference = 'text';
+           }
+                   } else {
+            // Text messages: prefer text response → personal voice (no recorded option)
+            defaultPreference = 'text'; // Text messages naturally default to text response
+          }
+         
+         setMessagePreferences(prev => ({
+           ...prev,
+           [messageKey]: prev[messageKey] || defaultPreference
+         }));
+               } catch (error) {
+         console.log(`⚠️ Error analyzing message ${messageIndex}:`, error.message);
+         // Still show controls even if there's an error - text response is always available
+         setMessagePreferences(prev => ({
+           ...prev,
+           [messageKey]: prev[messageKey] || 'text'
+         }));
+       }
+    };
+    
+    analyzeMessage();
+  }, [line, messageIndex, messageType, storyMessages, ember]);
+  
+  // Store preferences globally for audio generation
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.messageAudioPreferences = messagePreferences;
+    }
+  }, [messagePreferences]);
+  
+  const handlePreferenceChange = async (messageKey, preference) => {
+    // Update local state immediately
+    setMessagePreferences(prev => ({
+      ...prev,
+      [messageKey]: preference
+    }));
+    
+    // Save to database
+    if (storyCutId) {
+      try {
+        await updateMessageAudioPreference(storyCutId, messageKey, preference);
+        console.log(`✅ Saved preference for message ${messageIndex}: ${preference}`);
+      } catch (error) {
+        console.error('Error saving audio preference:', error);
+      }
+    }
+  };
+  
+     // Show contextual controls based on original message type
+     const messageKey = `${messageIndex}-${line.substring(0, 50)}`;
+     const showRecordedOption = messageType === 'audio'; // Only show "Recorded" if original was audio
+   
+   return (
+     <div className="flex items-center space-x-2 text-xs">
+       {/* 🎙️ Recorded - Only show for original audio messages */}
+       {showRecordedOption && (
+         <label className="flex items-center space-x-1 cursor-pointer">
+           <input
+             type="radio"
+             name={`message-${messageKey}`}
+             value="recorded"
+             checked={messagePreferences[messageKey] === 'recorded'}
+             onChange={(e) => handlePreferenceChange(messageKey, e.target.value)}
+             className="text-green-600 focus:ring-green-500 w-3 h-3"
+           />
+           <span className="text-xs text-gray-700">🎙️ Recorded</span>
+         </label>
+       )}
+       
+       {/* 🎤 Synth Voice - Always available */}
+       <label className="flex items-center space-x-1 cursor-pointer">
+         <input
+           type="radio"
+           name={`message-${messageKey}`}
+           value="personal"
+           checked={messagePreferences[messageKey] === 'personal'}
+           onChange={(e) => handlePreferenceChange(messageKey, e.target.value)}
+           className="text-green-600 focus:ring-green-500 w-3 h-3"
+         />
+         <span className="text-xs text-gray-700">🎤 Synth Voice</span>
+       </label>
+       
+       {/* 📝 Text Response - Always available */}
+       <label className="flex items-center space-x-1 cursor-pointer">
+         <input
+           type="radio"
+           name={`message-${messageKey}`}
+           value="text"
+           checked={messagePreferences[messageKey] === 'text'}
+           onChange={(e) => handlePreferenceChange(messageKey, e.target.value)}
+           className="text-green-600 focus:ring-green-500 w-3 h-3"
+         />
+         <span className="text-xs text-gray-700">📝 Text Response</span>
+       </label>
+     </div>
+   );
+};
 
 // ✅ Extract StoryModalContent OUTSIDE the main component (prevents cursor jumping)
 const StoryCutDetailContent = ({ 
@@ -143,6 +298,7 @@ const StoryCutDetailContent = ({
           <div className="text-gray-700">{selectedStoryCut.narrator_voice_name}</div>
         </div>
       </div>
+
     </div>
 
     {/* Voice Lines Breakdown */}
@@ -255,15 +411,25 @@ const StoryCutDetailContent = ({
                 
                 return (
                   <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
-                  <p className="text-green-700">{line}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-green-500 animate-pulse' : 'bg-green-400'}`}></div>
-                    <span className="text-xs opacity-70">
-                      {messageType === 'audio' ? 'Audio message' : 'Text response'}
-                    </span>
+                    <p className="text-green-700">{line}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-green-500 animate-pulse' : 'bg-green-400'}`}></div>
+                        <span className="text-xs opacity-70">
+                          {messageType === 'audio' ? 'Audio message' : 'Text response'}
+                        </span>
+                      </div>
+                      <OwnerMessageAudioControls
+                        line={line}
+                        messageIndex={index}
+                        messageType={messageType}
+                        storyMessages={storyMessages}
+                        ember={ember}
+                        storyCutId={selectedStoryCut.id}
+                      />
+                    </div>
                   </div>
-                </div>
-              );
+                );
             })}
           </div>
         </div>
@@ -1137,7 +1303,11 @@ export default function EmberDetail() {
       openStoryCutCreator: () => {
         setShowStoryCutCreator(true);
       },
-      refreshStoryCuts: fetchStoryCuts
+      refreshStoryCuts: fetchStoryCuts,
+      // 🐛 DEBUG: Expose debug helper globally
+      debugRecordedAudio: (recordedAudio, scriptSegments) => {
+        debugRecordedAudio(recordedAudio, scriptSegments);
+      }
     };
 
     // Cleanup
@@ -3944,6 +4114,64 @@ export default function EmberDetail() {
     return 'contributor'; // Everything else is a contributor (user name)
   };
 
+  // 🐛 DEBUG HELPER: Inspect recorded audio data
+  const debugRecordedAudio = (recordedAudio, scriptSegments) => {
+    console.log('🐛 ===== RECORDED AUDIO DEBUG REPORT =====');
+    console.log('🎙️ Available recorded audio:');
+    Object.entries(recordedAudio).forEach(([userId, audioData]) => {
+      console.log(`  📤 User ${userId}:`);
+      console.log(`    - Name: "${audioData.user_first_name}"`);
+      console.log(`    - Message: "${audioData.message_content}"`);
+      console.log(`    - Audio URL: ${audioData.audio_url ? '✅ EXISTS' : '❌ MISSING'}`);
+      console.log(`    - Duration: ${audioData.audio_duration_seconds}s`);
+    });
+    
+    console.log('\n📝 Script segments requiring recorded audio:');
+    scriptSegments.filter(seg => seg.type === 'contributor').forEach((segment, index) => {
+      console.log(`  📋 Segment ${index + 1}:`);
+      console.log(`    - Voice Tag: "${segment.voiceTag}"`);
+      console.log(`    - Content: "${segment.content}"`);
+      console.log(`    - Type: ${segment.type}`);
+      
+      // Check for matches
+      const matches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
+        const nameMatches = audioData.user_first_name === segment.voiceTag;
+        const recordedContent = audioData.message_content?.toLowerCase() || '';
+        const segmentContent = segment.content.toLowerCase();
+        const contentMatches = recordedContent === segmentContent || 
+                             recordedContent.includes(segmentContent) ||
+                             segmentContent.includes(recordedContent);
+        return nameMatches && contentMatches;
+      });
+      
+      if (matches.length > 0) {
+        console.log(`    - 🎙️ MATCH FOUND: User ${matches[0][0]} (${matches[0][1].user_first_name})`);
+      } else {
+        console.log(`    - ❌ NO MATCH`);
+        console.log(`    - Available names: ${Object.values(recordedAudio).map(a => a.user_first_name).join(', ')}`);
+        
+        // Check for personal voice model as fallback
+        const nameMatches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
+          return audioData.user_first_name === segment.voiceTag;
+        });
+        
+        if (nameMatches.length > 0) {
+          const [userId] = nameMatches[0];
+          getUserVoiceModel(userId).then(voiceModel => {
+            if (voiceModel && voiceModel.elevenlabs_voice_id) {
+              console.log(`    - 🎤 Personal Voice Model Available: ${voiceModel.elevenlabs_voice_name}`);
+            } else {
+              console.log(`    - 🎤 No personal voice model available`);
+            }
+          }).catch(err => {
+            console.log(`    - ⚠️ Error checking voice model: ${err.message}`);
+          });
+        }
+      }
+    });
+    console.log('🐛 ===== END DEBUG REPORT =====');
+  };
+
   // Generate audio for a single voice segment
   const generateSegmentAudio = async (segment, storyCut, recordedAudio) => {
     const { voiceTag, content, type } = segment;
@@ -3951,77 +4179,337 @@ export default function EmberDetail() {
     console.log(`🎵 Generating audio for [${voiceTag}]: "${content.substring(0, 50)}..."`);
     console.log(`🔍 Segment type: ${type}`);
     
+    // 🐛 ENHANCED DEBUG: Log all available recorded audio
+    console.log('🐛 DEBUG - All recorded audio available:');
+    Object.entries(recordedAudio).forEach(([userId, audioData]) => {
+      console.log(`  - User ${userId} (${audioData.user_first_name}): "${audioData.message_content?.substring(0, 50)}..."`);
+      console.log(`    Audio URL: ${audioData.audio_url ? 'EXISTS' : 'MISSING'}`);
+    });
+    
     try {
       if (type === 'contributor') {
-        // Look for recorded audio by matching voice tag (user first name) AND content similarity
-        const userWithRecordedAudio = Object.entries(recordedAudio).find(([userId, audioData]) => {
-          // First check if the user name matches
-          if (audioData.user_first_name !== voiceTag) {
-            return false;
+        console.log(`🐛 DEBUG - Looking for recorded audio for contributor: ${voiceTag}`);
+        console.log(`🐛 DEBUG - Script content: "${content}"`);
+        
+        // Check per-message preference for this content
+        const messageKey = `${content.substring(0, 50)}`;
+        let userPreference = 'recorded'; // default
+        
+        // Look for matching message preference
+        if (window.messageAudioPreferences) {
+          const matchingKey = Object.keys(window.messageAudioPreferences).find(key => 
+            key.includes(messageKey) || content.includes(key.split('-')[1])
+          );
+          if (matchingKey) {
+            userPreference = window.messageAudioPreferences[matchingKey];
           }
-          
-          // Then check if the content is similar (for now, exact match or contains check)
-          const recordedContent = audioData.message_content?.toLowerCase() || '';
-          const segmentContent = content.toLowerCase();
-          
-          // Check for exact match or if the recorded content contains the segment content
-          return recordedContent === segmentContent || 
-                 recordedContent.includes(segmentContent) ||
-                 segmentContent.includes(recordedContent);
+        }
+        
+        console.log(`🎤 User preference for "${content.substring(0, 30)}...": ${userPreference}`);
+        
+        // Find the user ID by matching the voice tag (first name) with recorded audio data
+        const matchingUserId = Object.entries(recordedAudio).find(([userId, audioData]) => {
+          return audioData.user_first_name === voiceTag;
         });
         
-        if (userWithRecordedAudio) {
-          const [userId, audioData] = userWithRecordedAudio;
-          console.log(`🎙️ Using recorded audio for ${voiceTag}: "${content}"`);
-          console.log(`🔗 Matched with recorded: "${audioData.message_content}"`);
-          console.log(`🔗 Audio URL:`, audioData.audio_url);
-          
-          // Create a direct audio element from the recorded URL
-          const audio = new Audio(audioData.audio_url);
-          return {
-            type: 'recorded',
-            audio,
-            url: audioData.audio_url,
-            voiceTag,
-            content
-          };
+        if (!matchingUserId) {
+          console.log(`🔍 Could not find user ID for voice tag: ${voiceTag}`);
+          // Jump to final fallback
         } else {
-          // No matching recorded audio - use available voice to attribute the quote
-          console.log(`🔊 No matching recorded audio for ${voiceTag}: "${content}"`);
+          const [userId, audioData] = matchingUserId;
+          console.log(`🔍 Found user ID for ${voiceTag}: ${userId}`);
           
-          // Try narrator first, then ember as fallback
-          let fallbackVoiceId = null;
-          let fallbackVoiceName = null;
+          // Check for recorded audio match
+          const hasRecordedAudio = (() => {
+            const recordedContent = audioData.message_content?.toLowerCase() || '';
+            const segmentContent = content.toLowerCase();
+            
+            console.log(`  - Recorded content: "${recordedContent}"`);
+            console.log(`  - Segment content: "${segmentContent}"`);
+            
+            const exactMatch = recordedContent === segmentContent;
+            const recordedContainsSegment = recordedContent.includes(segmentContent);
+            const segmentContainsRecorded = segmentContent.includes(recordedContent);
+            
+            console.log(`  - Exact match: ${exactMatch}`);
+            console.log(`  - Recorded contains segment: ${recordedContainsSegment}`);
+            console.log(`  - Segment contains recorded: ${segmentContainsRecorded}`);
+            
+            const contentMatches = exactMatch || recordedContainsSegment || segmentContainsRecorded;
+            console.log(`  - Content match result: ${contentMatches}`);
+            
+            return contentMatches && audioData.audio_url;
+          })();
           
-          if (storyCut.narrator_voice_id) {
-            fallbackVoiceId = storyCut.narrator_voice_id;
-            fallbackVoiceName = 'narrator';
-            console.log(`🎤 Using narrator voice to say "${voiceTag} said..."`);
-          } else if (storyCut.ember_voice_id) {
-            fallbackVoiceId = storyCut.ember_voice_id;
-            fallbackVoiceName = 'ember';
-            console.log(`🎤 Using ember voice to say "${voiceTag} said..." (narrator not available)`);
-          } else {
-            throw new Error(`No voice available to synthesize contributor quote from ${voiceTag}`);
+          // Check for personal voice model
+          let userVoiceModel = null;
+          try {
+            userVoiceModel = await getUserVoiceModel(userId);
+          } catch (error) {
+            console.log(`⚠️ Error fetching voice model for ${voiceTag}:`, error.message);
           }
           
-          // Format content with attribution using fallback voice
-          const narratedContent = `${voiceTag} said, "${content}"`;
+          const hasPersonalVoice = userVoiceModel && userVoiceModel.elevenlabs_voice_id;
           
-          const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
-          const audioUrl = URL.createObjectURL(audioBlob);
-          const audio = new Audio(audioUrl);
+          console.log(`🎤 ${voiceTag} audio options:`);
+          console.log(`  - Recorded audio: ${hasRecordedAudio ? '✅' : '❌'}`);
+          console.log(`  - Personal voice: ${hasPersonalVoice ? '✅' : '❌'} ${hasPersonalVoice ? `(${userVoiceModel.elevenlabs_voice_name})` : ''}`);
+          console.log(`  - User preference: ${userPreference}`);
           
-          return {
-            type: 'synthesized',
-            audio,
-            url: audioUrl,
-            blob: audioBlob,
-            voiceTag,
-            content: narratedContent,
-            fallbackVoice: fallbackVoiceName
-          };
+          // Decide which audio to use based on availability and preference
+          if (userPreference === 'text') {
+            // User wants basic text response - use narrator or ember voice for basic TTS
+            console.log(`📝 ✅ Using basic text response for ${voiceTag}`);
+            
+            let fallbackVoiceId = null;
+            let fallbackVoiceName = null;
+            
+            if (storyCut.narrator_voice_id) {
+              fallbackVoiceId = storyCut.narrator_voice_id;
+              fallbackVoiceName = 'narrator';
+              console.log(`🎤 Using narrator voice for text response`);
+            } else if (storyCut.ember_voice_id) {
+              fallbackVoiceId = storyCut.ember_voice_id;
+              fallbackVoiceName = 'ember';
+              console.log(`🎤 Using ember voice for text response`);
+            } else {
+              throw new Error(`No voice available for text response from ${voiceTag}`);
+            }
+            
+            // Use attribution style with fallback voice
+            const narratedContent = `${voiceTag} said, "${content}"`;
+            const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            return {
+              type: 'text_response',
+              audio,
+              url: audioUrl,
+              blob: audioBlob,
+              voiceTag,
+              content: narratedContent,
+              fallbackVoice: fallbackVoiceName
+            };
+          } else if (userPreference === 'personal' && hasPersonalVoice) {
+            // User wants personal voice model and it's available
+            console.log(`🎙️ ✅ Using personal voice model for ${voiceTag} (user preference)`);
+            console.log(`🎤 Personal voice ID: ${userVoiceModel.elevenlabs_voice_id}`);
+            
+            const audioBlob = await textToSpeech(content, userVoiceModel.elevenlabs_voice_id);
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            return {
+              type: 'personal_voice_model',
+              audio,
+              url: audioUrl,
+              blob: audioBlob,
+              voiceTag,
+              content,
+              personalVoice: userVoiceModel.elevenlabs_voice_name
+            };
+          } else if (userPreference === 'recorded' && hasRecordedAudio) {
+            // User wants recorded audio and it's available
+            console.log(`🎙️ ✅ Using recorded audio for ${voiceTag} (user preference)`);
+            console.log(`🔗 Matched with recorded: "${audioData.message_content}"`);
+            console.log(`🔗 Audio URL:`, audioData.audio_url);
+            
+            const audio = new Audio(audioData.audio_url);
+            return {
+              type: 'recorded',
+              audio,
+              url: audioData.audio_url,
+              voiceTag,
+              content
+            };
+          } else if (userPreference === 'recorded' && hasRecordedAudio) {
+            // User wants recorded audio and it's available
+            console.log(`🎙️ ✅ Using recorded audio for ${voiceTag} (user preference)`);
+            console.log(`🔗 Matched with recorded: "${audioData.message_content}"`);
+            console.log(`🔗 Audio URL:`, audioData.audio_url);
+            
+            const audio = new Audio(audioData.audio_url);
+            return {
+              type: 'recorded',
+              audio,
+              url: audioData.audio_url,
+              voiceTag,
+              content
+            };
+          } else if (userPreference === 'recorded' && !hasRecordedAudio) {
+            // User wants "recorded" but no recorded audio exists - fallback to text response
+            console.log(`⚠️ User wanted recorded audio but none available for ${voiceTag} - falling back to text response`);
+            
+            let fallbackVoiceId = null;
+            let fallbackVoiceName = null;
+            
+            if (hasPersonalVoice) {
+              fallbackVoiceId = userVoiceModel.elevenlabs_voice_id;
+              fallbackVoiceName = userVoiceModel.elevenlabs_voice_name;
+              console.log(`🎤 Using personal voice for attribution`);
+            } else if (storyCut.narrator_voice_id) {
+              fallbackVoiceId = storyCut.narrator_voice_id;
+              fallbackVoiceName = 'narrator';
+              console.log(`🎤 Using narrator voice for attribution`);
+            } else if (storyCut.ember_voice_id) {
+              fallbackVoiceId = storyCut.ember_voice_id;
+              fallbackVoiceName = 'ember';
+              console.log(`🎤 Using ember voice for attribution`);
+            } else {
+              throw new Error(`No voice available for fallback attribution from ${voiceTag}`);
+            }
+            
+            const narratedContent = `${voiceTag} said, "${content}"`;
+            const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            return {
+              type: 'attribution_fallback',
+              audio,
+              url: audioUrl,
+              blob: audioBlob,
+              voiceTag,
+              content: narratedContent,
+              fallbackVoice: fallbackVoiceName
+            };
+          } else if (userPreference === 'personal' && !hasPersonalVoice) {
+            // User wants personal voice but none available - fallback to text response
+            console.log(`⚠️ User wanted personal voice but none available for ${voiceTag} - falling back to text response`);
+            
+            let fallbackVoiceId = null;
+            let fallbackVoiceName = null;
+            
+            if (storyCut.narrator_voice_id) {
+              fallbackVoiceId = storyCut.narrator_voice_id;
+              fallbackVoiceName = 'narrator';
+              console.log(`🎤 Using narrator voice for text response fallback`);
+            } else if (storyCut.ember_voice_id) {
+              fallbackVoiceId = storyCut.ember_voice_id;
+              fallbackVoiceName = 'ember';
+              console.log(`🎤 Using ember voice for text response fallback`);
+            } else {
+              throw new Error(`No voice available for text response fallback from ${voiceTag}`);
+            }
+            
+            const narratedContent = `${voiceTag} said, "${content}"`;
+            const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            return {
+              type: 'text_response_fallback',
+              audio,
+              url: audioUrl,
+              blob: audioBlob,
+              voiceTag,
+              content: narratedContent,
+              fallbackVoice: fallbackVoiceName
+            };
+          } else {
+            // Final fallback - use whatever is available
+            console.log(`🔄 Using final fallback logic for ${voiceTag}`);
+            
+            if (hasRecordedAudio) {
+              console.log(`🎙️ ✅ Using recorded audio (final fallback)`);
+              const audio = new Audio(audioData.audio_url);
+              return {
+                type: 'recorded',
+                audio,
+                url: audioData.audio_url,
+                voiceTag,
+                content
+              };
+            } else if (hasPersonalVoice) {
+              console.log(`🎤 ✅ Using personal voice model (final fallback)`);
+              const audioBlob = await textToSpeech(content, userVoiceModel.elevenlabs_voice_id);
+              const audioUrl = URL.createObjectURL(audioBlob);
+              const audio = new Audio(audioUrl);
+              
+              return {
+                type: 'personal_voice_model',
+                audio,
+                url: audioUrl,
+                blob: audioBlob,
+                voiceTag,
+                content,
+                personalVoice: userVoiceModel.elevenlabs_voice_name
+              };
+            } else {
+              // Ultimate fallback - use narrator/ember voice
+              console.log(`📝 ✅ Using text response (ultimate fallback)`);
+              
+              let fallbackVoiceId = null;
+              let fallbackVoiceName = null;
+              
+              if (storyCut.narrator_voice_id) {
+                fallbackVoiceId = storyCut.narrator_voice_id;
+                fallbackVoiceName = 'narrator';
+              } else if (storyCut.ember_voice_id) {
+                fallbackVoiceId = storyCut.ember_voice_id;
+                fallbackVoiceName = 'ember';
+              } else {
+                throw new Error(`No voice available for ultimate fallback from ${voiceTag}`);
+              }
+              
+              const narratedContent = `${voiceTag} said, "${content}"`;
+              const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+              const audioUrl = URL.createObjectURL(audioBlob);
+              const audio = new Audio(audioUrl);
+              
+              return {
+                type: 'text_response',
+                audio,
+                url: audioUrl,
+                blob: audioBlob,
+                voiceTag,
+                content: narratedContent,
+                fallbackVoice: fallbackVoiceName
+              };
+            }
+          }
         }
+        
+        // Final fallback - use narrator/ember voice with attribution
+        console.log(`🐛 DEBUG - Falling back to attribution for ${voiceTag}`);
+        console.log(`🐛 DEBUG - Reasons for no match:`);
+        console.log(`  - Available users: ${Object.keys(recordedAudio).map(userId => recordedAudio[userId].user_first_name).join(', ')}`);
+        console.log(`  - Looking for: ${voiceTag}`);
+        console.log(`  - Script content: "${content}"`);
+        
+        // Try narrator first, then ember as fallback
+        let fallbackVoiceId = null;
+        let fallbackVoiceName = null;
+        
+        if (storyCut.narrator_voice_id) {
+          fallbackVoiceId = storyCut.narrator_voice_id;
+          fallbackVoiceName = 'narrator';
+          console.log(`🎤 Using narrator voice to say "${voiceTag} said..."`);
+        } else if (storyCut.ember_voice_id) {
+          fallbackVoiceId = storyCut.ember_voice_id;
+          fallbackVoiceName = 'ember';
+          console.log(`🎤 Using ember voice to say "${voiceTag} said..." (narrator not available)`);
+        } else {
+          throw new Error(`No voice available to synthesize contributor quote from ${voiceTag}`);
+        }
+        
+        // Format content with attribution using fallback voice
+        const narratedContent = `${voiceTag} said, "${content}"`;
+        
+        const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        
+        return {
+          type: 'synthesized',
+          audio,
+          url: audioUrl,
+          blob: audioBlob,
+          voiceTag,
+          content: narratedContent,
+          fallbackVoice: fallbackVoiceName
+        };
       } else if (type === 'ember') {
         // Use ember voice
         console.log(`🌟 Using ember voice for: ${content.substring(0, 30)}...`);
@@ -4096,6 +4584,9 @@ export default function EmberDetail() {
     } = stateSetters;
     
     console.log('🎭 Starting multi-voice playback with', segments.length, 'segments');
+    
+    // 🐛 DEBUG: Run debug helper to analyze recorded audio matching
+    debugRecordedAudio(recordedAudio, segments);
     
     // Reset playback flag
     playbackStoppedRef.current = false;

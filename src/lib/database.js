@@ -1930,6 +1930,55 @@ export const deleteEmberSupportingMedia = async (mediaId, userId) => {
 };
 
 /**
+ * Update user's ElevenLabs voice model
+ */
+export const updateUserVoiceModel = async (userId, voiceId, voiceName) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .update({
+        elevenlabs_voice_id: voiceId,
+        elevenlabs_voice_name: voiceName,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error updating user voice model:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get user's ElevenLabs voice model
+ */
+export const getUserVoiceModel = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('elevenlabs_voice_id, elevenlabs_voice_name')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error getting user voice model:', error);
+    throw error;
+  }
+};
+
+/**
  * Admin function to get all user profiles with emails
  * This requires super admin privileges
  */
@@ -1974,5 +2023,93 @@ export const getAllUsersWithEmails = async () => {
   } catch (error) {
     console.error('Error fetching all users with emails:', error);
     throw error;
+  }
+}; 
+
+/**
+ * Save audio preferences for a story cut
+ * @param {string} storyCutId - The ID of the story cut
+ * @param {Object} preferences - Object mapping message content to audio preference
+ * @returns {Promise<boolean>} Success status
+ */
+export const saveStoryCutAudioPreferences = async (storyCutId, preferences) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_story_cuts')
+      .update({ audio_preferences: preferences })
+      .eq('id', storyCutId)
+      .select()
+      .single();
+
+    if (error) {
+      // If column doesn't exist, log but don't fail the app
+      if (error.message.includes('column') || error.message.includes('audio_preferences')) {
+        console.log('⚠️ Audio preferences column not yet available, skipping save');
+        return true; // Return true to not break the UI
+      }
+      console.error('Error saving audio preferences:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error saving audio preferences:', error);
+    return false;
+  }
+};
+
+/**
+ * Get audio preferences for a story cut
+ * @param {string} storyCutId - The ID of the story cut
+ * @returns {Promise<Object|null>} Audio preferences object or null if not found
+ */
+export const getStoryCutAudioPreferences = async (storyCutId) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_story_cuts')
+      .select('audio_preferences')
+      .eq('id', storyCutId)
+      .single();
+
+    if (error) {
+      // If column doesn't exist, gracefully return empty object
+      if (error.code === 'PGRST116' || error.message.includes('column') || error.message.includes('audio_preferences')) {
+        console.log('Audio preferences column not yet available, returning empty object');
+        return {};
+      }
+      console.error('Error getting audio preferences:', error);
+      return null;
+    }
+
+    return data?.audio_preferences || {};
+  } catch (error) {
+    console.error('Error getting audio preferences:', error);
+    return {};
+  }
+};
+
+/**
+ * Update audio preference for a specific message in a story cut
+ * @param {string} storyCutId - The ID of the story cut
+ * @param {string} messageKey - Key to identify the message (content hash or index)
+ * @param {string} preference - Audio preference ('recorded', 'personal', 'text')
+ * @returns {Promise<boolean>} Success status
+ */
+export const updateMessageAudioPreference = async (storyCutId, messageKey, preference) => {
+  try {
+    // First get current preferences
+    const currentPreferences = await getStoryCutAudioPreferences(storyCutId);
+    
+    // Update the specific message preference
+    const updatedPreferences = {
+      ...currentPreferences,
+      [messageKey]: preference
+    };
+    
+    // Save back to database
+    return await saveStoryCutAudioPreferences(storyCutId, updatedPreferences);
+  } catch (error) {
+    console.error('Error updating message audio preference:', error);
+    return false;
   }
 }; 

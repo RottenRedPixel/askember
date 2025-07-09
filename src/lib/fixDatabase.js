@@ -391,6 +391,110 @@ export async function testDatabaseFunctions() {
 }
 
 /**
+ * Add ElevenLabs voice ID fields to user profiles
+ */
+export async function addElevenLabsVoiceToUsers() {
+  try {
+    console.log('🎤 Adding ElevenLabs voice fields to user profiles...');
+    
+    const migrationSQL = `
+      -- Add ElevenLabs voice fields to user_profiles table
+      ALTER TABLE user_profiles 
+      ADD COLUMN IF NOT EXISTS elevenlabs_voice_id VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS elevenlabs_voice_name VARCHAR(100);
+      
+      -- Add indexes for performance
+      CREATE INDEX IF NOT EXISTS idx_user_profiles_elevenlabs_voice_id ON user_profiles(elevenlabs_voice_id);
+    `;
+    
+    // Split into statements
+    const statements = migrationSQL
+      .split(';')
+      .map(stmt => stmt.trim())
+      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
+    
+    console.log(`📋 Executing ${statements.length} SQL statements...`);
+    
+    const results = [];
+    
+    for (let i = 0; i < statements.length; i++) {
+      const statement = statements[i];
+      
+      if (!statement.trim()) continue;
+      
+      console.log(`📍 Statement ${i + 1}/${statements.length}: ${statement.substring(0, 50)}...`);
+      
+      try {
+        const { data, error } = await supabase.rpc('execute_sql', { sql_query: statement });
+        
+        if (error) {
+          console.warn(`⚠️ Statement ${i + 1} warning:`, error.message);
+          results.push({
+            statement: i + 1,
+            success: false,
+            error: error.message,
+            sql: statement.substring(0, 50) + '...'
+          });
+        } else {
+          console.log(`✅ Statement ${i + 1} success`);
+          results.push({
+            statement: i + 1,
+            success: true,
+            sql: statement.substring(0, 50) + '...'
+          });
+        }
+        
+      } catch (error) {
+        console.warn(`⚠️ Statement ${i + 1} exception:`, error.message);
+        results.push({
+          statement: i + 1,
+          success: false,
+          error: error.message,
+          sql: statement.substring(0, 50) + '...'
+        });
+      }
+    }
+    
+    const successCount = results.filter(r => r.success).length;
+    const errorCount = results.filter(r => !r.success).length;
+    
+    console.log(`📊 Migration complete: ${successCount} successful, ${errorCount} errors/warnings`);
+    
+    // Test the new fields by checking the table schema
+    console.log('🧪 Testing new fields...');
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('elevenlabs_voice_id, elevenlabs_voice_name')
+        .limit(1);
+      
+      if (error) {
+        console.log('❌ New fields test failed:', error.message);
+      } else {
+        console.log('✅ New fields are accessible');
+      }
+    } catch (error) {
+      console.log('❌ New fields test exception:', error.message);
+    }
+    
+    return {
+      success: successCount > 0,
+      totalStatements: statements.length,
+      successCount,
+      errorCount,
+      results
+    };
+    
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
  * Quick fix - just run this to fix your database
  */
 export async function quickFix() {
@@ -413,8 +517,10 @@ if (typeof window !== 'undefined') {
     quickFix,
     fixPromptsDatabase,
     checkPromptsTable,
-    testDatabaseFunctions
+    testDatabaseFunctions,
+    addElevenLabsVoiceToUsers
   };
   
   console.log('💡 Database fix utilities loaded! Run window.fixDatabase.quickFix() to fix your database.');
+  console.log('🎤 To add ElevenLabs voice fields, run: window.fixDatabase.addElevenLabsVoiceToUsers()');
 } 
