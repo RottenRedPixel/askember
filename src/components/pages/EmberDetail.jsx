@@ -205,7 +205,8 @@ const StoryCutDetailContent = ({
   getStyleDisplayName,
   formatRelativeTime,
   storyMessages,
-  ember
+  ember,
+  formatScriptForDisplay
 }) => (
   <div className="space-y-6">
     {/* Story Cut Info */}
@@ -277,9 +278,61 @@ const StoryCutDetailContent = ({
         </div>
       ) : (
         <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <p className="text-gray-700 leading-relaxed whitespace-pre-line font-mono text-sm">
-            {selectedStoryCut.full_script}
-          </p>
+          <div className="text-gray-700 leading-relaxed font-mono text-sm space-y-4">
+            {formatScriptForDisplay(selectedStoryCut.full_script).split('\n\n').map((line, index) => {
+              // Parse voice tag and content
+              const voiceMatch = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+              if (!voiceMatch) return <div key={index}>{line}</div>;
+              
+              const [, voiceTag, content] = voiceMatch;
+              
+              // Split content into text and visual actions
+              const parts = [];
+              let currentIndex = 0;
+              const visualActionRegex = /<([^>]+)>/g;
+              let match;
+              
+              while ((match = visualActionRegex.exec(content)) !== null) {
+                // Add text before the visual action
+                if (match.index > currentIndex) {
+                  parts.push({
+                    type: 'text',
+                    content: content.slice(currentIndex, match.index)
+                  });
+                }
+                
+                // Add the visual action
+                parts.push({
+                  type: 'visual',
+                  content: `<${match[1]}>`
+                });
+                
+                currentIndex = match.index + match[0].length;
+              }
+              
+              // Add remaining text
+              if (currentIndex < content.length) {
+                parts.push({
+                  type: 'text',
+                  content: content.slice(currentIndex)
+                });
+              }
+              
+              return (
+                <div key={index} className="leading-relaxed">
+                  <span className="font-semibold">[{voiceTag}]</span>{' '}
+                  {parts.map((part, partIndex) => (
+                    <span 
+                      key={partIndex}
+                      className={part.type === 'visual' ? 'text-green-600 font-medium' : ''}
+                    >
+                      {part.content}
+                    </span>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -3766,6 +3819,7 @@ export default function EmberDetail() {
                     formatRelativeTime={formatRelativeTime}
                     storyMessages={storyMessages}
                     ember={ember}
+                    formatScriptForDisplay={formatScriptForDisplay}
                   />
                 </div>
               </DrawerContent>
@@ -3796,6 +3850,7 @@ export default function EmberDetail() {
                   formatRelativeTime={formatRelativeTime}
                   storyMessages={storyMessages}
                   ember={ember}
+                  formatScriptForDisplay={formatScriptForDisplay}
                 />
               </DialogContent>
             </Dialog>
@@ -4042,19 +4097,64 @@ export default function EmberDetail() {
       
       if (voiceMatch) {
         const voiceTag = voiceMatch[1].trim();
-        const content = voiceMatch[2].trim();
+        let content = voiceMatch[2].trim();
+        const voiceType = getVoiceType(voiceTag);
         
-        if (content) {
+        // Extract existing visual actions if any and clean the content for audio
+        const existingVisualActions = [];
+        let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
+          existingVisualActions.push(action);
+          return '';
+        }).trim();
+        
+        // Add default colorization based on voice type (if no COLORIZE action exists)
+        let colorizeAction = '';
+        const hasColorizeAction = existingVisualActions.some(action => action.startsWith('COLORIZE:'));
+        
+        if (!hasColorizeAction) {
+          switch (voiceType) {
+            case 'ember':
+              colorizeAction = '<COLORIZE:r=255,g=0,b=0,opacity=0.2>';
+              break;
+            case 'narrator':
+              colorizeAction = '<COLORIZE:r=0,g=0,b=255,opacity=0.2>';
+              break;
+            case 'contributor':
+              colorizeAction = '<COLORIZE:r=0,g=255,b=0,opacity=0.2>';
+              break;
+          }
+        }
+        
+        // Reconstruct content with visual actions FOR DISPLAY
+        const allVisualActions = existingVisualActions.map(action => `<${action}>`).join('');
+        const finalContent = `${colorizeAction}${allVisualActions} ${cleanContent}`.trim();
+        
+        if (cleanContent) {
           segments.push({
             voiceTag,
-            content,
-            type: getVoiceType(voiceTag)
+            content: finalContent, // For display (includes visual actions)
+            originalContent: cleanContent, // For audio synthesis (clean text only)
+            type: voiceType,
+            visualActions: existingVisualActions,
+            hasAutoColorize: !hasColorizeAction
           });
         }
       }
     }
     
     console.log('📝 Parsed script segments:', segments.length, 'segments');
+    console.log('🎨 Applied auto-colorization based on voice types:');
+    segments.forEach((segment, index) => {
+      if (segment.hasAutoColorize) {
+        const colorMap = {
+          ember: 'RED (255,0,0,0.2)',
+          narrator: 'BLUE (0,0,255,0.2)', 
+          contributor: 'GREEN (0,255,0,0.2)'
+        };
+        console.log(`  ${index + 1}. [${segment.voiceTag}] → ${colorMap[segment.type]}`);
+      }
+    });
+    
     return segments;
   };
 
@@ -4112,6 +4212,20 @@ export default function EmberDetail() {
     if (voiceTag === 'EMBER VOICE') return 'ember';
     if (voiceTag === 'NARRATOR') return 'narrator';
     return 'contributor'; // Everything else is a contributor (user name)
+  };
+
+  // Format script for display with visual actions and spacing
+  const formatScriptForDisplay = (script) => {
+    if (!script) return '';
+    
+    const segments = parseScriptSegments(script);
+    
+    return segments.map(segment => {
+      const { voiceTag, content } = segment;
+      
+      // Add double line breaks between segments for spacing
+      return `[${voiceTag}] ${content}`;
+    }).join('\n\n');
   };
 
   // 🐛 DEBUG HELPER: Inspect recorded audio data
@@ -4174,10 +4288,15 @@ export default function EmberDetail() {
 
   // Generate audio for a single voice segment
   const generateSegmentAudio = async (segment, storyCut, recordedAudio) => {
-    const { voiceTag, content, type } = segment;
+    const { voiceTag, content, originalContent, type } = segment;
     
-    console.log(`🎵 Generating audio for [${voiceTag}]: "${content.substring(0, 50)}..."`);
+    // Use originalContent for audio synthesis, content for display/matching
+    const audioContent = originalContent || content;
+    
+    console.log(`🎵 Generating audio for [${voiceTag}]: "${audioContent.substring(0, 50)}..."`);
     console.log(`🔍 Segment type: ${type}`);
+    console.log(`🎨 Full content with visual actions: "${content}"`);
+    console.log(`🎙️ Audio content (no visual actions): "${audioContent}"`);
     
     // 🐛 ENHANCED DEBUG: Log all available recorded audio
     console.log('🐛 DEBUG - All recorded audio available:');
@@ -4189,7 +4308,7 @@ export default function EmberDetail() {
     try {
       if (type === 'contributor') {
         console.log(`🐛 DEBUG - Looking for recorded audio for contributor: ${voiceTag}`);
-        console.log(`🐛 DEBUG - Script content: "${content}"`);
+        console.log(`🐛 DEBUG - Script content: "${audioContent}"`);
         
         // Check per-message preference for this content
         let userPreference = 'recorded'; // default
@@ -4199,7 +4318,7 @@ export default function EmberDetail() {
           // Strategy 1: Try to find exact content match
           const matchingKey = Object.keys(window.messageAudioPreferences).find(key => {
             const keyContent = key.split('-').slice(1).join('-'); // Remove messageIndex prefix
-            return keyContent === content.substring(0, 50) || content.includes(keyContent);
+            return keyContent === audioContent.substring(0, 50) || audioContent.includes(keyContent);
           });
           
           if (matchingKey) {
@@ -4209,20 +4328,20 @@ export default function EmberDetail() {
             // Strategy 2: Try partial content matching
             const partialMatch = Object.keys(window.messageAudioPreferences).find(key => {
               const keyContent = key.split('-').slice(1).join('-');
-              return keyContent.length > 10 && content.includes(keyContent);
+              return keyContent.length > 10 && audioContent.includes(keyContent);
             });
             
             if (partialMatch) {
               userPreference = window.messageAudioPreferences[partialMatch];
               console.log(`🎯 Found partial preference match: "${partialMatch}" → ${userPreference}`);
             } else {
-              console.log(`⚠️ No preference match found for content: "${content.substring(0, 50)}..."`);
+              console.log(`⚠️ No preference match found for content: "${audioContent.substring(0, 50)}..."`);
               console.log(`⚠️ Available preferences:`, Object.keys(window.messageAudioPreferences));
             }
           }
         }
         
-        console.log(`🎤 User preference for "${content.substring(0, 30)}...": ${userPreference}`);
+        console.log(`🎤 User preference for "${audioContent.substring(0, 30)}...": ${userPreference}`);
         console.log(`🔍 All available preferences:`, window.messageAudioPreferences);
         
         // Find the user ID by matching the voice tag (first name) with recorded audio data
@@ -4240,7 +4359,7 @@ export default function EmberDetail() {
           // Check for recorded audio match
           const hasRecordedAudio = (() => {
             const recordedContent = audioData.message_content?.toLowerCase() || '';
-            const segmentContent = content.toLowerCase();
+            const segmentContent = audioContent.toLowerCase();
             
             console.log(`  - Recorded content: "${recordedContent}"`);
             console.log(`  - Segment content: "${segmentContent}"`);
@@ -4299,7 +4418,7 @@ export default function EmberDetail() {
             }
             
             // Use attribution style with fallback voice
-            const narratedContent = `${voiceTag} said, "${content}"`;
+            const narratedContent = `${voiceTag} said, "${audioContent}"`;
             const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
@@ -4321,7 +4440,7 @@ export default function EmberDetail() {
             // Use the original transcribed text if this is a recorded message, otherwise use script content
             const textToSynthesize = hasRecordedAudio && audioData.message_content 
               ? audioData.message_content 
-              : content;
+              : audioContent;
               
             console.log(`📝 Synthesizing text: "${textToSynthesize.substring(0, 50)}..." (${hasRecordedAudio ? 'from recording' : 'from script'})`);
             
@@ -4336,7 +4455,7 @@ export default function EmberDetail() {
               blob: audioBlob,
               voiceTag,
               content: textToSynthesize,
-              originalContent: content,
+              originalContent: audioContent,
               personalVoice: userVoiceModel.elevenlabs_voice_name,
               sourceType: hasRecordedAudio ? 'transcription' : 'script'
             };
@@ -4528,7 +4647,7 @@ export default function EmberDetail() {
                 throw new Error(`No voice available for ultimate fallback from ${voiceTag}`);
               }
               
-              const narratedContent = `${voiceTag} said, "${content}"`;
+              const narratedContent = `${voiceTag} said, "${audioContent}"`;
               const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
               const audioUrl = URL.createObjectURL(audioBlob);
               const audio = new Audio(audioUrl);
@@ -4551,7 +4670,7 @@ export default function EmberDetail() {
         console.log(`🐛 DEBUG - Reasons for no match:`);
         console.log(`  - Available users: ${Object.keys(recordedAudio).map(userId => recordedAudio[userId].user_first_name).join(', ')}`);
         console.log(`  - Looking for: ${voiceTag}`);
-        console.log(`  - Script content: "${content}"`);
+        console.log(`  - Script content: "${audioContent}"`);
         
         // Try narrator first, then ember as fallback
         let fallbackVoiceId = null;
@@ -4570,7 +4689,7 @@ export default function EmberDetail() {
         }
         
         // Format content with attribution using fallback voice
-        const narratedContent = `${voiceTag} said, "${content}"`;
+        const narratedContent = `${voiceTag} said, "${audioContent}"`;
         
         const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
         const audioUrl = URL.createObjectURL(audioBlob);
@@ -4587,14 +4706,14 @@ export default function EmberDetail() {
         };
       } else if (type === 'ember') {
         // Use ember voice
-        console.log(`🌟 Using ember voice for: ${content.substring(0, 30)}...`);
+        console.log(`🌟 Using ember voice for: ${audioContent.substring(0, 30)}...`);
         console.log(`🎤 Ember voice ID:`, storyCut.ember_voice_id);
         
         if (!storyCut.ember_voice_id) {
           throw new Error(`Ember voice ID is missing: ${storyCut.ember_voice_id}`);
         }
         
-        const audioBlob = await textToSpeech(content, storyCut.ember_voice_id);
+        const audioBlob = await textToSpeech(audioContent, storyCut.ember_voice_id);
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
         
@@ -4604,18 +4723,18 @@ export default function EmberDetail() {
           url: audioUrl,
           blob: audioBlob,
           voiceTag,
-          content
+          content: audioContent
         };
       } else if (type === 'narrator') {
         // Use narrator voice
-        console.log(`📢 Using narrator voice for: ${content.substring(0, 30)}...`);
+        console.log(`📢 Using narrator voice for: ${audioContent.substring(0, 30)}...`);
         console.log(`🎤 Narrator voice ID:`, storyCut.narrator_voice_id);
         
         if (!storyCut.narrator_voice_id) {
           throw new Error(`Narrator voice ID is missing: ${storyCut.narrator_voice_id}`);
         }
         
-        const audioBlob = await textToSpeech(content, storyCut.narrator_voice_id);
+        const audioBlob = await textToSpeech(audioContent, storyCut.narrator_voice_id);
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
         
@@ -4625,7 +4744,7 @@ export default function EmberDetail() {
           url: audioUrl,
           blob: audioBlob,
           voiceTag,
-          content
+          content: audioContent
         };
       }
     } catch (error) {
@@ -4672,7 +4791,7 @@ export default function EmberDetail() {
       const audioSegments = [];
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
-        console.log(`🔧 Generating segment ${i + 1}/${segments.length}: [${segment.voiceTag}] "${segment.content}"`);
+        console.log(`🔧 Generating segment ${i + 1}/${segments.length}: [${segment.voiceTag}] "${segment.originalContent || segment.content}"`);
         
         try {
           const audioSegment = await generateSegmentAudio(segment, storyCut, recordedAudio);
@@ -4680,7 +4799,7 @@ export default function EmberDetail() {
           console.log(`✅ Generated segment ${i + 1}: [${segment.voiceTag}]`);
         } catch (segmentError) {
           console.error(`❌ Failed to generate segment ${i + 1} [${segment.voiceTag}]:`, segmentError);
-          console.error(`❌ Segment content: "${segment.content}"`);
+          console.error(`❌ Segment content: "${segment.originalContent || segment.content}"`);
           console.error(`❌ Segment type: ${segment.type}`);
           throw new Error(`Failed to generate audio for segment "${segment.voiceTag}": ${segmentError.message}`);
         }
@@ -4730,10 +4849,10 @@ export default function EmberDetail() {
 
         // 🎯 Option 1B: Sentence-by-Sentence Text Display
         const currentSegmentData = segments[currentSegmentIndex];
-        const sentences = parseSentences(currentSegmentData.content);
+        const sentences = parseSentences(currentSegmentData.originalContent || currentSegmentData.content);
         const voiceTag = currentSegmentData.voiceTag;
         
-        console.log(`📝 Segment ${currentSegmentIndex + 1} sentences:`, sentences);
+        console.log(`📝 Segment ${currentSegmentIndex + 1} sentences (clean):`, sentences);
         
         // Set up sentence display
         setCurrentVoiceTag(voiceTag);
@@ -4752,7 +4871,8 @@ export default function EmberDetail() {
           // Set up timers for remaining sentences if there are multiple
           if (sentences.length > 1) {
             // Estimate audio duration (rough estimate based on text length)
-            const estimatedDuration = Math.max(3, currentSegmentData.content.length * 0.08); // ~80ms per character
+            const cleanContent = currentSegmentData.originalContent || currentSegmentData.content;
+            const estimatedDuration = Math.max(3, cleanContent.length * 0.08); // ~80ms per character
             const timings = estimateSentenceTimings(sentences, estimatedDuration);
             
             console.log(`⏱️ Estimated segment duration: ${estimatedDuration}s`);
