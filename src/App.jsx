@@ -17,7 +17,6 @@ import AdminLayout from './components/admin/layout/AdminLayout';
 import AdminDashboard from './components/admin/dashboard/AdminDashboard';
 import UserManagement from './components/admin/users/UserManagement';
 import PromptManagement from './components/admin/prompts/PromptManagement';
-import AdminTools from './components/admin/tools/AdminTools';
 import { addPrimaryStoryCutColumn } from './lib/database';
 import './App.css'
 
@@ -74,7 +73,6 @@ export default function App() {
                     <Route path="/" element={<AdminDashboard />} />
                     <Route path="/users" element={<UserManagement />} />
                     <Route path="/prompts" element={<PromptManagement />} />
-                    <Route path="/tools" element={<AdminTools />} />
                   </Routes>
                 </AdminLayout>
               </AdminGuard>

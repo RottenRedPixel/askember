@@ -4,7 +4,6 @@ import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../ui/tabs';
 import { 
-  Plus, 
   Edit, 
   Trash2, 
   Clock,
@@ -73,6 +72,42 @@ const PromptManagement = () => {
         setCurrentView('editor');
       }
     }
+    
+    // Handle TITLE TRY tab - open directly to edit view
+    if (activeTab === 'title1x' && prompts.length > 0) {
+      const titleTryPrompt = prompts.find(prompt => 
+        prompt.prompt_key?.includes('title_generation_single') ||
+        prompt.title?.toLowerCase().includes('let ember try') ||
+        (prompt.title?.toLowerCase().includes('title') && 
+         prompt.description?.toLowerCase().includes('single title'))
+      );
+      
+      if (titleTryPrompt) {
+        setSelectedPrompt(titleTryPrompt);
+        setCurrentView('editor');
+      }
+    }
+    
+    // Handle TITLE 3X tab - open directly to edit view
+    if (activeTab === 'title3x' && prompts.length > 0) {
+      const title3xPrompt = prompts.find(prompt => 
+        prompt.prompt_key?.includes('title_generation_creative') ||
+        prompt.title?.toLowerCase().includes('creative title generation') ||
+        (prompt.title?.toLowerCase().includes('title') && 
+         prompt.description?.toLowerCase().includes('creative'))
+      );
+      
+      if (title3xPrompt) {
+        setSelectedPrompt(title3xPrompt);
+        setCurrentView('editor');
+      }
+    }
+    
+    // Handle STYLES tab - show list view
+    if (activeTab === 'styles') {
+      setCurrentView('list');
+      setSelectedPrompt(null);
+    }
   }, [prompts, activeTab]);
 
   const loadData = async () => {
@@ -108,11 +143,34 @@ const PromptManagement = () => {
         );
         break;
       
-      case 'title':
-        // TITLE tab - Let Ember Try and Ember Title Generator
+      case 'title1x':
+        // TITLE TRY tab - Single title generation prompts (Let Ember Try)
         filtered = prompts.filter(prompt => 
-          prompt.title?.toLowerCase().includes('title') ||
-          prompt.prompt_key?.includes('title_generation')
+          prompt.prompt_key?.includes('title_generation_single') ||
+          (prompt.title?.toLowerCase().includes('title') && 
+           (prompt.title?.toLowerCase().includes('single') || 
+            prompt.title?.toLowerCase().includes('let ember try') ||
+            prompt.description?.toLowerCase().includes('single title')))
+        );
+        break;
+      
+      case 'title3x':
+        // TITLE 3X tab - Multiple title generation prompts (Creative, Poetic, Ember Title Generator)
+        filtered = prompts.filter(prompt => 
+          prompt.prompt_key?.includes('title_generation_creative') ||
+          prompt.prompt_key?.includes('title_generation_poetic') ||
+          (prompt.prompt_key?.includes('title_generation') && !prompt.prompt_key?.includes('title_generation_single')) ||
+          (prompt.title?.toLowerCase().includes('title') && 
+           (prompt.title?.toLowerCase().includes('creative') || 
+            prompt.title?.toLowerCase().includes('poetic') ||
+            prompt.title?.toLowerCase().includes('ember title generator') ||
+            prompt.title?.toLowerCase().includes('title generator') ||
+            prompt.description?.toLowerCase().includes('multiple') ||
+            prompt.description?.toLowerCase().includes('5 ') ||
+            prompt.description?.toLowerCase().includes('3 ')) &&
+           !prompt.title?.toLowerCase().includes('single') &&
+           !prompt.title?.toLowerCase().includes('let ember try') &&
+           !prompt.description?.toLowerCase().includes('single title'))
         );
         break;
       
@@ -193,11 +251,6 @@ const PromptManagement = () => {
     }
   };
 
-  const handleCreateNew = () => {
-    setSelectedPrompt(null);
-    setCurrentView('editor');
-  };
-
   const handleSavePrompt = async (promptData) => {
     try {
       if (selectedPrompt) {
@@ -210,9 +263,9 @@ const PromptManagement = () => {
       
       await loadData();
       
-      // If we're on IMAGE, CUTS, or CIRCLE tab, switch to TITLE tab after save since they have no list view
-      if (activeTab === 'image' || activeTab === 'cuts' || activeTab === 'circle') {
-        setActiveTab('title');
+      // If we're on IMAGE, CUTS, CIRCLE, TITLE TRY, or TITLE 3X tab, switch to STYLES tab after save since they have no list view
+      if (activeTab === 'image' || activeTab === 'cuts' || activeTab === 'circle' || activeTab === 'title1x' || activeTab === 'title3x') {
+        setActiveTab('styles');
       }
       
       setCurrentView('list');
@@ -271,72 +324,85 @@ const PromptManagement = () => {
     );
   }
 
-  // Render different views
-  if (currentView === 'editor') {
-    return (
-      <PromptEditor
-        prompt={selectedPrompt}
-        onSave={handleSavePrompt}
-        onCancel={() => {
-          // If we're on IMAGE, CUTS, or CIRCLE tab, switch to TITLE tab on cancel since they have no list view
-          if (activeTab === 'image' || activeTab === 'cuts' || activeTab === 'circle') {
-            setActiveTab('title');
-          }
-          
-          setCurrentView('list');
-          setSelectedPrompt(null);
-        }}
-      />
-    );
-  }
-
-  if (currentView === 'details') {
-    return (
-      <PromptDetails
-        prompt={selectedPrompt}
-        onEdit={() => setCurrentView('editor')}
-        onBack={() => setCurrentView('list')}
-        onAction={handlePromptAction}
-      />
-    );
-  }
-
-  // Main list view with tabs
+  // Main view with tabs always visible
   return (
-    <div className="p-4 max-w-7xl mx-auto">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Prompt Management</h1>
-          <p className="text-gray-600 mt-1">
-            Manage and optimize your AI prompts
-          </p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-          <Button
-            onClick={handleCreateNew}
-            className="w-full sm:w-auto"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Prompt
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Prompt Management</h1>
+        <p className="text-gray-600 mt-1">
+          Configure and optimize AI prompts and templates
+        </p>
       </div>
-
+        
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="image">IMAGE</TabsTrigger>
-          <TabsTrigger value="title">TITLE</TabsTrigger>
-          <TabsTrigger value="circle">CIRCLE</TabsTrigger>
-          <TabsTrigger value="cuts">CUTS</TabsTrigger>
-          <TabsTrigger value="styles">STYLES</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger 
+            value="image" 
+            className="data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+          >
+            IMAGE
+          </TabsTrigger>
+          <TabsTrigger 
+            value="title1x" 
+            className="data-[state=active]:bg-purple-500 data-[state=active]:text-white"
+          >
+            TITLE TRY
+          </TabsTrigger>
+          <TabsTrigger 
+            value="title3x" 
+            className="data-[state=active]:bg-purple-500 data-[state=active]:text-white"
+          >
+            TITLE 3X
+          </TabsTrigger>
+          <TabsTrigger 
+            value="circle" 
+            className="data-[state=active]:bg-green-500 data-[state=active]:text-white"
+          >
+            CIRCLE
+          </TabsTrigger>
+          <TabsTrigger 
+            value="cuts" 
+            className="data-[state=active]:bg-amber-500 data-[state=active]:text-white"
+          >
+            CUTS
+          </TabsTrigger>
+          <TabsTrigger 
+            value="styles" 
+            className="data-[state=active]:bg-rose-500 data-[state=active]:text-white"
+          >
+            STYLES
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-6">
-          {/* Prompts List */}
-          <div className="space-y-4">
+        <TabsContent value={activeTab}>
+          {/* Render different views */}
+          {currentView === 'editor' ? (
+            <PromptEditor
+              prompt={selectedPrompt}
+              activeTab={activeTab}
+              onSave={handleSavePrompt}
+              onCancel={() => {
+                // If we're on IMAGE, CUTS, CIRCLE, TITLE TRY, or TITLE 3X tab, switch to STYLES tab on cancel since they have no list view
+                if (activeTab === 'image' || activeTab === 'cuts' || activeTab === 'circle' || activeTab === 'title1x' || activeTab === 'title3x') {
+                  setActiveTab('styles');
+                }
+                
+                setCurrentView('list');
+                setSelectedPrompt(null);
+              }}
+            />
+          ) : currentView === 'details' ? (
+            <PromptDetails
+              prompt={selectedPrompt}
+              onEdit={() => setCurrentView('editor')}
+              onBack={() => setCurrentView('list')}
+              onAction={handlePromptAction}
+            />
+          ) : (
+            /* Prompts List */
+            <div className="space-y-4">
             {activeTab === 'image' ? (
               // IMAGE tab - show message since it opens directly to edit
               <Card>
@@ -347,7 +413,7 @@ const PromptManagement = () => {
                     <p className="mb-4">
                       The image analysis prompt is opening in edit mode.
                     </p>
-                  </div>
+              </div>
                 </CardContent>
               </Card>
             ) : activeTab === 'cuts' ? (
@@ -360,7 +426,7 @@ const PromptManagement = () => {
                     <p className="mb-4">
                       The story cut generator prompt is opening in edit mode.
                     </p>
-                  </div>
+              </div>
                 </CardContent>
               </Card>
             ) : activeTab === 'circle' ? (
@@ -373,90 +439,113 @@ const PromptManagement = () => {
                     <p className="mb-4">
                       The Ember AI story circle prompt is opening in edit mode.
                     </p>
-                  </div>
+              </div>
                 </CardContent>
               </Card>
-            ) : filteredPrompts.length === 0 ? (
+            ) : activeTab === 'title1x' ? (
+              // TITLE TRY tab - show message since it opens directly to edit
               <Card>
                 <CardContent className="p-8 text-center">
                   <div className="text-gray-500">
                     <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <h3 className="text-lg font-medium mb-2">No prompts found</h3>
+                    <h3 className="text-lg font-medium mb-2">Opening Let Ember Try...</h3>
                     <p className="mb-4">
-                      No prompts found for this category. Create a new prompt to get started.
+                      The single title generator prompt is opening in edit mode.
                     </p>
-                    <Button onClick={handleCreateNew}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create New Prompt
-                    </Button>
-                  </div>
+                </div>
                 </CardContent>
               </Card>
-            ) : (
-              filteredPrompts.map((prompt) => (
-                <Card key={prompt.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-4 lg:space-y-0">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <h3 className="text-lg font-medium text-gray-900 truncate">
-                            {prompt.title || prompt.name}
-                          </h3>
-                          <Badge 
-                            className={`${getStatusColor(prompt)} text-white text-xs`}
-                          >
-                            {getStatusText(prompt)}
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            {prompt.category}
-                          </Badge>
-                        </div>
-                        
-                        <p className="text-gray-600 text-sm mb-2 line-clamp-2">
-                          {prompt.description || 'No description provided'}
-                        </p>
-                        
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                          <span className="flex items-center">
-                            <span className="font-medium">{prompt.model || 'gpt-4o-mini'}</span>
-                          </span>
-                          <span className="flex items-center">
-                            <span>Max: {prompt.max_tokens || 150} tokens</span>
-                          </span>
-                          <span className="flex items-center">
-                            <span>Temp: {prompt.temperature || 0.8}</span>
-                          </span>
-                          {prompt.usage_count > 0 && (
-                            <span className="flex items-center">
-                              <Clock className="h-3 w-3 mr-1" />
-                              Used {prompt.usage_count} times
-                            </span>
-                          )}
-                          {prompt.last_used_at && (
-                            <span className="flex items-center">
-                              Last used: {new Date(prompt.last_used_at).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 lg:ml-4">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handlePromptAction('edit', prompt)}
-                          className="w-full sm:w-auto"
-                        >
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit
-                        </Button>
-                      </div>
+            ) : activeTab === 'title3x' ? (
+              // TITLE 3X tab - show message since it opens directly to edit
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <div className="text-gray-500">
+                    <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <h3 className="text-lg font-medium mb-2">Opening Creative Title Generator...</h3>
+                    <p className="mb-4">
+                      The creative title generator prompt is opening in edit mode.
+                    </p>
+            </div>
+        </CardContent>
+      </Card>
+            ) : filteredPrompts.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <div className="text-gray-500">
+                    <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-medium mb-2">No prompts found</h3>
+                <p className="mb-4">
+                      No prompts found for this category.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredPrompts.map((prompt) => (
+            <Card key={prompt.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-4 lg:space-y-0">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h3 className="text-lg font-medium text-gray-900 truncate">
+                        {prompt.title || prompt.name}
+                      </h3>
+                      <Badge 
+                        className={`${getStatusColor(prompt)} text-white text-xs`}
+                      >
+                        {getStatusText(prompt)}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {prompt.category}
+                      </Badge>
                     </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
+                    
+                    <p className="text-gray-600 text-sm mb-2 line-clamp-2">
+                      {prompt.description || 'No description provided'}
+                    </p>
+                    
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                      <span className="flex items-center">
+                        <span className="font-medium">{prompt.model || 'gpt-4o-mini'}</span>
+                      </span>
+                      <span className="flex items-center">
+                        <span>Max: {prompt.max_tokens || 150} tokens</span>
+                      </span>
+                      <span className="flex items-center">
+                        <span>Temp: {prompt.temperature || 0.8}</span>
+                      </span>
+                      {prompt.usage_count > 0 && (
+                        <span className="flex items-center">
+                          <Clock className="h-3 w-3 mr-1" />
+                          Used {prompt.usage_count} times
+                        </span>
+                      )}
+                      {prompt.last_used_at && (
+                        <span className="flex items-center">
+                          Last used: {new Date(prompt.last_used_at).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 lg:ml-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handlePromptAction('edit', prompt)}
+                      className="w-full sm:w-auto"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+        </div>
+      )}
         </TabsContent>
       </Tabs>
     </div>

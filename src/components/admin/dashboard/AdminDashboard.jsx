@@ -8,8 +8,7 @@ import {
   ArrowRight,
   Shield,
   Activity,
-  Database,
-  Wrench
+  Database
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import useStore from '@/store';
@@ -24,14 +23,6 @@ const quickActions = [
     bgColor: "bg-blue-100"
   },
   {
-    title: "System Analytics",
-    description: "View system metrics and user activity",
-    icon: BarChart3,
-    href: "/admin/analytics",
-    color: "text-green-600",
-    bgColor: "bg-green-100"
-  },
-  {
     title: "Prompt Management",
     description: "Configure AI prompts and templates",
     icon: MessageSquare,
@@ -40,20 +31,20 @@ const quickActions = [
     bgColor: "bg-purple-100"
   },
   {
+    title: "System Analytics",
+    description: "View system metrics and user activity",
+    icon: BarChart3,
+    href: "/admin/analytics",
+    color: "text-green-600",
+    bgColor: "bg-green-100"
+  },
+  {
     title: "API Testing",
     description: "Test API endpoints and system health",
     icon: Settings,
     href: "/admin/api",
     color: "text-orange-600",
     bgColor: "bg-orange-100"
-  },
-  {
-    title: "Development Tools",
-    description: "Database utilities, prompt seeding, and dev tools",
-    icon: Wrench,
-    href: "/admin/tools",
-    color: "text-indigo-600",
-    bgColor: "bg-indigo-100"
   }
 ];
 
@@ -89,11 +80,11 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Welcome Header */}
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-2">
-          Welcome back, {userProfile?.first_name || 'Admin'}. Here's what's happening with your system.
+        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+        <p className="text-gray-600 mt-1">
+          Monitor system performance and manage administrative tasks
         </p>
       </div>
 
@@ -146,42 +137,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* System Health */}
-      <Card>
-        <CardHeader>
-          <CardTitle>System Health</CardTitle>
-          <CardDescription>
-            Overview of system status and recent activity
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm font-medium text-green-800">Database Connection</span>
-              </div>
-              <span className="text-sm text-green-600">Healthy</span>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm font-medium text-green-800">API Services</span>
-              </div>
-              <span className="text-sm text-green-600">Operational</span>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm font-medium text-blue-800">Storage</span>
-              </div>
-              <span className="text-sm text-blue-600">Available</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 } 

@@ -16,8 +16,8 @@ import {
 const menuItems = [
   { title: "Dashboard", icon: Home, href: "/admin" },
   { title: "Users", icon: Users, href: "/admin/users" },
-  { title: "Analytics", icon: BarChart3, href: "/admin/analytics" },
   { title: "Prompts", icon: MessageSquare, href: "/admin/prompts" },
+  { title: "Analytics", icon: BarChart3, href: "/admin/analytics" },
   { title: "API Testing", icon: Settings, href: "/admin/api" },
 ];
 

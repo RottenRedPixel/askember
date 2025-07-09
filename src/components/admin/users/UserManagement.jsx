@@ -85,18 +85,11 @@ export default function UserManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600 mt-1">Manage user accounts and permissions</p>
-        </div>
-        
-        <Button onClick={handleCreateUser} className="w-full sm:w-auto">
-          <Plus className="h-4 w-4 mr-2" />
-          Add User
-        </Button>
+      <div>
+        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">User Management</h1>
+        <p className="text-gray-600 mt-1">Manage user accounts, roles, and permissions</p>
       </div>
 
       {/* Stats Cards */}
@@ -204,6 +197,14 @@ export default function UserManagement() {
           />
         </CardContent>
       </Card>
+
+      {/* Add User Button */}
+      <div className="flex justify-end">
+        <Button onClick={handleCreateUser} className="px-6 py-3 text-lg font-medium">
+          <Plus className="h-5 w-5 mr-2" />
+          Add User
+        </Button>
+      </div>
 
       {/* Create User Modal (Desktop) / Sheet (Mobile) */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>

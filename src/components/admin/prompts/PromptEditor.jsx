@@ -6,7 +6,6 @@ import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
 import { Badge } from '../../ui/badge';
 import { 
-  ArrowLeft, 
   Save, 
   Zap, 
   Settings, 
@@ -18,7 +17,7 @@ import {
 } from 'lucide-react';
 
 
-const PromptEditor = ({ prompt, onSave, onCancel }) => {
+const PromptEditor = ({ prompt, activeTab, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
     prompt_key: '',
     title: '',
@@ -169,6 +168,42 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
     }
   };
 
+  const getTabColor = (tab) => {
+    switch (tab) {
+      case 'image':
+        return 'bg-blue-50 border-blue-200';
+      case 'title1x':
+      case 'title3x':
+        return 'bg-purple-50 border-purple-200';
+      case 'circle':
+        return 'bg-green-50 border-green-200';
+      case 'cuts':
+        return 'bg-amber-50 border-amber-200';
+      case 'styles':
+        return 'bg-rose-50 border-rose-200';
+      default:
+        return 'bg-gray-50 border-gray-200';
+    }
+  };
+
+  const getButtonColor = (tab) => {
+    switch (tab) {
+      case 'image':
+        return 'bg-blue-500 hover:bg-blue-600';
+      case 'title1x':
+      case 'title3x':
+        return 'bg-purple-500 hover:bg-purple-600';
+      case 'circle':
+        return 'bg-green-500 hover:bg-green-600';
+      case 'cuts':
+        return 'bg-amber-500 hover:bg-amber-600';
+      case 'styles':
+        return 'bg-rose-500 hover:bg-rose-600';
+      default:
+        return 'bg-gray-500 hover:bg-gray-600';
+    }
+  };
+
 
 
 
@@ -193,48 +228,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
   ];
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="outline"
-            onClick={onCancel}
-            className="flex-shrink-0"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {prompt ? 'Edit Prompt' : 'Create New Prompt'}
-            </h1>
-            <p className="text-gray-600 mt-1">
-              {prompt ? 'Modify the prompt configuration' : 'Configure your new AI prompt'}
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full sm:w-auto"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Save
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+    <div className="max-w-6xl mx-auto">
 
       {/* Error Display */}
       {errors.general && (
@@ -253,7 +247,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
         {/* Form */}
         <div className="space-y-6">
           {/* Basic Information */}
-          <Card>
+          <Card className={getTabColor(activeTab)}>
             <CardHeader>
               <CardTitle className="flex items-center">
                 <FileText className="h-5 w-5 mr-2" />
@@ -269,7 +263,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
                   value={formData.title}
                   onChange={(e) => handleInputChange('title', e.target.value)}
                   placeholder="e.g., Image Analysis for Ember Photos"
-                  className={errors.title ? 'border-red-500' : ''}
+                  className={`bg-white ${errors.title ? 'border-red-500' : ''}`}
                 />
                 {errors.title && (
                   <p className="text-sm text-red-600 mt-1">{errors.title}</p>
@@ -284,7 +278,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
                   value={formData.prompt_key}
                   onChange={(e) => handleInputChange('prompt_key', e.target.value.toLowerCase())}
                   placeholder="e.g., image_analysis_main"
-                  className={errors.prompt_key ? 'border-red-500' : ''}
+                  className={`bg-white ${errors.prompt_key ? 'border-red-500' : ''}`}
                 />
                 {errors.prompt_key && (
                   <p className="text-sm text-red-600 mt-1">{errors.prompt_key}</p>
@@ -302,6 +296,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   placeholder="Describe what this prompt does..."
                   rows={3}
+                  className="bg-white"
                 />
               </div>
 
@@ -310,7 +305,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
           </Card>
 
           {/* Prompt Configuration */}
-          <Card>
+          <Card className={getTabColor(activeTab)}>
             <CardHeader>
               <CardTitle className="flex items-center">
                 <MessageSquare className="h-5 w-5 mr-2" />
@@ -330,7 +325,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
                       autoResizeTextarea(e.target);
                     }}
                     placeholder="System instructions for the AI..."
-                    className={`resize-none overflow-hidden min-h-[4rem] text-blue-600 ${errors.system_prompt ? 'border-red-500' : ''}`}
+                    className={`bg-white resize-none overflow-hidden min-h-[4rem] text-blue-600 ${errors.system_prompt ? 'border-red-500' : ''}`}
                     style={{ height: 'auto' }}
                   />
                   {errors.system_prompt && (
@@ -350,7 +345,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
                     autoResizeTextarea(e.target);
                   }}
                   placeholder="User prompt with variables like {{ember_context}} or {{user_input}}..."
-                  className={`resize-none overflow-hidden min-h-[6rem] text-blue-600 ${errors.user_prompt_template ? 'border-red-500' : ''}`}
+                  className={`bg-white resize-none overflow-hidden min-h-[6rem] text-blue-600 ${errors.user_prompt_template ? 'border-red-500' : ''}`}
                   style={{ height: 'auto' }}
                 />
                 {errors.user_prompt_template && (
@@ -378,7 +373,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
           </Card>
 
           {/* AI Model Settings */}
-          <Card>
+          <Card className={getTabColor(activeTab)}>
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Settings className="h-5 w-5 mr-2" />
@@ -392,7 +387,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
                   id="model"
                   value={formData.model}
                   onChange={(e) => handleInputChange('model', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  className="bg-white w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                 >
                   {models.map(model => (
                     <option key={model.value} value={model.value}>
@@ -412,7 +407,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
                     max="4096"
                     value={formData.max_tokens}
                     onChange={(e) => handleInputChange('max_tokens', parseInt(e.target.value))}
-                    className={errors.max_tokens ? 'border-red-500' : ''}
+                    className={`bg-white ${errors.max_tokens ? 'border-red-500' : ''}`}
                   />
                   {errors.max_tokens && (
                     <p className="text-sm text-red-600 mt-1">{errors.max_tokens}</p>
@@ -429,7 +424,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
                     step="0.1"
                     value={formData.temperature}
                     onChange={(e) => handleInputChange('temperature', parseFloat(e.target.value))}
-                    className={errors.temperature ? 'border-red-500' : ''}
+                    className={`bg-white ${errors.temperature ? 'border-red-500' : ''}`}
                   />
                   {errors.temperature && (
                     <p className="text-sm text-red-600 mt-1">{errors.temperature}</p>
@@ -443,7 +438,7 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
                   id="response_format"
                   value={formData.response_format}
                   onChange={(e) => handleInputChange('response_format', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  className="bg-white w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                 >
                   {responseFormats.map(format => (
                     <option key={format.value} value={format.value}>
@@ -454,6 +449,27 @@ const PromptEditor = ({ prompt, onSave, onCancel }) => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Save Button */}
+          <div className="flex justify-end mt-8">
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className={`${getButtonColor(activeTab)} text-white px-6 py-3 text-lg font-medium`}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Saving Prompt...
+                </>
+              ) : (
+                <>
+                  <Save className="h-5 w-5 mr-2" />
+                  Save Prompt
+                </>
+              )}
+            </Button>
+          </div>
 
         </div>
       </div>
