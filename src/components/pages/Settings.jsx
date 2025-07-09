@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
 import { updateUserVoiceModel, getUserVoiceModel } from '@/lib/database';
+import VoiceCloningModal from '@/components/VoiceCloningModal';
 
 export default function Settings() {
   const { user, userProfile, fetchUserProfile } = useStore();
@@ -34,6 +35,9 @@ export default function Settings() {
     newPassword: '',
     confirmPassword: ''
   });
+  
+  // Voice cloning modal state
+  const [isVoiceCloningModalOpen, setIsVoiceCloningModalOpen] = useState(false);
 
   // Load existing profile data
   useEffect(() => {
@@ -202,6 +206,37 @@ export default function Settings() {
       reader.readAsDataURL(file);
     } catch (error) {
       setMessage({ type: 'error', text: error.message });
+      setLoading(false);
+    }
+  };
+
+  // Handle voice creation from modal
+  const handleVoiceCreated = async (voiceData) => {
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      // Update the voice data in the form
+      setVoiceData({
+        elevenlabsVoiceId: voiceData.voice_id,
+        elevenlabsVoiceName: voiceData.name
+      });
+
+      // Update the database
+      await updateUserVoiceModel(
+        user.id, 
+        voiceData.voice_id, 
+        voiceData.name
+      );
+
+      // Refresh the user profile in the store
+      await fetchUserProfile(user.id);
+      
+      setMessage({ type: 'success', text: `Voice model "${voiceData.name}" created and linked successfully!` });
+      setIsVoiceCloningModalOpen(false);
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message });
+    } finally {
       setLoading(false);
     }
   };
@@ -407,6 +442,15 @@ export default function Settings() {
                   {loading ? 'Updating...' : 'Update Voice Model'}
                 </Button>
                 
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={() => setIsVoiceCloningModalOpen(true)}
+                  disabled={loading}
+                >
+                  Train Voice
+                </Button>
+                
                 {(voiceData.elevenlabsVoiceId || voiceData.elevenlabsVoiceName) && (
                   <Button 
                     type="button" 
@@ -462,6 +506,14 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Voice Cloning Modal */}
+      <VoiceCloningModal
+        isOpen={isVoiceCloningModalOpen}
+        onClose={() => setIsVoiceCloningModalOpen(false)}
+        onVoiceCreated={handleVoiceCreated}
+        userProfile={userProfile}
+      />
     </motion.div>
   );
 } 
