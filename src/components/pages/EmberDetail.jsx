@@ -4192,20 +4192,38 @@ export default function EmberDetail() {
         console.log(`🐛 DEBUG - Script content: "${content}"`);
         
         // Check per-message preference for this content
-        const messageKey = `${content.substring(0, 50)}`;
         let userPreference = 'recorded'; // default
         
-        // Look for matching message preference
+        // Look for matching message preference - try multiple matching strategies
         if (window.messageAudioPreferences) {
-          const matchingKey = Object.keys(window.messageAudioPreferences).find(key => 
-            key.includes(messageKey) || content.includes(key.split('-')[1])
-          );
+          // Strategy 1: Try to find exact content match
+          const matchingKey = Object.keys(window.messageAudioPreferences).find(key => {
+            const keyContent = key.split('-').slice(1).join('-'); // Remove messageIndex prefix
+            return keyContent === content.substring(0, 50) || content.includes(keyContent);
+          });
+          
           if (matchingKey) {
             userPreference = window.messageAudioPreferences[matchingKey];
+            console.log(`🎯 Found preference match: "${matchingKey}" → ${userPreference}`);
+          } else {
+            // Strategy 2: Try partial content matching
+            const partialMatch = Object.keys(window.messageAudioPreferences).find(key => {
+              const keyContent = key.split('-').slice(1).join('-');
+              return keyContent.length > 10 && content.includes(keyContent);
+            });
+            
+            if (partialMatch) {
+              userPreference = window.messageAudioPreferences[partialMatch];
+              console.log(`🎯 Found partial preference match: "${partialMatch}" → ${userPreference}`);
+            } else {
+              console.log(`⚠️ No preference match found for content: "${content.substring(0, 50)}..."`);
+              console.log(`⚠️ Available preferences:`, Object.keys(window.messageAudioPreferences));
+            }
           }
         }
         
         console.log(`🎤 User preference for "${content.substring(0, 30)}...": ${userPreference}`);
+        console.log(`🔍 All available preferences:`, window.messageAudioPreferences);
         
         // Find the user ID by matching the voice tag (first name) with recorded audio data
         const matchingUserId = Object.entries(recordedAudio).find(([userId, audioData]) => {
@@ -4244,7 +4262,9 @@ export default function EmberDetail() {
           // Check for personal voice model
           let userVoiceModel = null;
           try {
+            console.log(`🔍 Fetching voice model for ${voiceTag} (userId: ${userId})...`);
             userVoiceModel = await getUserVoiceModel(userId);
+            console.log(`✅ Voice model result for ${voiceTag}:`, userVoiceModel);
           } catch (error) {
             console.log(`⚠️ Error fetching voice model for ${voiceTag}:`, error.message);
           }
@@ -4255,6 +4275,8 @@ export default function EmberDetail() {
           console.log(`  - Recorded audio: ${hasRecordedAudio ? '✅' : '❌'}`);
           console.log(`  - Personal voice: ${hasPersonalVoice ? '✅' : '❌'} ${hasPersonalVoice ? `(${userVoiceModel.elevenlabs_voice_name})` : ''}`);
           console.log(`  - User preference: ${userPreference}`);
+          console.log(`  - User ID: ${userId}`);
+          console.log(`  - Voice model data:`, userVoiceModel);
           
           // Decide which audio to use based on availability and preference
           if (userPreference === 'text') {
@@ -4296,7 +4318,14 @@ export default function EmberDetail() {
             console.log(`🎙️ ✅ Using personal voice model for ${voiceTag} (user preference)`);
             console.log(`🎤 Personal voice ID: ${userVoiceModel.elevenlabs_voice_id}`);
             
-            const audioBlob = await textToSpeech(content, userVoiceModel.elevenlabs_voice_id);
+            // Use the original transcribed text if this is a recorded message, otherwise use script content
+            const textToSynthesize = hasRecordedAudio && audioData.message_content 
+              ? audioData.message_content 
+              : content;
+              
+            console.log(`📝 Synthesizing text: "${textToSynthesize.substring(0, 50)}..." (${hasRecordedAudio ? 'from recording' : 'from script'})`);
+            
+            const audioBlob = await textToSpeech(textToSynthesize, userVoiceModel.elevenlabs_voice_id);
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
             
@@ -4306,8 +4335,10 @@ export default function EmberDetail() {
               url: audioUrl,
               blob: audioBlob,
               voiceTag,
-              content,
-              personalVoice: userVoiceModel.elevenlabs_voice_name
+              content: textToSynthesize,
+              originalContent: content,
+              personalVoice: userVoiceModel.elevenlabs_voice_name,
+              sourceType: hasRecordedAudio ? 'transcription' : 'script'
             };
           } else if (userPreference === 'recorded' && hasRecordedAudio) {
             // User wants recorded audio and it's available
@@ -4344,18 +4375,15 @@ export default function EmberDetail() {
             let fallbackVoiceId = null;
             let fallbackVoiceName = null;
             
-            if (hasPersonalVoice) {
-              fallbackVoiceId = userVoiceModel.elevenlabs_voice_id;
-              fallbackVoiceName = userVoiceModel.elevenlabs_voice_name;
-              console.log(`🎤 Using personal voice for attribution`);
-            } else if (storyCut.narrator_voice_id) {
+            // For TEXT RESPONSE fallback, ALWAYS use narrator/ember voice, never contributor's personal voice
+            if (storyCut.narrator_voice_id) {
               fallbackVoiceId = storyCut.narrator_voice_id;
               fallbackVoiceName = 'narrator';
-              console.log(`🎤 Using narrator voice for attribution`);
+              console.log(`🎤 Using narrator voice for attribution fallback`);
             } else if (storyCut.ember_voice_id) {
               fallbackVoiceId = storyCut.ember_voice_id;
               fallbackVoiceName = 'ember';
-              console.log(`🎤 Using ember voice for attribution`);
+              console.log(`🎤 Using ember voice for attribution fallback`);
             } else {
               throw new Error(`No voice available for fallback attribution from ${voiceTag}`);
             }
@@ -4377,6 +4405,12 @@ export default function EmberDetail() {
           } else if (userPreference === 'personal' && !hasPersonalVoice) {
             // User wants personal voice but none available - fallback to text response
             console.log(`⚠️ User wanted personal voice but none available for ${voiceTag} - falling back to text response`);
+            console.log(`⚠️ Voice model check failed:`, {
+              userId,
+              userVoiceModel,
+              hasPersonalVoice,
+              elevenlabs_voice_id: userVoiceModel?.elevenlabs_voice_id
+            });
             
             let fallbackVoiceId = null;
             let fallbackVoiceName = null;
@@ -4408,10 +4442,41 @@ export default function EmberDetail() {
               fallbackVoice: fallbackVoiceName
             };
           } else {
-            // Final fallback - use whatever is available
-            console.log(`🔄 Using final fallback logic for ${voiceTag}`);
+            // Final fallback - respect user preference even when falling back
+            console.log(`🔄 Using final fallback logic for ${voiceTag}, preference: ${userPreference}`);
             
-            if (hasRecordedAudio) {
+            if (userPreference === 'text') {
+              // User wants text response - ALWAYS use narrator/ember voice with attribution
+              console.log(`📝 ✅ Using text response (final fallback, user preference)`);
+              
+              let fallbackVoiceId = null;
+              let fallbackVoiceName = null;
+              
+              if (storyCut.narrator_voice_id) {
+                fallbackVoiceId = storyCut.narrator_voice_id;
+                fallbackVoiceName = 'narrator';
+              } else if (storyCut.ember_voice_id) {
+                fallbackVoiceId = storyCut.ember_voice_id;
+                fallbackVoiceName = 'ember';
+              } else {
+                throw new Error(`No voice available for text response fallback from ${voiceTag}`);
+              }
+              
+              const narratedContent = `${voiceTag} said, "${content}"`;
+              const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+              const audioUrl = URL.createObjectURL(audioBlob);
+              const audio = new Audio(audioUrl);
+              
+              return {
+                type: 'text_response',
+                audio,
+                url: audioUrl,
+                blob: audioBlob,
+                voiceTag,
+                content: narratedContent,
+                fallbackVoice: fallbackVoiceName
+              };
+            } else if (userPreference === 'recorded' && hasRecordedAudio) {
               console.log(`🎙️ ✅ Using recorded audio (final fallback)`);
               const audio = new Audio(audioData.audio_url);
               return {
@@ -4421,9 +4486,17 @@ export default function EmberDetail() {
                 voiceTag,
                 content
               };
-            } else if (hasPersonalVoice) {
+            } else if (userPreference === 'personal' && hasPersonalVoice) {
               console.log(`🎤 ✅ Using personal voice model (final fallback)`);
-              const audioBlob = await textToSpeech(content, userVoiceModel.elevenlabs_voice_id);
+              
+              // Use the original transcribed text if this is a recorded message, otherwise use script content
+              const textToSynthesize = hasRecordedAudio && audioData.message_content 
+                ? audioData.message_content 
+                : content;
+                
+              console.log(`📝 Synthesizing text (final fallback): "${textToSynthesize.substring(0, 50)}..." (${hasRecordedAudio ? 'from recording' : 'from script'})`);
+              
+              const audioBlob = await textToSpeech(textToSynthesize, userVoiceModel.elevenlabs_voice_id);
               const audioUrl = URL.createObjectURL(audioBlob);
               const audio = new Audio(audioUrl);
               
@@ -4433,12 +4506,14 @@ export default function EmberDetail() {
                 url: audioUrl,
                 blob: audioBlob,
                 voiceTag,
-                content,
-                personalVoice: userVoiceModel.elevenlabs_voice_name
+                content: textToSynthesize,
+                originalContent: content,
+                personalVoice: userVoiceModel.elevenlabs_voice_name,
+                sourceType: hasRecordedAudio ? 'transcription' : 'script'
               };
             } else {
-              // Ultimate fallback - use narrator/ember voice
-              console.log(`📝 ✅ Using text response (ultimate fallback)`);
+              // Ultimate fallback when preference can't be satisfied - use narrator/ember voice
+              console.log(`📝 ✅ Using text response (ultimate fallback - preference not available)`);
               
               let fallbackVoiceId = null;
               let fallbackVoiceName = null;
