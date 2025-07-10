@@ -2206,6 +2206,9 @@ export default function EmberDetail() {
       const selectedMediaDetails = availableMediaForStory.filter(media => 
         selectedMediaForStory.includes(media.id)
       );
+      console.log('🚨 FRONTEND DEBUG - selectedMediaForStory IDs:', selectedMediaForStory);
+      console.log('🚨 FRONTEND DEBUG - availableMediaForStory length:', availableMediaForStory.length);
+      console.log('🚨 FRONTEND DEBUG - selectedMediaDetails length:', selectedMediaDetails.length);
       console.log('📸 FRONTEND DEBUG - Selected media for story:', selectedMediaDetails.map(m => ({
         id: m.id, 
         name: m.name, 
