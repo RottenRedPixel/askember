@@ -1828,6 +1828,39 @@ export const saveEmberSupportingMedia = async (emberId, userId, mediaFiles) => {
   try {
     console.log('💾 Saving supporting media for ember:', emberId, mediaFiles.length, 'files');
     
+    // Generate smart display name for supporting media
+    const generateDisplayName = (filename, fileCategory) => {
+      if (!filename || filename === '') {
+        return fileCategory ? fileCategory.charAt(0).toUpperCase() + fileCategory.slice(1) : 'Media';
+      }
+      
+      // Remove file extension
+      let name = filename.replace(/\.[^.]*$/, '');
+      
+      // Replace underscores and hyphens with spaces
+      name = name.replace(/[_-]/g, ' ');
+      
+      // Replace multiple spaces with single space
+      name = name.replace(/\s+/g, ' ');
+      
+      // Trim whitespace
+      name = name.trim();
+      
+      // Capitalize first letter of each word
+      name = name.split(' ').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      ).join(' ');
+      
+      // Handle common abbreviations and patterns
+      name = name.replace(/\bVid\b/gi, 'Video');
+      name = name.replace(/\bRec\b/gi, 'Recording');
+      name = name.replace(/\bDoc\b/gi, 'Document');
+      name = name.replace(/\bImg\b/gi, 'Image');
+      name = name.replace(/\bPic\b/gi, 'Image');
+      
+      return name.length > 0 ? name : (fileCategory || 'Media');
+    };
+    
     const mediaRecords = mediaFiles.map(file => ({
       ember_id: emberId,
       uploaded_by_user_id: userId,
@@ -1836,7 +1869,8 @@ export const saveEmberSupportingMedia = async (emberId, userId, mediaFiles) => {
       file_size: file.size,
       file_type: file.type,
       file_category: file.category,
-      storage_path: file.pathname
+      storage_path: file.pathname,
+      display_name: generateDisplayName(file.originalName, file.category)
     }));
 
     const { data, error } = await supabase
@@ -1882,6 +1916,29 @@ export const getEmberSupportingMedia = async (emberId) => {
     return data || [];
   } catch (error) {
     console.error('Error fetching supporting media:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update supporting media display name
+ */
+export const updateSupportingMediaDisplayName = async (mediaId, displayName) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_supporting_media')
+      .update({ display_name: displayName })
+      .eq('id', mediaId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error updating supporting media display name:', error);
     throw error;
   }
 };

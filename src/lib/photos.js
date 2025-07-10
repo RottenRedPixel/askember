@@ -42,6 +42,48 @@ export const uploadImageWithExif = async (file, userId, emberId = null) => {
     const storageUrl = urlData.publicUrl;
     console.log('File uploaded, URL:', storageUrl);
 
+    // Generate smart display name for the photo
+    const generateDisplayName = (filename, exifData) => {
+      if (!filename || filename === '') return 'Photo';
+      
+      // Remove file extension
+      let name = filename.replace(/\.[^.]*$/, '');
+      
+      // Replace underscores and hyphens with spaces
+      name = name.replace(/[_-]/g, ' ');
+      
+      // Replace multiple spaces with single space
+      name = name.replace(/\s+/g, ' ');
+      
+      // Trim whitespace
+      name = name.trim();
+      
+      // Capitalize first letter of each word
+      name = name.split(' ').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      ).join(' ');
+      
+      // Handle common abbreviations and patterns
+      name = name.replace(/\bImg\b/gi, 'Photo');
+      name = name.replace(/\bPic\b/gi, 'Photo');
+      name = name.replace(/\bSnapshot\b/gi, 'Photo');
+      
+      // Add camera info if available and filename is generic
+      if (name.match(/^Photo\s*\d*$/i) && exifData.cameraMake && exifData.cameraModel) {
+        name = `${exifData.cameraMake} ${exifData.cameraModel} Photo`;
+      }
+      
+      // Add date if available and filename is still generic
+      if (name.match(/^Photo\s*\d*$/i) && exifData.timestamp) {
+        const date = new Date(exifData.timestamp);
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        name = `Photo from ${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+      }
+      
+      return name.length > 0 ? name : 'Photo';
+    };
+
     // Prepare photo record for database
     const photoRecord = {
       user_id: userId,
@@ -64,7 +106,8 @@ export const uploadImageWithExif = async (file, userId, emberId = null) => {
       file_size: exifData.fileSize,
       image_width: exifData.imageWidth,
       image_height: exifData.imageHeight,
-      color_space: exifData.colorSpace
+      color_space: exifData.colorSpace,
+      display_name: generateDisplayName(exifData.originalFilename, exifData)
     };
 
     // Save photo metadata to database
@@ -252,6 +295,29 @@ export const updatePhoto = async (photoId, updates) => {
     return data;
   } catch (error) {
     console.error('Error updating photo:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update photo display name
+ * @param {string} photoId - Photo ID
+ * @param {string} displayName - New display name
+ * @returns {Promise<Object>} - Updated photo record
+ */
+export const updatePhotoDisplayName = async (photoId, displayName) => {
+  try {
+    const { data, error } = await supabase
+      .from('ember_photos')
+      .update({ display_name: displayName })
+      .eq('id', photoId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error updating photo display name:', error);
     throw error;
   }
 };

@@ -12,6 +12,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { Label } from '@/components/ui/label';
 import { getEmber, updateEmberTitle, saveStoryCut, getStoryCutsForEmber, getAllStoryMessagesForEmber, deleteStoryCut, setPrimaryStoryCut, getPrimaryStoryCut, getEmberSupportingMedia, getUserVoiceModel, getStoryCutAudioPreferences, updateMessageAudioPreference } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
+import { getEmberPhotos } from '@/lib/photos';
 import EmberChat from '@/components/EmberChat';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -27,6 +28,7 @@ import TimeDateModal from '@/components/TimeDateModal';
 import ImageAnalysisModal from '@/components/ImageAnalysisModal';
 import TaggedPeopleModal from '@/components/TaggedPeopleModal';
 import SupportingMediaModal from '@/components/SupportingMediaModal';
+import MediaManagementModal from '@/components/MediaManagementModal';
 
 import EmberNamesModal from '@/components/EmberNamesModal';
 import EmberSettingsPanel from '@/components/EmberSettingsPanel';
@@ -1088,6 +1090,7 @@ export default function EmberDetail() {
   const [showImageAnalysisModal, setShowImageAnalysisModal] = useState(false);
   const [showTaggedPeopleModal, setShowTaggedPeopleModal] = useState(false);
   const [showSupportingMediaModal, setShowSupportingMediaModal] = useState(false);
+  const [showMediaManagementModal, setShowMediaManagementModal] = useState(false);
   const [taggedPeopleCount, setTaggedPeopleCount] = useState(0);
   const [taggedPeopleData, setTaggedPeopleData] = useState([]);
   const [emberLength, setEmberLength] = useState(10);
@@ -2832,6 +2835,8 @@ export default function EmberDetail() {
           return storyMessages.length >= 6;
         case 'supporting-media':
           return supportingMedia.length > 0;
+        case 'media-management':
+          return true; // Always available - represents having media names set up
         default:
           return false;
       }
@@ -3197,6 +3202,14 @@ export default function EmberDetail() {
                         return 'Additional photos and videos';
                       },
                       onClick: () => () => setShowSupportingMediaModal(true)
+                    },
+                    {
+                      id: 'media-management',
+                      sectionType: 'media-management',
+                      icon: PenNib,
+                      title: () => 'Media Names',
+                      description: () => 'Edit display names for script references',
+                      onClick: () => () => setShowMediaManagementModal(true)
                     },
                     {
                       id: 'analysis',
@@ -3670,6 +3683,15 @@ export default function EmberDetail() {
           isOpen={showSupportingMediaModal} 
           onClose={() => setShowSupportingMediaModal(false)}
           onUpdate={handleSupportingMediaUpdate}
+        />
+      )}
+
+      {/* Media Management Modal */}
+      {ember && (
+        <MediaManagementModal 
+          isOpen={showMediaManagementModal} 
+          onClose={() => setShowMediaManagementModal(false)}
+          emberId={ember.id}
         />
       )}
 
@@ -4273,6 +4295,30 @@ export default function EmberDetail() {
         // For media lines, the content after removing actions should be the media reference
         const mediaReference = cleanContent;
         
+        // Parse media reference to extract ID or name
+        let mediaId = null;
+        let mediaName = null;
+        let resolvedMediaReference = mediaReference;
+        
+        if (mediaReference) {
+          // Check for id=abc123 format
+          const idMatch = mediaReference.match(/id=([a-zA-Z0-9\-_]+)/);
+          if (idMatch) {
+            mediaId = idMatch[1];
+            resolvedMediaReference = mediaReference; // Keep original for display
+          } else {
+            // Check for name="Display Name" format
+            const nameMatch = mediaReference.match(/name="([^"]+)"/);
+            if (nameMatch) {
+              mediaName = nameMatch[1];
+              resolvedMediaReference = mediaReference; // Keep original for display
+            } else {
+              // If no id= or name= format, treat as legacy media reference
+              mediaId = mediaReference;
+            }
+          }
+        }
+        
         // Reconstruct content with visual actions FOR DISPLAY
         const allVisualActions = existingVisualActions.map(action => `<${action}>`).join('');
         const finalContent = mediaReference ? `${mediaReference} ${allVisualActions}`.trim() : allVisualActions;
@@ -4286,7 +4332,11 @@ export default function EmberDetail() {
             originalContent: mediaReference,
             type: segmentType,
             visualActions: existingVisualActions,
-            hasAutoColorize: false
+            hasAutoColorize: false,
+            // Add media reference resolution data
+            mediaId: mediaId,
+            mediaName: mediaName,
+            resolvedMediaReference: resolvedMediaReference
           });
           console.log(`🎬 Parsed ${mediaType} segment:`, { 
             line: trimmedLine, 
@@ -4520,6 +4570,83 @@ export default function EmberDetail() {
     }
     // Default zoom: subtle zoom-in effect (no zoom out)
     return { start: 1.1, end: 1.0 };
+  };
+
+  /**
+   * Resolve media reference to actual file URL
+   * @param {Object} segment - Media segment with mediaId or mediaName
+   * @param {string} emberId - Current ember ID for scoping
+   * @returns {Promise<string|null>} - Resolved media URL or null if not found
+   */
+  const resolveMediaReference = async (segment, emberId) => {
+    if (!segment || (!segment.mediaId && !segment.mediaName)) {
+      console.log('⚠️ No media reference to resolve');
+      return null;
+    }
+
+    try {
+      // Get all available media for this ember
+      const [emberPhotos, supportingMedia] = await Promise.all([
+        getEmberPhotos(emberId),
+        getEmberSupportingMedia(emberId)
+      ]);
+
+      console.log(`🔍 Resolving media reference: ${segment.mediaId || segment.mediaName}`);
+      console.log(`📸 Available photos: ${emberPhotos.length}`);
+      console.log(`📁 Available supporting media: ${supportingMedia.length}`);
+
+      // Search by ID first (more specific)
+      if (segment.mediaId) {
+        // Check ember photos
+        const photoMatch = emberPhotos.find(photo => photo.id === segment.mediaId);
+        if (photoMatch) {
+          console.log(`✅ Found photo by ID: ${photoMatch.display_name || photoMatch.original_filename}`);
+          return photoMatch.storage_url;
+        }
+
+        // Check supporting media
+        const mediaMatch = supportingMedia.find(media => media.id === segment.mediaId);
+        if (mediaMatch) {
+          console.log(`✅ Found supporting media by ID: ${mediaMatch.display_name || mediaMatch.file_name}`);
+          return mediaMatch.file_url;
+        }
+
+        // Legacy: treat mediaId as direct URL if no match found
+        console.log(`ℹ️ No ID match found, treating as legacy reference: ${segment.mediaId}`);
+        return segment.mediaId;
+      }
+
+      // Search by display name
+      if (segment.mediaName) {
+        // Check ember photos
+        const photoMatch = emberPhotos.find(photo => 
+          photo.display_name === segment.mediaName || 
+          photo.original_filename === segment.mediaName
+        );
+        if (photoMatch) {
+          console.log(`✅ Found photo by name: ${photoMatch.display_name || photoMatch.original_filename}`);
+          return photoMatch.storage_url;
+        }
+
+        // Check supporting media
+        const mediaMatch = supportingMedia.find(media => 
+          media.display_name === segment.mediaName || 
+          media.file_name === segment.mediaName
+        );
+        if (mediaMatch) {
+          console.log(`✅ Found supporting media by name: ${mediaMatch.display_name || mediaMatch.file_name}`);
+          return mediaMatch.file_url;
+        }
+
+        console.log(`⚠️ No media found with name: ${segment.mediaName}`);
+        return null;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('❌ Error resolving media reference:', error);
+      return null;
+    }
   };
 
   // Helper function to estimate segment duration
