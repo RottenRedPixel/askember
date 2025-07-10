@@ -2813,13 +2813,8 @@ export default function EmberDetail() {
     setMediaTimeouts([]);
     mediaTimeoutsRef.current = [];
     
-    // Show black hold then exit
-    setShowEndHold(true);
-    
-    // After black hold, exit to normal view
-    setTimeout(() => {
-      handleExitPlay();
-    }, 1000);
+    // Exit immediately after script completes
+    handleExitPlay();
   };
 
   const handleExitPlay = () => {
@@ -4319,10 +4314,10 @@ export default function EmberDetail() {
       {showFullscreenPlay && (
         <>
           <div className="fixed inset-0 bg-black z-50">
-                    {/* Background Image - only show when not loading, not in end hold, and no media color effect */}
-          {!isGeneratingAudio && !showEndHold && !currentMediaColor && (
+                    {/* Background Image - only show when script contains MEDIA elements */}
+          {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
             <img 
-              src={ember.image_url} 
+              src={currentMediaImageUrl} 
               alt={ember.title || 'Ember'}
               className="absolute inset-0 w-full h-full object-cover"
             />
@@ -5647,10 +5642,13 @@ export default function EmberDetail() {
           });
           console.log(`⏸️ Timeline ${index + 1}: HOLD effect for ${duration}s - ${segment.content.substring(0, 50)}...`);
         } else if (segment.type === 'media') {
-          // Media segment - background effect (non-blocking)
-          console.log(`📺 Background ${index + 1}: MEDIA effect - ${segment.content.substring(0, 50)}...`);
-          // Apply media effect immediately when building timeline
-          // This will be handled separately in the background
+          // Media segment - add to timeline for sequential processing
+          timeline.push({
+            type: 'media',
+            segment,
+            index
+          });
+          console.log(`📺 Timeline ${index + 1}: MEDIA switch - ${segment.content.substring(0, 50)}...`);
         } else {
           // Voice segment - use generated audio
           if (audioIndex < audioSegments.length) {
@@ -5668,7 +5666,7 @@ export default function EmberDetail() {
       
       console.log('✅ Generated', audioSegments.length, 'audio segments');
       console.log('🎬 Starting unified timeline playback...');
-      console.log(`🎭 Timeline has ${timeline.length} steps (${mediaSegments.length} media + ${voiceSegments.length} voice)`);
+      console.log(`🎭 Timeline has ${timeline.length} sequential steps`);
       
       // Store audio segments in state for cleanup
       setActiveAudioSegments(audioSegments);
@@ -5677,36 +5675,7 @@ export default function EmberDetail() {
       setIsGeneratingAudio(false);
       setIsPlaying(true);
       
-      // Apply background media effects before starting timeline
-      const mediaEffects = segments.filter(segment => segment.type === 'media');
-      console.log(`🎭 Applying ${mediaEffects.length} background media effects...`);
-      
-      // Process each media segment to resolve and display the correct image
-      for (const segment of mediaEffects) {
-        console.log(`📺 Processing media segment: ${segment.content.substring(0, 50)}...`);
-        
-        // Resolve the media reference to get the actual image URL
-        const resolvedMediaUrl = await resolveMediaReference(segment, ember.id);
-        console.log(`🔍 Resolved media URL for "${segment.mediaName || segment.mediaId}":`, resolvedMediaUrl);
-        
-        if (resolvedMediaUrl) {
-          // Update the current media image URL to display the specific media
-          console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
-          setCurrentMediaImageUrl(resolvedMediaUrl);
-        } else {
-          console.warn(`⚠️ Could not resolve media reference: ${segment.mediaName || segment.mediaId}`);
-          // Fall back to original ember image if media not found
-          setCurrentMediaImageUrl(ember.image_url);
-        }
-        
-        // Apply visual effects to the resolved image
-        if (segment.content.includes('Z-OUT:')) {
-          // Extract zoom scale values from Z-OUT command
-          const zoomScale = extractZoomScaleFromAction(segment.content);
-          console.log(`🎬 Applying zoom effect: from ${zoomScale.start} to ${zoomScale.end}`);
-          setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
-        }
-      }
+      // No background media processing - MEDIA elements are now in timeline
       
       let currentTimelineIndex = 0;
       // Clear any existing media timeouts before starting new playback
@@ -5785,7 +5754,43 @@ export default function EmberDetail() {
           setMediaTimeouts(prev => [...prev, timeoutId]);
           mediaTimeoutsRef.current.push(timeoutId);
           
-                 } else if (currentStep.type === 'voice') {
+        } else if (currentStep.type === 'media') {
+          // Media step - switch background image and continue immediately
+          const segment = currentStep.segment;
+          
+          console.log(`📺 Switching to media: ${segment.content.substring(0, 50)}...`);
+          
+          // Resolve the media reference to get the actual image URL
+          resolveMediaReference(segment, ember.id).then(resolvedMediaUrl => {
+            console.log(`🔍 Resolved media URL for "${segment.mediaName || segment.mediaId}":`, resolvedMediaUrl);
+            
+            if (resolvedMediaUrl) {
+              // Update the current media image URL to display the specific media
+              console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
+              setCurrentMediaImageUrl(resolvedMediaUrl);
+            } else {
+              console.warn(`⚠️ Could not resolve media reference: ${segment.mediaName || segment.mediaId}`);
+            }
+            
+            // Apply visual effects to the resolved image
+            if (segment.content.includes('Z-OUT:')) {
+              // Extract zoom scale values from Z-OUT command
+              const zoomScale = extractZoomScaleFromAction(segment.content);
+              console.log(`🎬 Applying zoom effect: from ${zoomScale.start} to ${zoomScale.end}`);
+              setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
+            }
+            
+            // Continue immediately to next timeline step (media changes are instant)
+            currentTimelineIndex++;
+            playNextTimelineStep();
+          }).catch(error => {
+            console.error('❌ Error resolving media reference:', error);
+            // Continue anyway
+            currentTimelineIndex++;
+            playNextTimelineStep();
+          });
+          
+        } else if (currentStep.type === 'voice') {
            // Voice step - play audio
            const audio = currentStep.audio.audio;
            const segment = currentStep.segment;
