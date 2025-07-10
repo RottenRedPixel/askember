@@ -209,7 +209,8 @@ const StoryCutDetailContent = ({
   storyMessages,
   ember,
   hasBeenEnhanced,
-  getEditableScript
+  getEditableScript,
+  formattedScript
 }) => (
   <div className="space-y-6">
     {/* Story Cut Info */}
@@ -4025,6 +4026,7 @@ export default function EmberDetail() {
                     ember={ember}
                     hasBeenEnhanced={hasBeenEnhanced}
                     getEditableScript={getEditableScript}
+                    formattedScript={formattedScript}
                   />
                 </div>
               </DrawerContent>
@@ -4057,6 +4059,7 @@ export default function EmberDetail() {
                   ember={ember}
                   hasBeenEnhanced={hasBeenEnhanced}
                   getEditableScript={getEditableScript}
+                  formattedScript={formattedScript}
                 />
               </DialogContent>
             </Dialog>
@@ -4952,20 +4955,36 @@ export default function EmberDetail() {
     const resolveMediaDisplayName = (segment) => {
       if (segment.type !== 'media') return segment.content;
       
+      console.log('🔍 Resolving display name for segment:', {
+        mediaId: segment.mediaId,
+        mediaName: segment.mediaName,
+        content: segment.content,
+        availablePhotos: emberPhotos.length,
+        availableSupportingMedia: supportingMedia.length
+      });
+      
       // Look up display name for media segments
       if (segment.mediaId) {
+        console.log(`🔍 Searching for media ID: ${segment.mediaId}`);
+        
         // Search by ID first
         const photoMatch = emberPhotos.find(photo => photo.id === segment.mediaId);
         if (photoMatch) {
           const displayName = photoMatch.display_name || photoMatch.original_filename;
+          console.log(`✅ Found photo match: ${displayName}`);
           return segment.content.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
         }
         
         const mediaMatch = supportingMedia.find(media => media.id === segment.mediaId);
         if (mediaMatch) {
           const displayName = mediaMatch.display_name || mediaMatch.file_name;
+          console.log(`✅ Found supporting media match: ${displayName}`);
           return segment.content.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
         }
+        
+        console.log(`❌ No match found for media ID: ${segment.mediaId}`);
+        console.log('Available photo IDs:', emberPhotos.map(p => p.id));
+        console.log('Available media IDs:', supportingMedia.map(m => m.id));
       }
       
       // If no match found or already has name format, return as-is
