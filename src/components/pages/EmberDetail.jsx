@@ -301,7 +301,7 @@ const StoryCutDetailContent = ({
       ) : (
         <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
           <div className="text-gray-700 leading-relaxed font-mono text-sm">
-            {formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut).split('\n\n').map((line, index) => {
+            {formattedScript.split('\n\n').map((line, index) => {
               // Parse voice tag, content, and duration - handle both [[MEDIA]] and [VOICE] formats
               const voiceMatch = line.match(/^(\[\[?[^\]]+\]\]?)\s*(.*?)\s*\((\d+\.\d+)\)$/);
               if (!voiceMatch) return <div key={index}>{line}</div>;
@@ -1147,6 +1147,7 @@ export default function EmberDetail() {
   const [editedScript, setEditedScript] = useState('');
   const [isSavingScript, setIsSavingScript] = useState(false);
   const [hasBeenEnhanced, setHasBeenEnhanced] = useState(false);
+  const [formattedScript, setFormattedScript] = useState('');
 
   // Synchronized text display state (Option 1B: Sentence-by-Sentence)
   const [currentDisplayText, setCurrentDisplayText] = useState('');
@@ -1262,6 +1263,25 @@ export default function EmberDetail() {
     fetchVoices();
     fetchStoryStyles();
   }, []);
+
+  // Format script for display when selectedStoryCut changes
+  useEffect(() => {
+    const formatScript = async () => {
+      if (selectedStoryCut && selectedStoryCut.full_script && ember) {
+        try {
+          const formatted = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
+          setFormattedScript(formatted);
+        } catch (error) {
+          console.error('Error formatting script:', error);
+          setFormattedScript('Error formatting script for display');
+        }
+      } else {
+        setFormattedScript('');
+      }
+    };
+
+    formatScript();
+  }, [selectedStoryCut, ember]);
 
   // Cleanup all audio when component unmounts
   useEffect(() => {
@@ -4885,7 +4905,7 @@ export default function EmberDetail() {
   };
 
   // Format script for display with visual actions and spacing
-  const formatScriptForDisplay = (script, ember, storyCut) => {
+  const formatScriptForDisplay = async (script, ember, storyCut) => {
     if (!script) return '';
     
     console.log('🎨 formatScriptForDisplay called');
@@ -4923,14 +4943,46 @@ export default function EmberDetail() {
       console.log(`  🚨 DISPLAY HOLD ${index + 1}: "${holdSeg.content}" (type: ${holdSeg.type})`);
     });
 
-    return segments.map((segment, index) => {
+    // Get all media for this ember to resolve display names
+    const [emberPhotos, supportingMedia] = await Promise.all([
+      getEmberPhotos(ember.id),
+      getEmberSupportingMedia(ember.id)
+    ]);
+
+    const resolveMediaDisplayName = (segment) => {
+      if (segment.type !== 'media') return segment.content;
+      
+      // Look up display name for media segments
+      if (segment.mediaId) {
+        // Search by ID first
+        const photoMatch = emberPhotos.find(photo => photo.id === segment.mediaId);
+        if (photoMatch) {
+          const displayName = photoMatch.display_name || photoMatch.original_filename;
+          return segment.content.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
+        }
+        
+        const mediaMatch = supportingMedia.find(media => media.id === segment.mediaId);
+        if (mediaMatch) {
+          const displayName = mediaMatch.display_name || mediaMatch.file_name;
+          return segment.content.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
+        }
+      }
+      
+      // If no match found or already has name format, return as-is
+      return segment.content;
+    };
+
+    const displaySegments = segments.map((segment, index) => {
       const { voiceTag, content, type, duration } = segment;
       const calculatedDuration = duration || estimateSegmentDuration(content, type);
+      
+      // For media segments, replace ID with display name
+      const displayContent = resolveMediaDisplayName(segment);
       
       // Format media/hold lines with [[TYPE]] and voice lines with [VOICE]
       const prefix = (type === 'media' || type === 'hold') ? `[[${voiceTag}]]` : `[${voiceTag}]`;
       
-      const displayLine = `${prefix} ${content} (${calculatedDuration})`;
+      const displayLine = `${prefix} ${displayContent} (${calculatedDuration})`;
       console.log(`📝 Display segment ${index + 1}: "${displayLine}"`);
       
       // 🚨 CRITICAL DEBUG: Special logging for HOLD segments
@@ -4940,7 +4992,9 @@ export default function EmberDetail() {
       
       // Add double line breaks between segments for spacing
       return displayLine;
-    }).join('\n\n');
+    });
+
+    return displaySegments.join('\n\n');
   };
 
   // 🐛 DEBUG HELPER: Inspect recorded audio data
