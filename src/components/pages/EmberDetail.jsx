@@ -28,10 +28,10 @@ import TimeDateModal from '@/components/TimeDateModal';
 import ImageAnalysisModal from '@/components/ImageAnalysisModal';
 import TaggedPeopleModal from '@/components/TaggedPeopleModal';
 import SupportingMediaModal from '@/components/SupportingMediaModal';
-import MediaManagementModal from '@/components/MediaManagementModal';
+
 
 import EmberNamesModal from '@/components/EmberNamesModal';
-import EmberSettingsPanel from '@/components/EmberSettingsPanel';
+import EmberWikiPanel from '@/components/EmberWikiPanel';
 import QRCodeGenerator from '@/components/QRCodeGenerator';
 import { textToSpeech, getVoices } from '@/lib/elevenlabs';
 // Prompts functionality has been removed
@@ -41,19 +41,19 @@ import useStore from '@/store';
 // ✅ Per-Message Audio Controls Component
 const OwnerMessageAudioControls = ({ line, messageIndex, messageType, storyMessages, ember, storyCutId }) => {
   const [messagePreferences, setMessagePreferences] = useState({});
-  
+
   // Expose data globally for debugging
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.storyMessages = storyMessages;
     }
   }, [storyMessages]);
-  
+
   // Load preferences from database when component mounts
   useEffect(() => {
     const loadPreferences = async () => {
       if (!storyCutId) return;
-      
+
       try {
         const savedPreferences = await getStoryCutAudioPreferences(storyCutId);
         if (savedPreferences) {
@@ -63,75 +63,75 @@ const OwnerMessageAudioControls = ({ line, messageIndex, messageType, storyMessa
         console.error('Error loading audio preferences:', error);
       }
     };
-    
+
     loadPreferences();
   }, [storyCutId]);
-  
+
   // Analyze this specific message
   useEffect(() => {
     const analyzeMessage = async () => {
       if (!line || !storyMessages?.length || !ember?.user_id) return;
-      
+
       const messageKey = `${messageIndex}-${line.substring(0, 50)}`;
-      
+
       try {
         // Check if owner has a personal voice model
         const userVoiceModel = await getUserVoiceModel(ember.user_id);
         const hasPersonalVoice = userVoiceModel && userVoiceModel.elevenlabs_voice_id;
-        
-                 // Check if this message has recorded audio
-         const hasRecordedAudio = messageType === 'audio';
-         
-         console.log(`🎤 Message ${messageIndex}: Recorded=${hasRecordedAudio}, Personal Voice=${hasPersonalVoice}, Type=${messageType}`);
-         
-         // Set smart defaults based on message type and available options
-         let defaultPreference = 'text'; // fallback default
-         
-         if (messageType === 'audio') {
-           // Audio messages: prefer recorded → personal voice → text response
-           if (hasRecordedAudio) {
-             defaultPreference = 'recorded';
-           } else if (hasPersonalVoice) {
-             defaultPreference = 'personal';
-           } else {
-             defaultPreference = 'text';
-           }
-                   } else {
-            // Text messages: prefer text response → personal voice (no recorded option)
-            defaultPreference = 'text'; // Text messages naturally default to text response
+
+        // Check if this message has recorded audio
+        const hasRecordedAudio = messageType === 'audio';
+
+        console.log(`🎤 Message ${messageIndex}: Recorded=${hasRecordedAudio}, Personal Voice=${hasPersonalVoice}, Type=${messageType}`);
+
+        // Set smart defaults based on message type and available options
+        let defaultPreference = 'text'; // fallback default
+
+        if (messageType === 'audio') {
+          // Audio messages: prefer recorded → personal voice → text response
+          if (hasRecordedAudio) {
+            defaultPreference = 'recorded';
+          } else if (hasPersonalVoice) {
+            defaultPreference = 'personal';
+          } else {
+            defaultPreference = 'text';
           }
-         
-         setMessagePreferences(prev => ({
-           ...prev,
-           [messageKey]: prev[messageKey] || defaultPreference
-         }));
-               } catch (error) {
-         console.log(`⚠️ Error analyzing message ${messageIndex}:`, error.message);
-         // Still show controls even if there's an error - text response is always available
-         setMessagePreferences(prev => ({
-           ...prev,
-           [messageKey]: prev[messageKey] || 'text'
-         }));
-       }
+        } else {
+          // Text messages: prefer text response → personal voice (no recorded option)
+          defaultPreference = 'text'; // Text messages naturally default to text response
+        }
+
+        setMessagePreferences(prev => ({
+          ...prev,
+          [messageKey]: prev[messageKey] || defaultPreference
+        }));
+      } catch (error) {
+        console.log(`⚠️ Error analyzing message ${messageIndex}:`, error.message);
+        // Still show controls even if there's an error - text response is always available
+        setMessagePreferences(prev => ({
+          ...prev,
+          [messageKey]: prev[messageKey] || 'text'
+        }));
+      }
     };
-    
+
     analyzeMessage();
   }, [line, messageIndex, messageType, storyMessages, ember]);
-  
+
   // Store preferences globally for audio generation
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.messageAudioPreferences = messagePreferences;
     }
   }, [messagePreferences]);
-  
+
   const handlePreferenceChange = async (messageKey, preference) => {
     // Update local state immediately
     setMessagePreferences(prev => ({
       ...prev,
       [messageKey]: preference
     }));
-    
+
     // Save to database
     if (storyCutId) {
       try {
@@ -142,59 +142,59 @@ const OwnerMessageAudioControls = ({ line, messageIndex, messageType, storyMessa
       }
     }
   };
-  
-     // Show contextual controls based on original message type
-     const messageKey = `${messageIndex}-${line.substring(0, 50)}`;
-     const showRecordedOption = messageType === 'audio'; // Only show "Recorded" if original was audio
-   
-   return (
-     <div className="flex items-center space-x-2 text-xs">
-       {/* 🎙️ Recorded - Only show for original audio messages */}
-       {showRecordedOption && (
-         <label className="flex items-center space-x-1 cursor-pointer">
-           <input
-             type="radio"
-             name={`message-${messageKey}`}
-             value="recorded"
-             checked={messagePreferences[messageKey] === 'recorded'}
-             onChange={(e) => handlePreferenceChange(messageKey, e.target.value)}
-             className="text-green-600 focus:ring-green-500 w-3 h-3"
-           />
-           <span className="text-xs text-gray-700">🎙️ Recorded</span>
-         </label>
-       )}
-       
-       {/* 🎤 Synth Voice - Always available */}
-       <label className="flex items-center space-x-1 cursor-pointer">
-         <input
-           type="radio"
-           name={`message-${messageKey}`}
-           value="personal"
-           checked={messagePreferences[messageKey] === 'personal'}
-           onChange={(e) => handlePreferenceChange(messageKey, e.target.value)}
-           className="text-green-600 focus:ring-green-500 w-3 h-3"
-         />
-         <span className="text-xs text-gray-700">🎤 Synth Voice</span>
-       </label>
-       
-       {/* 📝 Text Response - Always available */}
-       <label className="flex items-center space-x-1 cursor-pointer">
-         <input
-           type="radio"
-           name={`message-${messageKey}`}
-           value="text"
-           checked={messagePreferences[messageKey] === 'text'}
-           onChange={(e) => handlePreferenceChange(messageKey, e.target.value)}
-           className="text-green-600 focus:ring-green-500 w-3 h-3"
-         />
-         <span className="text-xs text-gray-700">📝 Text Response</span>
-       </label>
-     </div>
-   );
+
+  // Show contextual controls based on original message type
+  const messageKey = `${messageIndex}-${line.substring(0, 50)}`;
+  const showRecordedOption = messageType === 'audio'; // Only show "Recorded" if original was audio
+
+  return (
+    <div className="flex items-center space-x-2 text-xs">
+      {/* 🎙️ Recorded - Only show for original audio messages */}
+      {showRecordedOption && (
+        <label className="flex items-center space-x-1 cursor-pointer">
+          <input
+            type="radio"
+            name={`message-${messageKey}`}
+            value="recorded"
+            checked={messagePreferences[messageKey] === 'recorded'}
+            onChange={(e) => handlePreferenceChange(messageKey, e.target.value)}
+            className="text-green-600 focus:ring-green-500 w-3 h-3"
+          />
+          <span className="text-xs text-gray-700">🎙️ Recorded</span>
+        </label>
+      )}
+
+      {/* 🎤 Synth Voice - Always available */}
+      <label className="flex items-center space-x-1 cursor-pointer">
+        <input
+          type="radio"
+          name={`message-${messageKey}`}
+          value="personal"
+          checked={messagePreferences[messageKey] === 'personal'}
+          onChange={(e) => handlePreferenceChange(messageKey, e.target.value)}
+          className="text-green-600 focus:ring-green-500 w-3 h-3"
+        />
+        <span className="text-xs text-gray-700">🎤 Synth Voice</span>
+      </label>
+
+      {/* 📝 Text Response - Always available */}
+      <label className="flex items-center space-x-1 cursor-pointer">
+        <input
+          type="radio"
+          name={`message-${messageKey}`}
+          value="text"
+          checked={messagePreferences[messageKey] === 'text'}
+          onChange={(e) => handlePreferenceChange(messageKey, e.target.value)}
+          className="text-green-600 focus:ring-green-500 w-3 h-3"
+        />
+        <span className="text-xs text-gray-700">📝 Text Response</span>
+      </label>
+    </div>
+  );
 };
 
 // ✅ Extract StoryModalContent OUTSIDE the main component (prevents cursor jumping)
-const StoryCutDetailContent = ({ 
+const StoryCutDetailContent = ({
   selectedStoryCut,
   isEditingScript,
   setIsEditingScript,
@@ -219,7 +219,7 @@ const StoryCutDetailContent = ({
           <div>{selectedStoryCut.word_count || 'Unknown'} words</div>
         </div>
       </div>
-      
+
       {/* Style Badge */}
       <div className="flex items-center justify-start">
         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
@@ -240,146 +240,146 @@ const StoryCutDetailContent = ({
 
     {/* Full Script */}
     {selectedStoryCut.full_script && (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Complete Script</h3>
-        {!isEditingScript && (
-          <button
-            onClick={async () => {
-              try {
-                console.log('✏️ Starting script edit...');
-                console.log('📝 Current stored script:', selectedStoryCut.full_script);
-                // Use the same formatting as the display view
-                const editableScript = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
-                console.log('📝 Loaded editable script:', editableScript);
-                setIsEditingScript(true);
-                setEditedScript(editableScript);
-              } catch (error) {
-                console.error('❌ Error loading script for editing:', error);
-                console.error('❌ Error details:', error.message);
-                console.error('❌ Stack trace:', error.stack);
-                // Fallback - use raw script
-                console.log('🔄 Falling back to raw script');
-                setIsEditingScript(true);
-                setEditedScript(selectedStoryCut.full_script || '');
-              }
-            }}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-          >
-            Edit
-          </button>
-        )}
-      </div>
-      
-      {isEditingScript ? (
-        <div className="space-y-3">
-          <textarea
-            value={editedScript}
-            onChange={(e) => setEditedScript(e.target.value)}
-            className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm leading-relaxed resize-none"
-            rows={Math.max(10, (editedScript.match(/\n/g) || []).length + 3)}
-            placeholder="Enter your script here..."
-          />
-          <div className="flex gap-2">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Complete Script</h3>
+          {!isEditingScript && (
             <button
-              onClick={handleSaveScript}
-              disabled={isSavingScript}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 font-medium text-sm"
+              onClick={async () => {
+                try {
+                  console.log('✏️ Starting script edit...');
+                  console.log('📝 Current stored script:', selectedStoryCut.full_script);
+                  // Use the same formatting as the display view
+                  const editableScript = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
+                  console.log('📝 Loaded editable script:', editableScript);
+                  setIsEditingScript(true);
+                  setEditedScript(editableScript);
+                } catch (error) {
+                  console.error('❌ Error loading script for editing:', error);
+                  console.error('❌ Error details:', error.message);
+                  console.error('❌ Stack trace:', error.stack);
+                  // Fallback - use raw script
+                  console.log('🔄 Falling back to raw script');
+                  setIsEditingScript(true);
+                  setEditedScript(selectedStoryCut.full_script || '');
+                }
+              }}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
             >
-              {isSavingScript ? 'Saving...' : 'Save'}
+              Edit
             </button>
-            <button
-              onClick={handleCancelScriptEdit}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
-            >
-              Cancel
-            </button>
-          </div>
+          )}
         </div>
-      ) : (
-        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <div className="text-gray-700 leading-relaxed font-mono text-sm">
-            {formattedScript.split('\n\n').map((line, index) => {
-              // Parse voice tag, content, and duration - handle both [[MEDIA]] and [VOICE] formats
-              const voiceMatch = line.match(/^(\[\[?[^\]]+\]\]?)\s*(.*?)\s*\((\d+\.\d+)\)$/);
-              if (!voiceMatch) return <div key={index}>{line}</div>;
-              
-              const [, voiceTagWithBrackets, content, duration] = voiceMatch;
-              const isMedia = voiceTagWithBrackets.startsWith('[[');
-              const voiceTag = voiceTagWithBrackets.replace(/^\[\[?|\]\]?$/g, '');
-              
-              // Split content into text and visual actions
-              const parts = [];
-              let currentIndex = 0;
-              const visualActionRegex = /<([^>]+)>/g;
-              let match;
-              
-              while ((match = visualActionRegex.exec(content)) !== null) {
-                // Add text before the visual action
-                if (match.index > currentIndex) {
+
+        {isEditingScript ? (
+          <div className="space-y-3">
+            <textarea
+              value={editedScript}
+              onChange={(e) => setEditedScript(e.target.value)}
+              className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm leading-relaxed resize-none"
+              rows={Math.max(10, (editedScript.match(/\n/g) || []).length + 3)}
+              placeholder="Enter your script here..."
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveScript}
+                disabled={isSavingScript}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 font-medium text-sm"
+              >
+                {isSavingScript ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                onClick={handleCancelScriptEdit}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-gray-700 leading-relaxed font-mono text-sm">
+              {formattedScript.split('\n\n').map((line, index) => {
+                // Parse voice tag, content, and duration - handle both [[MEDIA]] and [VOICE] formats
+                const voiceMatch = line.match(/^(\[\[?[^\]]+\]\]?)\s*(.*?)\s*\((\d+\.\d+)\)$/);
+                if (!voiceMatch) return <div key={index}>{line}</div>;
+
+                const [, voiceTagWithBrackets, content, duration] = voiceMatch;
+                const isMedia = voiceTagWithBrackets.startsWith('[[');
+                const voiceTag = voiceTagWithBrackets.replace(/^\[\[?|\]\]?$/g, '');
+
+                // Split content into text and visual actions
+                const parts = [];
+                let currentIndex = 0;
+                const visualActionRegex = /<([^>]+)>/g;
+                let match;
+
+                while ((match = visualActionRegex.exec(content)) !== null) {
+                  // Add text before the visual action
+                  if (match.index > currentIndex) {
+                    parts.push({
+                      type: 'text',
+                      content: content.slice(currentIndex, match.index)
+                    });
+                  }
+
+                  // Add the visual action
+                  parts.push({
+                    type: 'visual',
+                    content: `<${match[1]}>`,
+                    rawAction: match[1]
+                  });
+
+                  currentIndex = match.index + match[0].length;
+                }
+
+                // Add remaining text
+                if (currentIndex < content.length) {
                   parts.push({
                     type: 'text',
-                    content: content.slice(currentIndex, match.index)
+                    content: content.slice(currentIndex)
                   });
                 }
-                
-                // Add the visual action
-                parts.push({
-                  type: 'visual',
-                  content: `<${match[1]}>`,
-                  rawAction: match[1]
-                });
-                
-                currentIndex = match.index + match[0].length;
-              }
-              
-              // Add remaining text
-              if (currentIndex < content.length) {
-                parts.push({
-                  type: 'text',
-                  content: content.slice(currentIndex)
-                });
-              }
-              
-              return (
-                <div key={index} className="leading-relaxed mb-4">
-                  <span className={`font-semibold ${isMedia ? 'text-blue-600' : ''}`}>
-                    {isMedia ? '[[' : '['}
-                    {voiceTag}
-                    {isMedia ? ']]' : ']'}
-                  </span>{' '}
-                  {parts.map((part, partIndex) => (
-                    <span 
-                      key={partIndex}
-                      className={part.type === 'visual' ? 'text-gray-400 font-medium' : ''}
-                    >
-                      {part.type === 'visual' && part.rawAction?.startsWith('COLOR:') ? (
-                        <span className="inline-flex items-center gap-1">
-                          {part.content.replace(/color=/g, '').replace(/opacity=/g, 'TRAN:')}
-                          {(() => {
-                            const hexColor = extractColorFromAction(part.rawAction);
-                            return hexColor ? (
-                              <span 
-                                className="inline-block w-3 h-3 rounded-full border border-gray-300 flex-shrink-0"
-                                style={{ backgroundColor: hexColor }}
-                                title={hexColor}
-                              ></span>
-                            ) : null;
-                          })()}
-                        </span>
-                      ) : (
-                        part.content
-                      )}
-                    </span>
-                  ))}
-                  {' '}<span className="text-gray-400">({duration})</span>
-                </div>
-              );
-            })}
+
+                return (
+                  <div key={index} className="leading-relaxed mb-4">
+                    <span className={`font-semibold ${isMedia ? 'text-blue-600' : ''}`}>
+                      {isMedia ? '[[' : '['}
+                      {voiceTag}
+                      {isMedia ? ']]' : ']'}
+                    </span>{' '}
+                    {parts.map((part, partIndex) => (
+                      <span
+                        key={partIndex}
+                        className={part.type === 'visual' ? 'text-gray-400 font-medium' : ''}
+                      >
+                        {part.type === 'visual' && part.rawAction?.startsWith('COLOR:') ? (
+                          <span className="inline-flex items-center gap-1">
+                            {part.content.replace(/color=/g, '').replace(/opacity=/g, 'TRAN:')}
+                            {(() => {
+                              const hexColor = extractColorFromAction(part.rawAction);
+                              return hexColor ? (
+                                <span
+                                  className="inline-block w-3 h-3 rounded-full border border-gray-300 flex-shrink-0"
+                                  style={{ backgroundColor: hexColor }}
+                                  title={hexColor}
+                                ></span>
+                              ) : null;
+                            })()}
+                          </span>
+                        ) : (
+                          part.content
+                        )}
+                      </span>
+                    ))}
+                    {' '}<span className="text-gray-400">({duration})</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
     )}
 
     {/* Voice Casting */}
@@ -399,216 +399,216 @@ const StoryCutDetailContent = ({
     </div>
 
     {/* Voice Lines Breakdown */}
-    {((selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0) || 
+    {((selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0) ||
       (selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0) ||
       (selectedStoryCut.metadata?.owner_lines && selectedStoryCut.metadata.owner_lines.length > 0) ||
       (selectedStoryCut.metadata?.contributor_lines && selectedStoryCut.metadata.contributor_lines.length > 0)) && (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">Voice Lines Breakdown</h3>
-      
-      {/* Ember Voice Lines */}
-      {selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="font-medium text-purple-800 flex items-center gap-2">
-            <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-            Ember Voice Lines ({selectedStoryCut.ember_voice_name})
-          </h4>
-          <div className="space-y-2">
-            {selectedStoryCut.ember_voice_lines.map((line, index) => (
-              <div key={index} className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                <p className="text-purple-700">{line}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  <span className="text-xs opacity-70">AI Generated</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900">Voice Lines Breakdown</h3>
 
-      {/* Narrator Voice Lines */}
-      {selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="font-medium text-purple-800 flex items-center gap-2">
-            <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-            Narrator Voice Lines ({selectedStoryCut.narrator_voice_name})
-          </h4>
-          <div className="space-y-2">
-            {selectedStoryCut.narrator_voice_lines.map((line, index) => (
-              <div key={index} className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                <p className="text-purple-700">{line}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  <span className="text-xs opacity-70">AI Generated</span>
-                </div>
+          {/* Ember Voice Lines */}
+          {selectedStoryCut.ember_voice_lines && selectedStoryCut.ember_voice_lines.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="font-medium text-purple-800 flex items-center gap-2">
+                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                Ember Voice Lines ({selectedStoryCut.ember_voice_name})
+              </h4>
+              <div className="space-y-2">
+                {selectedStoryCut.ember_voice_lines.map((line, index) => (
+                  <div key={index} className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <p className="text-purple-700">{line}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      <span className="text-xs opacity-70">AI Generated</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {/* Owner Lines */}
-      {selectedStoryCut.metadata?.owner_lines && selectedStoryCut.metadata.owner_lines.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="font-medium text-green-800 flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            {(() => {
-              // Try to get owner name from metadata first, then from selected_contributors
-              const ownerName = selectedStoryCut.metadata?.owner_first_name;
-              if (ownerName) return `${ownerName} (Owner)`;
-              
-              // Fallback: look for owner in selected_contributors
-              const contributors = selectedStoryCut.selected_contributors || [];
-              const owner = contributors.find(c => c?.role === 'owner');
-              if (owner?.name) return `${owner.name} (Owner)`;
-              
-              return 'Owner';
-            })()}
-          </h4>
-          <div className="space-y-2">
-            {selectedStoryCut.metadata.owner_lines.map((line, index) => {
-              // Try to match this line to original story messages to determine type
-              const getOriginalMessageType = (line, lineIndex) => {
-                if (!storyMessages || storyMessages.length === 0) return 'unknown';
-                
-                // Look for owner messages (filter by user_id matching ember owner)
-                const ownerMessages = storyMessages.filter(msg => msg.user_id === ember?.user_id)
-                  .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // Sort by creation time
-                
-                // Try to match by index first (most reliable)
-                if (ownerMessages[lineIndex]) {
-                  return ownerMessages[lineIndex].has_audio ? 'audio' : 'text';
-                }
-                
-                // Try to find a message that could correspond to this line by content
-                for (const msg of ownerMessages) {
-                  if (msg.content && msg.content.trim()) {
-                    // Check if the line contains significant parts of the message content
-                    const msgWords = msg.content.toLowerCase().split(/\s+/).filter(word => word.length > 3);
-                    const lineWords = line.toLowerCase().split(/\s+/);
-                    
-                    // If at least 2 significant words match, consider it a match
-                    const matchingWords = msgWords.filter(word => lineWords.some(lineWord => lineWord.includes(word)));
-                    if (matchingWords.length >= 2) {
-                      return msg.has_audio ? 'audio' : 'text';
+          {/* Narrator Voice Lines */}
+          {selectedStoryCut.narrator_voice_lines && selectedStoryCut.narrator_voice_lines.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="font-medium text-purple-800 flex items-center gap-2">
+                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                Narrator Voice Lines ({selectedStoryCut.narrator_voice_name})
+              </h4>
+              <div className="space-y-2">
+                {selectedStoryCut.narrator_voice_lines.map((line, index) => (
+                  <div key={index} className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <p className="text-purple-700">{line}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      <span className="text-xs opacity-70">AI Generated</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Owner Lines */}
+          {selectedStoryCut.metadata?.owner_lines && selectedStoryCut.metadata.owner_lines.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="font-medium text-green-800 flex items-center gap-2">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                {(() => {
+                  // Try to get owner name from metadata first, then from selected_contributors
+                  const ownerName = selectedStoryCut.metadata?.owner_first_name;
+                  if (ownerName) return `${ownerName} (Owner)`;
+
+                  // Fallback: look for owner in selected_contributors
+                  const contributors = selectedStoryCut.selected_contributors || [];
+                  const owner = contributors.find(c => c?.role === 'owner');
+                  if (owner?.name) return `${owner.name} (Owner)`;
+
+                  return 'Owner';
+                })()}
+              </h4>
+              <div className="space-y-2">
+                {selectedStoryCut.metadata.owner_lines.map((line, index) => {
+                  // Try to match this line to original story messages to determine type
+                  const getOriginalMessageType = (line, lineIndex) => {
+                    if (!storyMessages || storyMessages.length === 0) return 'unknown';
+
+                    // Look for owner messages (filter by user_id matching ember owner)
+                    const ownerMessages = storyMessages.filter(msg => msg.user_id === ember?.user_id)
+                      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // Sort by creation time
+
+                    // Try to match by index first (most reliable)
+                    if (ownerMessages[lineIndex]) {
+                      return ownerMessages[lineIndex].has_audio ? 'audio' : 'text';
                     }
-                  }
-                }
-                
-                // If we can't match by content, try by position
-                const audioMessages = ownerMessages.filter(msg => msg.has_audio);
-                const textMessages = ownerMessages.filter(msg => !msg.has_audio);
-                
-                // Default to 'text' if we can't determine
-                return 'text';
-                              };
 
-                const messageType = getOriginalMessageType(line, index);
-                
-                return (
-                  <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
-                    <p className="text-green-700">{line}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-green-500 animate-pulse' : 'bg-green-400'}`}></div>
+                    // Try to find a message that could correspond to this line by content
+                    for (const msg of ownerMessages) {
+                      if (msg.content && msg.content.trim()) {
+                        // Check if the line contains significant parts of the message content
+                        const msgWords = msg.content.toLowerCase().split(/\s+/).filter(word => word.length > 3);
+                        const lineWords = line.toLowerCase().split(/\s+/);
+
+                        // If at least 2 significant words match, consider it a match
+                        const matchingWords = msgWords.filter(word => lineWords.some(lineWord => lineWord.includes(word)));
+                        if (matchingWords.length >= 2) {
+                          return msg.has_audio ? 'audio' : 'text';
+                        }
+                      }
+                    }
+
+                    // If we can't match by content, try by position
+                    const audioMessages = ownerMessages.filter(msg => msg.has_audio);
+                    const textMessages = ownerMessages.filter(msg => !msg.has_audio);
+
+                    // Default to 'text' if we can't determine
+                    return 'text';
+                  };
+
+                  const messageType = getOriginalMessageType(line, index);
+
+                  return (
+                    <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-green-700">{line}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-green-500 animate-pulse' : 'bg-green-400'}`}></div>
+                          <span className="text-xs opacity-70">
+                            {messageType === 'audio' ? 'Audio message' : 'Text response'}
+                          </span>
+                        </div>
+                        <OwnerMessageAudioControls
+                          line={line}
+                          messageIndex={index}
+                          messageType={messageType}
+                          storyMessages={storyMessages}
+                          ember={ember}
+                          storyCutId={selectedStoryCut.id}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Contributor Lines */}
+          {selectedStoryCut.metadata?.contributor_lines && selectedStoryCut.metadata.contributor_lines.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="font-medium text-blue-800 flex items-center gap-2">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                {(() => {
+                  // Get contributor names from various possible sources, excluding the owner
+                  const contributors = selectedStoryCut.selected_contributors || [];
+                  const contributorNames = contributors
+                    .filter(c => c?.role !== 'owner') // Exclude the owner from contributors
+                    .map(c => {
+                      if (typeof c === 'string') return c;
+                      if (c?.name) return c.name;
+                      if (c?.first_name) return c.first_name;
+                      return 'Contributor';
+                    })
+                    .filter(name => name !== 'Contributor');
+
+                  if (contributorNames.length > 0) {
+                    return `${contributorNames.join(', ')} (Contributor${contributorNames.length > 1 ? 's' : ''} invited)`;
+                  }
+                  return 'Contributors';
+                })()}
+              </h4>
+              <div className="space-y-2">
+                {selectedStoryCut.metadata.contributor_lines.map((line, index) => {
+                  // Try to match this line to original story messages to determine type
+                  const getOriginalMessageType = (line, lineIndex) => {
+                    if (!storyMessages || storyMessages.length === 0) return 'unknown';
+
+                    // Look for contributor messages (filter by user_id not matching ember owner)
+                    const contributorMessages = storyMessages.filter(msg => msg.user_id !== ember?.user_id)
+                      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // Sort by creation time
+
+                    // Try to match by index first (most reliable)
+                    if (contributorMessages[lineIndex]) {
+                      return contributorMessages[lineIndex].has_audio ? 'audio' : 'text';
+                    }
+
+                    // Try to find a message that could correspond to this line by content
+                    for (const msg of contributorMessages) {
+                      if (msg.content && msg.content.trim()) {
+                        // Check if the line contains significant parts of the message content
+                        const msgWords = msg.content.toLowerCase().split(/\s+/).filter(word => word.length > 3);
+                        const lineWords = line.toLowerCase().split(/\s+/);
+
+                        // If at least 2 significant words match, consider it a match
+                        const matchingWords = msgWords.filter(word => lineWords.some(lineWord => lineWord.includes(word)));
+                        if (matchingWords.length >= 2) {
+                          return msg.has_audio ? 'audio' : 'text';
+                        }
+                      }
+                    }
+
+                    // Default to 'text' if we can't determine
+                    return 'text';
+                  };
+
+                  const messageType = getOriginalMessageType(line, index);
+
+                  return (
+                    <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-blue-700">{line}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-blue-500 animate-pulse' : 'bg-blue-400'}`}></div>
                         <span className="text-xs opacity-70">
                           {messageType === 'audio' ? 'Audio message' : 'Text response'}
                         </span>
                       </div>
-                      <OwnerMessageAudioControls
-                        line={line}
-                        messageIndex={index}
-                        messageType={messageType}
-                        storyMessages={storyMessages}
-                        ember={ember}
-                        storyCutId={selectedStoryCut.id}
-                      />
                     </div>
-                  </div>
-                );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
-
-      {/* Contributor Lines */}
-      {selectedStoryCut.metadata?.contributor_lines && selectedStoryCut.metadata.contributor_lines.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="font-medium text-blue-800 flex items-center gap-2">
-            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-            {(() => {
-              // Get contributor names from various possible sources, excluding the owner
-              const contributors = selectedStoryCut.selected_contributors || [];
-              const contributorNames = contributors
-                .filter(c => c?.role !== 'owner') // Exclude the owner from contributors
-                .map(c => {
-                  if (typeof c === 'string') return c;
-                  if (c?.name) return c.name;
-                  if (c?.first_name) return c.first_name;
-                  return 'Contributor';
-                })
-                .filter(name => name !== 'Contributor');
-              
-              if (contributorNames.length > 0) {
-                return `${contributorNames.join(', ')} (Contributor${contributorNames.length > 1 ? 's' : ''} invited)`;
-              }
-              return 'Contributors';
-            })()}
-          </h4>
-          <div className="space-y-2">
-            {selectedStoryCut.metadata.contributor_lines.map((line, index) => {
-              // Try to match this line to original story messages to determine type
-              const getOriginalMessageType = (line, lineIndex) => {
-                if (!storyMessages || storyMessages.length === 0) return 'unknown';
-                
-                // Look for contributor messages (filter by user_id not matching ember owner)
-                const contributorMessages = storyMessages.filter(msg => msg.user_id !== ember?.user_id)
-                  .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // Sort by creation time
-                
-                // Try to match by index first (most reliable)
-                if (contributorMessages[lineIndex]) {
-                  return contributorMessages[lineIndex].has_audio ? 'audio' : 'text';
-                }
-                
-                // Try to find a message that could correspond to this line by content
-                for (const msg of contributorMessages) {
-                  if (msg.content && msg.content.trim()) {
-                    // Check if the line contains significant parts of the message content
-                    const msgWords = msg.content.toLowerCase().split(/\s+/).filter(word => word.length > 3);
-                    const lineWords = line.toLowerCase().split(/\s+/);
-                    
-                    // If at least 2 significant words match, consider it a match
-                    const matchingWords = msgWords.filter(word => lineWords.some(lineWord => lineWord.includes(word)));
-                    if (matchingWords.length >= 2) {
-                      return msg.has_audio ? 'audio' : 'text';
-                    }
-                  }
-                }
-                
-                // Default to 'text' if we can't determine
-                return 'text';
-                              };
-
-                const messageType = getOriginalMessageType(line, index);
-                
-                return (
-                  <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-blue-700">{line}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-blue-500 animate-pulse' : 'bg-blue-400'}`}></div>
-                    <span className="text-xs opacity-70">
-                      {messageType === 'audio' ? 'Audio message' : 'Text response'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-    )}
 
     {/* Contributors */}
     {selectedStoryCut.selected_contributors && selectedStoryCut.selected_contributors.length > 0 && (
@@ -616,7 +616,7 @@ const StoryCutDetailContent = ({
         <h3 className="text-lg font-semibold text-gray-900">Selected Contributors</h3>
         <div className="flex flex-wrap gap-2">
           {selectedStoryCut.selected_contributors.map((contributor, index) => (
-            <span 
+            <span
               key={index}
               className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700"
             >
@@ -639,11 +639,11 @@ const StoryCutDetailContent = ({
   </div>
 );
 
-const StoryModalContent = ({ 
+const StoryModalContent = ({
   userProfile,
-  storyTitle, 
-  setStoryTitle, 
-  emberLength, 
+  storyTitle,
+  setStoryTitle,
+  emberLength,
   setEmberLength,
   ember,
   sharedUsers,
@@ -680,9 +680,9 @@ const StoryModalContent = ({
     {/* User Editor Info */}
     <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
       <Avatar className="h-8 w-8">
-        <AvatarImage 
-          src={userProfile?.avatar_url} 
-          alt={`${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || 'User'} 
+        <AvatarImage
+          src={userProfile?.avatar_url}
+          alt={`${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim() || 'User'}
         />
         <AvatarFallback className="text-sm bg-gray-200 text-gray-700">
           {userProfile?.first_name?.[0] || userProfile?.last_name?.[0] || 'U'}
@@ -720,7 +720,7 @@ const StoryModalContent = ({
           <Package size={16} className="text-blue-600" />
           Story Style
         </Label>
-        <select 
+        <select
           value={selectedStoryStyle}
           onChange={(e) => setSelectedStoryStyle(e.target.value)}
           disabled={stylesLoading}
@@ -765,21 +765,21 @@ const StoryModalContent = ({
         <Sliders size={16} className="text-blue-600" />
         Story Length
       </Label>
-      
+
       <div className="space-y-3">
         <div>
           <div className="flex justify-between items-center mb-2">
             <p className="text-sm text-gray-600">Duration</p>
             <span className="text-sm text-blue-600 font-medium">{emberLength} seconds</span>
           </div>
-          <input 
-            type="range" 
-            min="5" 
-            max="60" 
-            step="5" 
+          <input
+            type="range"
+            min="5"
+            max="60"
+            step="5"
             value={emberLength}
             onChange={(e) => setEmberLength(Number(e.target.value))}
-            className="w-full mt-1" 
+            className="w-full mt-1"
           />
           <div className="flex justify-between text-xs text-gray-400 mt-1">
             <span>5s</span>
@@ -799,11 +799,11 @@ const StoryModalContent = ({
         Voices
       </Label>
       <p className="text-sm text-gray-600">Select which voices you want used in this story.</p>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {/* Owner */}
         {ember?.owner && (
-          <div 
+          <div
             onClick={() => toggleVoiceSelection(ember.user_id)}
             className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
             style={{
@@ -813,9 +813,9 @@ const StoryModalContent = ({
           >
             <div className="relative">
               <Avatar className="h-10 w-10">
-                <AvatarImage 
-                  src={ember.owner.avatar_url} 
-                  alt={ember.owner.first_name || 'Owner'} 
+                <AvatarImage
+                  src={ember.owner.avatar_url}
+                  alt={ember.owner.first_name || 'Owner'}
                 />
                 <AvatarFallback className="text-sm bg-gray-200 text-gray-700">
                   {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || 'O'}
@@ -835,12 +835,11 @@ const StoryModalContent = ({
                 Owner
               </div>
               <div className="text-xs text-gray-600 mt-1">
-                Contributed? 
-                <span className={`ml-1 px-2 py-0.5 rounded-full ${
-                  storyMessages.some(msg => msg.user_id === ember.user_id)
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-600'
-                }`}>
+                Contributed?
+                <span className={`ml-1 px-2 py-0.5 rounded-full ${storyMessages.some(msg => msg.user_id === ember.user_id)
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-100 text-gray-600'
+                  }`}>
                   {storyMessages.some(msg => msg.user_id === ember.user_id) ? 'Yes' : 'No'}
                 </span>
               </div>
@@ -850,7 +849,7 @@ const StoryModalContent = ({
 
         {/* Shared Users */}
         {sharedUsers.map((user) => (
-          <div 
+          <div
             key={user.user_id}
             onClick={() => toggleVoiceSelection(user.user_id)}
             className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
@@ -861,9 +860,9 @@ const StoryModalContent = ({
           >
             <div className="relative">
               <Avatar className="h-10 w-10">
-                <AvatarImage 
-                  src={user.avatar_url} 
-                  alt={user.first_name || 'User'} 
+                <AvatarImage
+                  src={user.avatar_url}
+                  alt={user.first_name || 'User'}
                 />
                 <AvatarFallback className="text-sm bg-gray-200 text-gray-700">
                   {user.first_name?.[0] || user.last_name?.[0] || 'U'}
@@ -879,23 +878,21 @@ const StoryModalContent = ({
               <div className="text-sm font-medium text-gray-900 truncate">
                 {user.first_name || 'User'}
               </div>
-              <div className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${
-                user.permission_level === 'contributor' 
-                  ? 'text-blue-600 bg-blue-100' 
-                  : 'text-gray-600 bg-gray-100'
-              }`}>
+              <div className={`text-xs px-2 py-1 rounded-full inline-block mt-1 ${user.permission_level === 'contributor'
+                ? 'text-blue-600 bg-blue-100'
+                : 'text-gray-600 bg-gray-100'
+                }`}>
                 {user.permission_level === 'contributor' ? 'Contributor' : 'Viewer'}
               </div>
-                             <div className="text-xs text-gray-600 mt-1">
-                 Contributed? 
-                 <span className={`ml-1 px-2 py-0.5 rounded-full ${
-                   storyMessages.some(msg => msg.user_id === user.user_id)
-                     ? 'bg-green-100 text-green-700'
-                     : 'bg-gray-100 text-gray-600'
-                 }`}>
-                   {storyMessages.some(msg => msg.user_id === user.user_id) ? 'Yes' : 'No'}
-                 </span>
-               </div>
+              <div className="text-xs text-gray-600 mt-1">
+                Contributed?
+                <span className={`ml-1 px-2 py-0.5 rounded-full ${storyMessages.some(msg => msg.user_id === user.user_id)
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-100 text-gray-600'
+                  }`}>
+                  {storyMessages.some(msg => msg.user_id === user.user_id) ? 'Yes' : 'No'}
+                </span>
+              </div>
             </div>
           </div>
         ))}
@@ -916,11 +913,11 @@ const StoryModalContent = ({
         Ember Agents
       </Label>
       <p className="text-sm text-gray-600">Select which voice agents you want included in this story.</p>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Ember AI */}
         <div className="space-y-3">
-          <div 
+          <div
             onClick={toggleEmberVoice}
             className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
             style={{
@@ -947,12 +944,12 @@ const StoryModalContent = ({
               </div>
             </div>
           </div>
-          
+
           {/* Ember Voice Dropdown */}
           {useEmberVoice && (
             <div className="space-y-2">
               <Label className="text-xs font-medium text-gray-700">Voice Selection</Label>
-              <select 
+              <select
                 value={selectedEmberVoice}
                 onChange={(e) => setSelectedEmberVoice(e.target.value)}
                 disabled={voicesLoading}
@@ -977,7 +974,7 @@ const StoryModalContent = ({
 
         {/* Narrator */}
         <div className="space-y-3">
-          <div 
+          <div
             onClick={toggleNarratorVoice}
             className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-gray-50"
             style={{
@@ -1004,12 +1001,12 @@ const StoryModalContent = ({
               </div>
             </div>
           </div>
-          
+
           {/* Narrator Voice Dropdown */}
           {useNarratorVoice && (
             <div className="space-y-2">
               <Label className="text-xs font-medium text-gray-700">Voice Selection</Label>
-              <select 
+              <select
                 value={selectedNarratorVoice}
                 onChange={(e) => setSelectedNarratorVoice(e.target.value)}
                 disabled={voicesLoading}
@@ -1042,7 +1039,7 @@ const StoryModalContent = ({
           Media Selection
         </Label>
       </div>
-      
+
       <p className="text-sm text-gray-600">
         Choose which photos and media files to include in your story.
       </p>
@@ -1063,19 +1060,18 @@ const StoryModalContent = ({
               onClick={() => toggleMediaSelection(media.id)}
               className="relative cursor-pointer group"
             >
-              <div 
-                className={`relative rounded-lg overflow-hidden border-2 transition-all ${
-                  selectedMediaForStory.includes(media.id)
-                    ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
+              <div
+                className={`relative rounded-lg overflow-hidden border-2 transition-all ${selectedMediaForStory.includes(media.id)
+                  ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50'
+                  : 'border-gray-200 hover:border-gray-300'
+                  }`}
               >
                 <img
                   src={media.thumbnail}
                   alt={media.name}
                   className="w-full aspect-square object-cover"
                 />
-                
+
                 {/* Selection overlay */}
                 {selectedMediaForStory.includes(media.id) && (
                   <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center">
@@ -1084,17 +1080,16 @@ const StoryModalContent = ({
                     </div>
                   </div>
                 )}
-                
+
                 {/* Media type badge */}
                 <div className="absolute top-1 left-1">
-                  <span className={`text-xs px-2 py-0.5 rounded-full text-white font-medium ${
-                    media.category === 'ember' ? 'bg-amber-500' : 'bg-blue-500'
-                  }`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full text-white font-medium ${media.category === 'ember' ? 'bg-amber-500' : 'bg-blue-500'
+                    }`}>
                     {media.category === 'ember' ? 'Ember' : 'Media'}
                   </span>
                 </div>
               </div>
-              
+
               {/* Media name */}
               <div className="mt-1 text-xs text-gray-600 truncate" title={media.name}>
                 {media.name}
@@ -1103,7 +1098,7 @@ const StoryModalContent = ({
           ))}
         </div>
       )}
-      
+
       {selectedMediaForStory.length > 0 && (
         <div className="mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
           <div className="text-sm text-blue-800 font-medium">
@@ -1118,31 +1113,31 @@ const StoryModalContent = ({
 
     {/* Action Buttons */}
     <div className="mt-6 pt-4">
-      <Button 
-        size="lg" 
-        className="w-full" 
+      <Button
+        size="lg"
+        className="w-full"
         onClick={handleGenerateStoryCut}
-        disabled={isGeneratingStoryCut || !selectedStoryStyle || !storyTitle.trim() || 
-                  (!useEmberVoice && !useNarratorVoice) ||
-                  (useEmberVoice && !selectedEmberVoice) ||
-                  (useNarratorVoice && !selectedNarratorVoice)}
+        disabled={isGeneratingStoryCut || !selectedStoryStyle || !storyTitle.trim() ||
+          (!useEmberVoice && !useNarratorVoice) ||
+          (useEmberVoice && !selectedEmberVoice) ||
+          (useNarratorVoice && !selectedNarratorVoice)}
       >
         {isGeneratingStoryCut ? 'Generating Story Cut...' : 'Generate New Story Cut'}
       </Button>
-      
-      {(!selectedStoryStyle || !storyTitle.trim() || 
+
+      {(!selectedStoryStyle || !storyTitle.trim() ||
         (!useEmberVoice && !useNarratorVoice) ||
         (useEmberVoice && !selectedEmberVoice) ||
         (useNarratorVoice && !selectedNarratorVoice)) && (
-        <p className="text-xs text-gray-500 mt-2 text-center">
-          {!selectedStoryStyle ? 'Please select a story style' :
-           !storyTitle.trim() ? 'Please enter a story title' :
-           (!useEmberVoice && !useNarratorVoice) ? 'Please select at least one voice agent' :
-           (useEmberVoice && !selectedEmberVoice) ? 'Please select an Ember voice' :
-           (useNarratorVoice && !selectedNarratorVoice) ? 'Please select a Narrator voice' :
-           'Please complete all required fields'}
-        </p>
-      )}
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            {!selectedStoryStyle ? 'Please select a story style' :
+              !storyTitle.trim() ? 'Please enter a story title' :
+                (!useEmberVoice && !useNarratorVoice) ? 'Please select at least one voice agent' :
+                  (useEmberVoice && !selectedEmberVoice) ? 'Please select an Ember voice' :
+                    (useNarratorVoice && !selectedNarratorVoice) ? 'Please select a Narrator voice' :
+                      'Please complete all required fields'}
+          </p>
+        )}
     </div>
   </div>
 );
@@ -1175,7 +1170,7 @@ export default function EmberDetail() {
   const [showImageAnalysisModal, setShowImageAnalysisModal] = useState(false);
   const [showTaggedPeopleModal, setShowTaggedPeopleModal] = useState(false);
   const [showSupportingMediaModal, setShowSupportingMediaModal] = useState(false);
-  const [showMediaManagementModal, setShowMediaManagementModal] = useState(false);
+
   const [taggedPeopleCount, setTaggedPeopleCount] = useState(0);
   const [taggedPeopleData, setTaggedPeopleData] = useState([]);
   const [emberLength, setEmberLength] = useState(10);
@@ -1212,7 +1207,7 @@ export default function EmberDetail() {
   const [showStoryCutDetail, setShowStoryCutDetail] = useState(false);
   const [currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut] = useState(null);
   const [primaryStoryCut, setPrimaryStoryCutState] = useState(null);
-  
+
   // Delete story cut state
   const [storyCutToDelete, setStoryCutToDelete] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -1246,13 +1241,13 @@ export default function EmberDetail() {
   const [currentSegmentSentences, setCurrentSegmentSentences] = useState([]);
   const [sentenceTimeouts, setSentenceTimeouts] = useState([]);
   const [mediaTimeouts, setMediaTimeouts] = useState([]);
-  
+
   // 🎯 State for auto-analysis loading indicator
   const [isAutoAnalyzing, setIsAutoAnalyzing] = useState(false);
-  
+
   // 🎯 State for auto-location processing loading indicator
   const [isAutoLocationProcessing, setIsAutoLocationProcessing] = useState(false);
-  
+
   // 🎯 State for EXIF processing loading indicator
   const [isExifProcessing, setIsExifProcessing] = useState(false);
 
@@ -1261,7 +1256,7 @@ export default function EmberDetail() {
     try {
       const { testCurrentPrompt } = await import('@/lib/initializePrompts');
       const result = await testCurrentPrompt();
-      
+
       if (result) {
         const status = result.hasAiScript ? '✅ CORRECT (ai_script)' : '❌ OLD (full_script)';
         console.log(`🔍 PROMPT STATUS: ${status}`);
@@ -1284,7 +1279,7 @@ export default function EmberDetail() {
   useEffect(() => {
     window.testPromptFormat = testPromptFormat;
     console.log('🐛 DEBUG: Call window.testPromptFormat() to test current prompt format');
-    
+
     return () => {
       delete window.testPromptFormat;
     };
@@ -1293,7 +1288,7 @@ export default function EmberDetail() {
   // Media query hook for responsive design
   const useMediaQuery = (query) => {
     const [matches, setMatches] = useState(false);
-    
+
     useEffect(() => {
       const media = window.matchMedia(query);
       if (media.matches !== matches) {
@@ -1303,7 +1298,7 @@ export default function EmberDetail() {
       media.addListener(listener);
       return () => media.removeListener(listener);
     }, [query]);
-    
+
     return matches;
   };
 
@@ -1315,7 +1310,7 @@ export default function EmberDetail() {
       setVoicesLoading(true);
       const voices = await getVoices();
       setAvailableVoices(voices);
-      
+
       // Set default voices if none selected
       if (!selectedEmberVoice && voices.length > 0) {
         // Try to find "Lily" for Ember voice
@@ -1324,8 +1319,8 @@ export default function EmberDetail() {
           setSelectedEmberVoice(lilyVoice.voice_id);
         } else {
           // Fall back to first voice if Lily not found
-        setSelectedEmberVoice(voices[0].voice_id);
-      }
+          setSelectedEmberVoice(voices[0].voice_id);
+        }
       }
       if (!selectedNarratorVoice && voices.length > 0) {
         // Try to find "George" for Narrator voice
@@ -1334,10 +1329,10 @@ export default function EmberDetail() {
           setSelectedNarratorVoice(georgeVoice.voice_id);
         } else if (voices.length > 1) {
           // Fall back to second voice if George not found
-        setSelectedNarratorVoice(voices[1].voice_id);
+          setSelectedNarratorVoice(voices[1].voice_id);
         } else {
           // Fall back to first voice if only one voice available
-        setSelectedNarratorVoice(voices[0].voice_id);
+          setSelectedNarratorVoice(voices[0].voice_id);
         }
       }
     } catch (error) {
@@ -1351,11 +1346,11 @@ export default function EmberDetail() {
   const fetchStoryStyles = async () => {
     try {
       setStylesLoading(true);
-      
+
       // Load story style prompts from our prompt management system
       const { getPromptsByCategory } = await import('@/lib/promptManager');
       const storyStylePrompts = await getPromptsByCategory('story_styles');
-      
+
       // Transform prompts into the format expected by the UI
       const styles = storyStylePrompts
         .filter(prompt => prompt.is_active)
@@ -1366,10 +1361,10 @@ export default function EmberDetail() {
           subcategory: prompt.subcategory,
           prompt_key: prompt.prompt_key
         }));
-      
+
       console.log('📚 Loaded story styles:', styles.map(s => s.name));
       setAvailableStoryStyles(styles);
-      
+
       // Force a re-render by updating the story cuts state
       if (storyCuts.length > 0) {
         setStoryCuts(prev => [...prev]);
@@ -1423,7 +1418,7 @@ export default function EmberDetail() {
         currentAudio.pause();
         currentAudio.currentTime = 0;
       }
-      
+
       playbackStoppedRef.current = true;
     };
   }, [currentAudio]);
@@ -1442,7 +1437,7 @@ export default function EmberDetail() {
   // Fetch tagged people data for the current ember
   const fetchTaggedPeopleData = async () => {
     if (!ember?.id) return;
-    
+
     try {
       const { getEmberTaggedPeople } = await import('@/lib/database');
       const taggedPeople = await getEmberTaggedPeople(ember.id);
@@ -1458,22 +1453,22 @@ export default function EmberDetail() {
   // Fetch story cuts for the current ember
   const fetchStoryCuts = async () => {
     if (!ember?.id) return;
-    
+
     try {
       setStoryCutsLoading(true);
       const cuts = await getStoryCutsForEmber(ember.id);
       setStoryCuts(cuts);
-      
+
       // Also fetch the primary story cut
       const primary = await getPrimaryStoryCut(ember.id);
       setPrimaryStoryCutState(primary);
-      
+
       // Auto-set single story cut as "The One" if no primary exists
       if (cuts.length === 1 && !primary && userProfile?.user_id) {
         try {
           console.log('🎬 Auto-setting single story cut as "The One":', cuts[0].title);
           await setPrimaryStoryCut(cuts[0].id, ember.id, userProfile.user_id);
-          
+
           // Refresh to get the updated primary status
           const updatedPrimary = await getPrimaryStoryCut(ember.id);
           setPrimaryStoryCutState(updatedPrimary);
@@ -1492,18 +1487,18 @@ export default function EmberDetail() {
   // Fetch story messages for the current ember
   const fetchStoryMessages = async () => {
     if (!ember?.id) return;
-    
+
     try {
       const result = await getAllStoryMessagesForEmber(ember.id);
       const allMessages = result.messages || [];
-      
+
       // Filter to only include user responses (not AI questions)
-      const userResponses = allMessages.filter(message => 
+      const userResponses = allMessages.filter(message =>
         message.sender === 'user' || message.message_type === 'response'
       );
-      
+
       setStoryMessages(userResponses);
-      
+
       // Count unique contributors from user responses only
       const uniqueContributors = new Set();
       userResponses.forEach(message => {
@@ -1512,7 +1507,7 @@ export default function EmberDetail() {
         }
       });
       setStoryContributorCount(uniqueContributors.size);
-      
+
       console.log(`📊 Story data updated: ${userResponses.length} user responses from ${uniqueContributors.size} contributors (${allMessages.length} total messages)`);
     } catch (error) {
       console.error('Error fetching story messages:', error);
@@ -1524,13 +1519,13 @@ export default function EmberDetail() {
   // Set a story cut as the primary one
   const handleSetPrimary = async (storyCutId) => {
     if (!ember?.id || !userProfile?.user_id) return;
-    
+
     try {
       await setPrimaryStoryCut(storyCutId, ember.id, userProfile.user_id);
-      
+
       // Refresh the story cuts and primary status
       await fetchStoryCuts();
-      
+
       setMessage({
         type: 'success',
         text: 'Story cut set as "The One" successfully!'
@@ -1562,7 +1557,7 @@ export default function EmberDetail() {
     }
   }, [availableStoryStyles.length]);
 
-  // Set up global actions for EmberSettingsPanel to access
+  // Set up global actions for EmberWikiPanel to access
   useEffect(() => {
     window.EmberDetailActions = {
       openStoryCutCreator: () => {
@@ -1614,10 +1609,10 @@ export default function EmberDetail() {
 
       // Trigger the analysis
       const analysisResult = await triggerImageAnalysis(ember.id, ember.image_url);
-      
+
       if (analysisResult && analysisResult.success) {
         console.log('💾 [AUTO-ANALYSIS] Saving analysis result...');
-        
+
         // Save the analysis result
         await saveImageAnalysis(
           ember.id,
@@ -1627,16 +1622,16 @@ export default function EmberDetail() {
           analysisResult.model,
           analysisResult.tokensUsed
         );
-        
+
         console.log('✅ [AUTO-ANALYSIS] Image analysis completed and saved automatically');
-        
+
         // Refresh ember data to show the analysis
         await fetchEmber();
-        
+
       } else {
         console.warn('⚠️ [AUTO-ANALYSIS] Analysis result was not successful:', analysisResult);
       }
-      
+
     } catch (error) {
       console.error('❌ [AUTO-ANALYSIS] Automatic image analysis failed:', error);
       // Don't show user error for background auto-analysis - they can always trigger manually
@@ -1663,7 +1658,7 @@ export default function EmberDetail() {
     try {
       const { getEmberPhotos } = await import('@/lib/photos');
       const photos = await getEmberPhotos(ember.id);
-      
+
       if (photos && photos.length > 0) {
         console.log('📸 [AUTO-EXIF] EXIF processing already completed, skipping');
         return;
@@ -1683,10 +1678,10 @@ export default function EmberDetail() {
       console.log('📸 [AUTO-EXIF] Fetching image from blob URL...');
       const response = await fetch(ember.image_url);
       const blob = await response.blob();
-      
+
       // Convert blob to File object
       const file = new File([blob], 'ember-image.jpg', { type: blob.type });
-      
+
       // Import the photo functions dynamically
       const { uploadImageWithExif } = await import('@/lib/photos');
       const { autoUpdateEmberTimestamp } = await import('@/lib/geocoding');
@@ -1694,10 +1689,10 @@ export default function EmberDetail() {
       // Process EXIF data
       console.log('📸 [AUTO-EXIF] Processing EXIF data...');
       const photoResult = await uploadImageWithExif(file, user.id, ember.id);
-      
+
       if (photoResult.success) {
         console.log('📸 [AUTO-EXIF] EXIF processing completed successfully');
-        
+
         // Process timestamp data
         try {
           console.log('🕐 [AUTO-EXIF] Processing timestamp data...');
@@ -1706,14 +1701,14 @@ export default function EmberDetail() {
         } catch (timestampError) {
           console.warn('⚠️ [AUTO-EXIF] Failed to process timestamp data:', timestampError);
         }
-        
+
         // Refresh ember data to show the updates
         await fetchEmber();
-        
+
       } else {
         console.warn('⚠️ [AUTO-EXIF] EXIF processing was not successful:', photoResult);
       }
-      
+
     } catch (error) {
       console.error('❌ [AUTO-EXIF] Automatic EXIF processing failed:', error);
       // Don't show user error for background auto-EXIF - not critical for user experience
@@ -1748,14 +1743,14 @@ export default function EmberDetail() {
 
       // Get photos for this ember
       const photos = await getEmberPhotos(ember.id);
-      
+
       if (photos && photos.length > 0) {
         // Find the first photo with GPS data
         const photoWithGPS = photos.find(photo => photo.latitude && photo.longitude);
-        
+
         if (photoWithGPS) {
           console.log('📍 [AUTO-LOCATION] Found photo with GPS data, processing location...');
-          
+
           // Create photoResult-like object for the location processing function
           const photoResult = {
             success: true,
@@ -1763,13 +1758,13 @@ export default function EmberDetail() {
             hasGPS: true,
             hasTimestamp: !!photoWithGPS.timestamp
           };
-          
+
           // Trigger the location processing
           const locationResult = await autoUpdateEmberLocation(ember, photoResult, user.id);
-          
+
           if (locationResult) {
             console.log('✅ [AUTO-LOCATION] Location processing completed successfully');
-            
+
             // Refresh ember data to show the location
             await fetchEmber();
           } else {
@@ -1781,7 +1776,7 @@ export default function EmberDetail() {
       } else {
         console.log('📍 [AUTO-LOCATION] No photos found for this ember');
       }
-      
+
     } catch (error) {
       console.error('❌ [AUTO-LOCATION] Automatic location processing failed:', error);
       // Don't show user error for background auto-location - location isn't critical
@@ -1796,16 +1791,16 @@ export default function EmberDetail() {
     const date = new Date(dateString);
     const now = new Date();
     const diffInMinutes = Math.floor((now - date) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes === 1 ? '' : 's'} ago`;
-    
+
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) return `${diffInHours} hour${diffInHours === 1 ? '' : 's'} ago`;
-    
+
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays < 7) return `${diffInDays} day${diffInDays === 1 ? '' : 's'} ago`;
-    
+
     return date.toLocaleDateString();
   };
 
@@ -1831,10 +1826,10 @@ export default function EmberDetail() {
         'fairy_tale_style': 'Fairy Tale Style',
         'news_report_style': 'News Report Style'
       };
-      
+
       return styleMap[style] || style;
     }
-    
+
     const dbStyle = availableStoryStyles.find(s => s.id === style || s.prompt_key === style);
     return dbStyle ? dbStyle.name : style;
   };
@@ -1842,11 +1837,11 @@ export default function EmberDetail() {
   // Format date for display in carousel cards
   const formatDisplayDate = (timestamp) => {
     if (!timestamp) return null;
-    
+
     try {
       const date = new Date(timestamp);
       if (isNaN(date.getTime())) return null;
-      
+
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
@@ -1861,11 +1856,11 @@ export default function EmberDetail() {
   // Format location for display in carousel cards
   const formatDisplayLocation = (ember) => {
     if (!ember) return null;
-    
+
     // Use structured location data (City, State, Country)
     if (ember.city || ember.state || ember.country) {
       const locationParts = [];
-      
+
       if (ember.city && ember.city.trim()) {
         locationParts.push(ember.city.trim());
       }
@@ -1875,53 +1870,53 @@ export default function EmberDetail() {
       if (ember.country && ember.country.trim()) {
         locationParts.push(ember.country.trim());
       }
-      
+
       if (locationParts.length > 0) {
         return locationParts.join(', ');
       }
     }
-    
+
     // Fall back to manual location (free text entry)
     if (ember.manual_location && ember.manual_location.trim()) {
       return ember.manual_location.trim();
     }
-    
+
     // Fall back to GPS coordinates as last resort
     if (ember.latitude && ember.longitude) {
       const lat = parseFloat(ember.latitude).toFixed(4);
       const lng = parseFloat(ember.longitude).toFixed(4);
       return `${lat}, ${lng}`;
     }
-    
+
     return null;
   };
 
   // Handle story cut deletion
   const handleDeleteStoryCut = async () => {
     if (!storyCutToDelete || !userProfile?.user_id) return;
-    
+
     try {
       setIsDeleting(true);
       await deleteStoryCut(storyCutToDelete.id, userProfile.user_id);
-      
+
       // Refresh the story cuts list
       await fetchStoryCuts();
-      
+
       // Close modals and reset state
       setShowDeleteConfirm(false);
       setStoryCutToDelete(null);
-      
+
       // If the deleted story cut was selected, close the detail view
       if (selectedStoryCut?.id === storyCutToDelete.id) {
         setSelectedStoryCut(null);
         setShowStoryCutDetail(false);
       }
-      
+
       setMessage({
         type: 'success',
         text: `Story cut "${storyCutToDelete.title}" deleted successfully!`
       });
-      
+
     } catch (error) {
       console.error('Error deleting story cut:', error);
       setMessage({
@@ -1961,7 +1956,7 @@ export default function EmberDetail() {
         const link = `${window.location.origin}/embers/${ember.id}`;
         const title = ember.title || 'Check out this ember';
         const description = ember.message || 'Shared from ember.ai';
-        
+
         if (navigator.share) {
           await navigator.share({
             title: title,
@@ -1987,7 +1982,7 @@ export default function EmberDetail() {
         <div className="bg-green-50 border border-green-200 rounded-xl p-4">
           <h4 className="font-medium text-green-900 mb-2">View-Only Sharing</h4>
           <p className="text-sm text-green-800">
-            Anyone with this link can view the ember but cannot edit or contribute to it. 
+            Anyone with this link can view the ember but cannot edit or contribute to it.
             To invite collaborators with edit access, use the "Invite Contributors" feature.
           </p>
         </div>
@@ -2026,12 +2021,12 @@ export default function EmberDetail() {
               {showQRCode ? 'Hide' : 'Generate'}
             </Button>
           </div>
-          
+
           {/* Fixed height container to prevent jumping */}
           <div className={`transition-all duration-200 overflow-hidden ${showQRCode ? 'h-[240px]' : 'h-0'}`}>
             {showQRCode && (
               <div className="mt-4">
-                <QRCodeGenerator 
+                <QRCodeGenerator
                   url={`${window.location.origin}/embers/${ember.id}`}
                   title="Ember QR Code"
                   size={180}
@@ -2044,9 +2039,9 @@ export default function EmberDetail() {
         {/* Native Share Button - Bottom */}
         {typeof navigator !== 'undefined' && navigator.share && (
           <div className="mt-6 pt-4 border-t">
-            <Button 
-              onClick={handleNativeShare} 
-              variant="blue" 
+            <Button
+              onClick={handleNativeShare}
+              variant="blue"
               size="lg"
               className="w-full flex items-center gap-2"
             >
@@ -2113,7 +2108,7 @@ export default function EmberDetail() {
       // Get story messages for richer context
       console.log('📖 Loading story circle conversations...');
       const allStoryMessages = await getAllStoryMessagesForEmber(ember.id);
-      
+
       // Filter story messages to only include selected contributors' responses for direct quotes
       const selectedContributorQuotes = [];
       if (allStoryMessages?.messages) {
@@ -2131,11 +2126,11 @@ export default function EmberDetail() {
       }
 
       // Note: Direct OpenAI function builds its own context internally
-      
+
       // Get selected voice details
       const emberVoiceInfo = useEmberVoice ? availableVoices.find(v => v.voice_id === selectedEmberVoice) : null;
       const narratorVoiceInfo = useNarratorVoice ? availableVoices.find(v => v.voice_id === selectedNarratorVoice) : null;
-      
+
       // Get selected users for voice casting
       const selectedUserDetails = [];
       if (ember?.owner && selectedVoices.includes(ember.user_id)) {
@@ -2184,40 +2179,40 @@ export default function EmberDetail() {
       });
       console.log('🎯 Focus:', formData.focus || 'General storytelling');
       console.log('='.repeat(80));
-      
+
       // Generate story cut using unified API route (both localhost and deployed)
       console.log('🤖 Generating story cut...');
-      
+
       // Build context for API call
       console.log('🌍 Building context for API call...');
       const { emberContextBuilders } = await import('@/lib/emberContext');
       const emberContext = await emberContextBuilders.forStoryCut(ember.id);
-      
-      const storyConversations = allStoryMessages?.messages ? 
+
+      const storyConversations = allStoryMessages?.messages ?
         allStoryMessages.messages
           .map(msg => `[${msg.sender === 'user' ? msg.user_first_name || 'User' : 'Ember AI'}]: ${msg.content}`)
           .join('\n\n') :
         'No story circle conversations available yet.';
-      
+
       console.log('🔍 FRONTEND DEBUG - Voice casting being sent to API:', voiceCasting);
-      console.log('🔍 FRONTEND DEBUG - Contributors array:', JSON.stringify(voiceCasting.contributors?.map(c => ({id: c.id, name: c.name})), null, 2));
-      
+      console.log('🔍 FRONTEND DEBUG - Contributors array:', JSON.stringify(voiceCasting.contributors?.map(c => ({ id: c.id, name: c.name })), null, 2));
+
       // Get selected media details for API
-      const selectedMediaDetails = availableMediaForStory.filter(media => 
+      const selectedMediaDetails = availableMediaForStory.filter(media =>
         selectedMediaForStory.includes(media.id)
       );
       console.log('🚨 FRONTEND DEBUG - selectedMediaForStory IDs:', selectedMediaForStory);
       console.log('🚨 FRONTEND DEBUG - availableMediaForStory length:', availableMediaForStory.length);
       console.log('🚨 FRONTEND DEBUG - selectedMediaDetails length:', selectedMediaDetails.length);
       console.log('📸 FRONTEND DEBUG - Selected media for story:', selectedMediaDetails.map(m => ({
-        id: m.id, 
-        name: m.name, 
+        id: m.id,
+        name: m.name,
         filename: m.filename,
-        type: m.type, 
+        type: m.type,
         category: m.category
       })));
       console.log('📸 FRONTEND DEBUG - FULL selected media objects:', selectedMediaDetails);
-      
+
       // Use unified API approach instead of dynamic imports
       const response = await fetch('/api/generate-story-cut', {
         method: 'POST',
@@ -2241,24 +2236,24 @@ export default function EmberDetail() {
       }
 
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to generate story cut');
       }
 
       // Parse the generated story cut
       const generatedStoryCut = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
-      
+
       console.log('✅ Story cut generated successfully:', generatedStoryCut.title);
       console.log('📄 Script length:', generatedStoryCut.full_script?.length || 0, 'characters');
-      
+
       // 🔍 DEBUG: Log the complete API response structure
       console.log('🔍 DEBUG - Raw API result:', result);
       console.log('🔍 DEBUG - Generated story cut object:', generatedStoryCut);
       console.log('🔍 DEBUG - ai_script content:', generatedStoryCut.ai_script);
       console.log('🔍 DEBUG - full_script content:', generatedStoryCut.full_script);
       console.log('🔍 DEBUG - All fields in response:', Object.keys(generatedStoryCut));
-      
+
       // Check if full_script is null/undefined and prevent database error
       if (!generatedStoryCut.full_script) {
         console.error('❌ CRITICAL: full_script is null/undefined. Cannot save story cut.');
@@ -2300,17 +2295,17 @@ export default function EmberDetail() {
       };
 
       const savedStoryCut = await saveStoryCut(storyCutData);
-      
+
       console.log('✅ Story cut saved with ID:', savedStoryCut.id);
 
 
 
       // Refresh the story cuts list to show the new one
       await fetchStoryCuts();
-      
+
       // Close the creation modal
       setShowStoryCutCreator(false);
-      
+
       // Show success message
       setMessage({
         type: 'success',
@@ -2322,13 +2317,13 @@ export default function EmberDetail() {
       setStoryFocus('');
       setSelectedVoices([]);
       setSelectedMediaForStory([]);
-      
+
     } catch (error) {
       console.error('❌ Error generating story cut:', error);
-      
+
       // Provide more specific error messages for different failure types
       let errorMessage = 'Failed to generate story cut. Please try again.';
-      
+
       if (error.message.includes('OpenAI API key')) {
         errorMessage = 'OpenAI API key not configured. Please check your environment variables.';
       } else if (error.message.includes('quota exceeded')) {
@@ -2342,9 +2337,9 @@ export default function EmberDetail() {
       } else {
         errorMessage = error.message;
       }
-      
-      setMessage({ 
-        type: 'error', 
+
+      setMessage({
+        type: 'error',
         text: errorMessage
       });
     } finally {
@@ -2355,8 +2350,8 @@ export default function EmberDetail() {
 
   // Handle voice selection
   const toggleVoiceSelection = (userId) => {
-    setSelectedVoices(prev => 
-      prev.includes(userId) 
+    setSelectedVoices(prev =>
+      prev.includes(userId)
         ? prev.filter(id => id !== userId)
         : [...prev, userId]
     );
@@ -2382,7 +2377,7 @@ export default function EmberDetail() {
       const data = await getEmber(id);
       console.log('Fetched ember data:', data);
       console.log('Image URL:', data?.image_url);
-      
+
       // Check if image analysis exists for this ember
       try {
         const { getImageAnalysis } = await import('@/lib/database');
@@ -2394,18 +2389,18 @@ export default function EmberDetail() {
         data.image_analysis_completed = false;
         setImageAnalysisData(null);
       }
-      
+
       setEmber(data);
 
       // Also fetch sharing information to get invited users and permission level
       try {
         const sharingData = await getEmberWithSharing(id);
         console.log('Sharing data:', sharingData);
-        
+
         // Set user's permission level
         setUserPermission(sharingData.userPermission || 'none');
         console.log('User permission:', sharingData.userPermission);
-        
+
         if (sharingData.shares && sharingData.shares.length > 0) {
           // Extract shared users with their profile information
           // Only include users who have actually created accounts (have user_id)
@@ -2460,13 +2455,13 @@ export default function EmberDetail() {
       fetchTaggedPeopleData();
       fetchStoryCuts();
       fetchSupportingMedia();
-      
+
       // 🎯 Auto-trigger EXIF processing if needed (ultra-fast creation)
       autoTriggerExifProcessing(ember);
-      
+
       // 🎯 Auto-trigger image analysis if needed (mobile fix)
       autoTriggerImageAnalysis(ember);
-      
+
       // 🎯 Auto-trigger location processing if needed (Android mobile fix)
       autoTriggerLocationProcessing(ember);
     }
@@ -2514,12 +2509,12 @@ export default function EmberDetail() {
   const handleImageAnalysisUpdate = async () => {
     // Refresh the image analysis data when it's updated
     if (!ember?.id) return;
-    
+
     try {
       const { getImageAnalysis } = await import('@/lib/database');
       const analysisData = await getImageAnalysis(ember.id);
       setImageAnalysisData(analysisData);
-      
+
       // Update the ember state to reflect completion status
       setEmber(prev => ({
         ...prev,
@@ -2538,7 +2533,7 @@ export default function EmberDetail() {
   // Fetch supporting media for the current ember
   const fetchSupportingMedia = async () => {
     if (!ember?.id) return;
-    
+
     try {
       const media = await getEmberSupportingMedia(ember.id);
       setSupportingMedia(media);
@@ -2557,16 +2552,16 @@ export default function EmberDetail() {
   // Fetch available media for story cut creation
   const fetchMediaForStory = async () => {
     if (!ember?.id) return;
-    
+
     try {
       setMediaLoadingForStory(true);
       console.log('📸 Fetching available media for story creation...');
-      
+
       const [emberPhotos, supportingMediaFiles] = await Promise.all([
         getEmberPhotos(ember.id),
         getEmberSupportingMedia(ember.id)
       ]);
-      
+
       // Combine and format all available media
       const allMedia = [
         // Ember photos
@@ -2592,15 +2587,15 @@ export default function EmberDetail() {
           duration: media.file_category === 'video' ? 4.0 : 3.0 // Videos slightly longer
         }))
       ];
-      
-      console.log(`📸 Found ${allMedia.length} available media files:`, 
+
+      console.log(`📸 Found ${allMedia.length} available media files:`,
         allMedia.map(m => `${m.name} (${m.type})`));
-      
+
       setAvailableMediaForStory(allMedia);
-      
+
       // Don't auto-select any media - let user choose
       setSelectedMediaForStory([]);
-      
+
     } catch (error) {
       console.error('❌ Error fetching media for story:', error);
       setAvailableMediaForStory([]);
@@ -2612,8 +2607,8 @@ export default function EmberDetail() {
 
   // Media selection handlers for story creation
   const toggleMediaSelection = (mediaId) => {
-    setSelectedMediaForStory(prev => 
-      prev.includes(mediaId) 
+    setSelectedMediaForStory(prev =>
+      prev.includes(mediaId)
         ? prev.filter(id => id !== mediaId)
         : [...prev, mediaId]
     );
@@ -2630,86 +2625,86 @@ export default function EmberDetail() {
   // Script editing handlers
   const handleSaveScript = async () => {
     if (!selectedStoryCut || !editedScript.trim()) return;
-    
+
     try {
       setIsSavingScript(true);
-      
+
       console.log('💾 Saving script...');
       console.log('🔍 Edited script content (first 500 chars):', editedScript.trim().substring(0, 500));
       console.log('📝 Script has MEDIA lines:', editedScript.includes('[[MEDIA]]'));
       console.log('📝 Script has HOLD lines:', editedScript.includes('[[HOLD]]'));
       console.log('📝 Original selectedStoryCut script before save (first 500 chars):', selectedStoryCut.full_script.substring(0, 500));
       console.log('✅ SAVING EXACTLY what user typed - no modifications applied during save');
-      
+
       // Count MEDIA and HOLD lines in edited script
       const mediaLines = (editedScript.match(/\[\[MEDIA\]\]/g) || []).length;
       const holdLines = (editedScript.match(/\[\[HOLD\]\]/g) || []).length;
       console.log('📊 Number of MEDIA lines in edited script:', mediaLines);
       console.log('📊 Number of HOLD lines in edited script:', holdLines);
-      
+
       // 🚨 CRITICAL DEBUG: Find all HOLD lines in the edited script
       const holdMatches = editedScript.match(/\[\[HOLD\]\].*$/gm) || [];
       console.log('🚨 HOLD LINES FOUND IN EDITED SCRIPT:');
       holdMatches.forEach((holdLine, index) => {
         console.log(`  🚨 HOLD ${index + 1}: "${holdLine}"`);
       });
-      
+
       // Import the update function
       const { updateStoryCut } = await import('@/lib/database');
-      
+
       // Update the story cut with the new script
       const updatedStoryCut = await updateStoryCut(
         selectedStoryCut.id,
         { full_script: editedScript.trim() },
         user.id
       );
-      
+
       console.log('📝 Database returned script (first 500 chars):', updatedStoryCut.full_script?.substring(0, 500));
       console.log('📝 Database script has MEDIA lines:', updatedStoryCut.full_script?.includes('[[MEDIA]]'));
       console.log('📝 Database script has HOLD lines:', updatedStoryCut.full_script?.includes('[[HOLD]]'));
-      
+
       // Count MEDIA and HOLD lines in database response
       const dbMediaLines = (updatedStoryCut.full_script?.match(/\[\[MEDIA\]\]/g) || []).length;
       const dbHoldLines = (updatedStoryCut.full_script?.match(/\[\[HOLD\]\]/g) || []).length;
       console.log('📊 Number of MEDIA lines in database response:', dbMediaLines);
       console.log('📊 Number of HOLD lines in database response:', dbHoldLines);
-      
+
       console.log('✅ Script saved successfully');
-      
+
       // Update the local state with the actual saved script
       const updatedStoryCutWithScript = {
         ...updatedStoryCut,
         full_script: editedScript.trim() // Ensure we use the edited script
       };
-      
+
       console.log('🔄 Updating selectedStoryCut with (first 500 chars):', updatedStoryCutWithScript.full_script.substring(0, 500));
       console.log('🔄 Updated script has MEDIA lines:', updatedStoryCutWithScript.full_script.includes('[[MEDIA]]'));
       console.log('🔄 Updated script has HOLD lines:', updatedStoryCutWithScript.full_script.includes('[[HOLD]]'));
-      
+
       // Count MEDIA and HOLD lines in final state
       const finalMediaLines = (updatedStoryCutWithScript.full_script.match(/\[\[MEDIA\]\]/g) || []).length;
       const finalHoldLines = (updatedStoryCutWithScript.full_script.match(/\[\[HOLD\]\]/g) || []).length;
       console.log('📊 Number of MEDIA lines in final state:', finalMediaLines);
       console.log('📊 Number of HOLD lines in final state:', finalHoldLines);
-      
+
       setSelectedStoryCut(updatedStoryCutWithScript);
-      setStoryCuts(prev => 
-        prev.map(cut => 
-          cut.id === selectedStoryCut.id 
+      setStoryCuts(prev =>
+        prev.map(cut =>
+          cut.id === selectedStoryCut.id
             ? { ...cut, full_script: editedScript.trim() }
             : cut
         )
       );
-      
+
       // Exit editing mode
       setIsEditingScript(false);
       setMessage({ type: 'success', text: 'Script updated successfully!' });
-      
+
       // Refresh story cuts to ensure we have the latest data
       console.log('🔄 Refreshing story cuts to get latest data...');
       await fetchStoryCuts();
       console.log('🔄 Story cuts refreshed');
-      
+
       // 🚨 FINAL DEBUG: Check what's actually in the selectedStoryCut after save
       console.log('🚨 FINAL SCRIPT AFTER SAVE:', selectedStoryCut.full_script);
       const finalHoldMatches = selectedStoryCut.full_script?.match(/\[\[HOLD\]\].*$/gm) || [];
@@ -2717,7 +2712,7 @@ export default function EmberDetail() {
       finalHoldMatches.forEach((holdLine, index) => {
         console.log(`  🚨 FINAL HOLD ${index + 1}: "${holdLine}"`);
       });
-      
+
     } catch (error) {
       console.error('Failed to update script:', error);
       setMessage({ type: 'error', text: 'Failed to update script. Please try again.' });
@@ -2742,31 +2737,31 @@ export default function EmberDetail() {
       if (selectedStoryCut && selectedStoryCut.full_script && !isSavingScript) {
         console.log('🔄 useEffect: selectedStoryCut changed, updating edited script');
         console.log('📝 New selectedStoryCut script:', selectedStoryCut.full_script);
-        
+
         // 🚨 CRITICAL DEBUG: Check for HOLD segments in the stored script
         const storedHoldMatches = selectedStoryCut.full_script.match(/\[\[HOLD\]\].*$/gm) || [];
         console.log('🚨 HOLD SEGMENTS IN STORED SCRIPT (useEffect):');
         storedHoldMatches.forEach((holdLine, index) => {
           console.log(`  🚨 STORED HOLD ${index + 1}: "${holdLine}"`);
         });
-        
+
         // Use the same formatting as the display view
         const editableScript = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
         console.log('📝 Setting editedScript to:', editableScript);
-        
+
         // 🚨 CRITICAL DEBUG: Check for HOLD segments in the editable script
         const editableHoldMatches = editableScript.match(/\[\[HOLD\]\].*$/gm) || [];
         console.log('🚨 HOLD SEGMENTS IN EDITABLE SCRIPT (useEffect):');
         editableHoldMatches.forEach((holdLine, index) => {
           console.log(`  🚨 EDITABLE HOLD ${index + 1}: "${holdLine}"`);
         });
-        
+
         setEditedScript(editableScript);
       } else if (isSavingScript) {
         console.log('🔄 useEffect: Skipping script update because save is in progress');
       }
     };
-    
+
     updateEditedScript();
   }, [selectedStoryCut, ember, isSavingScript]);
 
@@ -2780,24 +2775,24 @@ export default function EmberDetail() {
   // Handle completion of playback
   const handlePlaybackComplete = () => {
     console.log('🎬 Playback complete, showing end hold...');
-    
+
     // Stop multi-voice playback chain
     playbackStoppedRef.current = true;
-    
+
     // Stop all active audio segments
     activeAudioSegments.forEach((segment, index) => {
       if (segment.audio) {
         console.log(`🛑 Stopping segment ${index + 1}: [${segment.voiceTag}]`);
         segment.audio.pause();
         segment.audio.currentTime = 0;
-        
+
         // Clean up blob URLs
         if (segment.url && segment.url.startsWith('blob:')) {
           URL.revokeObjectURL(segment.url);
         }
       }
     });
-    
+
     // Clear states immediately
     setIsPlaying(false);
     setCurrentVoiceType(null);
@@ -2805,14 +2800,14 @@ export default function EmberDetail() {
     setCurrentMediaColor(null);
     setCurrentZoomScale({ start: 1.0, end: 1.0 }); // Reset to default
     setActiveAudioSegments([]);
-    
+
     // Clean up any remaining media timeouts
     console.log('🧹 Cleaning up media timeouts on playback complete:', mediaTimeouts.length);
     mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
     mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
     setMediaTimeouts([]);
     mediaTimeoutsRef.current = [];
-    
+
     // Exit immediately after script completes
     handleExitPlay();
   };
@@ -2820,27 +2815,27 @@ export default function EmberDetail() {
   const handleExitPlay = () => {
     // Stop multi-voice playback chain
     playbackStoppedRef.current = true;
-    
+
     // Stop current single audio if it exists
     if (currentAudio) {
       currentAudio.pause();
       currentAudio.currentTime = 0;
     }
-    
+
     // Stop all active audio segments from multi-voice playbook
     activeAudioSegments.forEach((segment, index) => {
       if (segment.audio) {
         console.log(`🛑 Stopping segment ${index + 1}: [${segment.voiceTag}]`);
         segment.audio.pause();
         segment.audio.currentTime = 0;
-        
+
         // Clean up blob URLs
         if (segment.url && segment.url.startsWith('blob:')) {
           URL.revokeObjectURL(segment.url);
         }
       }
     });
-    
+
     // 🎯 Clean up sentence-by-sentence display
     sentenceTimeouts.forEach(timeout => clearTimeout(timeout));
     setSentenceTimeouts([]);
@@ -2848,7 +2843,7 @@ export default function EmberDetail() {
     setCurrentVoiceTag('');
     setCurrentSentenceIndex(0);
     setCurrentSegmentSentences([]);
-    
+
     // 🎯 Clean up media timeouts
     console.log('🧹 Cleaning up media timeouts on exit:', mediaTimeouts.length);
     mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
@@ -2869,7 +2864,7 @@ export default function EmberDetail() {
     setCurrentMediaColor(null);
     setCurrentZoomScale({ start: 1.0, end: 1.0 }); // Reset to default
     console.log('🎬 Voice type reset on exit');
-    
+
     // Reset playback flag for next play
     playbackStoppedRef.current = false;
   };
@@ -2881,7 +2876,7 @@ export default function EmberDetail() {
       const img = new Image();
       img.onload = () => {
         const aspectRatio = img.naturalWidth / img.naturalHeight;
-        
+
         if (aspectRatio > 1) {
           // Landscape
           resolve('landscape');
@@ -2918,17 +2913,17 @@ export default function EmberDetail() {
           selectedStoryCut = storyCuts[0]; // They're ordered by created_at DESC
           console.log('🎬 Playing most recent story cut:', selectedStoryCut.title, '(' + selectedStoryCut.style + ')');
         }
-        
-        setCurrentlyPlayingStoryCut(selectedStoryCut);
-        
 
-        
+        setCurrentlyPlayingStoryCut(selectedStoryCut);
+
+
+
         console.log('📖 Story cut script:', selectedStoryCut.full_script);
-        
+
         // Check if we have recorded audio URLs in the story cut
         const recordedAudio = selectedStoryCut.metadata?.recordedAudio || {};
         console.log('🎙️ Recorded audio available:', Object.keys(recordedAudio));
-        
+
         // Always use multi-voice playback system (recorded audio is optional)
         console.log('🎵 Using multi-voice playback system');
         console.log('🎙️ Available recorded audio:', recordedAudio);
@@ -2938,16 +2933,16 @@ export default function EmberDetail() {
           ember_name: selectedStoryCut.ember_voice_name,
           narrator_name: selectedStoryCut.narrator_voice_name
         });
-        
+
         // Parse the script into segments
         const segments = parseScriptSegments(selectedStoryCut.full_script);
-        
+
         if (segments.length > 0) {
           // Use multi-voice playback system (works with or without recorded audio)
-          await playMultiVoiceAudio(segments, selectedStoryCut, recordedAudio, { 
-            setIsGeneratingAudio, 
-            setIsPlaying, 
-            handleExitPlay, 
+          await playMultiVoiceAudio(segments, selectedStoryCut, recordedAudio, {
+            setIsGeneratingAudio,
+            setIsPlaying,
+            handleExitPlay,
             handlePlaybackComplete,
             setActiveAudioSegments,
             playbackStoppedRef,
@@ -2973,58 +2968,58 @@ export default function EmberDetail() {
           console.log('⚠️ No segments could be parsed, falling back to single voice');
           setIsGeneratingAudio(false);
           setIsPlaying(true);
-          
+
           const content = selectedStoryCut.full_script;
           const voiceId = selectedStoryCut.ember_voice_id;
-          
+
           const audioBlob = await textToSpeech(content, voiceId);
           const audioUrl = URL.createObjectURL(audioBlob);
           const audio = new Audio(audioUrl);
-          
+
           setCurrentAudio(audio);
-          
+
           audio.onended = () => {
             handlePlaybackComplete();
             URL.revokeObjectURL(audioUrl);
           };
-          
+
           audio.onerror = () => {
             console.error('Audio playback failed');
             handleExitPlay();
             URL.revokeObjectURL(audioUrl);
           };
-          
+
           await audio.play();
         }
-        
+
       } else {
         // Fallback to basic wiki content if no story cuts exist
         console.log('📖 No story cuts found, using basic wiki content');
         console.log('💡 Tip: Create a story cut for richer, AI-generated narration!');
-        
 
-        
+
+
         setIsGeneratingAudio(false);
         setIsPlaying(true);
-        
+
         // Simple fallback content
         const content = "Let's build this story together by pressing Story Cuts on the bottom left.";
         console.log('📖 Content to narrate:', content);
 
         // Generate speech using ElevenLabs with Ember voice (Lily)
         const audioBlob = await textToSpeech(content, selectedEmberVoice);
-        
+
         // Create audio URL and play
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
-        
+
         setCurrentAudio(audio);
-        
+
         // Handle audio end
         audio.onended = () => {
           handlePlaybackComplete();
           URL.revokeObjectURL(audioUrl);
-          
+
           // Show helpful message about creating story cuts for richer narration
           setTimeout(() => {
             setMessage({
@@ -3034,7 +3029,7 @@ export default function EmberDetail() {
             setTimeout(() => setMessage(null), 6000);
           }, 1000);
         };
-        
+
         // Handle audio error
         audio.onerror = () => {
           console.error('Audio playback failed');
@@ -3044,7 +3039,7 @@ export default function EmberDetail() {
 
         await audio.play();
       }
-      
+
     } catch (error) {
       console.error('🔊 Play error:', error);
       setIsPlaying(false);
@@ -3074,37 +3069,45 @@ export default function EmberDetail() {
   // Check if user can edit (owner or contributor)
   const canEdit = isOwner || userPermission === 'edit' || userPermission === 'contributor';
 
+  // Helper function to get story progress info
+  const getStoryProgress = () => {
+    const current = storyMessages.length;
+    const required = 6;
+    const isComplete = current >= required;
+    return { current, required, isComplete };
+  };
+
   // Helper function to determine section completion status
-    const getSectionStatus = (sectionType) => {
-      switch (sectionType) {
-        case 'title':
-          return ember?.title && ember.title.trim() !== '' && ember.title !== 'Untitled Ember';
-        case 'contributors':
-          return sharedUsers.length > 0;
-        case 'location':
-          return !!(ember?.latitude && ember?.longitude) || !!ember?.manual_location;
-        case 'time-date':
-          return !!ember?.ember_timestamp || !!ember?.manual_datetime;
-        case 'analysis':
-          return !!ember?.image_analysis_completed;
-        case 'people':
-          return taggedPeopleCount > 0;
-        case 'story':
-          return storyMessages.length >= 6;
-        case 'supporting-media':
-          return supportingMedia.length > 0;
-        case 'media-management':
-          return true; // Always available - represents having media names set up
-        default:
-          return false;
-      }
-    };
+  const getSectionStatus = (sectionType) => {
+    switch (sectionType) {
+      case 'title':
+        return ember?.title && ember.title.trim() !== '' && ember.title !== 'Untitled Ember';
+      case 'contributors':
+        return sharedUsers.length > 0;
+      case 'location':
+        return !!(ember?.latitude && ember?.longitude) || !!ember?.manual_location;
+      case 'time-date':
+        return !!ember?.ember_timestamp || !!ember?.manual_datetime;
+      case 'analysis':
+        return !!ember?.image_analysis_completed;
+      case 'people':
+        return taggedPeopleCount > 0;
+      case 'story':
+        return storyMessages.length >= 6;
+      case 'supporting-media':
+        return supportingMedia.length > 0;
+      case 'media-management':
+        return true; // Always available - represents having media names set up
+      default:
+        return false;
+    }
+  };
 
   // Calculate wiki progress (8 sections total)
   const calculateWikiProgress = (ember, sharedUsers = []) => {
     const sections = [
       'title',
-      'location', 
+      'location',
       'time-date',
       'story',
       'people',
@@ -3162,22 +3165,22 @@ export default function EmberDetail() {
               >
                 <House size={24} className="text-gray-700" />
               </button>
-              
+
               {/* Horizontal divider below home icon */}
               <div className="h-px w-6 bg-gray-300 my-1"></div>
-              
-              {/* Settings button - Only show for ember owner */}
+
+              {/* Ember Wiki button - Only show for ember owner */}
               {isOwner && (
                 <button
                   className="rounded-full p-1 hover:bg-white/70 transition-colors"
                   onClick={() => setShowEmberWiki(true)}
-                  aria-label="Settings"
+                  aria-label="Ember Wiki"
                   type="button"
                 >
                   <Info size={24} className="text-gray-700" />
                 </button>
               )}
-              
+
               {/* Story Cuts button - Show for all users */}
               <button
                 className="rounded-full p-1 hover:bg-white/70 transition-colors relative"
@@ -3191,7 +3194,7 @@ export default function EmberDetail() {
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full shadow-sm"></div>
                 )}
               </button>
-              
+
               {/* Share button - View-only sharing for everyone */}
               {(!ember?.is_public || user) && (
                 <button
@@ -3260,21 +3263,21 @@ export default function EmberDetail() {
                 >
                   <CornersOut size={24} className="text-gray-700" />
                 </button>
-                
+
                 {/* Owner Avatar - Always at the top of the stack */}
                 {ember?.owner && (
-                  <div 
+                  <div
                     className="p-1 hover:bg-white/70 rounded-full transition-colors"
-                    style={{ 
+                    style={{
                       marginTop: '0px',
                       zIndex: 35 // Highest z-index to appear on top
                     }}
                     title={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
                   >
                     <Avatar className="h-6 w-6 ring-2 ring-amber-400">
-                      <AvatarImage 
-                        src={ember.owner.avatar_url} 
-                        alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'} 
+                      <AvatarImage
+                        src={ember.owner.avatar_url}
+                        alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
                       />
                       <AvatarFallback className="text-xs bg-amber-100 text-amber-700">
                         {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || 'O'}
@@ -3282,22 +3285,22 @@ export default function EmberDetail() {
                     </Avatar>
                   </div>
                 )}
-                
+
                 {/* Invited Users Avatars - Stacked with 16px overlap */}
                 {sharedUsers.map((sharedUser, index) => (
-                  <div 
+                  <div
                     key={sharedUser.id || index}
                     className="p-1 hover:bg-white/70 rounded-full transition-colors"
-                    style={{ 
+                    style={{
                       marginTop: ember?.owner ? '-24px' : (index === 0 ? '-8px' : '-24px'),
                       zIndex: ember?.owner ? (34 - index) : (30 - index) // Adjust z-index if owner is present
                     }}
                     title={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
                   >
                     <Avatar className="h-6 w-6 ring-1 ring-white">
-                      <AvatarImage 
-                        src={sharedUser.avatar_url} 
-                        alt={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email} 
+                      <AvatarImage
+                        src={sharedUser.avatar_url}
+                        alt={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
                       />
                       <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
                         {sharedUser.first_name?.[0] || sharedUser.last_name?.[0] || sharedUser.email?.[0]?.toUpperCase() || '?'}
@@ -3305,10 +3308,10 @@ export default function EmberDetail() {
                     </Avatar>
                   </div>
                 ))}
-                
+
                 {/* Horizontal divider */}
                 <div className="h-px w-6 bg-gray-300 my-1"></div>
-                
+
                 {/* Feature Icons */}
                 <button
                   className="p-1 hover:bg-white/50 rounded-full transition-colors"
@@ -3328,30 +3331,30 @@ export default function EmberDetail() {
               </div>
             </div>
           </div>
-          
+
           {/* Wiki Progress Bar - Full Width Capsule */}
           <div className="w-full px-4 pt-3 pb-1.5 md:px-6">
             <div className="w-full bg-gray-200 rounded-full h-4">
-              <div 
+              <div
                 className="bg-blue-500 h-4 rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${wikiProgress.percentage}%` }}
               />
             </div>
           </div>
-          
+
           {/* Progress Message */}
           <div className="w-full px-4 pt-2 pb-2 md:px-6">
             <p className="text-lg font-bold text-gray-800 text-center">
-              {wikiProgress.percentage === 100 
+              {wikiProgress.percentage === 100
                 ? `Congrats ${userProfile?.first_name || 'User'}! We did it! Now let's try Story Cuts!`
                 : `${userProfile?.first_name || 'User'}, we have to complete all these cards...`
               }
             </p>
           </div>
-          
+
           {/* Content area - Card Carousel */}
           <div className="flex-1 flex flex-col justify-start pb-1 md:pb-8">
-            <Carousel 
+            <Carousel
               className="w-full"
               opts={{
                 align: "center",
@@ -3360,10 +3363,10 @@ export default function EmberDetail() {
                 dragFree: true
               }}
             >
-                             <CarouselContent className="pl-4 md:pl-6 -ml-2 md:-ml-4">
+              <CarouselContent className="pl-4 md:pl-6 -ml-2 md:-ml-4">
                 {/* Story Cuts Square Card - New 1:1 Aspect Ratio Style */}
                 <CarouselItem className="pl-2 md:pl-4 basis-auto flex-shrink-0">
-                  <Card 
+                  <Card
                     className="w-32 h-32 bg-blue-600 border-blue-700 cursor-pointer hover:shadow-md transition-shadow"
                     onClick={() => setShowStoryCutCreator(true)}
                   >
@@ -3380,8 +3383,8 @@ export default function EmberDetail() {
                     </CardContent>
                   </Card>
                 </CarouselItem>
-                
-                   {(() => {
+
+                {(() => {
                   // Define all carousel cards with their configuration
                   const carouselCards = [
                     {
@@ -3462,14 +3465,6 @@ export default function EmberDetail() {
                       onClick: () => () => setShowSupportingMediaModal(true)
                     },
                     {
-                      id: 'media-management',
-                      sectionType: 'media-management',
-                      icon: PenNib,
-                      title: () => 'Media Names',
-                      description: () => 'Edit display names for script references',
-                      onClick: () => () => setShowMediaManagementModal(true)
-                    },
-                    {
                       id: 'analysis',
                       sectionType: 'analysis',
                       icon: Sparkles,
@@ -3500,13 +3495,13 @@ export default function EmberDetail() {
                     // Story Circle always comes first
                     if (a.sectionType === 'story') return -1;
                     if (b.sectionType === 'story') return 1;
-                    
+
                     const aComplete = getSectionStatus(a.sectionType);
                     const bComplete = getSectionStatus(b.sectionType);
-                    
+
                     // If completion status is the same, maintain original order
                     if (aComplete === bComplete) return 0;
-                    
+
                     // Not Done (false) comes first, Done (true) comes last
                     return aComplete - bComplete;
                   });
@@ -3514,26 +3509,32 @@ export default function EmberDetail() {
                   return sortedCards.map((card) => {
                     const isComplete = getSectionStatus(card.sectionType);
                     const IconComponent = card.icon;
-                    
+
+                    // Special handling for story card to show progress
+                    let statusText = isComplete ? 'Done' : 'Not Done';
+                    if (card.sectionType === 'story' && !isComplete) {
+                      const storyProgress = getStoryProgress();
+                      statusText = `${storyProgress.current} of ${storyProgress.required}`;
+                    }
+
                     return (
                       <CarouselItem key={card.id} className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                   <Card 
+                        <Card
                           className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-all duration-200"
                           onClick={card.onClick()}
-                   >
-                     <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                       <div>
+                        >
+                          <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
+                            <div>
                               {/* Header with icon and status badge */}
                               <div className="flex justify-center items-center relative mb-2">
                                 <IconComponent size={22} className="text-blue-600" />
-                                <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${
-                                  isComplete 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {isComplete ? 'Done' : 'Not Done'}
-                         </div>
-                       </div>
+                                <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${isComplete
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                  {statusText}
+                                </div>
+                              </div>
 
                               {/* Wiki Title */}
                               <h3 className="font-semibold text-gray-900 text-center mb-1">
@@ -3544,10 +3545,10 @@ export default function EmberDetail() {
                               <p className="text-sm text-gray-600 text-center">
                                 {card.description(isComplete)}
                               </p>
-                       </div>
-                     </CardContent>
-                   </Card>
-                 </CarouselItem>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </CarouselItem>
                     );
                   });
                 })()}
@@ -3594,7 +3595,7 @@ export default function EmberDetail() {
                   </p>
                 </div>
               </div>
-              
+
               {/* Content Sections */}
               <div className="space-y-4 text-left">
                 {/* Basic Info Section */}
@@ -3619,9 +3620,9 @@ export default function EmberDetail() {
                         <div className="flex items-center gap-2">
                           <span className="text-gray-900">{ember.title || 'N/A'}</span>
                           {canEdit && (
-                          <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
-                            <PencilSimple size={16} />
-                          </button>
+                            <button onClick={handleTitleEdit} className="text-gray-400 hover:text-blue-600">
+                              <PencilSimple size={16} />
+                            </button>
                           )}
                         </div>
                       )}
@@ -3667,8 +3668,8 @@ export default function EmberDetail() {
                               )}
                             </div>
                             <p className="text-sm text-gray-600">
-                              {person.contributor_info 
-                                ? `Tagged and connected to contributor ${person.contributor_email}` 
+                              {person.contributor_info
+                                ? `Tagged and connected to contributor ${person.contributor_email}`
                                 : 'Tagged person identified in this image'}
                             </p>
                           </div>
@@ -3690,9 +3691,9 @@ export default function EmberDetail() {
                     {ember?.owner && (
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage 
-                            src={ember.owner.avatar_url} 
-                            alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'} 
+                          <AvatarImage
+                            src={ember.owner.avatar_url}
+                            alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
                           />
                           <AvatarFallback className="text-sm bg-gray-200 text-gray-700">
                             {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || '?'}
@@ -3709,15 +3710,15 @@ export default function EmberDetail() {
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Invited Contributors */}
                     {sharedUsers.length > 0 ? (
                       sharedUsers.map((contributor, index) => (
                         <div key={contributor.id || index} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
                           <Avatar className="h-10 w-10">
-                            <AvatarImage 
-                              src={contributor.avatar_url} 
-                              alt={`${contributor.first_name || ''} ${contributor.last_name || ''}`.trim() || contributor.email} 
+                            <AvatarImage
+                              src={contributor.avatar_url}
+                              alt={`${contributor.first_name || ''} ${contributor.last_name || ''}`.trim() || contributor.email}
                             />
                             <AvatarFallback className="text-sm bg-gray-200 text-gray-700">
                               {contributor.first_name?.[0] || contributor.last_name?.[0] || contributor.email?.[0]?.toUpperCase() || '?'}
@@ -3728,17 +3729,16 @@ export default function EmberDetail() {
                               <span className="font-medium text-gray-900">
                                 {`${contributor.first_name || ''} ${contributor.last_name || ''}`.trim() || contributor.email}
                               </span>
-                              <span className={`px-2 py-1 text-xs rounded-full ${
-                                contributor.permission_level === 'contributor' 
-                                  ? 'bg-blue-100 text-blue-800' 
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}>
+                              <span className={`px-2 py-1 text-xs rounded-full ${contributor.permission_level === 'contributor'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-gray-100 text-gray-800'
+                                }`}>
                                 {contributor.permission_level === 'contributor' ? 'Contributor' : 'Viewer'}
                               </span>
                             </div>
                             <p className="text-sm text-gray-600">
-                              {contributor.permission_level === 'contributor' 
-                                ? 'Can edit and contribute to this ember' 
+                              {contributor.permission_level === 'contributor'
+                                ? 'Can edit and contribute to this ember'
                                 : 'Can view this ember'}
                             </p>
                           </div>
@@ -3801,12 +3801,12 @@ export default function EmberDetail() {
         <>
           {/* Overlay */}
           {showEmberSharing && (
-            <div 
+            <div
               className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
               onClick={() => setShowEmberSharing(false)}
             />
           )}
-          
+
           {/* Side Panel */}
           <div className={cn(
             "fixed top-0 right-0 h-full w-[calc(100%-2rem)] max-w-2xl bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out",
@@ -3838,9 +3838,9 @@ export default function EmberDetail() {
 
       {/* Invite Contributors Modal */}
       {ember && (
-        <InviteModal 
-          ember={ember} 
-          isOpen={showInviteModal} 
+        <InviteModal
+          ember={ember}
+          isOpen={showInviteModal}
           onClose={() => setShowInviteModal(false)}
           onUpdate={handleEmberUpdate}
         />
@@ -3848,9 +3848,9 @@ export default function EmberDetail() {
 
       {/* Ember Names Modal */}
       {ember && (
-        <EmberNamesModal 
-          ember={ember} 
-          isOpen={showNamesModal} 
+        <EmberNamesModal
+          ember={ember}
+          isOpen={showNamesModal}
           onClose={() => setShowNamesModal(false)}
           onEmberUpdate={handleEmberUpdate}
         />
@@ -3858,9 +3858,9 @@ export default function EmberDetail() {
 
       {/* Story Modal */}
       {ember && (
-        <StoryModal 
-          ember={ember} 
-          isOpen={showStoryModal} 
+        <StoryModal
+          ember={ember}
+          isOpen={showStoryModal}
           onClose={() => setShowStoryModal(false)}
           question="Tell us about this moment. What was happening when this photo was taken?"
           onSubmit={async (submissionData) => {
@@ -3872,9 +3872,9 @@ export default function EmberDetail() {
         />
       )}
 
-      {/* Settings Panel */}
+      {/* Ember Wiki Panel */}
       {ember && (
-        <EmberSettingsPanel
+        <EmberWikiPanel
           ember={ember}
           isOpen={showEmberWiki}
           onClose={() => setShowEmberWiki(false)}
@@ -3894,9 +3894,9 @@ export default function EmberDetail() {
 
       {/* Location Modal */}
       {ember && (
-        <LocationModal 
-          ember={ember} 
-          isOpen={showLocationModal} 
+        <LocationModal
+          ember={ember}
+          isOpen={showLocationModal}
           onClose={() => setShowLocationModal(false)}
           isMobile={isMobile}
           onRefresh={fetchEmber}
@@ -3905,9 +3905,9 @@ export default function EmberDetail() {
 
       {/* Time & Date Modal */}
       {ember && (
-        <TimeDateModal 
-          ember={ember} 
-          isOpen={showTimeDateModal} 
+        <TimeDateModal
+          ember={ember}
+          isOpen={showTimeDateModal}
           onClose={() => setShowTimeDateModal(false)}
           isMobile={isMobile}
           onRefresh={fetchEmber}
@@ -3916,9 +3916,9 @@ export default function EmberDetail() {
 
       {/* Image Analysis Modal */}
       {ember && (
-        <ImageAnalysisModal 
-          ember={ember} 
-          isOpen={showImageAnalysisModal} 
+        <ImageAnalysisModal
+          ember={ember}
+          isOpen={showImageAnalysisModal}
           onClose={() => setShowImageAnalysisModal(false)}
           onRefresh={handleImageAnalysisUpdate}
         />
@@ -3926,9 +3926,9 @@ export default function EmberDetail() {
 
       {/* Tagged People Modal */}
       {ember && (
-        <TaggedPeopleModal 
-          ember={ember} 
-          isOpen={showTaggedPeopleModal} 
+        <TaggedPeopleModal
+          ember={ember}
+          isOpen={showTaggedPeopleModal}
           onClose={() => setShowTaggedPeopleModal(false)}
           onUpdate={handleTaggedPeopleUpdate}
         />
@@ -3936,34 +3936,27 @@ export default function EmberDetail() {
 
       {/* Supporting Media Modal */}
       {ember && (
-        <SupportingMediaModal 
-          ember={ember} 
-          isOpen={showSupportingMediaModal} 
+        <SupportingMediaModal
+          ember={ember}
+          isOpen={showSupportingMediaModal}
           onClose={() => setShowSupportingMediaModal(false)}
           onUpdate={handleSupportingMediaUpdate}
         />
       )}
 
-      {/* Media Management Modal */}
-      {ember && (
-        <MediaManagementModal 
-          isOpen={showMediaManagementModal} 
-          onClose={() => setShowMediaManagementModal(false)}
-          emberId={ember.id}
-        />
-      )}
+
 
       {/* Story Cuts Panel */}
       {ember && (
         <>
           {/* Overlay */}
           {showEmberStoryCuts && (
-            <div 
+            <div
               className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
               onClick={() => setShowEmberStoryCuts(false)}
             />
           )}
-          
+
           {/* Side Panel */}
           <div className={cn(
             "fixed top-0 right-0 h-full w-[calc(100%-2rem)] max-w-2xl bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out",
@@ -3998,133 +3991,122 @@ export default function EmberDetail() {
               {!storyCutsLoading && storyCuts.map((cut) => {
                 const isPrimary = primaryStoryCut?.id === cut.id;
                 return (
-                <div 
-                  key={cut.id} 
-                  className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors border border-gray-200 relative group"
-                >
-                  {/* Primary Badge - Matches media section "Cover" badge style */}
-                  {isPrimary && (
-                    <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 z-10">
-                      <Star size={12} weight="fill" />
-                      The One
-                    </div>
-                  )}
-
-
-
-                  {/* Clickable content area */}
-                  <div 
-                    className="cursor-pointer"
-                    onClick={() => {
-                      setSelectedStoryCut(cut);
-                      setShowStoryCutDetail(true);
-                    }}
+                  <div
+                    key={cut.id}
+                    className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors border border-gray-200 relative group"
                   >
-                    <div className="flex gap-4">
-                                         {/* Thumbnail - Using ember image for now */}
-                     <div className="flex-shrink-0">
-                       <img 
-                         src={ember.image_url} 
-                         alt={cut.title}
-                         className="w-24 h-24 rounded-lg object-cover"
-                       />
-                     </div>
-                    
-                    {/* Content */}
-                    <div className="flex-1 min-w-0" style={{ textAlign: 'left' }}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0 text-left" style={{ textAlign: 'left' }}>
-                          <h3 className="font-medium text-gray-900 truncate text-left" style={{ textAlign: 'left' }}>{cut.title}</h3>
-                          {cut.story_focus && (
-                            <p className="text-sm text-gray-600 mt-1 line-clamp-2 text-left" style={{ textAlign: 'left' }}>
-                              {cut.story_focus}
-                            </p>
-                          )}
+                    {/* Primary Badge - Matches media section "Cover" badge style */}
+                    {isPrimary && (
+                      <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 z-10">
+                        <Star size={12} weight="fill" />
+                        The One
+                      </div>
+                    )}
+
+
+
+                    {/* Clickable content area */}
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => {
+                        setSelectedStoryCut(cut);
+                        setShowStoryCutDetail(true);
+                      }}
+                    >
+                      <div className="flex gap-4">
+                        {/* Thumbnail - Using ember image for now */}
+                        <div className="flex-shrink-0">
+                          <img
+                            src={ember.image_url}
+                            alt={cut.title}
+                            className="w-24 h-24 rounded-lg object-cover"
+                          />
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0" style={{ textAlign: 'left' }}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0 text-left" style={{ textAlign: 'left' }}>
+                              <h3 className="font-medium text-gray-900 truncate text-left" style={{ textAlign: 'left' }}>{cut.title}</h3>
+                              {cut.story_focus && (
+                                <p className="text-sm text-gray-600 mt-1 line-clamp-2 text-left" style={{ textAlign: 'left' }}>
+                                  {cut.story_focus}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Metadata */}
+                          <div className="mt-3 text-xs text-gray-500" style={{ textAlign: 'left' }}>
+                            <div className="flex items-center gap-1 mb-1">
+                              <Avatar className="h-3 w-3">
+                                <AvatarImage src={cut.creator?.avatar_url} alt={`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim()} />
+                                <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
+                                  {cut.creator?.first_name?.[0] || cut.creator?.last_name?.[0] || 'U'}
+                                </AvatarFallback>
+                              </Avatar>
+                              {`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="flex items-center gap-1">
+                                <Clock size={12} />
+                                {formatDuration(cut.duration)}
+                              </span>
+                              <span>{formatRelativeTime(cut.created_at)}</span>
+                            </div>
+                          </div>
+
+                          {/* Style Badge with Actions */}
+                          <div className="mt-2 text-left flex items-center justify-between" style={{ textAlign: 'left' }}>
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {getStyleDisplayName(cut.style)}
+                            </span>
+
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-1">
+                              {/* Make Primary Button - Only show for owner and non-primary cuts */}
+                              {!isPrimary && userPermission === 'owner' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSetPrimary(cut.id);
+                                  }}
+                                  className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors duration-200"
+                                  title="Make This The One"
+                                >
+                                  <Star size={12} weight="fill" />
+                                </button>
+                              )}
+
+                              {/* Delete Button - Only show for creators */}
+                              {canDeleteStoryCut(cut) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setStoryCutToDelete(cut);
+                                    setShowDeleteConfirm(true);
+                                  }}
+                                  className="p-1 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors duration-200"
+                                  title="Delete story cut"
+                                >
+                                  <Trash size={12} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      
-                      {/* Metadata */}
-                      <div className="mt-3 text-xs text-gray-500" style={{ textAlign: 'left' }}>
-                        <div className="flex items-center gap-1 mb-1">
-                          <Avatar className="h-3 w-3">
-                            <AvatarImage src={cut.creator?.avatar_url} alt={`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim()} />
-                            <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
-                              {cut.creator?.first_name?.[0] || cut.creator?.last_name?.[0] || 'U'}
-                            </AvatarFallback>
-                          </Avatar>
-                          {`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="flex items-center gap-1">
-                            <Clock size={12} />
-                            {formatDuration(cut.duration)}
-                          </span>
-                          <span>{formatRelativeTime(cut.created_at)}</span>
-                        </div>
-                      </div>
-                      
-                      {/* Style Badge with Actions */}
-                      <div className="mt-2 text-left flex items-center justify-between" style={{ textAlign: 'left' }}>
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {getStyleDisplayName(cut.style)}
-                        </span>
-                        
-                        {/* Action buttons */}
-                        <div className="flex items-center gap-1">
-                          {/* Make Primary Button - Only show for owner and non-primary cuts */}
-                          {!isPrimary && userPermission === 'owner' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSetPrimary(cut.id);
-                              }}
-                              className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors duration-200"
-                              title="Make This The One"
-                            >
-                              <Star size={12} weight="fill" />
-                            </button>
-                          )}
-                          
-                          {/* Delete Button - Only show for creators */}
-                          {canDeleteStoryCut(cut) && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setStoryCutToDelete(cut);
-                                setShowDeleteConfirm(true);
-                              }}
-                              className="p-1 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors duration-200"
-                              title="Delete story cut"
-                            >
-                              <Trash size={12} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-              
+                );
+              })}
+
               {/* Empty State - Show when no cuts exist */}
               {!storyCutsLoading && storyCuts.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12">
                   <FilmSlate size={48} className="text-gray-300 mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2 text-center">No Story Cuts Yet</h3>
-                  <p className="text-gray-600 mb-4 text-center">Create your first story cut to get started</p>
-                  <Button 
-                    variant="blue" 
-                    onClick={() => {
-                      setShowEmberStoryCuts(false);
-                      setShowStoryCutCreator(true);
-                    }}
-                    className="flex items-center gap-2 mx-auto"
-                  >
-                    <FilmSlate size={16} />
-                    Create Story Cut
-                  </Button>
+                  <p className="text-gray-600 mb-4 text-center">Story cuts will appear here when created</p>
                 </div>
               )}
             </div>
@@ -4148,7 +4130,7 @@ export default function EmberDetail() {
                   </DrawerDescription>
                 </DrawerHeader>
                 <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
-                  <StoryModalContent 
+                  <StoryModalContent
                     userProfile={userProfile}
                     storyTitle={storyTitle}
                     setStoryTitle={setStoryTitle}
@@ -4199,7 +4181,7 @@ export default function EmberDetail() {
                     Compose your own version of this ember
                   </DialogDescription>
                 </DialogHeader>
-                <StoryModalContent 
+                <StoryModalContent
                   userProfile={userProfile}
                   storyTitle={storyTitle}
                   setStoryTitle={setStoryTitle}
@@ -4257,7 +4239,7 @@ export default function EmberDetail() {
                   </DrawerDescription>
                 </DrawerHeader>
                 <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
-                  <StoryCutDetailContent 
+                  <StoryCutDetailContent
                     selectedStoryCut={selectedStoryCut}
                     isEditingScript={isEditingScript}
                     setIsEditingScript={setIsEditingScript}
@@ -4288,7 +4270,7 @@ export default function EmberDetail() {
                     {getStyleDisplayName(selectedStoryCut.style)} • {formatDuration(selectedStoryCut.duration)} • Created by {`${selectedStoryCut.creator?.first_name || ''} ${selectedStoryCut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
                   </DialogDescription>
                 </DialogHeader>
-                <StoryCutDetailContent 
+                <StoryCutDetailContent
                   selectedStoryCut={selectedStoryCut}
                   isEditingScript={isEditingScript}
                   setIsEditingScript={setIsEditingScript}
@@ -4314,151 +4296,150 @@ export default function EmberDetail() {
       {showFullscreenPlay && (
         <>
           <div className="fixed inset-0 bg-black z-50">
-                    {/* Background Image - only show when script contains MEDIA elements */}
-          {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
-            <img 
-              src={currentMediaImageUrl} 
-              alt={ember.title || 'Ember'}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-          )}
-          
-          {/* Voice Type Overlay - only show when playing, not in end hold, and no media color effect */}
-          {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentVoiceType && (
-            <div 
-              className="absolute inset-0"
-              style={{
-                backgroundColor: currentVoiceType === 'ember' ? `rgba(255, 0, 0, ${currentVoiceTransparency})` : 
-                                currentVoiceType === 'narrator' ? `rgba(0, 0, 255, ${currentVoiceTransparency})` : 
-                                currentVoiceType === 'contributor' ? `rgba(0, 255, 0, ${currentVoiceTransparency})` : 
-                                'transparent'
-              }}
-            />
-          )}
-          
-          {/* Media Color Screen - solid color background when color effect is active */}
-          {!isGeneratingAudio && !showEndHold && currentMediaColor && (
-            <div 
-              className="absolute inset-0"
-              style={{
-                backgroundColor: currentMediaColor
-              }}
-            />
-          )}
-          
+            {/* Background Image - only show when script contains MEDIA elements */}
+            {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
+              <img
+                src={currentMediaImageUrl}
+                alt={ember.title || 'Ember'}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            )}
 
-          
-          {/* Title Overlay - only show when playing, not in end hold, and no media color effect */}
-          {!isGeneratingAudio && !showEndHold && !currentMediaColor && (
-            <div className="absolute top-0 left-0 right-0 p-4 pointer-events-none z-20">
-              <div className="container mx-auto max-w-4xl">
-                <h1 className="text-white text-2xl font-bold truncate text-left pl-2">
-                  {ember.title || 'Untitled Ember'}
-                </h1>
-                  </div>
+            {/* Voice Type Overlay - only show when playing, not in end hold, and no media color effect */}
+            {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentVoiceType && (
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundColor: currentVoiceType === 'ember' ? `rgba(255, 0, 0, ${currentVoiceTransparency})` :
+                    currentVoiceType === 'narrator' ? `rgba(0, 0, 255, ${currentVoiceTransparency})` :
+                      currentVoiceType === 'contributor' ? `rgba(0, 255, 0, ${currentVoiceTransparency})` :
+                        'transparent'
+                }}
+              />
+            )}
+
+            {/* Media Color Screen - solid color background when color effect is active */}
+            {!isGeneratingAudio && !showEndHold && currentMediaColor && (
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundColor: currentMediaColor
+                }}
+              />
+            )}
+
+
+
+            {/* Title Overlay - only show when playing, not in end hold, and no media color effect */}
+            {!isGeneratingAudio && !showEndHold && !currentMediaColor && (
+              <div className="absolute top-0 left-0 right-0 p-4 pointer-events-none z-20">
+                <div className="container mx-auto max-w-4xl">
+                  <h1 className="text-white text-2xl font-bold truncate text-left pl-2">
+                    {ember.title || 'Untitled Ember'}
+                  </h1>
+                </div>
               </div>
-          )}
+            )}
 
-          {/* 🎯 Synchronized Text Display (Option 1B: Sentence-by-Sentence) */}
-          {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentDisplayText && (
-            <div className="absolute bottom-20 left-0 right-0 p-4 pointer-events-none z-20">
-              <div className="container mx-auto max-w-4xl">
-                <div className="bg-black p-6">
-                  {/* Current sentence text */}
-                  <p className="text-white text-xl leading-relaxed font-medium">
-                    {currentDisplayText}
-                  </p>
-                  
-                  {/* Progress indicator for sentences */}
-                  {currentSegmentSentences.length > 1 && (
-                    <div className="flex justify-center mt-4">
-                      <div className="flex gap-1">
-                        {currentSegmentSentences.map((_, index) => (
-                          <div
-                            key={index}
-                            className={`w-2 h-2 rounded-full ${
-                              index === currentSentenceIndex ? 'bg-white' : 'bg-white/30'
-                            }`}
-                          />
-                        ))}
+            {/* 🎯 Synchronized Text Display (Option 1B: Sentence-by-Sentence) */}
+            {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentDisplayText && (
+              <div className="absolute bottom-20 left-0 right-0 p-4 pointer-events-none z-20">
+                <div className="container mx-auto max-w-4xl">
+                  <div className="bg-black p-6">
+                    {/* Current sentence text */}
+                    <p className="text-white text-xl leading-relaxed font-medium">
+                      {currentDisplayText}
+                    </p>
+
+                    {/* Progress indicator for sentences */}
+                    {currentSegmentSentences.length > 1 && (
+                      <div className="flex justify-center mt-4">
+                        <div className="flex gap-1">
+                          {currentSegmentSentences.map((_, index) => (
+                            <div
+                              key={index}
+                              className={`w-2 h-2 rounded-full ${index === currentSentenceIndex ? 'bg-white' : 'bg-white/30'
+                                }`}
+                            />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
 
 
-          {/* Bottom right capsule: Play controls and exit - hide during end hold */}
-          {!showEndHold && (
-            <div className="absolute right-4 bottom-4 z-20">
-            <div className="flex flex-col items-center gap-2 bg-white px-2 py-3 rounded-full">
-            
-            {/* Play/Pause Button */}
-            <button
-              onClick={handlePlay}
-              className="rounded-full p-1"
-              aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Pause playing" : "Resume playing")}
-              type="button"
-              disabled={isGeneratingAudio}
-            >
-              {isGeneratingAudio ? (
-                <div className="w-6 h-6 flex items-center justify-center">
-                  <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full" />
+            {/* Bottom right capsule: Play controls and exit - hide during end hold */}
+            {!showEndHold && (
+              <div className="absolute right-4 bottom-4 z-20">
+                <div className="flex flex-col items-center gap-2 bg-white px-2 py-3 rounded-full">
+
+                  {/* Play/Pause Button */}
+                  <button
+                    onClick={handlePlay}
+                    className="rounded-full p-1"
+                    aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Pause playing" : "Resume playing")}
+                    type="button"
+                    disabled={isGeneratingAudio}
+                  >
+                    {isGeneratingAudio ? (
+                      <div className="w-6 h-6 flex items-center justify-center">
+                        <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full" />
+                      </div>
+                    ) : isPlaying ? (
+                      <div className="w-6 h-6 flex items-center justify-center">
+                        <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm"></div>
+                        <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm"></div>
+                      </div>
+                    ) : (
+                      <PlayCircle size={24} className="text-gray-700" />
+                    )}
+                  </button>
+
+                  {/* Horizontal divider */}
+                  <div className="h-px w-6 bg-gray-300 my-1"></div>
+
+                  {/* Close button */}
+                  <button
+                    onClick={handleExitPlay}
+                    className="rounded-full p-1"
+                    aria-label="Close fullscreen"
+                    type="button"
+                  >
+                    <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
-              ) : isPlaying ? (
-                <div className="w-6 h-6 flex items-center justify-center">
-                  <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm"></div>
-                  <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm"></div>
-                </div>
-              ) : (
-                <PlayCircle size={24} className="text-gray-700" />
-              )}
-            </button>
-              
-              {/* Horizontal divider */}
-              <div className="h-px w-6 bg-gray-300 my-1"></div>
-            
-            {/* Close button */}
-            <button
-              onClick={handleExitPlay}
-              className="rounded-full p-1"
-              aria-label="Close fullscreen"
-              type="button"
-            >
-              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            </div>
-          </div>
-          )}
-          
-          {/* Loading screen - pure black with loading indicator */}
-          {isGeneratingAudio && (
-            <div className="absolute inset-0 bg-black z-30 flex items-center justify-center">
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full" />
-                <span className="text-white text-lg font-medium">Preparing Story...</span>
               </div>
-            </div>
-          )}
-          
-          {/* End hold screen - pure black */}
-          {showEndHold && (
-            <div className="absolute inset-0 bg-black z-30">
-              {/* Completely black screen */}
-            </div>
-          )}
+            )}
+
+            {/* Loading screen - pure black with loading indicator */}
+            {isGeneratingAudio && (
+              <div className="absolute inset-0 bg-black z-30 flex items-center justify-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full" />
+                  <span className="text-white text-lg font-medium">Preparing Story...</span>
+                </div>
+              </div>
+            )}
+
+            {/* End hold screen - pure black */}
+            {showEndHold && (
+              <div className="absolute inset-0 bg-black z-30">
+                {/* Completely black screen */}
+              </div>
+            )}
           </div>
         </>
       )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                      <DialogContent className="w-[calc(100%-2rem)] max-w-2xl bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
+        <DialogContent className="w-[calc(100%-2rem)] max-w-2xl bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-bold text-red-700">
               <Trash size={20} className="text-red-600" />
@@ -4468,7 +4449,7 @@ export default function EmberDetail() {
               Are you sure you want to delete "{storyCutToDelete?.title}"? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="flex gap-3 mt-6">
             <Button
               variant="outline"
@@ -4506,151 +4487,151 @@ export default function EmberDetail() {
   );
 }
 
-  // Parse script into voice segments for multi-voice playback
-  const parseScriptSegments = (script) => {
-    if (!script) return [];
-    
-    const segments = [];
-    const lines = script.split('\n');
-    
-    console.log('🔍 parseScriptSegments: Processing', lines.length, 'lines');
-    console.log('🔍 FULL SCRIPT CONTENT:', script);
-    lines.forEach((line, index) => {
-      console.log(`🔍 Line ${index + 1}: "${line}"`);
-    });
-    
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) continue;
-      
-      console.log(`🔍 Processing line: "${trimmedLine.substring(0, 100)}..."`);
-      
-      // Skip malformed lines (common parsing artifacts)
-      if ((trimmedLine.includes('[[MEDIA]') && !trimmedLine.includes('[[MEDIA]]')) ||
-          (trimmedLine.includes('[[HOLD]') && !trimmedLine.includes('[[HOLD]]'))) {
-        console.log('⚠️ Skipping malformed MEDIA/HOLD line:', trimmedLine);
+// Parse script into voice segments for multi-voice playback
+const parseScriptSegments = (script) => {
+  if (!script) return [];
+
+  const segments = [];
+  const lines = script.split('\n');
+
+  console.log('🔍 parseScriptSegments: Processing', lines.length, 'lines');
+  console.log('🔍 FULL SCRIPT CONTENT:', script);
+  lines.forEach((line, index) => {
+    console.log(`🔍 Line ${index + 1}: "${line}"`);
+  });
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue;
+
+    console.log(`🔍 Processing line: "${trimmedLine.substring(0, 100)}..."`);
+
+    // Skip malformed lines (common parsing artifacts)
+    if ((trimmedLine.includes('[[MEDIA]') && !trimmedLine.includes('[[MEDIA]]')) ||
+      (trimmedLine.includes('[[HOLD]') && !trimmedLine.includes('[[HOLD]]'))) {
+      console.log('⚠️ Skipping malformed MEDIA/HOLD line:', trimmedLine);
+      continue;
+    }
+
+    // Match media tags like [[MEDIA]] or [[HOLD]] with content
+    const mediaMatch = trimmedLine.match(/^\[\[(MEDIA|HOLD)\]\]\s*(.*)$/);
+
+    if (mediaMatch) {
+      const mediaType = mediaMatch[1]; // MEDIA or HOLD
+      const content = mediaMatch[2].trim();
+
+      console.log(`🔍 ${mediaType} match found:`, {
+        fullMatch: mediaMatch[0],
+        type: mediaType,
+        content: content
+      });
+
+      // Skip if content is empty or just whitespace
+      if (!content) {
+        console.log(`⚠️ Skipping empty ${mediaType} segment`);
         continue;
       }
-      
-      // Match media tags like [[MEDIA]] or [[HOLD]] with content
-      const mediaMatch = trimmedLine.match(/^\[\[(MEDIA|HOLD)\]\]\s*(.*)$/);
-      
-      if (mediaMatch) {
-        const mediaType = mediaMatch[1]; // MEDIA or HOLD
-        const content = mediaMatch[2].trim();
-        
-        console.log(`🔍 ${mediaType} match found:`, {
-          fullMatch: mediaMatch[0],
-          type: mediaType,
-          content: content
-        });
-        
-        // Skip if content is empty or just whitespace
-        if (!content) {
-          console.log(`⚠️ Skipping empty ${mediaType} segment`);
-          continue;
+
+      // Extract visual actions (but NOT media references like <name="file.jpg"> or <id=abc123>)
+      const existingVisualActions = [];
+      let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
+        // Don't treat media references as visual actions
+        if (action.startsWith('name=') || action.startsWith('id=')) {
+          return match; // Keep media references in the content
         }
-        
-        // Extract visual actions (but NOT media references like <name="file.jpg"> or <id=abc123>)
-        const existingVisualActions = [];
-        let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
-          // Don't treat media references as visual actions
-          if (action.startsWith('name=') || action.startsWith('id=')) {
-            return match; // Keep media references in the content
-          }
-          // Only extract actual visual actions
-          existingVisualActions.push(action);
-          return '';
-        }).trim();
-        
-        // For media lines, the content after removing actions should be the media reference
-        const mediaReference = cleanContent;
-        
-        // Parse media reference to extract ID or name
-        let mediaId = null;
-        let mediaName = null;
-        let resolvedMediaReference = mediaReference;
-        
-        console.log(`🔍 Parsing media reference: "${mediaReference}"`);
-        
-        if (mediaReference) {
-          // Check for id=abc123 format
-          const idMatch = mediaReference.match(/id=([a-zA-Z0-9\-_]+)/);
-          console.log(`🔍 ID regex test result:`, idMatch);
-          if (idMatch) {
-            mediaId = idMatch[1];
-            resolvedMediaReference = mediaReference; // Keep original for display
-            console.log(`✅ Extracted media ID: ${mediaId}`);
-          } else {
-            // Check for name="Display Name" format
-            const nameMatch = mediaReference.match(/name="([^"]+)"/);
-            console.log(`🔍 Name regex test result:`, nameMatch);
-            if (nameMatch) {
-              mediaName = nameMatch[1];
-              resolvedMediaReference = mediaReference; // Keep original for display
-              console.log(`✅ Extracted media name: ${mediaName}`);
-            } else {
-              // If no id= or name= format, treat as legacy media reference
-              mediaId = mediaReference;
-              console.log(`🔄 Using legacy media reference: ${mediaId}`);
-            }
-          }
-        }
-        
-        // Reconstruct content with visual actions FOR DISPLAY
-        const allVisualActions = existingVisualActions.map(action => `<${action}>`).join('');
-        const finalContent = mediaReference ? `${mediaReference} ${allVisualActions}`.trim() : allVisualActions;
-        
-        // Only add if we have actual content or visual actions
-        if (finalContent || existingVisualActions.length > 0) {
-          const segmentType = mediaType.toLowerCase(); // 'media' or 'hold'
-          segments.push({
-            voiceTag: mediaType,
-            content: finalContent,
-            originalContent: mediaReference,
-            type: segmentType,
-            visualActions: existingVisualActions,
-            hasAutoColorize: false,
-            // Add media reference resolution data
-            mediaId: mediaId,
-            mediaName: mediaName,
-            resolvedMediaReference: resolvedMediaReference
-          });
-          console.log(`🎬 Parsed ${mediaType} segment:`, { 
-            line: trimmedLine, 
-            finalContent, 
-            mediaReference, 
-            visualActions: existingVisualActions.length,
-            type: segmentType,
-            mediaId: mediaId,
-            mediaName: mediaName,
-            resolvedMediaReference: resolvedMediaReference
-          });
-          
-          // 🐛 HOLD SPECIFIC DEBUG
-          if (segmentType === 'hold') {
-            console.log(`🔍 HOLD SEGMENT DEBUG:`, {
-              originalInput: trimmedLine,
-              extractedContent: content,
-              cleanContent: cleanContent,
-              mediaReference: mediaReference,
-              visualActions: existingVisualActions,
-              allVisualActions: allVisualActions,
-              finalContent: finalContent,
-              passedCondition: (finalContent || existingVisualActions.length > 0)
-            });
-          }
+        // Only extract actual visual actions
+        existingVisualActions.push(action);
+        return '';
+      }).trim();
+
+      // For media lines, the content after removing actions should be the media reference
+      const mediaReference = cleanContent;
+
+      // Parse media reference to extract ID or name
+      let mediaId = null;
+      let mediaName = null;
+      let resolvedMediaReference = mediaReference;
+
+      console.log(`🔍 Parsing media reference: "${mediaReference}"`);
+
+      if (mediaReference) {
+        // Check for id=abc123 format
+        const idMatch = mediaReference.match(/id=([a-zA-Z0-9\-_]+)/);
+        console.log(`🔍 ID regex test result:`, idMatch);
+        if (idMatch) {
+          mediaId = idMatch[1];
+          resolvedMediaReference = mediaReference; // Keep original for display
+          console.log(`✅ Extracted media ID: ${mediaId}`);
         } else {
-          console.log(`❌ SKIPPED ${mediaType} segment - no content or visual actions:`, {
-            finalContent,
-            existingVisualActionsLength: existingVisualActions.length
+          // Check for name="Display Name" format
+          const nameMatch = mediaReference.match(/name="([^"]+)"/);
+          console.log(`🔍 Name regex test result:`, nameMatch);
+          if (nameMatch) {
+            mediaName = nameMatch[1];
+            resolvedMediaReference = mediaReference; // Keep original for display
+            console.log(`✅ Extracted media name: ${mediaName}`);
+          } else {
+            // If no id= or name= format, treat as legacy media reference
+            mediaId = mediaReference;
+            console.log(`🔄 Using legacy media reference: ${mediaId}`);
+          }
+        }
+      }
+
+      // Reconstruct content with visual actions FOR DISPLAY
+      const allVisualActions = existingVisualActions.map(action => `<${action}>`).join('');
+      const finalContent = mediaReference ? `${mediaReference} ${allVisualActions}`.trim() : allVisualActions;
+
+      // Only add if we have actual content or visual actions
+      if (finalContent || existingVisualActions.length > 0) {
+        const segmentType = mediaType.toLowerCase(); // 'media' or 'hold'
+        segments.push({
+          voiceTag: mediaType,
+          content: finalContent,
+          originalContent: mediaReference,
+          type: segmentType,
+          visualActions: existingVisualActions,
+          hasAutoColorize: false,
+          // Add media reference resolution data
+          mediaId: mediaId,
+          mediaName: mediaName,
+          resolvedMediaReference: resolvedMediaReference
+        });
+        console.log(`🎬 Parsed ${mediaType} segment:`, {
+          line: trimmedLine,
+          finalContent,
+          mediaReference,
+          visualActions: existingVisualActions.length,
+          type: segmentType,
+          mediaId: mediaId,
+          mediaName: mediaName,
+          resolvedMediaReference: resolvedMediaReference
+        });
+
+        // 🐛 HOLD SPECIFIC DEBUG
+        if (segmentType === 'hold') {
+          console.log(`🔍 HOLD SEGMENT DEBUG:`, {
+            originalInput: trimmedLine,
+            extractedContent: content,
+            cleanContent: cleanContent,
+            mediaReference: mediaReference,
+            visualActions: existingVisualActions,
+            allVisualActions: allVisualActions,
+            finalContent: finalContent,
+            passedCondition: (finalContent || existingVisualActions.length > 0)
           });
         }
       } else {
-        // Match voice tags like [EMBER VOICE], [NARRATOR], [Amado], etc.
-        const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
-        
-        if (voiceMatch) {
+        console.log(`❌ SKIPPED ${mediaType} segment - no content or visual actions:`, {
+          finalContent,
+          existingVisualActionsLength: existingVisualActions.length
+        });
+      }
+    } else {
+      // Match voice tags like [EMBER VOICE], [NARRATOR], [Amado], etc.
+      const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
+
+      if (voiceMatch) {
         console.log(`🔍 Voice match found:`, {
           fullMatch: voiceMatch[0],
           voiceTag: voiceMatch[1],
@@ -4659,7 +4640,7 @@ export default function EmberDetail() {
         const voiceTag = voiceMatch[1].trim();
         let content = voiceMatch[2].trim();
         const voiceType = getVoiceType(voiceTag);
-        
+
         // Extract visual actions (but NOT media references like <name="file.jpg"> or <id=abc123>)
         const existingVisualActions = [];
         let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
@@ -4671,11 +4652,11 @@ export default function EmberDetail() {
           existingVisualActions.push(action);
           return '';
         }).trim();
-        
+
         // Add default colorization based on voice type (if no COLOR action exists)
         let colorizeAction = '';
         const hasColorizeAction = existingVisualActions.some(action => action.startsWith('COLOR:'));
-        
+
         if (!hasColorizeAction) {
           switch (voiceType) {
             case 'ember':
@@ -4689,11 +4670,11 @@ export default function EmberDetail() {
               break;
           }
         }
-        
+
         // Reconstruct content with visual actions FOR DISPLAY
         const allVisualActions = existingVisualActions.map(action => `<${action}>`).join('');
         const finalContent = `${colorizeAction}${allVisualActions} ${cleanContent}`.trim();
-        
+
         if (cleanContent) {
           segments.push({
             voiceTag,
@@ -4707,264 +4688,264 @@ export default function EmberDetail() {
       }
     }
   }
-    
-    console.log('📝 Parsed script segments:', segments.length, 'segments');
-    console.log('🎨 Applied auto-colorization based on voice types:');
-    segments.forEach((segment, index) => {
-      if (segment.type === 'media' || segment.type === 'hold') {
-        console.log(`  ${index + 1}. [[${segment.voiceTag}]] → ${segment.type.toUpperCase()} SEGMENT (${segment.content})`);
-      } else if (segment.hasAutoColorize) {
-        const colorMap = {
-          ember: 'RED (255,0,0,0.2)',
-          narrator: 'BLUE (0,0,255,0.2)', 
-          contributor: 'GREEN (0,255,0,0.2)'
-        };
-        console.log(`  ${index + 1}. [${segment.voiceTag}] → ${colorMap[segment.type]}`);
-      }
-    });
-    
-    // Remove exact duplicates (but preserve HOLD segments since opening/closing are legitimately the same)
-    const uniqueSegments = [];
-    const seenSegments = new Set();
-    
-    console.log('🔄 Removing duplicates from', segments.length, 'segments...');
-    
-    segments.forEach((segment, index) => {
-      // Skip duplicate removal for HOLD segments - opening and closing are expected to be the same
-      if (segment.type === 'hold') {
-        uniqueSegments.push(segment);
-        console.log(`  ✅ Kept HOLD segment ${index + 1}: [[${segment.voiceTag}]] "${segment.content.substring(0, 50)}..." (skipping duplicate check)`);
-        return;
-      }
-      
-      const key = `${segment.type}-${segment.voiceTag}-${segment.content}`;
-      console.log(`🔍 Checking segment ${index + 1}: Key="${key.substring(0, 50)}..."`);
-      
-      if (seenSegments.has(key)) {
-        console.warn('⚠️ Removing duplicate segment:', { 
-          index: index + 1,
-          key: key.substring(0, 100),
-          segment: `${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} ${segment.content.substring(0, 50)}...`
-        });
-      } else {
-        seenSegments.add(key);
-        uniqueSegments.push(segment);
-        console.log(`  ✅ Kept segment ${index + 1}: ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 50)}..."`);
-      }
-    });
-    
-    console.log(`📝 Removed ${segments.length - uniqueSegments.length} duplicate segments`);
-    console.log('📝 Final unique segments order:');
-    uniqueSegments.forEach((segment, index) => {
-      console.log(`  ${index + 1}. ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 30)}..."`);
-    });
-    
-    // 🚨 CRITICAL DEBUG: Count HOLD segments specifically
-    const holdSegments = uniqueSegments.filter(seg => seg.type === 'hold');
-    console.log(`🚨 HOLD SEGMENTS COUNT: ${holdSegments.length}`);
-    holdSegments.forEach((holdSeg, index) => {
-      console.log(`  🚨 HOLD ${index + 1}: "${holdSeg.content}" (type: ${holdSeg.type}, voiceTag: ${holdSeg.voiceTag})`);
-    });
-    
-    return uniqueSegments;
-  };
 
-  // Parse text into sentences for synchronized display (Option 1B)
-  const parseSentences = (text) => {
-    if (!text) return [];
-    
-    // Split by sentence-ending punctuation, keeping the punctuation
-    const sentences = text.split(/([.!?]+)/).filter(s => s.trim()).reduce((acc, part, index, array) => {
-      if (index % 2 === 0) {
-        // This is the text part
-        const nextPart = array[index + 1];
-        const sentence = nextPart ? part + nextPart : part;
-        if (sentence.trim()) {
-          acc.push(sentence.trim());
-        }
-      }
-      return acc;
-    }, []);
-    
-    // If no sentences found, return the whole text as one sentence
-    if (sentences.length === 0) {
-      return [text.trim()];
-    }
-    
-    return sentences;
-  };
-
-  // Estimate timing for sentence display within an audio segment
-  const estimateSentenceTimings = (sentences, totalDuration) => {
-    if (!sentences || sentences.length === 0) return [];
-    
-    // Simple estimation: divide time proportionally by sentence length
-    const totalCharacters = sentences.reduce((sum, sentence) => sum + sentence.length, 0);
-    let accumulatedTime = 0;
-    
-    return sentences.map((sentence, index) => {
-      const sentenceWeight = sentence.length / totalCharacters;
-      const sentenceStartTime = accumulatedTime;
-      const sentenceDuration = totalDuration * sentenceWeight;
-      
-      accumulatedTime += sentenceDuration;
-      
-      return {
-        sentence,
-        startTime: sentenceStartTime,
-        duration: sentenceDuration,
-        index
+  console.log('📝 Parsed script segments:', segments.length, 'segments');
+  console.log('🎨 Applied auto-colorization based on voice types:');
+  segments.forEach((segment, index) => {
+    if (segment.type === 'media' || segment.type === 'hold') {
+      console.log(`  ${index + 1}. [[${segment.voiceTag}]] → ${segment.type.toUpperCase()} SEGMENT (${segment.content})`);
+    } else if (segment.hasAutoColorize) {
+      const colorMap = {
+        ember: 'RED (255,0,0,0.2)',
+        narrator: 'BLUE (0,0,255,0.2)',
+        contributor: 'GREEN (0,255,0,0.2)'
       };
-    });
-  };
-  
-  // Determine voice type for segment
-  const getVoiceType = (voiceTag) => {
-    if (voiceTag === 'EMBER VOICE') return 'ember';
-    if (voiceTag === 'NARRATOR') return 'narrator';
-    return 'contributor'; // Everything else is a contributor (user name)
-  };
-
-  // Helper function to extract HEX color from COLOR action
-  const extractColorFromAction = (action) => {
-    // Support both old format (color=#FF0000) and new format (:FF0000)
-    const colorMatch = action.match(/(?:color=|:)#([A-Fa-f0-9]{3,6})/);
-    if (colorMatch) {
-      const hex = colorMatch[1];
-      // Convert 3-digit to 6-digit hex if needed
-      if (hex.length === 3) {
-        return `#${hex.split('').map(char => char + char).join('')}`;
-      }
-      return `#${hex}`;
+      console.log(`  ${index + 1}. [${segment.voiceTag}] → ${colorMap[segment.type]}`);
     }
+  });
+
+  // Remove exact duplicates (but preserve HOLD segments since opening/closing are legitimately the same)
+  const uniqueSegments = [];
+  const seenSegments = new Set();
+
+  console.log('🔄 Removing duplicates from', segments.length, 'segments...');
+
+  segments.forEach((segment, index) => {
+    // Skip duplicate removal for HOLD segments - opening and closing are expected to be the same
+    if (segment.type === 'hold') {
+      uniqueSegments.push(segment);
+      console.log(`  ✅ Kept HOLD segment ${index + 1}: [[${segment.voiceTag}]] "${segment.content.substring(0, 50)}..." (skipping duplicate check)`);
+      return;
+    }
+
+    const key = `${segment.type}-${segment.voiceTag}-${segment.content}`;
+    console.log(`🔍 Checking segment ${index + 1}: Key="${key.substring(0, 50)}..."`);
+
+    if (seenSegments.has(key)) {
+      console.warn('⚠️ Removing duplicate segment:', {
+        index: index + 1,
+        key: key.substring(0, 100),
+        segment: `${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} ${segment.content.substring(0, 50)}...`
+      });
+    } else {
+      seenSegments.add(key);
+      uniqueSegments.push(segment);
+      console.log(`  ✅ Kept segment ${index + 1}: ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 50)}..."`);
+    }
+  });
+
+  console.log(`📝 Removed ${segments.length - uniqueSegments.length} duplicate segments`);
+  console.log('📝 Final unique segments order:');
+  uniqueSegments.forEach((segment, index) => {
+    console.log(`  ${index + 1}. ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 30)}..."`);
+  });
+
+  // 🚨 CRITICAL DEBUG: Count HOLD segments specifically
+  const holdSegments = uniqueSegments.filter(seg => seg.type === 'hold');
+  console.log(`🚨 HOLD SEGMENTS COUNT: ${holdSegments.length}`);
+  holdSegments.forEach((holdSeg, index) => {
+    console.log(`  🚨 HOLD ${index + 1}: "${holdSeg.content}" (type: ${holdSeg.type}, voiceTag: ${holdSeg.voiceTag})`);
+  });
+
+  return uniqueSegments;
+};
+
+// Parse text into sentences for synchronized display (Option 1B)
+const parseSentences = (text) => {
+  if (!text) return [];
+
+  // Split by sentence-ending punctuation, keeping the punctuation
+  const sentences = text.split(/([.!?]+)/).filter(s => s.trim()).reduce((acc, part, index, array) => {
+    if (index % 2 === 0) {
+      // This is the text part
+      const nextPart = array[index + 1];
+      const sentence = nextPart ? part + nextPart : part;
+      if (sentence.trim()) {
+        acc.push(sentence.trim());
+      }
+    }
+    return acc;
+  }, []);
+
+  // If no sentences found, return the whole text as one sentence
+  if (sentences.length === 0) {
+    return [text.trim()];
+  }
+
+  return sentences;
+};
+
+// Estimate timing for sentence display within an audio segment
+const estimateSentenceTimings = (sentences, totalDuration) => {
+  if (!sentences || sentences.length === 0) return [];
+
+  // Simple estimation: divide time proportionally by sentence length
+  const totalCharacters = sentences.reduce((sum, sentence) => sum + sentence.length, 0);
+  let accumulatedTime = 0;
+
+  return sentences.map((sentence, index) => {
+    const sentenceWeight = sentence.length / totalCharacters;
+    const sentenceStartTime = accumulatedTime;
+    const sentenceDuration = totalDuration * sentenceWeight;
+
+    accumulatedTime += sentenceDuration;
+
+    return {
+      sentence,
+      startTime: sentenceStartTime,
+      duration: sentenceDuration,
+      index
+    };
+  });
+};
+
+// Determine voice type for segment
+const getVoiceType = (voiceTag) => {
+  if (voiceTag === 'EMBER VOICE') return 'ember';
+  if (voiceTag === 'NARRATOR') return 'narrator';
+  return 'contributor'; // Everything else is a contributor (user name)
+};
+
+// Helper function to extract HEX color from COLOR action
+const extractColorFromAction = (action) => {
+  // Support both old format (color=#FF0000) and new format (:FF0000)
+  const colorMatch = action.match(/(?:color=|:)#([A-Fa-f0-9]{3,6})/);
+  if (colorMatch) {
+    const hex = colorMatch[1];
+    // Convert 3-digit to 6-digit hex if needed
+    if (hex.length === 3) {
+      return `#${hex.split('').map(char => char + char).join('')}`;
+    }
+    return `#${hex}`;
+  }
+  return null;
+};
+
+// Helper function to extract transparency value from TRAN action
+const extractTransparencyFromAction = (action) => {
+  const transparencyMatch = action.match(/TRAN:([0-9.]+)/);
+  if (transparencyMatch) {
+    const value = parseFloat(transparencyMatch[1]);
+    // Clamp between 0 and 1
+    return Math.max(0, Math.min(1, value));
+  }
+  return 0.2; // Default transparency
+};
+
+// Helper function to extract scale values from Z-OUT action
+const extractZoomScaleFromAction = (action) => {
+  const scaleMatch = action.match(/scale=([0-9.]+)/);
+  if (scaleMatch) {
+    const endScale = parseFloat(scaleMatch[1]);
+    // Start scale is typically larger for zoom-in effect (reverse of zoom-out)
+    // If script specifies scale=0.7, we zoom FROM larger TO 0.7
+    const startScale = Math.max(1.2, endScale * 2.0); // More dramatic zoom effect
+    return { start: startScale, end: endScale };
+  }
+  // Default zoom: subtle zoom-in effect (no zoom out)
+  return { start: 1.1, end: 1.0 };
+};
+
+/**
+ * Resolve media reference to actual file URL
+ * @param {Object} segment - Media segment with mediaId or mediaName
+ * @param {string} emberId - Current ember ID for scoping
+ * @returns {Promise<string|null>} - Resolved media URL or null if not found
+ */
+const resolveMediaReference = async (segment, emberId) => {
+  if (!segment || (!segment.mediaId && !segment.mediaName)) {
+    console.log('⚠️ No media reference to resolve');
     return null;
-  };
+  }
 
-  // Helper function to extract transparency value from TRAN action
-  const extractTransparencyFromAction = (action) => {
-    const transparencyMatch = action.match(/TRAN:([0-9.]+)/);
-    if (transparencyMatch) {
-      const value = parseFloat(transparencyMatch[1]);
-      // Clamp between 0 and 1
-      return Math.max(0, Math.min(1, value));
+  try {
+    // Get all available media for this ember
+    const [emberPhotos, supportingMedia] = await Promise.all([
+      getEmberPhotos(emberId),
+      getEmberSupportingMedia(emberId)
+    ]);
+
+    console.log(`🔍 Resolving media reference: ${segment.mediaId || segment.mediaName}`);
+    console.log(`📸 Available photos: ${emberPhotos.length}`);
+    console.log(`📁 Available supporting media: ${supportingMedia.length}`);
+
+    // Search by ID first (more specific)
+    if (segment.mediaId) {
+      // Check ember photos
+      const photoMatch = emberPhotos.find(photo => photo.id === segment.mediaId);
+      if (photoMatch) {
+        console.log(`✅ Found photo by ID: ${photoMatch.display_name || photoMatch.original_filename}`);
+        return photoMatch.storage_url;
+      }
+
+      // Check supporting media
+      const mediaMatch = supportingMedia.find(media => media.id === segment.mediaId);
+      if (mediaMatch) {
+        console.log(`✅ Found supporting media by ID: ${mediaMatch.display_name || mediaMatch.file_name}`);
+        return mediaMatch.file_url;
+      }
+
+      // Legacy: treat mediaId as direct URL if no match found
+      console.log(`ℹ️ No ID match found, treating as legacy reference: ${segment.mediaId}`);
+      return segment.mediaId;
     }
-    return 0.2; // Default transparency
-  };
 
-  // Helper function to extract scale values from Z-OUT action
-  const extractZoomScaleFromAction = (action) => {
-    const scaleMatch = action.match(/scale=([0-9.]+)/);
-    if (scaleMatch) {
-      const endScale = parseFloat(scaleMatch[1]);
-      // Start scale is typically larger for zoom-in effect (reverse of zoom-out)
-      // If script specifies scale=0.7, we zoom FROM larger TO 0.7
-      const startScale = Math.max(1.2, endScale * 2.0); // More dramatic zoom effect
-      return { start: startScale, end: endScale };
-    }
-    // Default zoom: subtle zoom-in effect (no zoom out)
-    return { start: 1.1, end: 1.0 };
-  };
+    // Search by display name
+    if (segment.mediaName) {
+      // Check ember photos
+      const photoMatch = emberPhotos.find(photo =>
+        photo.display_name === segment.mediaName ||
+        photo.original_filename === segment.mediaName
+      );
+      if (photoMatch) {
+        console.log(`✅ Found photo by name: ${photoMatch.display_name || photoMatch.original_filename}`);
+        return photoMatch.storage_url;
+      }
 
-  /**
-   * Resolve media reference to actual file URL
-   * @param {Object} segment - Media segment with mediaId or mediaName
-   * @param {string} emberId - Current ember ID for scoping
-   * @returns {Promise<string|null>} - Resolved media URL or null if not found
-   */
-  const resolveMediaReference = async (segment, emberId) => {
-    if (!segment || (!segment.mediaId && !segment.mediaName)) {
-      console.log('⚠️ No media reference to resolve');
+      // Check supporting media
+      const mediaMatch = supportingMedia.find(media =>
+        media.display_name === segment.mediaName ||
+        media.file_name === segment.mediaName
+      );
+      if (mediaMatch) {
+        console.log(`✅ Found supporting media by name: ${mediaMatch.display_name || mediaMatch.file_name}`);
+        return mediaMatch.file_url;
+      }
+
+      console.log(`⚠️ No media found with name: ${segment.mediaName}`);
       return null;
     }
 
-    try {
-      // Get all available media for this ember
-      const [emberPhotos, supportingMedia] = await Promise.all([
-        getEmberPhotos(emberId),
-        getEmberSupportingMedia(emberId)
-      ]);
+    return null;
+  } catch (error) {
+    console.error('❌ Error resolving media reference:', error);
+    return null;
+  }
+};
 
-      console.log(`🔍 Resolving media reference: ${segment.mediaId || segment.mediaName}`);
-      console.log(`📸 Available photos: ${emberPhotos.length}`);
-      console.log(`📁 Available supporting media: ${supportingMedia.length}`);
-
-      // Search by ID first (more specific)
-      if (segment.mediaId) {
-        // Check ember photos
-        const photoMatch = emberPhotos.find(photo => photo.id === segment.mediaId);
-        if (photoMatch) {
-          console.log(`✅ Found photo by ID: ${photoMatch.display_name || photoMatch.original_filename}`);
-          return photoMatch.storage_url;
-        }
-
-        // Check supporting media
-        const mediaMatch = supportingMedia.find(media => media.id === segment.mediaId);
-        if (mediaMatch) {
-          console.log(`✅ Found supporting media by ID: ${mediaMatch.display_name || mediaMatch.file_name}`);
-          return mediaMatch.file_url;
-        }
-
-        // Legacy: treat mediaId as direct URL if no match found
-        console.log(`ℹ️ No ID match found, treating as legacy reference: ${segment.mediaId}`);
-        return segment.mediaId;
-      }
-
-      // Search by display name
-      if (segment.mediaName) {
-        // Check ember photos
-        const photoMatch = emberPhotos.find(photo => 
-          photo.display_name === segment.mediaName || 
-          photo.original_filename === segment.mediaName
-        );
-        if (photoMatch) {
-          console.log(`✅ Found photo by name: ${photoMatch.display_name || photoMatch.original_filename}`);
-          return photoMatch.storage_url;
-        }
-
-        // Check supporting media
-        const mediaMatch = supportingMedia.find(media => 
-          media.display_name === segment.mediaName || 
-          media.file_name === segment.mediaName
-        );
-        if (mediaMatch) {
-          console.log(`✅ Found supporting media by name: ${mediaMatch.display_name || mediaMatch.file_name}`);
-          return mediaMatch.file_url;
-        }
-
-        console.log(`⚠️ No media found with name: ${segment.mediaName}`);
-        return null;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('❌ Error resolving media reference:', error);
-      return null;
+// Helper function to estimate segment duration
+const estimateSegmentDuration = (content, segmentType) => {
+  // For media and hold segments, prioritize explicit duration from visual actions
+  if (segmentType === 'media' || segmentType === 'hold') {
+    // Extract duration from any visual action that has it
+    const durationMatch = content.match(/duration=([0-9.]+)/);
+    if (durationMatch) {
+      return parseFloat(durationMatch[1]).toFixed(2);
     }
-  };
 
-  // Helper function to estimate segment duration
-  const estimateSegmentDuration = (content, segmentType) => {
-    // For media and hold segments, prioritize explicit duration from visual actions
-    if (segmentType === 'media' || segmentType === 'hold') {
-      // Extract duration from any visual action that has it
-      const durationMatch = content.match(/duration=([0-9.]+)/);
-      if (durationMatch) {
-        return parseFloat(durationMatch[1]).toFixed(2);
-      }
-      
-      // Different defaults for media vs hold
-      if (segmentType === 'hold') {
-        return "3.00"; // Hold segments default to 3 seconds
-      } else {
-        return "2.00"; // Media segments default to 2 seconds
-      }
+    // Different defaults for media vs hold
+    if (segmentType === 'hold') {
+      return "3.00"; // Hold segments default to 3 seconds
+    } else {
+      return "2.00"; // Media segments default to 2 seconds
     }
-    
-    // For voice segments, estimate by text length (remove visual actions first)
-    const cleanContent = content.replace(/<[^>]+>/g, '').trim();
-    const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
-    return estimatedDuration.toFixed(2);
-  };
+  }
+
+  // For voice segments, estimate by text length (remove visual actions first)
+  const cleanContent = content.replace(/<[^>]+>/g, '').trim();
+  const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
+  return estimatedDuration.toFixed(2);
+};
 
 
 
@@ -4974,262 +4955,425 @@ export default function EmberDetail() {
 
 
 
-  // Format script for display - simplified for ember script format
-  const formatScriptForDisplay = async (script, ember, storyCut) => {
-    if (!script) return '';
-    
-    console.log('🎨 formatScriptForDisplay called (simplified)');
-    console.log('🎨 Script preview (first 200 chars):', script.substring(0, 200));
-    
-    // Ember script is already properly formatted, just resolve media display names
-    console.log('📝 Using ember script format (already processed)...');
-    
-    // Get all media for this ember to resolve display names
-    try {
-      const [emberPhotos, supportingMedia] = await Promise.all([
-        getEmberPhotos(ember.id),
-        getEmberSupportingMedia(ember.id)
-      ]);
+// Format script for display - simplified for ember script format
+const formatScriptForDisplay = async (script, ember, storyCut) => {
+  if (!script) return '';
 
-      // Simple text replacement for media display names
-      let displayScript = script;
-      
-      // Replace media ID references with display names
-      const mediaIdRegex = /\[\[MEDIA\]\]\s*<[^>]*id=([a-zA-Z0-9\-_]+)[^>]*>/g;
-      displayScript = displayScript.replace(mediaIdRegex, (match, mediaId) => {
-        console.log(`🔍 Resolving display name for media ID: ${mediaId}`);
-        
-        // Search in photos first
-        const photoMatch = emberPhotos.find(photo => photo.id === mediaId);
-        if (photoMatch) {
-          const displayName = photoMatch.display_name || photoMatch.original_filename;
-          console.log(`✅ Found photo match: ${displayName}`);
-          return match.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
-        }
-        
-        // Search in supporting media
-        const mediaMatch = supportingMedia.find(media => media.id === mediaId);
-        if (mediaMatch) {
-          const displayName = mediaMatch.display_name || mediaMatch.file_name;
-          console.log(`✅ Found supporting media match: ${displayName}`);
-          return match.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
-        }
-        
-        console.log(`❌ No match found for media ID: ${mediaId}`);
-        return match; // Return unchanged if no match
+  console.log('🎨 formatScriptForDisplay called (simplified)');
+  console.log('🎨 Script preview (first 200 chars):', script.substring(0, 200));
+
+  // Ember script is already properly formatted, just resolve media display names
+  console.log('📝 Using ember script format (already processed)...');
+
+  // Get all media for this ember to resolve display names
+  try {
+    const [emberPhotos, supportingMedia] = await Promise.all([
+      getEmberPhotos(ember.id),
+      getEmberSupportingMedia(ember.id)
+    ]);
+
+    // Simple text replacement for media display names
+    let displayScript = script;
+
+    // Replace media ID references with display names
+    const mediaIdRegex = /\[\[MEDIA\]\]\s*<[^>]*id=([a-zA-Z0-9\-_]+)[^>]*>/g;
+    displayScript = displayScript.replace(mediaIdRegex, (match, mediaId) => {
+      console.log(`🔍 Resolving display name for media ID: ${mediaId}`);
+
+      // Search in photos first
+      const photoMatch = emberPhotos.find(photo => photo.id === mediaId);
+      if (photoMatch) {
+        const displayName = photoMatch.display_name || photoMatch.original_filename;
+        console.log(`✅ Found photo match: ${displayName}`);
+        return match.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
+      }
+
+      // Search in supporting media
+      const mediaMatch = supportingMedia.find(media => media.id === mediaId);
+      if (mediaMatch) {
+        const displayName = mediaMatch.display_name || mediaMatch.file_name;
+        console.log(`✅ Found supporting media match: ${displayName}`);
+        return match.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
+      }
+
+      console.log(`❌ No match found for media ID: ${mediaId}`);
+      return match; // Return unchanged if no match
+    });
+
+    console.log('✅ Display script formatting complete');
+    return displayScript;
+
+  } catch (error) {
+    console.error('❌ Error formatting script for display:', error);
+    // Fallback: return script as-is
+    return script;
+  }
+};
+
+// 🐛 DEBUG HELPER: Inspect recorded audio data
+const debugRecordedAudio = (recordedAudio, scriptSegments) => {
+  console.log('🐛 ===== RECORDED AUDIO DEBUG REPORT =====');
+  console.log('🎙️ Available recorded audio:');
+  Object.entries(recordedAudio).forEach(([userId, audioData]) => {
+    console.log(`  📤 User ${userId}:`);
+    console.log(`    - Name: "${audioData.user_first_name}"`);
+    console.log(`    - Message: "${audioData.message_content}"`);
+    console.log(`    - Audio URL: ${audioData.audio_url ? '✅ EXISTS' : '❌ MISSING'}`);
+    console.log(`    - Duration: ${audioData.audio_duration_seconds}s`);
+  });
+
+  console.log('\n📝 Script segments requiring recorded audio:');
+  scriptSegments.filter(seg => seg.type === 'contributor').forEach((segment, index) => {
+    console.log(`  📋 Segment ${index + 1}:`);
+    console.log(`    - Voice Tag: "${segment.voiceTag}"`);
+    console.log(`    - Content: "${segment.content}"`);
+    console.log(`    - Type: ${segment.type}`);
+
+    // Check for matches
+    const matches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
+      const nameMatches = audioData.user_first_name === segment.voiceTag;
+      const recordedContent = audioData.message_content?.toLowerCase() || '';
+      const segmentContent = segment.content.toLowerCase();
+      const contentMatches = recordedContent === segmentContent ||
+        recordedContent.includes(segmentContent) ||
+        segmentContent.includes(recordedContent);
+      return nameMatches && contentMatches;
+    });
+
+    if (matches.length > 0) {
+      console.log(`    - 🎙️ MATCH FOUND: User ${matches[0][0]} (${matches[0][1].user_first_name})`);
+    } else {
+      console.log(`    - ❌ NO MATCH`);
+      console.log(`    - Available names: ${Object.values(recordedAudio).map(a => a.user_first_name).join(', ')}`);
+
+      // Check for personal voice model as fallback
+      const nameMatches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
+        return audioData.user_first_name === segment.voiceTag;
       });
 
-      console.log('✅ Display script formatting complete');
-      return displayScript;
-      
-    } catch (error) {
-      console.error('❌ Error formatting script for display:', error);
-      // Fallback: return script as-is
-      return script;
-    }
-  };
-
-  // 🐛 DEBUG HELPER: Inspect recorded audio data
-  const debugRecordedAudio = (recordedAudio, scriptSegments) => {
-    console.log('🐛 ===== RECORDED AUDIO DEBUG REPORT =====');
-    console.log('🎙️ Available recorded audio:');
-    Object.entries(recordedAudio).forEach(([userId, audioData]) => {
-      console.log(`  📤 User ${userId}:`);
-      console.log(`    - Name: "${audioData.user_first_name}"`);
-      console.log(`    - Message: "${audioData.message_content}"`);
-      console.log(`    - Audio URL: ${audioData.audio_url ? '✅ EXISTS' : '❌ MISSING'}`);
-      console.log(`    - Duration: ${audioData.audio_duration_seconds}s`);
-    });
-    
-    console.log('\n📝 Script segments requiring recorded audio:');
-    scriptSegments.filter(seg => seg.type === 'contributor').forEach((segment, index) => {
-      console.log(`  📋 Segment ${index + 1}:`);
-      console.log(`    - Voice Tag: "${segment.voiceTag}"`);
-      console.log(`    - Content: "${segment.content}"`);
-      console.log(`    - Type: ${segment.type}`);
-      
-      // Check for matches
-      const matches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
-        const nameMatches = audioData.user_first_name === segment.voiceTag;
-        const recordedContent = audioData.message_content?.toLowerCase() || '';
-        const segmentContent = segment.content.toLowerCase();
-        const contentMatches = recordedContent === segmentContent || 
-                             recordedContent.includes(segmentContent) ||
-                             segmentContent.includes(recordedContent);
-        return nameMatches && contentMatches;
-      });
-      
-      if (matches.length > 0) {
-        console.log(`    - 🎙️ MATCH FOUND: User ${matches[0][0]} (${matches[0][1].user_first_name})`);
-      } else {
-        console.log(`    - ❌ NO MATCH`);
-        console.log(`    - Available names: ${Object.values(recordedAudio).map(a => a.user_first_name).join(', ')}`);
-        
-        // Check for personal voice model as fallback
-        const nameMatches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
-          return audioData.user_first_name === segment.voiceTag;
-        });
-        
-        if (nameMatches.length > 0) {
-          const [userId] = nameMatches[0];
-          getUserVoiceModel(userId).then(voiceModel => {
-            if (voiceModel && voiceModel.elevenlabs_voice_id) {
-              console.log(`    - 🎤 Personal Voice Model Available: ${voiceModel.elevenlabs_voice_name}`);
-            } else {
-              console.log(`    - 🎤 No personal voice model available`);
-            }
-          }).catch(err => {
-            console.log(`    - ⚠️ Error checking voice model: ${err.message}`);
-          });
-        }
-      }
-    });
-    console.log('🐛 ===== END DEBUG REPORT =====');
-  };
-
-  // Generate audio for a single voice segment
-  const generateSegmentAudio = async (segment, storyCut, recordedAudio) => {
-    const { voiceTag, content, originalContent, type } = segment;
-    
-    // Use originalContent for audio synthesis, content for display/matching
-    const rawAudioContent = originalContent || content;
-    
-    // Clean content for TTS: remove visual actions and voice tags
-    const audioContent = rawAudioContent
-      .replace(/<[^>]+>/g, '') // Remove visual actions like <COLOR:#FF0000,TRAN:0.2>
-      .replace(/^\[.*?\]\s*/, '') // Remove voice tags like [NARRATOR] or [EMBER VOICE]
-      .trim();
-    
-    console.log(`🎵 Generating audio for [${voiceTag}]: "${audioContent.substring(0, 50)}..."`);
-    console.log(`🔍 Segment type: ${type}`);
-    console.log(`🎨 Full content with visual actions: "${content}"`);
-    console.log(`🎙️ Audio content (no visual actions): "${audioContent}"`);
-    
-    // 🐛 ENHANCED DEBUG: Log all available recorded audio
-    console.log('🐛 DEBUG - All recorded audio available:');
-    Object.entries(recordedAudio).forEach(([userId, audioData]) => {
-      console.log(`  - User ${userId} (${audioData.user_first_name}): "${audioData.message_content?.substring(0, 50)}..."`);
-      console.log(`    Audio URL: ${audioData.audio_url ? 'EXISTS' : 'MISSING'}`);
-    });
-    
-    try {
-      if (type === 'contributor') {
-        console.log(`🐛 DEBUG - Looking for recorded audio for contributor: ${voiceTag}`);
-        console.log(`🐛 DEBUG - Script content: "${audioContent}"`);
-        
-        // Check per-message preference for this content
-        let userPreference = 'recorded'; // default
-        
-        // Look for matching message preference - try multiple matching strategies
-        if (window.messageAudioPreferences) {
-          // Strategy 1: Try to find exact content match
-          const matchingKey = Object.keys(window.messageAudioPreferences).find(key => {
-            const keyContent = key.split('-').slice(1).join('-'); // Remove messageIndex prefix
-            return keyContent === audioContent.substring(0, 50) || audioContent.includes(keyContent);
-          });
-          
-          if (matchingKey) {
-            userPreference = window.messageAudioPreferences[matchingKey];
-            console.log(`🎯 Found preference match: "${matchingKey}" → ${userPreference}`);
+      if (nameMatches.length > 0) {
+        const [userId] = nameMatches[0];
+        getUserVoiceModel(userId).then(voiceModel => {
+          if (voiceModel && voiceModel.elevenlabs_voice_id) {
+            console.log(`    - 🎤 Personal Voice Model Available: ${voiceModel.elevenlabs_voice_name}`);
           } else {
-            // Strategy 2: Try partial content matching
-            const partialMatch = Object.keys(window.messageAudioPreferences).find(key => {
-              const keyContent = key.split('-').slice(1).join('-');
-              return keyContent.length > 10 && audioContent.includes(keyContent);
-            });
-            
-            if (partialMatch) {
-              userPreference = window.messageAudioPreferences[partialMatch];
-              console.log(`🎯 Found partial preference match: "${partialMatch}" → ${userPreference}`);
-            } else {
-              console.log(`⚠️ No preference match found for content: "${audioContent.substring(0, 50)}..."`);
-              console.log(`⚠️ Available preferences:`, Object.keys(window.messageAudioPreferences));
-            }
+            console.log(`    - 🎤 No personal voice model available`);
+          }
+        }).catch(err => {
+          console.log(`    - ⚠️ Error checking voice model: ${err.message}`);
+        });
+      }
+    }
+  });
+  console.log('🐛 ===== END DEBUG REPORT =====');
+};
+
+// Generate audio for a single voice segment
+const generateSegmentAudio = async (segment, storyCut, recordedAudio) => {
+  const { voiceTag, content, originalContent, type } = segment;
+
+  // Use originalContent for audio synthesis, content for display/matching
+  const rawAudioContent = originalContent || content;
+
+  // Clean content for TTS: remove visual actions and voice tags
+  const audioContent = rawAudioContent
+    .replace(/<[^>]+>/g, '') // Remove visual actions like <COLOR:#FF0000,TRAN:0.2>
+    .replace(/^\[.*?\]\s*/, '') // Remove voice tags like [NARRATOR] or [EMBER VOICE]
+    .trim();
+
+  console.log(`🎵 Generating audio for [${voiceTag}]: "${audioContent.substring(0, 50)}..."`);
+  console.log(`🔍 Segment type: ${type}`);
+  console.log(`🎨 Full content with visual actions: "${content}"`);
+  console.log(`🎙️ Audio content (no visual actions): "${audioContent}"`);
+
+  // 🐛 ENHANCED DEBUG: Log all available recorded audio
+  console.log('🐛 DEBUG - All recorded audio available:');
+  Object.entries(recordedAudio).forEach(([userId, audioData]) => {
+    console.log(`  - User ${userId} (${audioData.user_first_name}): "${audioData.message_content?.substring(0, 50)}..."`);
+    console.log(`    Audio URL: ${audioData.audio_url ? 'EXISTS' : 'MISSING'}`);
+  });
+
+  try {
+    if (type === 'contributor') {
+      console.log(`🐛 DEBUG - Looking for recorded audio for contributor: ${voiceTag}`);
+      console.log(`🐛 DEBUG - Script content: "${audioContent}"`);
+
+      // Check per-message preference for this content
+      let userPreference = 'recorded'; // default
+
+      // Look for matching message preference - try multiple matching strategies
+      if (window.messageAudioPreferences) {
+        // Strategy 1: Try to find exact content match
+        const matchingKey = Object.keys(window.messageAudioPreferences).find(key => {
+          const keyContent = key.split('-').slice(1).join('-'); // Remove messageIndex prefix
+          return keyContent === audioContent.substring(0, 50) || audioContent.includes(keyContent);
+        });
+
+        if (matchingKey) {
+          userPreference = window.messageAudioPreferences[matchingKey];
+          console.log(`🎯 Found preference match: "${matchingKey}" → ${userPreference}`);
+        } else {
+          // Strategy 2: Try partial content matching
+          const partialMatch = Object.keys(window.messageAudioPreferences).find(key => {
+            const keyContent = key.split('-').slice(1).join('-');
+            return keyContent.length > 10 && audioContent.includes(keyContent);
+          });
+
+          if (partialMatch) {
+            userPreference = window.messageAudioPreferences[partialMatch];
+            console.log(`🎯 Found partial preference match: "${partialMatch}" → ${userPreference}`);
+          } else {
+            console.log(`⚠️ No preference match found for content: "${audioContent.substring(0, 50)}..."`);
+            console.log(`⚠️ Available preferences:`, Object.keys(window.messageAudioPreferences));
           }
         }
-        
-        console.log(`🎤 User preference for "${audioContent.substring(0, 30)}...": ${userPreference}`);
-        console.log(`🔍 All available preferences:`, window.messageAudioPreferences);
-        
-        // Find the user ID by matching the voice tag (first name) with recorded audio data
-        const matchingUserId = Object.entries(recordedAudio).find(([userId, audioData]) => {
-          return audioData.user_first_name === voiceTag;
-        });
-        
-        if (!matchingUserId) {
-          console.log(`🔍 Could not find user ID for voice tag: ${voiceTag}`);
-          // Jump to final fallback
-        } else {
-          const [userId, audioData] = matchingUserId;
-          console.log(`🔍 Found user ID for ${voiceTag}: ${userId}`);
-          
-          // Check for recorded audio match
-          const hasRecordedAudio = (() => {
-            const recordedContent = audioData.message_content?.toLowerCase() || '';
-            const segmentContent = audioContent.toLowerCase();
-            
-            console.log(`  - Recorded content: "${recordedContent}"`);
-            console.log(`  - Segment content: "${segmentContent}"`);
-            
-            const exactMatch = recordedContent === segmentContent;
-            const recordedContainsSegment = recordedContent.includes(segmentContent);
-            const segmentContainsRecorded = segmentContent.includes(recordedContent);
-            
-            console.log(`  - Exact match: ${exactMatch}`);
-            console.log(`  - Recorded contains segment: ${recordedContainsSegment}`);
-            console.log(`  - Segment contains recorded: ${segmentContainsRecorded}`);
-            
-            const contentMatches = exactMatch || recordedContainsSegment || segmentContainsRecorded;
-            console.log(`  - Content match result: ${contentMatches}`);
-            
-            return contentMatches && audioData.audio_url;
-          })();
-          
-          // Check for personal voice model
-          let userVoiceModel = null;
-          try {
-            console.log(`🔍 Fetching voice model for ${voiceTag} (userId: ${userId})...`);
-            userVoiceModel = await getUserVoiceModel(userId);
-            console.log(`✅ Voice model result for ${voiceTag}:`, userVoiceModel);
-          } catch (error) {
-            console.log(`⚠️ Error fetching voice model for ${voiceTag}:`, error.message);
+      }
+
+      console.log(`🎤 User preference for "${audioContent.substring(0, 30)}...": ${userPreference}`);
+      console.log(`🔍 All available preferences:`, window.messageAudioPreferences);
+
+      // Find the user ID by matching the voice tag (first name) with recorded audio data
+      const matchingUserId = Object.entries(recordedAudio).find(([userId, audioData]) => {
+        return audioData.user_first_name === voiceTag;
+      });
+
+      if (!matchingUserId) {
+        console.log(`🔍 Could not find user ID for voice tag: ${voiceTag}`);
+        // Jump to final fallback
+      } else {
+        const [userId, audioData] = matchingUserId;
+        console.log(`🔍 Found user ID for ${voiceTag}: ${userId}`);
+
+        // Check for recorded audio match
+        const hasRecordedAudio = (() => {
+          const recordedContent = audioData.message_content?.toLowerCase() || '';
+          const segmentContent = audioContent.toLowerCase();
+
+          console.log(`  - Recorded content: "${recordedContent}"`);
+          console.log(`  - Segment content: "${segmentContent}"`);
+
+          const exactMatch = recordedContent === segmentContent;
+          const recordedContainsSegment = recordedContent.includes(segmentContent);
+          const segmentContainsRecorded = segmentContent.includes(recordedContent);
+
+          console.log(`  - Exact match: ${exactMatch}`);
+          console.log(`  - Recorded contains segment: ${recordedContainsSegment}`);
+          console.log(`  - Segment contains recorded: ${segmentContainsRecorded}`);
+
+          const contentMatches = exactMatch || recordedContainsSegment || segmentContainsRecorded;
+          console.log(`  - Content match result: ${contentMatches}`);
+
+          return contentMatches && audioData.audio_url;
+        })();
+
+        // Check for personal voice model
+        let userVoiceModel = null;
+        try {
+          console.log(`🔍 Fetching voice model for ${voiceTag} (userId: ${userId})...`);
+          userVoiceModel = await getUserVoiceModel(userId);
+          console.log(`✅ Voice model result for ${voiceTag}:`, userVoiceModel);
+        } catch (error) {
+          console.log(`⚠️ Error fetching voice model for ${voiceTag}:`, error.message);
+        }
+
+        const hasPersonalVoice = userVoiceModel && userVoiceModel.elevenlabs_voice_id;
+
+        console.log(`🎤 ${voiceTag} audio options:`);
+        console.log(`  - Recorded audio: ${hasRecordedAudio ? '✅' : '❌'}`);
+        console.log(`  - Personal voice: ${hasPersonalVoice ? '✅' : '❌'} ${hasPersonalVoice ? `(${userVoiceModel.elevenlabs_voice_name})` : ''}`);
+        console.log(`  - User preference: ${userPreference}`);
+        console.log(`  - User ID: ${userId}`);
+        console.log(`  - Voice model data:`, userVoiceModel);
+
+        // Decide which audio to use based on availability and preference
+        if (userPreference === 'text') {
+          // User wants basic text response - use narrator or ember voice for basic TTS
+          console.log(`📝 ✅ Using basic text response for ${voiceTag}`);
+
+          let fallbackVoiceId = null;
+          let fallbackVoiceName = null;
+
+          if (storyCut.narrator_voice_id) {
+            fallbackVoiceId = storyCut.narrator_voice_id;
+            fallbackVoiceName = 'narrator';
+            console.log(`🎤 Using narrator voice for text response`);
+          } else if (storyCut.ember_voice_id) {
+            fallbackVoiceId = storyCut.ember_voice_id;
+            fallbackVoiceName = 'ember';
+            console.log(`🎤 Using ember voice for text response`);
+          } else {
+            throw new Error(`No voice available for text response from ${voiceTag}`);
           }
-          
-          const hasPersonalVoice = userVoiceModel && userVoiceModel.elevenlabs_voice_id;
-          
-          console.log(`🎤 ${voiceTag} audio options:`);
-          console.log(`  - Recorded audio: ${hasRecordedAudio ? '✅' : '❌'}`);
-          console.log(`  - Personal voice: ${hasPersonalVoice ? '✅' : '❌'} ${hasPersonalVoice ? `(${userVoiceModel.elevenlabs_voice_name})` : ''}`);
-          console.log(`  - User preference: ${userPreference}`);
-          console.log(`  - User ID: ${userId}`);
-          console.log(`  - Voice model data:`, userVoiceModel);
-          
-          // Decide which audio to use based on availability and preference
+
+          // Use attribution style with fallback voice
+          const narratedContent = `${voiceTag} said, "${audioContent}"`;
+          const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+
+          return {
+            type: 'text_response',
+            audio,
+            url: audioUrl,
+            blob: audioBlob,
+            voiceTag,
+            content: narratedContent,
+            fallbackVoice: fallbackVoiceName
+          };
+        } else if (userPreference === 'personal' && hasPersonalVoice) {
+          // User wants personal voice model and it's available
+          console.log(`🎙️ ✅ Using personal voice model for ${voiceTag} (user preference)`);
+          console.log(`🎤 Personal voice ID: ${userVoiceModel.elevenlabs_voice_id}`);
+
+          // Use the original transcribed text if this is a recorded message, otherwise use script content
+          const textToSynthesize = hasRecordedAudio && audioData.message_content
+            ? audioData.message_content
+            : audioContent;
+
+          console.log(`📝 Synthesizing text: "${textToSynthesize.substring(0, 50)}..." (${hasRecordedAudio ? 'from recording' : 'from script'})`);
+
+          const audioBlob = await textToSpeech(textToSynthesize, userVoiceModel.elevenlabs_voice_id);
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+
+          return {
+            type: 'personal_voice_model',
+            audio,
+            url: audioUrl,
+            blob: audioBlob,
+            voiceTag,
+            content: textToSynthesize,
+            originalContent: audioContent,
+            personalVoice: userVoiceModel.elevenlabs_voice_name,
+            sourceType: hasRecordedAudio ? 'transcription' : 'script'
+          };
+        } else if (userPreference === 'recorded' && hasRecordedAudio) {
+          // User wants recorded audio and it's available
+          console.log(`🎙️ ✅ Using recorded audio for ${voiceTag} (user preference)`);
+          console.log(`🔗 Matched with recorded: "${audioData.message_content}"`);
+          console.log(`🔗 Audio URL:`, audioData.audio_url);
+
+          const audio = new Audio(audioData.audio_url);
+          return {
+            type: 'recorded',
+            audio,
+            url: audioData.audio_url,
+            voiceTag,
+            content
+          };
+        } else if (userPreference === 'recorded' && hasRecordedAudio) {
+          // User wants recorded audio and it's available
+          console.log(`🎙️ ✅ Using recorded audio for ${voiceTag} (user preference)`);
+          console.log(`🔗 Matched with recorded: "${audioData.message_content}"`);
+          console.log(`🔗 Audio URL:`, audioData.audio_url);
+
+          const audio = new Audio(audioData.audio_url);
+          return {
+            type: 'recorded',
+            audio,
+            url: audioData.audio_url,
+            voiceTag,
+            content
+          };
+        } else if (userPreference === 'recorded' && !hasRecordedAudio) {
+          // User wants "recorded" but no recorded audio exists - fallback to text response
+          console.log(`⚠️ User wanted recorded audio but none available for ${voiceTag} - falling back to text response`);
+
+          let fallbackVoiceId = null;
+          let fallbackVoiceName = null;
+
+          // For TEXT RESPONSE fallback, ALWAYS use narrator/ember voice, never contributor's personal voice
+          if (storyCut.narrator_voice_id) {
+            fallbackVoiceId = storyCut.narrator_voice_id;
+            fallbackVoiceName = 'narrator';
+            console.log(`🎤 Using narrator voice for attribution fallback`);
+          } else if (storyCut.ember_voice_id) {
+            fallbackVoiceId = storyCut.ember_voice_id;
+            fallbackVoiceName = 'ember';
+            console.log(`🎤 Using ember voice for attribution fallback`);
+          } else {
+            throw new Error(`No voice available for fallback attribution from ${voiceTag}`);
+          }
+
+          const narratedContent = `${voiceTag} said, "${content}"`;
+          const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+
+          return {
+            type: 'attribution_fallback',
+            audio,
+            url: audioUrl,
+            blob: audioBlob,
+            voiceTag,
+            content: narratedContent,
+            fallbackVoice: fallbackVoiceName
+          };
+        } else if (userPreference === 'personal' && !hasPersonalVoice) {
+          // User wants personal voice but none available - fallback to text response
+          console.log(`⚠️ User wanted personal voice but none available for ${voiceTag} - falling back to text response`);
+          console.log(`⚠️ Voice model check failed:`, {
+            userId,
+            userVoiceModel,
+            hasPersonalVoice,
+            elevenlabs_voice_id: userVoiceModel?.elevenlabs_voice_id
+          });
+
+          let fallbackVoiceId = null;
+          let fallbackVoiceName = null;
+
+          if (storyCut.narrator_voice_id) {
+            fallbackVoiceId = storyCut.narrator_voice_id;
+            fallbackVoiceName = 'narrator';
+            console.log(`🎤 Using narrator voice for text response fallback`);
+          } else if (storyCut.ember_voice_id) {
+            fallbackVoiceId = storyCut.ember_voice_id;
+            fallbackVoiceName = 'ember';
+            console.log(`🎤 Using ember voice for text response fallback`);
+          } else {
+            throw new Error(`No voice available for text response fallback from ${voiceTag}`);
+          }
+
+          const narratedContent = `${voiceTag} said, "${content}"`;
+          const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+
+          return {
+            type: 'text_response_fallback',
+            audio,
+            url: audioUrl,
+            blob: audioBlob,
+            voiceTag,
+            content: narratedContent,
+            fallbackVoice: fallbackVoiceName
+          };
+        } else {
+          // Final fallback - respect user preference even when falling back
+          console.log(`🔄 Using final fallback logic for ${voiceTag}, preference: ${userPreference}`);
+
           if (userPreference === 'text') {
-            // User wants basic text response - use narrator or ember voice for basic TTS
-            console.log(`📝 ✅ Using basic text response for ${voiceTag}`);
-            
+            // User wants text response - ALWAYS use narrator/ember voice with attribution
+            console.log(`📝 ✅ Using text response (final fallback, user preference)`);
+
             let fallbackVoiceId = null;
             let fallbackVoiceName = null;
-            
+
             if (storyCut.narrator_voice_id) {
               fallbackVoiceId = storyCut.narrator_voice_id;
               fallbackVoiceName = 'narrator';
-              console.log(`🎤 Using narrator voice for text response`);
             } else if (storyCut.ember_voice_id) {
               fallbackVoiceId = storyCut.ember_voice_id;
               fallbackVoiceName = 'ember';
-              console.log(`🎤 Using ember voice for text response`);
             } else {
-              throw new Error(`No voice available for text response from ${voiceTag}`);
+              throw new Error(`No voice available for text response fallback from ${voiceTag}`);
             }
-            
-            // Use attribution style with fallback voice
-            const narratedContent = `${voiceTag} said, "${audioContent}"`;
+
+            const narratedContent = `${voiceTag} said, "${content}"`;
             const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
-            
+
             return {
               type: 'text_response',
               audio,
@@ -5239,22 +5383,30 @@ export default function EmberDetail() {
               content: narratedContent,
               fallbackVoice: fallbackVoiceName
             };
+          } else if (userPreference === 'recorded' && hasRecordedAudio) {
+            console.log(`🎙️ ✅ Using recorded audio (final fallback)`);
+            const audio = new Audio(audioData.audio_url);
+            return {
+              type: 'recorded',
+              audio,
+              url: audioData.audio_url,
+              voiceTag,
+              content
+            };
           } else if (userPreference === 'personal' && hasPersonalVoice) {
-            // User wants personal voice model and it's available
-            console.log(`🎙️ ✅ Using personal voice model for ${voiceTag} (user preference)`);
-            console.log(`🎤 Personal voice ID: ${userVoiceModel.elevenlabs_voice_id}`);
-            
+            console.log(`🎤 ✅ Using personal voice model (final fallback)`);
+
             // Use the original transcribed text if this is a recorded message, otherwise use script content
-            const textToSynthesize = hasRecordedAudio && audioData.message_content 
-              ? audioData.message_content 
-              : audioContent;
-              
-            console.log(`📝 Synthesizing text: "${textToSynthesize.substring(0, 50)}..." (${hasRecordedAudio ? 'from recording' : 'from script'})`);
-            
+            const textToSynthesize = hasRecordedAudio && audioData.message_content
+              ? audioData.message_content
+              : content;
+
+            console.log(`📝 Synthesizing text (final fallback): "${textToSynthesize.substring(0, 50)}..." (${hasRecordedAudio ? 'from recording' : 'from script'})`);
+
             const audioBlob = await textToSpeech(textToSynthesize, userVoiceModel.elevenlabs_voice_id);
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
-            
+
             return {
               type: 'personal_voice_model',
               audio,
@@ -5262,598 +5414,427 @@ export default function EmberDetail() {
               blob: audioBlob,
               voiceTag,
               content: textToSynthesize,
-              originalContent: audioContent,
+              originalContent: content,
               personalVoice: userVoiceModel.elevenlabs_voice_name,
               sourceType: hasRecordedAudio ? 'transcription' : 'script'
             };
-          } else if (userPreference === 'recorded' && hasRecordedAudio) {
-            // User wants recorded audio and it's available
-            console.log(`🎙️ ✅ Using recorded audio for ${voiceTag} (user preference)`);
-            console.log(`🔗 Matched with recorded: "${audioData.message_content}"`);
-            console.log(`🔗 Audio URL:`, audioData.audio_url);
-            
-            const audio = new Audio(audioData.audio_url);
-            return {
-              type: 'recorded',
-              audio,
-              url: audioData.audio_url,
-              voiceTag,
-              content
-            };
-          } else if (userPreference === 'recorded' && hasRecordedAudio) {
-            // User wants recorded audio and it's available
-            console.log(`🎙️ ✅ Using recorded audio for ${voiceTag} (user preference)`);
-            console.log(`🔗 Matched with recorded: "${audioData.message_content}"`);
-            console.log(`🔗 Audio URL:`, audioData.audio_url);
-            
-            const audio = new Audio(audioData.audio_url);
-            return {
-              type: 'recorded',
-              audio,
-              url: audioData.audio_url,
-              voiceTag,
-              content
-            };
-          } else if (userPreference === 'recorded' && !hasRecordedAudio) {
-            // User wants "recorded" but no recorded audio exists - fallback to text response
-            console.log(`⚠️ User wanted recorded audio but none available for ${voiceTag} - falling back to text response`);
-            
-            let fallbackVoiceId = null;
-            let fallbackVoiceName = null;
-            
-            // For TEXT RESPONSE fallback, ALWAYS use narrator/ember voice, never contributor's personal voice
-            if (storyCut.narrator_voice_id) {
-              fallbackVoiceId = storyCut.narrator_voice_id;
-              fallbackVoiceName = 'narrator';
-              console.log(`🎤 Using narrator voice for attribution fallback`);
-            } else if (storyCut.ember_voice_id) {
-              fallbackVoiceId = storyCut.ember_voice_id;
-              fallbackVoiceName = 'ember';
-              console.log(`🎤 Using ember voice for attribution fallback`);
-            } else {
-              throw new Error(`No voice available for fallback attribution from ${voiceTag}`);
-            }
-            
-            const narratedContent = `${voiceTag} said, "${content}"`;
-            const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            
-            return {
-              type: 'attribution_fallback',
-              audio,
-              url: audioUrl,
-              blob: audioBlob,
-              voiceTag,
-              content: narratedContent,
-              fallbackVoice: fallbackVoiceName
-            };
-          } else if (userPreference === 'personal' && !hasPersonalVoice) {
-            // User wants personal voice but none available - fallback to text response
-            console.log(`⚠️ User wanted personal voice but none available for ${voiceTag} - falling back to text response`);
-            console.log(`⚠️ Voice model check failed:`, {
-              userId,
-              userVoiceModel,
-              hasPersonalVoice,
-              elevenlabs_voice_id: userVoiceModel?.elevenlabs_voice_id
-            });
-            
-            let fallbackVoiceId = null;
-            let fallbackVoiceName = null;
-            
-            if (storyCut.narrator_voice_id) {
-              fallbackVoiceId = storyCut.narrator_voice_id;
-              fallbackVoiceName = 'narrator';
-              console.log(`🎤 Using narrator voice for text response fallback`);
-            } else if (storyCut.ember_voice_id) {
-              fallbackVoiceId = storyCut.ember_voice_id;
-              fallbackVoiceName = 'ember';
-              console.log(`🎤 Using ember voice for text response fallback`);
-            } else {
-              throw new Error(`No voice available for text response fallback from ${voiceTag}`);
-            }
-            
-            const narratedContent = `${voiceTag} said, "${content}"`;
-            const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            
-            return {
-              type: 'text_response_fallback',
-              audio,
-              url: audioUrl,
-              blob: audioBlob,
-              voiceTag,
-              content: narratedContent,
-              fallbackVoice: fallbackVoiceName
-            };
           } else {
-            // Final fallback - respect user preference even when falling back
-            console.log(`🔄 Using final fallback logic for ${voiceTag}, preference: ${userPreference}`);
-            
-            if (userPreference === 'text') {
-              // User wants text response - ALWAYS use narrator/ember voice with attribution
-              console.log(`📝 ✅ Using text response (final fallback, user preference)`);
-              
-              let fallbackVoiceId = null;
-              let fallbackVoiceName = null;
-              
-              if (storyCut.narrator_voice_id) {
-                fallbackVoiceId = storyCut.narrator_voice_id;
-                fallbackVoiceName = 'narrator';
-              } else if (storyCut.ember_voice_id) {
-                fallbackVoiceId = storyCut.ember_voice_id;
-                fallbackVoiceName = 'ember';
-              } else {
-                throw new Error(`No voice available for text response fallback from ${voiceTag}`);
-              }
-              
-              const narratedContent = `${voiceTag} said, "${content}"`;
-              const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
-              const audioUrl = URL.createObjectURL(audioBlob);
-              const audio = new Audio(audioUrl);
-              
-              return {
-                type: 'text_response',
-                audio,
-                url: audioUrl,
-                blob: audioBlob,
-                voiceTag,
-                content: narratedContent,
-                fallbackVoice: fallbackVoiceName
-              };
-            } else if (userPreference === 'recorded' && hasRecordedAudio) {
-              console.log(`🎙️ ✅ Using recorded audio (final fallback)`);
-              const audio = new Audio(audioData.audio_url);
-              return {
-                type: 'recorded',
-                audio,
-                url: audioData.audio_url,
-                voiceTag,
-                content
-              };
-            } else if (userPreference === 'personal' && hasPersonalVoice) {
-              console.log(`🎤 ✅ Using personal voice model (final fallback)`);
-              
-              // Use the original transcribed text if this is a recorded message, otherwise use script content
-              const textToSynthesize = hasRecordedAudio && audioData.message_content 
-                ? audioData.message_content 
-                : content;
-                
-              console.log(`📝 Synthesizing text (final fallback): "${textToSynthesize.substring(0, 50)}..." (${hasRecordedAudio ? 'from recording' : 'from script'})`);
-              
-              const audioBlob = await textToSpeech(textToSynthesize, userVoiceModel.elevenlabs_voice_id);
-              const audioUrl = URL.createObjectURL(audioBlob);
-              const audio = new Audio(audioUrl);
-              
-              return {
-                type: 'personal_voice_model',
-                audio,
-                url: audioUrl,
-                blob: audioBlob,
-                voiceTag,
-                content: textToSynthesize,
-                originalContent: content,
-                personalVoice: userVoiceModel.elevenlabs_voice_name,
-                sourceType: hasRecordedAudio ? 'transcription' : 'script'
-              };
-            } else {
-              // Ultimate fallback when preference can't be satisfied - use narrator/ember voice
-              console.log(`📝 ✅ Using text response (ultimate fallback - preference not available)`);
-              
-              let fallbackVoiceId = null;
-              let fallbackVoiceName = null;
-              
-              if (storyCut.narrator_voice_id) {
-                fallbackVoiceId = storyCut.narrator_voice_id;
-                fallbackVoiceName = 'narrator';
-              } else if (storyCut.ember_voice_id) {
-                fallbackVoiceId = storyCut.ember_voice_id;
-                fallbackVoiceName = 'ember';
-              } else {
-                throw new Error(`No voice available for ultimate fallback from ${voiceTag}`);
-              }
-              
-              const narratedContent = `${voiceTag} said, "${audioContent}"`;
-              const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
-              const audioUrl = URL.createObjectURL(audioBlob);
-              const audio = new Audio(audioUrl);
-              
-              return {
-                type: 'text_response',
-                audio,
-                url: audioUrl,
-                blob: audioBlob,
-                voiceTag,
-                content: narratedContent,
-                fallbackVoice: fallbackVoiceName
-              };
-            }
-          }
-        }
-        
-        // Final fallback - use narrator/ember voice with attribution
-        console.log(`🐛 DEBUG - Falling back to attribution for ${voiceTag}`);
-        console.log(`🐛 DEBUG - Reasons for no match:`);
-        console.log(`  - Available users: ${Object.keys(recordedAudio).map(userId => recordedAudio[userId].user_first_name).join(', ')}`);
-        console.log(`  - Looking for: ${voiceTag}`);
-        console.log(`  - Script content: "${audioContent}"`);
-        
-        // Try narrator first, then ember as fallback
-        let fallbackVoiceId = null;
-        let fallbackVoiceName = null;
-        
-        if (storyCut.narrator_voice_id) {
-          fallbackVoiceId = storyCut.narrator_voice_id;
-          fallbackVoiceName = 'narrator';
-          console.log(`🎤 Using narrator voice to say "${voiceTag} said..."`);
-        } else if (storyCut.ember_voice_id) {
-          fallbackVoiceId = storyCut.ember_voice_id;
-          fallbackVoiceName = 'ember';
-          console.log(`🎤 Using ember voice to say "${voiceTag} said..." (narrator not available)`);
-        } else {
-          throw new Error(`No voice available to synthesize contributor quote from ${voiceTag}`);
-        }
-        
-        // Format content with attribution using fallback voice
-        const narratedContent = `${voiceTag} said, "${audioContent}"`;
-        
-        const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        
-        return {
-          type: 'synthesized',
-          audio,
-          url: audioUrl,
-          blob: audioBlob,
-          voiceTag,
-          content: narratedContent,
-          fallbackVoice: fallbackVoiceName
-        };
-      } else if (type === 'ember') {
-        // Use ember voice
-        console.log(`🌟 Using ember voice for: ${audioContent.substring(0, 30)}...`);
-        console.log(`🎤 Ember voice ID:`, storyCut.ember_voice_id);
-        
-        if (!storyCut.ember_voice_id) {
-          throw new Error(`Ember voice ID is missing: ${storyCut.ember_voice_id}`);
-        }
-        
-        const audioBlob = await textToSpeech(audioContent, storyCut.ember_voice_id);
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        
-        return {
-          type: 'synthesized',
-          audio,
-          url: audioUrl,
-          blob: audioBlob,
-          voiceTag,
-          content: audioContent
-        };
-      } else if (type === 'narrator') {
-        // Use narrator voice
-        console.log(`📢 Using narrator voice for: ${audioContent.substring(0, 30)}...`);
-        console.log(`🎤 Narrator voice ID:`, storyCut.narrator_voice_id);
-        
-        if (!storyCut.narrator_voice_id) {
-          throw new Error(`Narrator voice ID is missing: ${storyCut.narrator_voice_id}`);
-        }
-        
-        const audioBlob = await textToSpeech(audioContent, storyCut.narrator_voice_id);
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        
-        return {
-          type: 'synthesized',
-          audio,
-          url: audioUrl,
-          blob: audioBlob,
-          voiceTag,
-          content: audioContent
-        };
-      }
-    } catch (error) {
-      console.error(`❌ Error generating audio for ${voiceTag}:`, error);
-      console.error(`❌ Error details:`, error.message);
-      console.error(`❌ Story cut voice IDs:`, {
-        ember: storyCut.ember_voice_id,
-        narrator: storyCut.narrator_voice_id
-      });
-      throw error;
-    }
-  };
+            // Ultimate fallback when preference can't be satisfied - use narrator/ember voice
+            console.log(`📝 ✅ Using text response (ultimate fallback - preference not available)`);
 
-  // Play multiple audio segments sequentially
-  const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, stateSetters, ember) => {
-    const { 
-      setIsGeneratingAudio, 
-      setIsPlaying, 
-      handleExitPlay, 
-      handlePlaybackComplete, 
-      setActiveAudioSegments, 
-      playbackStoppedRef, 
-      setCurrentVoiceType,
-      setCurrentVoiceTransparency,
-      setCurrentMediaColor,
-      setCurrentZoomScale,
-      setCurrentMediaImageUrl,
-      // 🎯 Sentence-by-sentence display state setters
-      setCurrentDisplayText,
-      setCurrentVoiceTag,
-      setCurrentSentenceIndex,
-      setCurrentSegmentSentences,
-      setSentenceTimeouts,
-      sentenceTimeouts,
-      // 🎯 Media timeout management
-      setMediaTimeouts,
-      mediaTimeouts,
-      mediaTimeoutsRef
-    } = stateSetters;
-    
-    console.log('🎭 Starting multi-voice playback with', segments.length, 'segments');
-    
-    // 🐛 DEBUG: Run debug helper to analyze recorded audio matching
-    debugRecordedAudio(recordedAudio, segments);
-    
-    // Reset playback flag
-    playbackStoppedRef.current = false;
-    
-    try {
-      // Separate media/hold and voice segments for different processing
-      const mediaSegments = segments.filter(segment => segment.type === 'media' || segment.type === 'hold');
-      const voiceSegments = segments.filter(segment => segment.type !== 'media' && segment.type !== 'hold');
-      console.log(`🎭 Segment breakdown: ${segments.length} total → ${mediaSegments.length} media/hold + ${voiceSegments.length} voice`);
-      
-      // Generate audio for voice segments only
-      console.log('⏳ Generating audio for voice segments...');
-      const audioSegments = [];
-      for (let i = 0; i < voiceSegments.length; i++) {
-        const segment = voiceSegments[i];
-        console.log(`🔧 Generating segment ${i + 1}/${voiceSegments.length}: [${segment.voiceTag}] "${segment.originalContent || segment.content}"`);
-        
-        try {
-          const audioSegment = await generateSegmentAudio(segment, storyCut, recordedAudio);
-          audioSegments.push(audioSegment);
-          console.log(`✅ Generated segment ${i + 1}: [${segment.voiceTag}]`);
-        } catch (segmentError) {
-          console.error(`❌ Failed to generate segment ${i + 1} [${segment.voiceTag}]:`, segmentError);
-          console.error(`❌ Segment content: "${segment.originalContent || segment.content}"`);
-          console.error(`❌ Segment type: ${segment.type}`);
-          throw new Error(`Failed to generate audio for segment "${segment.voiceTag}": ${segmentError.message}`);
+            let fallbackVoiceId = null;
+            let fallbackVoiceName = null;
+
+            if (storyCut.narrator_voice_id) {
+              fallbackVoiceId = storyCut.narrator_voice_id;
+              fallbackVoiceName = 'narrator';
+            } else if (storyCut.ember_voice_id) {
+              fallbackVoiceId = storyCut.ember_voice_id;
+              fallbackVoiceName = 'ember';
+            } else {
+              throw new Error(`No voice available for ultimate fallback from ${voiceTag}`);
+            }
+
+            const narratedContent = `${voiceTag} said, "${audioContent}"`;
+            const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+
+            return {
+              type: 'text_response',
+              audio,
+              url: audioUrl,
+              blob: audioBlob,
+              voiceTag,
+              content: narratedContent,
+              fallbackVoice: fallbackVoiceName
+            };
+          }
         }
       }
-      
-      // Create unified timeline with media effects and voice audio
-      const timeline = [];
-      let audioIndex = 0;
-      
-      console.log('🎬 Building unified timeline...');
-      segments.forEach((segment, index) => {
-        if (segment.type === 'hold') {
-          // Hold segment - blocks timeline for set duration
-          const duration = parseFloat(estimateSegmentDuration(segment.content, segment.type));
+
+      // Final fallback - use narrator/ember voice with attribution
+      console.log(`🐛 DEBUG - Falling back to attribution for ${voiceTag}`);
+      console.log(`🐛 DEBUG - Reasons for no match:`);
+      console.log(`  - Available users: ${Object.keys(recordedAudio).map(userId => recordedAudio[userId].user_first_name).join(', ')}`);
+      console.log(`  - Looking for: ${voiceTag}`);
+      console.log(`  - Script content: "${audioContent}"`);
+
+      // Try narrator first, then ember as fallback
+      let fallbackVoiceId = null;
+      let fallbackVoiceName = null;
+
+      if (storyCut.narrator_voice_id) {
+        fallbackVoiceId = storyCut.narrator_voice_id;
+        fallbackVoiceName = 'narrator';
+        console.log(`🎤 Using narrator voice to say "${voiceTag} said..."`);
+      } else if (storyCut.ember_voice_id) {
+        fallbackVoiceId = storyCut.ember_voice_id;
+        fallbackVoiceName = 'ember';
+        console.log(`🎤 Using ember voice to say "${voiceTag} said..." (narrator not available)`);
+      } else {
+        throw new Error(`No voice available to synthesize contributor quote from ${voiceTag}`);
+      }
+
+      // Format content with attribution using fallback voice
+      const narratedContent = `${voiceTag} said, "${audioContent}"`;
+
+      const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      return {
+        type: 'synthesized',
+        audio,
+        url: audioUrl,
+        blob: audioBlob,
+        voiceTag,
+        content: narratedContent,
+        fallbackVoice: fallbackVoiceName
+      };
+    } else if (type === 'ember') {
+      // Use ember voice
+      console.log(`🌟 Using ember voice for: ${audioContent.substring(0, 30)}...`);
+      console.log(`🎤 Ember voice ID:`, storyCut.ember_voice_id);
+
+      if (!storyCut.ember_voice_id) {
+        throw new Error(`Ember voice ID is missing: ${storyCut.ember_voice_id}`);
+      }
+
+      const audioBlob = await textToSpeech(audioContent, storyCut.ember_voice_id);
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      return {
+        type: 'synthesized',
+        audio,
+        url: audioUrl,
+        blob: audioBlob,
+        voiceTag,
+        content: audioContent
+      };
+    } else if (type === 'narrator') {
+      // Use narrator voice
+      console.log(`📢 Using narrator voice for: ${audioContent.substring(0, 30)}...`);
+      console.log(`🎤 Narrator voice ID:`, storyCut.narrator_voice_id);
+
+      if (!storyCut.narrator_voice_id) {
+        throw new Error(`Narrator voice ID is missing: ${storyCut.narrator_voice_id}`);
+      }
+
+      const audioBlob = await textToSpeech(audioContent, storyCut.narrator_voice_id);
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      return {
+        type: 'synthesized',
+        audio,
+        url: audioUrl,
+        blob: audioBlob,
+        voiceTag,
+        content: audioContent
+      };
+    }
+  } catch (error) {
+    console.error(`❌ Error generating audio for ${voiceTag}:`, error);
+    console.error(`❌ Error details:`, error.message);
+    console.error(`❌ Story cut voice IDs:`, {
+      ember: storyCut.ember_voice_id,
+      narrator: storyCut.narrator_voice_id
+    });
+    throw error;
+  }
+};
+
+// Play multiple audio segments sequentially
+const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, stateSetters, ember) => {
+  const {
+    setIsGeneratingAudio,
+    setIsPlaying,
+    handleExitPlay,
+    handlePlaybackComplete,
+    setActiveAudioSegments,
+    playbackStoppedRef,
+    setCurrentVoiceType,
+    setCurrentVoiceTransparency,
+    setCurrentMediaColor,
+    setCurrentZoomScale,
+    setCurrentMediaImageUrl,
+    // 🎯 Sentence-by-sentence display state setters
+    setCurrentDisplayText,
+    setCurrentVoiceTag,
+    setCurrentSentenceIndex,
+    setCurrentSegmentSentences,
+    setSentenceTimeouts,
+    sentenceTimeouts,
+    // 🎯 Media timeout management
+    setMediaTimeouts,
+    mediaTimeouts,
+    mediaTimeoutsRef
+  } = stateSetters;
+
+  console.log('🎭 Starting multi-voice playback with', segments.length, 'segments');
+
+  // 🐛 DEBUG: Run debug helper to analyze recorded audio matching
+  debugRecordedAudio(recordedAudio, segments);
+
+  // Reset playback flag
+  playbackStoppedRef.current = false;
+
+  try {
+    // Separate media/hold and voice segments for different processing
+    const mediaSegments = segments.filter(segment => segment.type === 'media' || segment.type === 'hold');
+    const voiceSegments = segments.filter(segment => segment.type !== 'media' && segment.type !== 'hold');
+    console.log(`🎭 Segment breakdown: ${segments.length} total → ${mediaSegments.length} media/hold + ${voiceSegments.length} voice`);
+
+    // Generate audio for voice segments only
+    console.log('⏳ Generating audio for voice segments...');
+    const audioSegments = [];
+    for (let i = 0; i < voiceSegments.length; i++) {
+      const segment = voiceSegments[i];
+      console.log(`🔧 Generating segment ${i + 1}/${voiceSegments.length}: [${segment.voiceTag}] "${segment.originalContent || segment.content}"`);
+
+      try {
+        const audioSegment = await generateSegmentAudio(segment, storyCut, recordedAudio);
+        audioSegments.push(audioSegment);
+        console.log(`✅ Generated segment ${i + 1}: [${segment.voiceTag}]`);
+      } catch (segmentError) {
+        console.error(`❌ Failed to generate segment ${i + 1} [${segment.voiceTag}]:`, segmentError);
+        console.error(`❌ Segment content: "${segment.originalContent || segment.content}"`);
+        console.error(`❌ Segment type: ${segment.type}`);
+        throw new Error(`Failed to generate audio for segment "${segment.voiceTag}": ${segmentError.message}`);
+      }
+    }
+
+    // Create unified timeline with media effects and voice audio
+    const timeline = [];
+    let audioIndex = 0;
+
+    console.log('🎬 Building unified timeline...');
+    segments.forEach((segment, index) => {
+      if (segment.type === 'hold') {
+        // Hold segment - blocks timeline for set duration
+        const duration = parseFloat(estimateSegmentDuration(segment.content, segment.type));
+        timeline.push({
+          type: 'hold',
+          segment,
+          duration,
+          index
+        });
+        console.log(`⏸️ Timeline ${index + 1}: HOLD effect for ${duration}s - ${segment.content.substring(0, 50)}...`);
+      } else if (segment.type === 'media') {
+        // Media segment - add to timeline for sequential processing
+        timeline.push({
+          type: 'media',
+          segment,
+          index
+        });
+        console.log(`📺 Timeline ${index + 1}: MEDIA switch - ${segment.content.substring(0, 50)}...`);
+      } else {
+        // Voice segment - use generated audio
+        if (audioIndex < audioSegments.length) {
           timeline.push({
-            type: 'hold',
+            type: 'voice',
             segment,
-            duration,
+            audio: audioSegments[audioIndex],
             index
           });
-          console.log(`⏸️ Timeline ${index + 1}: HOLD effect for ${duration}s - ${segment.content.substring(0, 50)}...`);
-        } else if (segment.type === 'media') {
-          // Media segment - add to timeline for sequential processing
-          timeline.push({
-            type: 'media',
-            segment,
-            index
-          });
-          console.log(`📺 Timeline ${index + 1}: MEDIA switch - ${segment.content.substring(0, 50)}...`);
+          console.log(`🎤 Timeline ${index + 1}: VOICE audio - [${segment.voiceTag}]`);
+          audioIndex++;
+        }
+      }
+    });
+
+    console.log('✅ Generated', audioSegments.length, 'audio segments');
+    console.log('🎬 Starting unified timeline playback...');
+    console.log(`🎭 Timeline has ${timeline.length} sequential steps`);
+
+    // Store audio segments in state for cleanup
+    setActiveAudioSegments(audioSegments);
+
+    // Switch from generating to playing state
+    setIsGeneratingAudio(false);
+    setIsPlaying(true);
+
+    // No background media processing - MEDIA elements are now in timeline
+
+    let currentTimelineIndex = 0;
+    // Clear any existing media timeouts before starting new playback
+    mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+    mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+    setMediaTimeouts([]);
+    mediaTimeoutsRef.current = [];
+
+    const playNextTimelineStep = () => {
+      if (playbackStoppedRef.current || currentTimelineIndex >= timeline.length) {
+        // Clean up any remaining media timeouts
+        console.log('🧹 Cleaning up', mediaTimeouts.length, 'media timeouts');
+        mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+        mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+        setMediaTimeouts([]);
+        mediaTimeoutsRef.current = [];
+
+        // All timeline steps finished or playback was stopped
+        if (!playbackStoppedRef.current) {
+          console.log('🎬 Timeline playback complete');
+          // Clear any remaining visual effects
+          setCurrentVoiceType(null);
+          setCurrentVoiceTransparency(0.2); // Reset to default
+          setCurrentMediaColor(null);
+          setCurrentZoomScale({ start: 1.0, end: 1.0 }); // Reset to default
+          setCurrentMediaImageUrl(null); // Reset to default ember image
+          handlePlaybackComplete();
         } else {
-          // Voice segment - use generated audio
-          if (audioIndex < audioSegments.length) {
-            timeline.push({
-              type: 'voice',
-              segment,
-              audio: audioSegments[audioIndex],
-              index
-            });
-            console.log(`🎤 Timeline ${index + 1}: VOICE audio - [${segment.voiceTag}]`);
-            audioIndex++;
-          }
+          console.log('🛑 Timeline playback stopped');
         }
-      });
-      
-      console.log('✅ Generated', audioSegments.length, 'audio segments');
-      console.log('🎬 Starting unified timeline playback...');
-      console.log(`🎭 Timeline has ${timeline.length} sequential steps`);
-      
-      // Store audio segments in state for cleanup
-      setActiveAudioSegments(audioSegments);
-      
-      // Switch from generating to playing state
-      setIsGeneratingAudio(false);
-      setIsPlaying(true);
-      
-      // No background media processing - MEDIA elements are now in timeline
-      
-      let currentTimelineIndex = 0;
-      // Clear any existing media timeouts before starting new playback
-      mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
-      mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
-      setMediaTimeouts([]);
-      mediaTimeoutsRef.current = [];
-      
-      const playNextTimelineStep = () => {
-        if (playbackStoppedRef.current || currentTimelineIndex >= timeline.length) {
-          // Clean up any remaining media timeouts
-          console.log('🧹 Cleaning up', mediaTimeouts.length, 'media timeouts');
-          mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
-          mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
-          setMediaTimeouts([]);
-          mediaTimeoutsRef.current = [];
-          
-          // All timeline steps finished or playback was stopped
-          if (!playbackStoppedRef.current) {
-            console.log('🎬 Timeline playback complete');
-            // Clear any remaining visual effects
-            setCurrentVoiceType(null);
-            setCurrentVoiceTransparency(0.2); // Reset to default
-            setCurrentMediaColor(null);
-            setCurrentZoomScale({ start: 1.0, end: 1.0 }); // Reset to default
-            setCurrentMediaImageUrl(null); // Reset to default ember image
-            handlePlaybackComplete();
-          } else {
-            console.log('🛑 Timeline playback stopped');
-          }
-          return;
-        }
-        
-        const currentStep = timeline[currentTimelineIndex];
-        console.log(`🎬 Timeline step ${currentTimelineIndex + 1}/${timeline.length}: ${currentStep.type} - ${currentStep.type === 'hold' ? `${currentStep.duration}s` : `[${currentStep.segment.voiceTag}]`}`);
-        
-        if (currentStep.type === 'hold') {
-          // Hold step - apply visual effect and wait for duration
-          const segment = currentStep.segment;
-          const duration = currentStep.duration;
-          
-          console.log(`⏸️ Applying hold effect for ${duration}s: ${segment.content}`);
-          
-          // Apply visual effects based on content
-          if (segment.content.includes('COLOR:#000000')) {
-            console.log('🎬 Visual effect: Black screen');
+        return;
+      }
+
+      const currentStep = timeline[currentTimelineIndex];
+      console.log(`🎬 Timeline step ${currentTimelineIndex + 1}/${timeline.length}: ${currentStep.type} - ${currentStep.type === 'hold' ? `${currentStep.duration}s` : `[${currentStep.segment.voiceTag}]`}`);
+
+      if (currentStep.type === 'hold') {
+        // Hold step - apply visual effect and wait for duration
+        const segment = currentStep.segment;
+        const duration = currentStep.duration;
+
+        console.log(`⏸️ Applying hold effect for ${duration}s: ${segment.content}`);
+
+        // Apply visual effects based on content
+        if (segment.content.includes('COLOR:#000000')) {
+          console.log('🎬 Visual effect: Black screen');
+          setCurrentVoiceType(null); // Clear any voice overlay
+          setCurrentMediaColor('#000000'); // Set black color
+        } else if (segment.content.includes('Z-OUT:')) {
+          // Extract zoom scale values from Z-OUT command
+          const zoomScale = extractZoomScaleFromAction(segment.content);
+          console.log(`🎬 Visual effect: Image zoom out - from ${zoomScale.start} to ${zoomScale.end}`);
+          setCurrentVoiceType(null); // Image display, no voice overlay
+          setCurrentMediaColor(null); // Clear any color overlay
+          setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
+        } else if (segment.content.includes('COLOR:#')) {
+          // Extract color from COLOR:#RRGGBB format
+          const colorMatch = segment.content.match(/COLOR:#([0-9A-Fa-f]{6})/);
+          if (colorMatch) {
+            const colorValue = '#' + colorMatch[1];
+            console.log(`🎬 Visual effect: Color overlay - ${colorValue}`);
             setCurrentVoiceType(null); // Clear any voice overlay
-            setCurrentMediaColor('#000000'); // Set black color
-          } else if (segment.content.includes('Z-OUT:')) {
+            setCurrentMediaColor(colorValue); // Set the extracted color
+          }
+        }
+
+        // Wait for the specified duration, then continue to next step
+        const timeoutId = setTimeout(() => {
+          if (!playbackStoppedRef.current) {
+            currentTimelineIndex++;
+            playNextTimelineStep();
+          }
+        }, duration * 1000);
+
+        // Track timeout for cleanup
+        setMediaTimeouts(prev => [...prev, timeoutId]);
+        mediaTimeoutsRef.current.push(timeoutId);
+
+      } else if (currentStep.type === 'media') {
+        // Media step - switch background image and continue immediately
+        const segment = currentStep.segment;
+
+        console.log(`📺 Switching to media: ${segment.content.substring(0, 50)}...`);
+
+        // Resolve the media reference to get the actual image URL
+        resolveMediaReference(segment, ember.id).then(resolvedMediaUrl => {
+          console.log(`🔍 Resolved media URL for "${segment.mediaName || segment.mediaId}":`, resolvedMediaUrl);
+
+          if (resolvedMediaUrl) {
+            // Update the current media image URL to display the specific media
+            console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
+            setCurrentMediaImageUrl(resolvedMediaUrl);
+          } else {
+            console.warn(`⚠️ Could not resolve media reference: ${segment.mediaName || segment.mediaId}`);
+          }
+
+          // Apply visual effects to the resolved image
+          if (segment.content.includes('Z-OUT:')) {
             // Extract zoom scale values from Z-OUT command
             const zoomScale = extractZoomScaleFromAction(segment.content);
-            console.log(`🎬 Visual effect: Image zoom out - from ${zoomScale.start} to ${zoomScale.end}`);
-            setCurrentVoiceType(null); // Image display, no voice overlay
-            setCurrentMediaColor(null); // Clear any color overlay
+            console.log(`🎬 Applying zoom effect: from ${zoomScale.start} to ${zoomScale.end}`);
             setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
-          } else if (segment.content.includes('COLOR:#')) {
-            // Extract color from COLOR:#RRGGBB format
-            const colorMatch = segment.content.match(/COLOR:#([0-9A-Fa-f]{6})/);
-            if (colorMatch) {
-              const colorValue = '#' + colorMatch[1];
-              console.log(`🎬 Visual effect: Color overlay - ${colorValue}`);
-              setCurrentVoiceType(null); // Clear any voice overlay
-              setCurrentMediaColor(colorValue); // Set the extracted color
-            }
-          }
-          
-          // Wait for the specified duration, then continue to next step
-          const timeoutId = setTimeout(() => {
-            if (!playbackStoppedRef.current) {
-              currentTimelineIndex++;
-              playNextTimelineStep();
-            }
-          }, duration * 1000);
-          
-          // Track timeout for cleanup
-          setMediaTimeouts(prev => [...prev, timeoutId]);
-          mediaTimeoutsRef.current.push(timeoutId);
-          
-        } else if (currentStep.type === 'media') {
-          // Media step - switch background image and continue immediately
-          const segment = currentStep.segment;
-          
-          console.log(`📺 Switching to media: ${segment.content.substring(0, 50)}...`);
-          
-          // Resolve the media reference to get the actual image URL
-          resolveMediaReference(segment, ember.id).then(resolvedMediaUrl => {
-            console.log(`🔍 Resolved media URL for "${segment.mediaName || segment.mediaId}":`, resolvedMediaUrl);
-            
-            if (resolvedMediaUrl) {
-              // Update the current media image URL to display the specific media
-              console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
-              setCurrentMediaImageUrl(resolvedMediaUrl);
-            } else {
-              console.warn(`⚠️ Could not resolve media reference: ${segment.mediaName || segment.mediaId}`);
-            }
-            
-            // Apply visual effects to the resolved image
-            if (segment.content.includes('Z-OUT:')) {
-              // Extract zoom scale values from Z-OUT command
-              const zoomScale = extractZoomScaleFromAction(segment.content);
-              console.log(`🎬 Applying zoom effect: from ${zoomScale.start} to ${zoomScale.end}`);
-              setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
-            }
-            
-            // Continue immediately to next timeline step (media changes are instant)
-            currentTimelineIndex++;
-            playNextTimelineStep();
-          }).catch(error => {
-            console.error('❌ Error resolving media reference:', error);
-            // Continue anyway
-            currentTimelineIndex++;
-            playNextTimelineStep();
-          });
-          
-        } else if (currentStep.type === 'voice') {
-           // Voice step - play audio
-           const audio = currentStep.audio.audio;
-           const segment = currentStep.segment;
-         
-           console.log(`▶️ Playing voice segment: [${segment.voiceTag}]`);
-          
-          // Trigger visual effect based on voice type
-          const segmentType = segment.type;
-          
-          // Extract transparency from segment content
-          const transparency = extractTransparencyFromAction(segment.content);
-          console.log(`🎬 Voice transparency: ${transparency}`);
-          
-          if (segmentType === 'ember') {
-            console.log('🎬 Visual effect: Ember voice - applying red overlay');
-            setCurrentVoiceType('ember');
-            setCurrentVoiceTransparency(transparency);
-            setCurrentMediaColor(null); // Clear any color overlay
-          } else if (segmentType === 'narrator') {
-            console.log('🎬 Visual effect: Narrator voice - applying blue overlay');
-            setCurrentVoiceType('narrator');
-            setCurrentVoiceTransparency(transparency);
-            setCurrentMediaColor(null); // Clear any color overlay
-          } else {
-            console.log('🎬 Visual effect: Contributor voice - applying green overlay');
-            setCurrentVoiceType('contributor');
-            setCurrentVoiceTransparency(transparency);
-            setCurrentMediaColor(null); // Clear any color overlay
           }
 
-          // 🎯 Option 1B: Sentence-by-Sentence Text Display
-          const currentSegmentData = segment;
+          // Continue immediately to next timeline step (media changes are instant)
+          currentTimelineIndex++;
+          playNextTimelineStep();
+        }).catch(error => {
+          console.error('❌ Error resolving media reference:', error);
+          // Continue anyway
+          currentTimelineIndex++;
+          playNextTimelineStep();
+        });
+
+      } else if (currentStep.type === 'voice') {
+        // Voice step - play audio
+        const audio = currentStep.audio.audio;
+        const segment = currentStep.segment;
+
+        console.log(`▶️ Playing voice segment: [${segment.voiceTag}]`);
+
+        // Trigger visual effect based on voice type
+        const segmentType = segment.type;
+
+        // Extract transparency from segment content
+        const transparency = extractTransparencyFromAction(segment.content);
+        console.log(`🎬 Voice transparency: ${transparency}`);
+
+        if (segmentType === 'ember') {
+          console.log('🎬 Visual effect: Ember voice - applying red overlay');
+          setCurrentVoiceType('ember');
+          setCurrentVoiceTransparency(transparency);
+          setCurrentMediaColor(null); // Clear any color overlay
+        } else if (segmentType === 'narrator') {
+          console.log('🎬 Visual effect: Narrator voice - applying blue overlay');
+          setCurrentVoiceType('narrator');
+          setCurrentVoiceTransparency(transparency);
+          setCurrentMediaColor(null); // Clear any color overlay
+        } else {
+          console.log('🎬 Visual effect: Contributor voice - applying green overlay');
+          setCurrentVoiceType('contributor');
+          setCurrentVoiceTransparency(transparency);
+          setCurrentMediaColor(null); // Clear any color overlay
+        }
+
+        // 🎯 Option 1B: Sentence-by-Sentence Text Display
+        const currentSegmentData = segment;
         const sentences = parseSentences(currentSegmentData.originalContent || currentSegmentData.content);
         const voiceTag = currentSegmentData.voiceTag;
-        
+
         console.log(`📝 Segment ${currentTimelineIndex + 1} sentences (clean):`, sentences);
-        
+
         // Set up sentence display
         setCurrentVoiceTag(voiceTag);
         setCurrentSegmentSentences(sentences);
         setCurrentSentenceIndex(0);
-        
+
         // Clear any existing sentence timeouts
         sentenceTimeouts.forEach(timeout => clearTimeout(timeout));
         setSentenceTimeouts([]);
-        
+
         if (sentences.length > 0) {
           // Show first sentence immediately
           setCurrentDisplayText(sentences[0]);
           console.log(`📖 Showing sentence 1/${sentences.length}: "${sentences[0]}"`);
-          
+
           // Set up timers for remaining sentences if there are multiple
           if (sentences.length > 1) {
             // Estimate audio duration (rough estimate based on text length)
             const cleanContent = currentSegmentData.originalContent || currentSegmentData.content;
             const estimatedDuration = Math.max(3, cleanContent.length * 0.08); // ~80ms per character
             const timings = estimateSentenceTimings(sentences, estimatedDuration);
-            
+
             console.log(`⏱️ Estimated segment duration: ${estimatedDuration}s`);
             console.log(`⏱️ Sentence timings:`, timings);
-            
+
             const newTimeouts = [];
-            
+
             // Schedule remaining sentences
             for (let i = 1; i < sentences.length; i++) {
               const timing = timings[i];
@@ -5864,64 +5845,63 @@ export default function EmberDetail() {
                   setCurrentSentenceIndex(i);
                 }
               }, timing.startTime * 1000);
-              
+
               newTimeouts.push(timeout);
             }
-            
+
             setSentenceTimeouts(newTimeouts);
           }
         }
-        
-          // Handle audio completion
-          audio.onended = () => {
-            if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
-            
-            console.log(`✅ Completed voice segment: [${segment.voiceTag}]`);
-            currentTimelineIndex++;
-            playNextTimelineStep();
-          };
-          
-          // Handle errors
-          audio.onerror = (error) => {
-            if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
-            
-            console.error(`❌ Error playing voice segment [${segment.voiceTag}]:`, error);
-            currentTimelineIndex++;
-            playNextTimelineStep(); // Continue to next timeline step
-          };
-          
-          // Play the audio
-          audio.play().catch(error => {
-            if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
-            
-            console.error(`❌ Failed to play voice segment [${segment.voiceTag}]:`, error);
-            currentTimelineIndex++;
-            playNextTimelineStep(); // Continue to next timeline step
-          });
-        }
-      };
-      
-      // Start playing the timeline
-      playNextTimelineStep();
-      
-    } catch (error) {
-      console.error('❌ Error in multi-voice playback:', error);
-      console.error('❌ Full error details:', error.message, error.stack);
-      
-      // Clean up media timeouts on error
-      console.log('🧹 Cleaning up media timeouts on error:', mediaTimeouts.length);
-      mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
-      mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
-      setMediaTimeouts([]);
-      mediaTimeoutsRef.current = [];
-      
-      // Reset states on error
-      setIsGeneratingAudio(false);
-      setIsPlaying(false);
-      setActiveAudioSegments([]);
-      
-      throw error;
-    }
-  };
 
- 
+        // Handle audio completion
+        audio.onended = () => {
+          if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
+
+          console.log(`✅ Completed voice segment: [${segment.voiceTag}]`);
+          currentTimelineIndex++;
+          playNextTimelineStep();
+        };
+
+        // Handle errors
+        audio.onerror = (error) => {
+          if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
+
+          console.error(`❌ Error playing voice segment [${segment.voiceTag}]:`, error);
+          currentTimelineIndex++;
+          playNextTimelineStep(); // Continue to next timeline step
+        };
+
+        // Play the audio
+        audio.play().catch(error => {
+          if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
+
+          console.error(`❌ Failed to play voice segment [${segment.voiceTag}]:`, error);
+          currentTimelineIndex++;
+          playNextTimelineStep(); // Continue to next timeline step
+        });
+      }
+    };
+
+    // Start playing the timeline
+    playNextTimelineStep();
+
+  } catch (error) {
+    console.error('❌ Error in multi-voice playback:', error);
+    console.error('❌ Full error details:', error.message, error.stack);
+
+    // Clean up media timeouts on error
+    console.log('🧹 Cleaning up media timeouts on error:', mediaTimeouts.length);
+    mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+    mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+    setMediaTimeouts([]);
+    mediaTimeoutsRef.current = [];
+
+    // Reset states on error
+    setIsGeneratingAudio(false);
+    setIsPlaying(false);
+    setActiveAudioSegments([]);
+
+    throw error;
+  }
+};
+
