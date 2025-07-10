@@ -4835,7 +4835,10 @@ export default function EmberDetail() {
       voiceTag: 'MEDIA', 
       content: `id=${emberId} <Z-OUT:scale=0.7,duration=${totalVoiceDuration.toFixed(2)}>`,
       type: 'media',
-      duration: totalVoiceDuration.toFixed(2)
+      duration: totalVoiceDuration.toFixed(2),
+      mediaId: emberId, // Add the mediaId property for display name resolution
+      originalContent: `id=${emberId}`,
+      visualActions: [`Z-OUT:scale=0.7,duration=${totalVoiceDuration.toFixed(2)}`]
     });
     
     // 3. Add all voice segments
