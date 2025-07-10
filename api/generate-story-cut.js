@@ -46,10 +46,11 @@ function replaceVariables(text, variables) {
 }
 
 // Self-contained AI script to Ember script processing (API version)
-function processAIScriptToEmberScriptAPI(aiScript, emberData) {
+function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []) {
   try {
     console.log('🔄 API: Processing AI script to Ember script format');
     console.log('📝 API: Input ai_script:', aiScript?.substring(0, 100) + '...');
+    console.log('📸 API: Selected media:', selectedMedia?.length || 0, 'files');
     
     if (!aiScript || aiScript.trim() === '') {
       console.error('❌ API: AI script is empty or null');
@@ -97,19 +98,30 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData) {
       })
       .join('\n\n');
 
-    // 3. Ember photo as MEDIA element
-    const emberPhotoMedia = `[[MEDIA]] <name="${emberData?.original_filename || 'ember_photo.jpg'}">`;
+    // 3. Build MEDIA elements from selected media
+    let mediaElements = '';
+    if (selectedMedia && selectedMedia.length > 0) {
+      console.log('📸 API: Adding selected media to script:', selectedMedia.map(m => m.name));
+      mediaElements = selectedMedia
+        .map(media => `[[MEDIA]] <name="${media.filename || media.name}">`)
+        .join('\n\n');
+    } else {
+      // No media selected - create story without media elements
+      console.log('📸 API: No media selected, creating story without media elements');
+      mediaElements = ''; // Empty - no media in the story
+    }
     
     // 4. Closing HOLD segment (4-second black fade-out)
     const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
 
     // 5. Combine all elements into complete ember script
-    const emberScript = [
-      openingHold,
-      processedVoiceLines,
-      emberPhotoMedia,
-      closingHold
-    ].join('\n\n');
+    const scriptParts = [openingHold, processedVoiceLines];
+    if (mediaElements) {
+      scriptParts.push(mediaElements);
+    }
+    scriptParts.push(closingHold);
+    
+    const emberScript = scriptParts.join('\n\n');
 
     console.log('✅ API: Ember script generated successfully');
     console.log('📝 API: Output script length:', emberScript?.length || 0);
@@ -119,15 +131,16 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData) {
   } catch (error) {
     console.error('❌ API: Error processing AI script to Ember script:', error);
     console.log('🔄 API: Falling back to basic processing...');
-    return processAIScriptToEmberScriptBasic(aiScript);
+    return processAIScriptToEmberScriptBasic(aiScript, selectedMedia);
   }
 }
 
 // Fallback basic processing without ember data
-function processAIScriptToEmberScriptBasic(aiScript) {
+function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = []) {
   try {
     console.log('🔄 API: Using basic processing fallback');
     console.log('📝 API: Basic processing input:', aiScript?.substring(0, 100) + '...');
+    console.log('📸 API: Basic processing with selected media:', selectedMedia?.length || 0, 'files');
     
     if (!aiScript || aiScript.trim() === '') {
       console.error('❌ API: Basic processing - no script content available');
@@ -137,7 +150,18 @@ function processAIScriptToEmberScriptBasic(aiScript) {
     // Basic processing with minimal ember format
     const openingHold = '[[HOLD]] <COLOR:#000000,duration=2.0>';
     const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
-    const basicMediaElement = '[[MEDIA]] <name="ember_photo.jpg">';
+    
+    // Build media elements from selected media or none
+    let mediaElements = '';
+    if (selectedMedia && selectedMedia.length > 0) {
+      console.log('📸 API: Basic processing - adding selected media:', selectedMedia.map(m => m.name));
+      mediaElements = selectedMedia
+        .map(media => `[[MEDIA]] <name="${media.filename || media.name}">`)
+        .join('\n\n');
+    } else {
+      console.log('📸 API: Basic processing - no media selected, creating story without media');
+      mediaElements = ''; // Empty - no media in the story
+    }
 
     // Add basic colorization
     const processedContent = aiScript
@@ -168,7 +192,13 @@ function processAIScriptToEmberScriptBasic(aiScript) {
       })
       .join('\n\n');
 
-    const finalScript = [openingHold, processedContent, basicMediaElement, closingHold].join('\n\n');
+    const scriptParts = [openingHold, processedContent];
+    if (mediaElements) {
+      scriptParts.push(mediaElements);
+    }
+    scriptParts.push(closingHold);
+    
+    const finalScript = scriptParts.join('\n\n');
     
     console.log('✅ API: Basic processing completed');
     console.log('📝 API: Basic output length:', finalScript?.length || 0);
@@ -198,8 +228,20 @@ export default async function handler(req, res) {
     storyConversations, 
     voiceCasting, 
     emberId,
-    contributorQuotes 
+    contributorQuotes,
+    selectedMedia
   } = req.body;
+
+  console.log('📸 API: Received selected media:', selectedMedia?.length || 0, 'files');
+  if (selectedMedia && selectedMedia.length > 0) {
+    console.log('📸 API: Media details:', selectedMedia.map(m => ({
+      id: m.id,
+      name: m.name,
+      filename: m.filename,
+      type: m.type,
+      category: m.category
+    })));
+  }
 
   try {
     const openai = new OpenAI({ apiKey });
@@ -415,24 +457,62 @@ export default async function handler(req, res) {
             console.warn('⚠️ Could not load ember data for script processing:', emberError);
             // Fallback: use basic ember format without ember data
             console.log('🔄 Using basic processing fallback...');
-            generatedStoryCut.full_script = processAIScriptToEmberScriptBasic(generatedStoryCut.ai_script);
+            generatedStoryCut.full_script = processAIScriptToEmberScriptBasic(generatedStoryCut.ai_script, selectedMedia);
           } else {
             // Use full processing with ember data
             console.log('🔄 Using full processing with ember data...');
-            generatedStoryCut.full_script = processAIScriptToEmberScriptAPI(generatedStoryCut.ai_script, emberData);
+            generatedStoryCut.full_script = processAIScriptToEmberScriptAPI(generatedStoryCut.ai_script, emberData, selectedMedia);
           }
           
           // Ensure we always have a full_script
           if (!generatedStoryCut.full_script) {
             console.error('❌ Processing failed - full_script is still null/undefined');
             console.log('🔄 Emergency fallback - creating basic script...');
-            generatedStoryCut.full_script = `[[HOLD]] <COLOR:#000000,duration=2.0>\n\n${generatedStoryCut.ai_script}\n\n[[MEDIA]] <name="ember_photo.jpg">\n\n[[HOLD]] <COLOR:#000000,duration=4.0>`;
+            
+            // Build emergency media elements from selected media
+            let emergencyMediaElements = '';
+            if (selectedMedia && selectedMedia.length > 0) {
+              console.log('🔄 Emergency fallback using selected media:', selectedMedia.map(m => m.name));
+              emergencyMediaElements = selectedMedia
+                .map(media => `[[MEDIA]] <name="${media.filename || media.name}">`)
+                .join('\n\n');
+            } else {
+              console.log('🔄 Emergency fallback - no media selected, creating story without media');
+              emergencyMediaElements = ''; // Empty - no media in the story
+            }
+            
+            const emergencyScriptParts = [`[[HOLD]] <COLOR:#000000,duration=2.0>`, generatedStoryCut.ai_script];
+            if (emergencyMediaElements) {
+              emergencyScriptParts.push(emergencyMediaElements);
+            }
+            emergencyScriptParts.push(`[[HOLD]] <COLOR:#000000,duration=4.0>`);
+            
+            generatedStoryCut.full_script = emergencyScriptParts.join('\n\n');
           }
           
         } catch (processingError) {
           console.error('❌ Error during script processing:', processingError);
           console.log('🔄 Emergency fallback - creating basic script...');
-          generatedStoryCut.full_script = `[[HOLD]] <COLOR:#000000,duration=2.0>\n\n${generatedStoryCut.ai_script}\n\n[[MEDIA]] <name="ember_photo.jpg">\n\n[[HOLD]] <COLOR:#000000,duration=4.0>`;
+          
+          // Build emergency media elements from selected media
+          let emergencyMediaElements = '';
+          if (selectedMedia && selectedMedia.length > 0) {
+            console.log('🔄 Emergency fallback using selected media:', selectedMedia.map(m => m.name));
+            emergencyMediaElements = selectedMedia
+              .map(media => `[[MEDIA]] <name="${media.filename || media.name}">`)
+              .join('\n\n');
+          } else {
+            console.log('🔄 Emergency fallback - no media selected, creating story without media');
+            emergencyMediaElements = ''; // Empty - no media in the story
+          }
+          
+          const emergencyScriptParts = [`[[HOLD]] <COLOR:#000000,duration=2.0>`, generatedStoryCut.ai_script];
+          if (emergencyMediaElements) {
+            emergencyScriptParts.push(emergencyMediaElements);
+          }
+          emergencyScriptParts.push(`[[HOLD]] <COLOR:#000000,duration=4.0>`);
+          
+          generatedStoryCut.full_script = emergencyScriptParts.join('\n\n');
         }
         
         console.log('✅ Ember script generated');

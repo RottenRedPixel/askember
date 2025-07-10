@@ -667,7 +667,14 @@ const StoryModalContent = ({
   useEmberVoice,
   toggleEmberVoice,
   useNarratorVoice,
-  toggleNarratorVoice
+  toggleNarratorVoice,
+  // Media selection props
+  availableMediaForStory,
+  selectedMediaForStory,
+  mediaLoadingForStory,
+  toggleMediaSelection,
+  selectAllMedia,
+  clearMediaSelection
 }) => (
   <div className="space-y-6">
     {/* User Editor Info */}
@@ -1027,7 +1034,87 @@ const StoryModalContent = ({
       </div>
     </div>
 
+    {/* Media Selection */}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+          <Camera size={16} className="text-blue-600" />
+          Media Selection
+        </Label>
+      </div>
+      
+      <p className="text-sm text-gray-600">
+        Choose which photos and media files to include in your story.
+      </p>
 
+      {mediaLoadingForStory ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="text-sm text-gray-500">Loading available media...</div>
+        </div>
+      ) : availableMediaForStory.length === 0 ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="text-sm text-gray-500">No media files available</div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-h-64 overflow-y-auto">
+          {availableMediaForStory.map((media) => (
+            <div
+              key={media.id}
+              onClick={() => toggleMediaSelection(media.id)}
+              className="relative cursor-pointer group"
+            >
+              <div 
+                className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                  selectedMediaForStory.includes(media.id)
+                    ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <img
+                  src={media.thumbnail}
+                  alt={media.name}
+                  className="w-full aspect-square object-cover"
+                />
+                
+                {/* Selection overlay */}
+                {selectedMediaForStory.includes(media.id) && (
+                  <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center">
+                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs">✓</span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Media type badge */}
+                <div className="absolute top-1 left-1">
+                  <span className={`text-xs px-2 py-0.5 rounded-full text-white font-medium ${
+                    media.category === 'ember' ? 'bg-amber-500' : 'bg-blue-500'
+                  }`}>
+                    {media.category === 'ember' ? 'Ember' : 'Media'}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Media name */}
+              <div className="mt-1 text-xs text-gray-600 truncate" title={media.name}>
+                {media.name}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {selectedMediaForStory.length > 0 && (
+        <div className="mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="text-sm text-blue-800 font-medium">
+            {selectedMediaForStory.length} media file{selectedMediaForStory.length !== 1 ? 's' : ''} selected
+          </div>
+          <div className="text-xs text-blue-600 mt-1">
+            Selected media will appear in your story with fade in/out effects for rich visual storytelling.
+          </div>
+        </div>
+      )}
+    </div>
 
     {/* Action Buttons */}
     <div className="mt-6 pt-4">
@@ -1140,6 +1227,11 @@ export default function EmberDetail() {
 
   // Supporting media state
   const [supportingMedia, setSupportingMedia] = useState([]);
+
+  // Media selection for story cuts
+  const [availableMediaForStory, setAvailableMediaForStory] = useState([]);
+  const [selectedMediaForStory, setSelectedMediaForStory] = useState([]);
+  const [mediaLoadingForStory, setMediaLoadingForStory] = useState(false);
 
   // Script editing state
   const [isEditingScript, setIsEditingScript] = useState(false);
@@ -1295,6 +1387,13 @@ export default function EmberDetail() {
     fetchVoices();
     fetchStoryStyles();
   }, []);
+
+  // Fetch media when story creation modal opens
+  useEffect(() => {
+    if (showStoryCutCreator && ember?.id) {
+      fetchMediaForStory();
+    }
+  }, [showStoryCutCreator, ember?.id]);
 
   // Format script for display when selectedStoryCut changes
   useEffect(() => {
@@ -2103,6 +2202,19 @@ export default function EmberDetail() {
       console.log('🔍 FRONTEND DEBUG - Voice casting being sent to API:', voiceCasting);
       console.log('🔍 FRONTEND DEBUG - Contributors array:', JSON.stringify(voiceCasting.contributors?.map(c => ({id: c.id, name: c.name})), null, 2));
       
+      // Get selected media details for API
+      const selectedMediaDetails = availableMediaForStory.filter(media => 
+        selectedMediaForStory.includes(media.id)
+      );
+      console.log('📸 FRONTEND DEBUG - Selected media for story:', selectedMediaDetails.map(m => ({
+        id: m.id, 
+        name: m.name, 
+        filename: m.filename,
+        type: m.type, 
+        category: m.category
+      })));
+      console.log('📸 FRONTEND DEBUG - FULL selected media objects:', selectedMediaDetails);
+      
       // Use unified API approach instead of dynamic imports
       const response = await fetch('/api/generate-story-cut', {
         method: 'POST',
@@ -2116,7 +2228,8 @@ export default function EmberDetail() {
           storyConversations,
           voiceCasting,
           emberId: ember.id,
-          contributorQuotes: selectedContributorQuotes
+          contributorQuotes: selectedContributorQuotes,
+          selectedMedia: selectedMediaDetails
         })
       });
 
@@ -2205,6 +2318,7 @@ export default function EmberDetail() {
       setStoryTitle('');
       setStoryFocus('');
       setSelectedVoices([]);
+      setSelectedMediaForStory([]);
       
     } catch (error) {
       console.error('❌ Error generating story cut:', error);
@@ -2435,6 +2549,79 @@ export default function EmberDetail() {
   const handleSupportingMediaUpdate = async () => {
     // Refresh supporting media data when updated
     await fetchSupportingMedia();
+  };
+
+  // Fetch available media for story cut creation
+  const fetchMediaForStory = async () => {
+    if (!ember?.id) return;
+    
+    try {
+      setMediaLoadingForStory(true);
+      console.log('📸 Fetching available media for story creation...');
+      
+      const [emberPhotos, supportingMediaFiles] = await Promise.all([
+        getEmberPhotos(ember.id),
+        getEmberSupportingMedia(ember.id)
+      ]);
+      
+      // Combine and format all available media
+      const allMedia = [
+        // Ember photos
+        ...emberPhotos.map(photo => ({
+          id: photo.id,
+          name: photo.display_name || photo.original_filename,
+          filename: photo.original_filename,
+          url: photo.storage_url,
+          type: 'photo',
+          category: 'ember',
+          thumbnail: photo.storage_url,
+          duration: 3.0 // Default duration for photos
+        })),
+        // Supporting media
+        ...supportingMediaFiles.map(media => ({
+          id: media.id,
+          name: media.display_name || media.file_name,
+          filename: media.file_name,
+          url: media.file_url,
+          type: media.file_category || 'photo',
+          category: 'supporting',
+          thumbnail: media.file_url,
+          duration: media.file_category === 'video' ? 4.0 : 3.0 // Videos slightly longer
+        }))
+      ];
+      
+      console.log(`📸 Found ${allMedia.length} available media files:`, 
+        allMedia.map(m => `${m.name} (${m.type})`));
+      
+      setAvailableMediaForStory(allMedia);
+      
+      // Don't auto-select any media - let user choose
+      setSelectedMediaForStory([]);
+      
+    } catch (error) {
+      console.error('❌ Error fetching media for story:', error);
+      setAvailableMediaForStory([]);
+      setSelectedMediaForStory([]);
+    } finally {
+      setMediaLoadingForStory(false);
+    }
+  };
+
+  // Media selection handlers for story creation
+  const toggleMediaSelection = (mediaId) => {
+    setSelectedMediaForStory(prev => 
+      prev.includes(mediaId) 
+        ? prev.filter(id => id !== mediaId)
+        : [...prev, mediaId]
+    );
+  };
+
+  const selectAllMedia = () => {
+    setSelectedMediaForStory(availableMediaForStory.map(m => m.id));
+  };
+
+  const clearMediaSelection = () => {
+    setSelectedMediaForStory([]);
   };
 
   // Script editing handlers
@@ -3992,6 +4179,12 @@ export default function EmberDetail() {
                     toggleEmberVoice={toggleEmberVoice}
                     useNarratorVoice={useNarratorVoice}
                     toggleNarratorVoice={toggleNarratorVoice}
+                    availableMediaForStory={availableMediaForStory}
+                    selectedMediaForStory={selectedMediaForStory}
+                    mediaLoadingForStory={mediaLoadingForStory}
+                    toggleMediaSelection={toggleMediaSelection}
+                    selectAllMedia={selectAllMedia}
+                    clearMediaSelection={clearMediaSelection}
                   />
                 </div>
               </DrawerContent>
@@ -4037,6 +4230,12 @@ export default function EmberDetail() {
                   toggleEmberVoice={toggleEmberVoice}
                   useNarratorVoice={useNarratorVoice}
                   toggleNarratorVoice={toggleNarratorVoice}
+                  availableMediaForStory={availableMediaForStory}
+                  selectedMediaForStory={selectedMediaForStory}
+                  mediaLoadingForStory={mediaLoadingForStory}
+                  toggleMediaSelection={toggleMediaSelection}
+                  selectAllMedia={selectAllMedia}
+                  clearMediaSelection={clearMediaSelection}
                 />
               </DialogContent>
             </Dialog>
@@ -4354,9 +4553,14 @@ export default function EmberDetail() {
           continue;
         }
         
-        // Extract existing visual actions if any and clean the content
+        // Extract visual actions (but NOT media references like <name="file.jpg"> or <id=abc123>)
         const existingVisualActions = [];
         let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
+          // Don't treat media references as visual actions
+          if (action.startsWith('name=') || action.startsWith('id=')) {
+            return match; // Keep media references in the content
+          }
+          // Only extract actual visual actions
           existingVisualActions.push(action);
           return '';
         }).trim();
@@ -4458,9 +4662,14 @@ export default function EmberDetail() {
         let content = voiceMatch[2].trim();
         const voiceType = getVoiceType(voiceTag);
         
-        // Extract existing visual actions if any and clean the content for audio
+        // Extract visual actions (but NOT media references like <name="file.jpg"> or <id=abc123>)
         const existingVisualActions = [];
         let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
+          // Don't treat media references as visual actions
+          if (action.startsWith('name=') || action.startsWith('id=')) {
+            return match; // Keep media references in the content
+          }
+          // Only extract actual visual actions
           existingVisualActions.push(action);
           return '';
         }).trim();
@@ -5483,8 +5692,6 @@ export default function EmberDetail() {
           setCurrentMediaImageUrl(resolvedMediaUrl);
         } else {
           console.warn(`⚠️ Could not resolve media reference: ${segment.mediaName || segment.mediaId}`);
-          console.warn(`📋 Available photos: ${emberPhotos?.length || 0}`);
-          console.warn(`📋 Available supporting media: ${supportingMedia?.length || 0}`);
           // Fall back to original ember image if media not found
           setCurrentMediaImageUrl(ember.image_url);
         }
