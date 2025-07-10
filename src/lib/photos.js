@@ -70,7 +70,7 @@ export const uploadImageWithExif = async (file, userId, emberId = null) => {
     // Save photo metadata to database
     console.log('Saving photo metadata to database...');
     const { data: photoData, error: dbError } = await supabase
-      .from('photos')
+      .from('ember_photos')
       .insert([photoRecord])
       .select()
       .single();
@@ -152,7 +152,7 @@ export const uploadImageWithExif = async (file, userId, emberId = null) => {
 export const getUserPhotos = async (userId, limit = 20, offset = 0) => {
   try {
     const { data, error } = await supabase
-      .from('photos')
+      .from('ember_photos')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -173,11 +173,11 @@ export const getUserPhotos = async (userId, limit = 20, offset = 0) => {
  */
 export const getEmberPhotos = async (emberId) => {
   try {
-    const { data, error } = await supabase
-      .from('photos')
-      .select('*')
-      .eq('ember_id', emberId)
-      .order('created_at', { ascending: false });
+      const { data, error } = await supabase
+    .from('ember_photos')
+    .select('*')
+    .eq('ember_id', emberId)
+    .order('created_at', { ascending: false });
 
     if (error) throw error;
     return data || [];
@@ -196,7 +196,7 @@ export const getEmberPhotos = async (emberId) => {
 export const getPhotosWithLocation = async (userId, limit = 50) => {
   try {
     const { data, error } = await supabase
-      .from('photos')
+      .from('ember_photos')
       .select('*')
       .eq('user_id', userId)
       .not('latitude', 'is', null)
@@ -219,11 +219,11 @@ export const getPhotosWithLocation = async (userId, limit = 50) => {
  */
 export const getPhotoById = async (photoId) => {
   try {
-    const { data, error } = await supabase
-      .from('photos')
-      .select('*')
-      .eq('id', photoId)
-      .single();
+      const { data, error } = await supabase
+    .from('ember_photos')
+    .select('*')
+    .eq('id', photoId)
+    .single();
 
     if (error) throw error;
     return data;
@@ -242,7 +242,7 @@ export const getPhotoById = async (photoId) => {
 export const updatePhoto = async (photoId, updates) => {
   try {
     const { data, error } = await supabase
-      .from('photos')
+      .from('ember_photos')
       .update(updates)
       .eq('id', photoId)
       .select()
@@ -287,7 +287,7 @@ export const deletePhoto = async (photoId, userId) => {
 
     // Delete from database
     const { error: dbError } = await supabase
-      .from('photos')
+      .from('ember_photos')
       .delete()
       .eq('id', photoId)
       .eq('user_id', userId);
@@ -311,7 +311,7 @@ export const deletePhoto = async (photoId, userId) => {
 export const getPhotosByDateRange = async (userId, startDate, endDate) => {
   try {
     const { data, error } = await supabase
-      .from('photos')
+      .from('ember_photos')
       .select('*')
       .eq('user_id', userId)
       .gte('timestamp', startDate)
@@ -337,7 +337,7 @@ export const getPhotosInBounds = async (userId, bounds) => {
     const { north, south, east, west } = bounds;
     
     const { data, error } = await supabase
-      .from('photos')
+      .from('ember_photos')
       .select('*')
       .eq('user_id', userId)
       .not('latitude', 'is', null)

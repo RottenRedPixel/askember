@@ -91,7 +91,7 @@ export default async function handler(req, res) {
 
     // Update photo record in database
     const { data, error } = await supabase
-      .from('photos')
+      .from('ember_photos')
       .update(updateData)
       .eq('id', photoId)
       .select()
