@@ -4323,21 +4323,28 @@ export default function EmberDetail() {
         let mediaName = null;
         let resolvedMediaReference = mediaReference;
         
+        console.log(`🔍 Parsing media reference: "${mediaReference}"`);
+        
         if (mediaReference) {
           // Check for id=abc123 format
           const idMatch = mediaReference.match(/id=([a-zA-Z0-9\-_]+)/);
+          console.log(`🔍 ID regex test result:`, idMatch);
           if (idMatch) {
             mediaId = idMatch[1];
             resolvedMediaReference = mediaReference; // Keep original for display
+            console.log(`✅ Extracted media ID: ${mediaId}`);
           } else {
             // Check for name="Display Name" format
             const nameMatch = mediaReference.match(/name="([^"]+)"/);
+            console.log(`🔍 Name regex test result:`, nameMatch);
             if (nameMatch) {
               mediaName = nameMatch[1];
               resolvedMediaReference = mediaReference; // Keep original for display
+              console.log(`✅ Extracted media name: ${mediaName}`);
             } else {
               // If no id= or name= format, treat as legacy media reference
               mediaId = mediaReference;
+              console.log(`🔄 Using legacy media reference: ${mediaId}`);
             }
           }
         }
@@ -4366,7 +4373,10 @@ export default function EmberDetail() {
             finalContent, 
             mediaReference, 
             visualActions: existingVisualActions.length,
-            type: segmentType
+            type: segmentType,
+            mediaId: mediaId,
+            mediaName: mediaName,
+            resolvedMediaReference: resolvedMediaReference
           });
           
           // 🐛 HOLD SPECIFIC DEBUG
