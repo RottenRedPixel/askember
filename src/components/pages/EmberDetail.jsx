@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Label } from '@/components/ui/label';
-import { getEmber, updateEmberTitle, saveStoryCut, getStoryCutsForEmber, getAllStoryMessagesForEmber, deleteStoryCut, setPrimaryStoryCut, getPrimaryStoryCut, getEmberSupportingMedia, getUserVoiceModel, getStoryCutAudioPreferences, updateMessageAudioPreference } from '@/lib/database';
+import { getEmber, updateEmberTitle, saveStoryCut, getStoryCutsForEmber, getAllStoryMessagesForEmber, deleteStoryCut, setPrimaryStoryCut, getPrimaryStoryCut, getEmberSupportingMedia } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getEmberPhotos } from '@/lib/photos';
 import EmberChat from '@/components/EmberChat';
@@ -37,161 +37,24 @@ import { textToSpeech, getVoices } from '@/lib/elevenlabs';
 // Prompts functionality has been removed
 import { cn } from '@/lib/utils';
 import useStore from '@/store';
+import { formatRelativeTime, formatDuration, formatDisplayDate, formatDisplayLocation } from '@/lib/dateUtils';
+import { getStyleDisplayName } from '@/lib/styleUtils';
+import OwnerMessageAudioControls from '@/components/OwnerMessageAudioControls';
+import ShareSlideOutContent from '@/components/ShareSlideOutContent';
+import {
+  parseScriptSegments,
+  parseSentences,
+  estimateSentenceTimings,
+  getVoiceType,
+  extractColorFromAction,
+  extractTransparencyFromAction,
+  extractZoomScaleFromAction,
+  estimateSegmentDuration,
+  resolveMediaReference,
+  formatScriptForDisplay
+} from '@/lib/scriptParser';
 
-// ✅ Per-Message Audio Controls Component
-const OwnerMessageAudioControls = ({ line, messageIndex, messageType, storyMessages, ember, storyCutId }) => {
-  const [messagePreferences, setMessagePreferences] = useState({});
 
-  // Expose data globally for debugging
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.storyMessages = storyMessages;
-    }
-  }, [storyMessages]);
-
-  // Load preferences from database when component mounts
-  useEffect(() => {
-    const loadPreferences = async () => {
-      if (!storyCutId) return;
-
-      try {
-        const savedPreferences = await getStoryCutAudioPreferences(storyCutId);
-        if (savedPreferences) {
-          setMessagePreferences(savedPreferences);
-        }
-      } catch (error) {
-        console.error('Error loading audio preferences:', error);
-      }
-    };
-
-    loadPreferences();
-  }, [storyCutId]);
-
-  // Analyze this specific message
-  useEffect(() => {
-    const analyzeMessage = async () => {
-      if (!line || !storyMessages?.length || !ember?.user_id) return;
-
-      const messageKey = `${messageIndex}-${line.substring(0, 50)}`;
-
-      try {
-        // Check if owner has a personal voice model
-        const userVoiceModel = await getUserVoiceModel(ember.user_id);
-        const hasPersonalVoice = userVoiceModel && userVoiceModel.elevenlabs_voice_id;
-
-        // Check if this message has recorded audio
-        const hasRecordedAudio = messageType === 'audio';
-
-        console.log(`🎤 Message ${messageIndex}: Recorded=${hasRecordedAudio}, Personal Voice=${hasPersonalVoice}, Type=${messageType}`);
-
-        // Set smart defaults based on message type and available options
-        let defaultPreference = 'text'; // fallback default
-
-        if (messageType === 'audio') {
-          // Audio messages: prefer recorded → personal voice → text response
-          if (hasRecordedAudio) {
-            defaultPreference = 'recorded';
-          } else if (hasPersonalVoice) {
-            defaultPreference = 'personal';
-          } else {
-            defaultPreference = 'text';
-          }
-        } else {
-          // Text messages: prefer text response → personal voice (no recorded option)
-          defaultPreference = 'text'; // Text messages naturally default to text response
-        }
-
-        setMessagePreferences(prev => ({
-          ...prev,
-          [messageKey]: prev[messageKey] || defaultPreference
-        }));
-      } catch (error) {
-        console.log(`⚠️ Error analyzing message ${messageIndex}:`, error.message);
-        // Still show controls even if there's an error - text response is always available
-        setMessagePreferences(prev => ({
-          ...prev,
-          [messageKey]: prev[messageKey] || 'text'
-        }));
-      }
-    };
-
-    analyzeMessage();
-  }, [line, messageIndex, messageType, storyMessages, ember]);
-
-  // Store preferences globally for audio generation
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.messageAudioPreferences = messagePreferences;
-    }
-  }, [messagePreferences]);
-
-  const handlePreferenceChange = async (messageKey, preference) => {
-    // Update local state immediately
-    setMessagePreferences(prev => ({
-      ...prev,
-      [messageKey]: preference
-    }));
-
-    // Save to database
-    if (storyCutId) {
-      try {
-        await updateMessageAudioPreference(storyCutId, messageKey, preference);
-        console.log(`✅ Saved preference for message ${messageIndex}: ${preference}`);
-      } catch (error) {
-        console.error('Error saving audio preference:', error);
-      }
-    }
-  };
-
-  // Show contextual controls based on original message type
-  const messageKey = `${messageIndex}-${line.substring(0, 50)}`;
-  const showRecordedOption = messageType === 'audio'; // Only show "Recorded" if original was audio
-
-  return (
-    <div className="flex items-center space-x-2 text-xs">
-      {/* 🎙️ Recorded - Only show for original audio messages */}
-      {showRecordedOption && (
-        <label className="flex items-center space-x-1 cursor-pointer">
-          <input
-            type="radio"
-            name={`message-${messageKey}`}
-            value="recorded"
-            checked={messagePreferences[messageKey] === 'recorded'}
-            onChange={(e) => handlePreferenceChange(messageKey, e.target.value)}
-            className="text-green-600 focus:ring-green-500 w-3 h-3"
-          />
-          <span className="text-xs text-gray-700">🎙️ Recorded</span>
-        </label>
-      )}
-
-      {/* 🎤 Synth Voice - Always available */}
-      <label className="flex items-center space-x-1 cursor-pointer">
-        <input
-          type="radio"
-          name={`message-${messageKey}`}
-          value="personal"
-          checked={messagePreferences[messageKey] === 'personal'}
-          onChange={(e) => handlePreferenceChange(messageKey, e.target.value)}
-          className="text-green-600 focus:ring-green-500 w-3 h-3"
-        />
-        <span className="text-xs text-gray-700">🎤 Synth Voice</span>
-      </label>
-
-      {/* 📝 Text Response - Always available */}
-      <label className="flex items-center space-x-1 cursor-pointer">
-        <input
-          type="radio"
-          name={`message-${messageKey}`}
-          value="text"
-          checked={messagePreferences[messageKey] === 'text'}
-          onChange={(e) => handlePreferenceChange(messageKey, e.target.value)}
-          className="text-green-600 focus:ring-green-500 w-3 h-3"
-        />
-        <span className="text-xs text-gray-700">📝 Text Response</span>
-      </label>
-    </div>
-  );
-};
 
 // ✅ Extract StoryModalContent OUTSIDE the main component (prevents cursor jumping)
 const StoryCutDetailContent = ({
@@ -204,7 +67,7 @@ const StoryCutDetailContent = ({
   handleCancelScriptEdit,
   isSavingScript,
   formatDuration,
-  getStyleDisplayName,
+  availableStoryStyles,
   formatRelativeTime,
   storyMessages,
   ember,
@@ -223,7 +86,7 @@ const StoryCutDetailContent = ({
       {/* Style Badge */}
       <div className="flex items-center justify-start">
         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-          {getStyleDisplayName(selectedStoryCut.style)}
+          {getStyleDisplayName(selectedStoryCut.style, availableStoryStyles)}
         </span>
       </div>
     </div>
@@ -1787,109 +1650,15 @@ export default function EmberDetail() {
   };
 
   // Helper function to format relative time
-  const formatRelativeTime = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
 
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes === 1 ? '' : 's'} ago`;
 
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours} hour${diffInHours === 1 ? '' : 's'} ago`;
 
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return `${diffInDays} day${diffInDays === 1 ? '' : 's'} ago`;
 
-    return date.toLocaleDateString();
-  };
 
-  // Helper function to format duration seconds to mm:ss
-  const formatDuration = (seconds) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
 
-  // Helper function to get style display name from database styles
-  const getStyleDisplayName = (style) => {
-    // If styles aren't loaded yet, try to provide a readable name
-    if (availableStoryStyles.length === 0) {
-      // Convert common prompt keys to readable names
-      const styleMap = {
-        'documentary_style': 'Documentary Style',
-        'movie_trailer_style': 'Movie Trailer Style',
-        'public_radio_style': 'Public Radio Style',
-        'podcast_style': 'Podcast Style',
-        'sports_commentary_style': 'Sports Commentary Style',
-        'dramatic_monologue_style': 'Dramatic Monologue Style',
-        'fairy_tale_style': 'Fairy Tale Style',
-        'news_report_style': 'News Report Style'
-      };
 
-      return styleMap[style] || style;
-    }
 
-    const dbStyle = availableStoryStyles.find(s => s.id === style || s.prompt_key === style);
-    return dbStyle ? dbStyle.name : style;
-  };
 
-  // Format date for display in carousel cards
-  const formatDisplayDate = (timestamp) => {
-    if (!timestamp) return null;
-
-    try {
-      const date = new Date(timestamp);
-      if (isNaN(date.getTime())) return null;
-
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return null;
-    }
-  };
-
-  // Format location for display in carousel cards
-  const formatDisplayLocation = (ember) => {
-    if (!ember) return null;
-
-    // Use structured location data (City, State, Country)
-    if (ember.city || ember.state || ember.country) {
-      const locationParts = [];
-
-      if (ember.city && ember.city.trim()) {
-        locationParts.push(ember.city.trim());
-      }
-      if (ember.state && ember.state.trim()) {
-        locationParts.push(ember.state.trim());
-      }
-      if (ember.country && ember.country.trim()) {
-        locationParts.push(ember.country.trim());
-      }
-
-      if (locationParts.length > 0) {
-        return locationParts.join(', ');
-      }
-    }
-
-    // Fall back to manual location (free text entry)
-    if (ember.manual_location && ember.manual_location.trim()) {
-      return ember.manual_location.trim();
-    }
-
-    // Fall back to GPS coordinates as last resort
-    if (ember.latitude && ember.longitude) {
-      const lat = parseFloat(ember.latitude).toFixed(4);
-      const lng = parseFloat(ember.longitude).toFixed(4);
-      return `${lat}, ${lng}`;
-    }
-
-    return null;
-  };
 
   // Handle story cut deletion
   const handleDeleteStoryCut = async () => {
@@ -1934,125 +1703,7 @@ export default function EmberDetail() {
     return userProfile?.user_id === storyCut.creator_user_id;
   };
 
-  // Share slide out content component
-  const ShareSlideOutContent = () => {
-    const [message, setMessage] = useState(null);
-    const [showQRCode, setShowQRCode] = useState(false);
 
-    const copyShareLink = async () => {
-      try {
-        const link = `${window.location.origin}/embers/${ember.id}`;
-        await navigator.clipboard.writeText(link);
-        setMessage({ type: 'success', text: 'Link copied to clipboard' });
-        setTimeout(() => setMessage(null), 3000);
-      } catch (error) {
-        setMessage({ type: 'error', text: 'Failed to copy link' });
-        setTimeout(() => setMessage(null), 3000);
-      }
-    };
-
-    const handleNativeShare = async () => {
-      try {
-        const link = `${window.location.origin}/embers/${ember.id}`;
-        const title = ember.title || 'Check out this ember';
-        const description = ember.message || 'Shared from ember.ai';
-
-        if (navigator.share) {
-          await navigator.share({
-            title: title,
-            text: description,
-            url: link,
-          });
-        }
-      } catch (error) {
-        console.log('Error sharing:', error);
-      }
-    };
-
-    return (
-      <div className="space-y-6">
-        {/* Message */}
-        {message && (
-          <div className={`p-4 rounded-xl ${message.type === 'error' ? 'border border-red-200 bg-red-50 text-red-800' : 'border border-green-200 bg-green-50 text-green-800'}`}>
-            <p className="text-sm">{message.text}</p>
-          </div>
-        )}
-
-        {/* View-Only Notice */}
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-          <h4 className="font-medium text-green-900 mb-2">View-Only Sharing</h4>
-          <p className="text-sm text-green-800">
-            Anyone with this link can view the ember but cannot edit or contribute to it.
-            To invite collaborators with edit access, use the "Invite Contributors" feature.
-          </p>
-        </div>
-
-        {/* Share Link */}
-        <div className="space-y-3">
-          <h4 className="font-medium flex items-center gap-2">
-            <Link className="w-4 h-4" />
-            Share Link (View-Only)
-          </h4>
-          <div className="flex gap-2">
-            <Input
-              value={`${window.location.origin}/embers/${ember.id}`}
-              readOnly
-              className="text-xs min-w-0 flex-1 h-10"
-            />
-            <Button size="lg" onClick={copyShareLink} variant="blue" className="flex-shrink-0">
-              <Copy className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* QR Code Section */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium flex items-center gap-2">
-              <QrCode className="w-4 h-4" />
-              QR Code (View-Only)
-            </h4>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => setShowQRCode(!showQRCode)}
-              className="flex items-center gap-2"
-            >
-              {showQRCode ? 'Hide' : 'Generate'}
-            </Button>
-          </div>
-
-          {/* Fixed height container to prevent jumping */}
-          <div className={`transition-all duration-200 overflow-hidden ${showQRCode ? 'h-[240px]' : 'h-0'}`}>
-            {showQRCode && (
-              <div className="mt-4">
-                <QRCodeGenerator
-                  url={`${window.location.origin}/embers/${ember.id}`}
-                  title="Ember QR Code"
-                  size={180}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Native Share Button - Bottom */}
-        {typeof navigator !== 'undefined' && navigator.share && (
-          <div className="mt-6 pt-4 border-t">
-            <Button
-              onClick={handleNativeShare}
-              variant="blue"
-              size="lg"
-              className="w-full flex items-center gap-2"
-            >
-              <ShareNetwork className="w-4 h-4" />
-              Share Ember
-            </Button>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   // Generate story cut with OpenAI
   const handleGenerateStoryCut = async () => {
@@ -3830,7 +3481,7 @@ export default function EmberDetail() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              <ShareSlideOutContent />
+              <ShareSlideOutContent ember={ember} />
             </div>
           </div>
         </>
@@ -4059,7 +3710,7 @@ export default function EmberDetail() {
                           {/* Style Badge with Actions */}
                           <div className="mt-2 text-left flex items-center justify-between" style={{ textAlign: 'left' }}>
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {getStyleDisplayName(cut.style)}
+                              {getStyleDisplayName(cut.style, availableStoryStyles)}
                             </span>
 
                             {/* Action buttons */}
@@ -4235,7 +3886,7 @@ export default function EmberDetail() {
                     {selectedStoryCut.title}
                   </DrawerTitle>
                   <DrawerDescription className="text-left text-gray-600">
-                    {getStyleDisplayName(selectedStoryCut.style)} • {formatDuration(selectedStoryCut.duration)} • Created by {`${selectedStoryCut.creator?.first_name || ''} ${selectedStoryCut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
+                    {getStyleDisplayName(selectedStoryCut.style, availableStoryStyles)} • {formatDuration(selectedStoryCut.duration)} • Created by {`${selectedStoryCut.creator?.first_name || ''} ${selectedStoryCut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
                   </DrawerDescription>
                 </DrawerHeader>
                 <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
@@ -4249,7 +3900,7 @@ export default function EmberDetail() {
                     handleCancelScriptEdit={handleCancelScriptEdit}
                     isSavingScript={isSavingScript}
                     formatDuration={formatDuration}
-                    getStyleDisplayName={getStyleDisplayName}
+                    availableStoryStyles={availableStoryStyles}
                     formatRelativeTime={formatRelativeTime}
                     storyMessages={storyMessages}
                     ember={ember}
@@ -4267,7 +3918,7 @@ export default function EmberDetail() {
                     {selectedStoryCut.title}
                   </DialogTitle>
                   <DialogDescription className="text-left text-gray-600">
-                    {getStyleDisplayName(selectedStoryCut.style)} • {formatDuration(selectedStoryCut.duration)} • Created by {`${selectedStoryCut.creator?.first_name || ''} ${selectedStoryCut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
+                    {getStyleDisplayName(selectedStoryCut.style, availableStoryStyles)} • {formatDuration(selectedStoryCut.duration)} • Created by {`${selectedStoryCut.creator?.first_name || ''} ${selectedStoryCut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
                   </DialogDescription>
                 </DialogHeader>
                 <StoryCutDetailContent
@@ -4280,7 +3931,7 @@ export default function EmberDetail() {
                   handleCancelScriptEdit={handleCancelScriptEdit}
                   isSavingScript={isSavingScript}
                   formatDuration={formatDuration}
-                  getStyleDisplayName={getStyleDisplayName}
+                  availableStoryStyles={availableStoryStyles}
                   formatRelativeTime={formatRelativeTime}
                   storyMessages={storyMessages}
                   ember={ember}
@@ -4487,528 +4138,33 @@ export default function EmberDetail() {
   );
 }
 
-// Parse script into voice segments for multi-voice playback
-const parseScriptSegments = (script) => {
-  if (!script) return [];
 
-  const segments = [];
-  const lines = script.split('\n');
 
-  console.log('🔍 parseScriptSegments: Processing', lines.length, 'lines');
-  console.log('🔍 FULL SCRIPT CONTENT:', script);
-  lines.forEach((line, index) => {
-    console.log(`🔍 Line ${index + 1}: "${line}"`);
-  });
 
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (!trimmedLine) continue;
 
-    console.log(`🔍 Processing line: "${trimmedLine.substring(0, 100)}..."`);
 
-    // Skip malformed lines (common parsing artifacts)
-    if ((trimmedLine.includes('[[MEDIA]') && !trimmedLine.includes('[[MEDIA]]')) ||
-      (trimmedLine.includes('[[HOLD]') && !trimmedLine.includes('[[HOLD]]'))) {
-      console.log('⚠️ Skipping malformed MEDIA/HOLD line:', trimmedLine);
-      continue;
-    }
 
-    // Match media tags like [[MEDIA]] or [[HOLD]] with content
-    const mediaMatch = trimmedLine.match(/^\[\[(MEDIA|HOLD)\]\]\s*(.*)$/);
 
-    if (mediaMatch) {
-      const mediaType = mediaMatch[1]; // MEDIA or HOLD
-      const content = mediaMatch[2].trim();
 
-      console.log(`🔍 ${mediaType} match found:`, {
-        fullMatch: mediaMatch[0],
-        type: mediaType,
-        content: content
-      });
 
-      // Skip if content is empty or just whitespace
-      if (!content) {
-        console.log(`⚠️ Skipping empty ${mediaType} segment`);
-        continue;
-      }
 
-      // Extract visual actions (but NOT media references like <name="file.jpg"> or <id=abc123>)
-      const existingVisualActions = [];
-      let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
-        // Don't treat media references as visual actions
-        if (action.startsWith('name=') || action.startsWith('id=')) {
-          return match; // Keep media references in the content
-        }
-        // Only extract actual visual actions
-        existingVisualActions.push(action);
-        return '';
-      }).trim();
 
-      // For media lines, the content after removing actions should be the media reference
-      const mediaReference = cleanContent;
 
-      // Parse media reference to extract ID or name
-      let mediaId = null;
-      let mediaName = null;
-      let resolvedMediaReference = mediaReference;
 
-      console.log(`🔍 Parsing media reference: "${mediaReference}"`);
 
-      if (mediaReference) {
-        // Check for id=abc123 format
-        const idMatch = mediaReference.match(/id=([a-zA-Z0-9\-_]+)/);
-        console.log(`🔍 ID regex test result:`, idMatch);
-        if (idMatch) {
-          mediaId = idMatch[1];
-          resolvedMediaReference = mediaReference; // Keep original for display
-          console.log(`✅ Extracted media ID: ${mediaId}`);
-        } else {
-          // Check for name="Display Name" format
-          const nameMatch = mediaReference.match(/name="([^"]+)"/);
-          console.log(`🔍 Name regex test result:`, nameMatch);
-          if (nameMatch) {
-            mediaName = nameMatch[1];
-            resolvedMediaReference = mediaReference; // Keep original for display
-            console.log(`✅ Extracted media name: ${mediaName}`);
-          } else {
-            // If no id= or name= format, treat as legacy media reference
-            mediaId = mediaReference;
-            console.log(`🔄 Using legacy media reference: ${mediaId}`);
-          }
-        }
-      }
 
-      // Reconstruct content with visual actions FOR DISPLAY
-      const allVisualActions = existingVisualActions.map(action => `<${action}>`).join('');
-      const finalContent = mediaReference ? `${mediaReference} ${allVisualActions}`.trim() : allVisualActions;
 
-      // Only add if we have actual content or visual actions
-      if (finalContent || existingVisualActions.length > 0) {
-        const segmentType = mediaType.toLowerCase(); // 'media' or 'hold'
-        segments.push({
-          voiceTag: mediaType,
-          content: finalContent,
-          originalContent: mediaReference,
-          type: segmentType,
-          visualActions: existingVisualActions,
-          hasAutoColorize: false,
-          // Add media reference resolution data
-          mediaId: mediaId,
-          mediaName: mediaName,
-          resolvedMediaReference: resolvedMediaReference
-        });
-        console.log(`🎬 Parsed ${mediaType} segment:`, {
-          line: trimmedLine,
-          finalContent,
-          mediaReference,
-          visualActions: existingVisualActions.length,
-          type: segmentType,
-          mediaId: mediaId,
-          mediaName: mediaName,
-          resolvedMediaReference: resolvedMediaReference
-        });
 
-        // 🐛 HOLD SPECIFIC DEBUG
-        if (segmentType === 'hold') {
-          console.log(`🔍 HOLD SEGMENT DEBUG:`, {
-            originalInput: trimmedLine,
-            extractedContent: content,
-            cleanContent: cleanContent,
-            mediaReference: mediaReference,
-            visualActions: existingVisualActions,
-            allVisualActions: allVisualActions,
-            finalContent: finalContent,
-            passedCondition: (finalContent || existingVisualActions.length > 0)
-          });
-        }
-      } else {
-        console.log(`❌ SKIPPED ${mediaType} segment - no content or visual actions:`, {
-          finalContent,
-          existingVisualActionsLength: existingVisualActions.length
-        });
-      }
-    } else {
-      // Match voice tags like [EMBER VOICE], [NARRATOR], [Amado], etc.
-      const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
 
-      if (voiceMatch) {
-        console.log(`🔍 Voice match found:`, {
-          fullMatch: voiceMatch[0],
-          voiceTag: voiceMatch[1],
-          content: voiceMatch[2]
-        });
-        const voiceTag = voiceMatch[1].trim();
-        let content = voiceMatch[2].trim();
-        const voiceType = getVoiceType(voiceTag);
 
-        // Extract visual actions (but NOT media references like <name="file.jpg"> or <id=abc123>)
-        const existingVisualActions = [];
-        let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
-          // Don't treat media references as visual actions
-          if (action.startsWith('name=') || action.startsWith('id=')) {
-            return match; // Keep media references in the content
-          }
-          // Only extract actual visual actions
-          existingVisualActions.push(action);
-          return '';
-        }).trim();
 
-        // Add default colorization based on voice type (if no COLOR action exists)
-        let colorizeAction = '';
-        const hasColorizeAction = existingVisualActions.some(action => action.startsWith('COLOR:'));
 
-        if (!hasColorizeAction) {
-          switch (voiceType) {
-            case 'ember':
-              colorizeAction = '<COLOR:#FF0000,TRAN:0.2>';
-              break;
-            case 'narrator':
-              colorizeAction = '<COLOR:#0000FF,TRAN:0.2>';
-              break;
-            case 'contributor':
-              colorizeAction = '<COLOR:#00FF00,TRAN:0.2>';
-              break;
-          }
-        }
 
-        // Reconstruct content with visual actions FOR DISPLAY
-        const allVisualActions = existingVisualActions.map(action => `<${action}>`).join('');
-        const finalContent = `${colorizeAction}${allVisualActions} ${cleanContent}`.trim();
 
-        if (cleanContent) {
-          segments.push({
-            voiceTag,
-            content: finalContent, // For display (includes visual actions)
-            originalContent: cleanContent, // For audio synthesis (clean text only)
-            type: voiceType,
-            visualActions: existingVisualActions,
-            hasAutoColorize: !hasColorizeAction
-          });
-        }
-      }
-    }
-  }
 
-  console.log('📝 Parsed script segments:', segments.length, 'segments');
-  console.log('🎨 Applied auto-colorization based on voice types:');
-  segments.forEach((segment, index) => {
-    if (segment.type === 'media' || segment.type === 'hold') {
-      console.log(`  ${index + 1}. [[${segment.voiceTag}]] → ${segment.type.toUpperCase()} SEGMENT (${segment.content})`);
-    } else if (segment.hasAutoColorize) {
-      const colorMap = {
-        ember: 'RED (255,0,0,0.2)',
-        narrator: 'BLUE (0,0,255,0.2)',
-        contributor: 'GREEN (0,255,0,0.2)'
-      };
-      console.log(`  ${index + 1}. [${segment.voiceTag}] → ${colorMap[segment.type]}`);
-    }
-  });
 
-  // Remove exact duplicates (but preserve HOLD segments since opening/closing are legitimately the same)
-  const uniqueSegments = [];
-  const seenSegments = new Set();
 
-  console.log('🔄 Removing duplicates from', segments.length, 'segments...');
 
-  segments.forEach((segment, index) => {
-    // Skip duplicate removal for HOLD segments - opening and closing are expected to be the same
-    if (segment.type === 'hold') {
-      uniqueSegments.push(segment);
-      console.log(`  ✅ Kept HOLD segment ${index + 1}: [[${segment.voiceTag}]] "${segment.content.substring(0, 50)}..." (skipping duplicate check)`);
-      return;
-    }
-
-    const key = `${segment.type}-${segment.voiceTag}-${segment.content}`;
-    console.log(`🔍 Checking segment ${index + 1}: Key="${key.substring(0, 50)}..."`);
-
-    if (seenSegments.has(key)) {
-      console.warn('⚠️ Removing duplicate segment:', {
-        index: index + 1,
-        key: key.substring(0, 100),
-        segment: `${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} ${segment.content.substring(0, 50)}...`
-      });
-    } else {
-      seenSegments.add(key);
-      uniqueSegments.push(segment);
-      console.log(`  ✅ Kept segment ${index + 1}: ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 50)}..."`);
-    }
-  });
-
-  console.log(`📝 Removed ${segments.length - uniqueSegments.length} duplicate segments`);
-  console.log('📝 Final unique segments order:');
-  uniqueSegments.forEach((segment, index) => {
-    console.log(`  ${index + 1}. ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 30)}..."`);
-  });
-
-  // 🚨 CRITICAL DEBUG: Count HOLD segments specifically
-  const holdSegments = uniqueSegments.filter(seg => seg.type === 'hold');
-  console.log(`🚨 HOLD SEGMENTS COUNT: ${holdSegments.length}`);
-  holdSegments.forEach((holdSeg, index) => {
-    console.log(`  🚨 HOLD ${index + 1}: "${holdSeg.content}" (type: ${holdSeg.type}, voiceTag: ${holdSeg.voiceTag})`);
-  });
-
-  return uniqueSegments;
-};
-
-// Parse text into sentences for synchronized display (Option 1B)
-const parseSentences = (text) => {
-  if (!text) return [];
-
-  // Split by sentence-ending punctuation, keeping the punctuation
-  const sentences = text.split(/([.!?]+)/).filter(s => s.trim()).reduce((acc, part, index, array) => {
-    if (index % 2 === 0) {
-      // This is the text part
-      const nextPart = array[index + 1];
-      const sentence = nextPart ? part + nextPart : part;
-      if (sentence.trim()) {
-        acc.push(sentence.trim());
-      }
-    }
-    return acc;
-  }, []);
-
-  // If no sentences found, return the whole text as one sentence
-  if (sentences.length === 0) {
-    return [text.trim()];
-  }
-
-  return sentences;
-};
-
-// Estimate timing for sentence display within an audio segment
-const estimateSentenceTimings = (sentences, totalDuration) => {
-  if (!sentences || sentences.length === 0) return [];
-
-  // Simple estimation: divide time proportionally by sentence length
-  const totalCharacters = sentences.reduce((sum, sentence) => sum + sentence.length, 0);
-  let accumulatedTime = 0;
-
-  return sentences.map((sentence, index) => {
-    const sentenceWeight = sentence.length / totalCharacters;
-    const sentenceStartTime = accumulatedTime;
-    const sentenceDuration = totalDuration * sentenceWeight;
-
-    accumulatedTime += sentenceDuration;
-
-    return {
-      sentence,
-      startTime: sentenceStartTime,
-      duration: sentenceDuration,
-      index
-    };
-  });
-};
-
-// Determine voice type for segment
-const getVoiceType = (voiceTag) => {
-  if (voiceTag === 'EMBER VOICE') return 'ember';
-  if (voiceTag === 'NARRATOR') return 'narrator';
-  return 'contributor'; // Everything else is a contributor (user name)
-};
-
-// Helper function to extract HEX color from COLOR action
-const extractColorFromAction = (action) => {
-  // Support both old format (color=#FF0000) and new format (:FF0000)
-  const colorMatch = action.match(/(?:color=|:)#([A-Fa-f0-9]{3,6})/);
-  if (colorMatch) {
-    const hex = colorMatch[1];
-    // Convert 3-digit to 6-digit hex if needed
-    if (hex.length === 3) {
-      return `#${hex.split('').map(char => char + char).join('')}`;
-    }
-    return `#${hex}`;
-  }
-  return null;
-};
-
-// Helper function to extract transparency value from TRAN action
-const extractTransparencyFromAction = (action) => {
-  const transparencyMatch = action.match(/TRAN:([0-9.]+)/);
-  if (transparencyMatch) {
-    const value = parseFloat(transparencyMatch[1]);
-    // Clamp between 0 and 1
-    return Math.max(0, Math.min(1, value));
-  }
-  return 0.2; // Default transparency
-};
-
-// Helper function to extract scale values from Z-OUT action
-const extractZoomScaleFromAction = (action) => {
-  const scaleMatch = action.match(/scale=([0-9.]+)/);
-  if (scaleMatch) {
-    const endScale = parseFloat(scaleMatch[1]);
-    // Start scale is typically larger for zoom-in effect (reverse of zoom-out)
-    // If script specifies scale=0.7, we zoom FROM larger TO 0.7
-    const startScale = Math.max(1.2, endScale * 2.0); // More dramatic zoom effect
-    return { start: startScale, end: endScale };
-  }
-  // Default zoom: subtle zoom-in effect (no zoom out)
-  return { start: 1.1, end: 1.0 };
-};
-
-/**
- * Resolve media reference to actual file URL
- * @param {Object} segment - Media segment with mediaId or mediaName
- * @param {string} emberId - Current ember ID for scoping
- * @returns {Promise<string|null>} - Resolved media URL or null if not found
- */
-const resolveMediaReference = async (segment, emberId) => {
-  if (!segment || (!segment.mediaId && !segment.mediaName)) {
-    console.log('⚠️ No media reference to resolve');
-    return null;
-  }
-
-  try {
-    // Get all available media for this ember
-    const [emberPhotos, supportingMedia] = await Promise.all([
-      getEmberPhotos(emberId),
-      getEmberSupportingMedia(emberId)
-    ]);
-
-    console.log(`🔍 Resolving media reference: ${segment.mediaId || segment.mediaName}`);
-    console.log(`📸 Available photos: ${emberPhotos.length}`);
-    console.log(`📁 Available supporting media: ${supportingMedia.length}`);
-
-    // Search by ID first (more specific)
-    if (segment.mediaId) {
-      // Check ember photos
-      const photoMatch = emberPhotos.find(photo => photo.id === segment.mediaId);
-      if (photoMatch) {
-        console.log(`✅ Found photo by ID: ${photoMatch.display_name || photoMatch.original_filename}`);
-        return photoMatch.storage_url;
-      }
-
-      // Check supporting media
-      const mediaMatch = supportingMedia.find(media => media.id === segment.mediaId);
-      if (mediaMatch) {
-        console.log(`✅ Found supporting media by ID: ${mediaMatch.display_name || mediaMatch.file_name}`);
-        return mediaMatch.file_url;
-      }
-
-      // Legacy: treat mediaId as direct URL if no match found
-      console.log(`ℹ️ No ID match found, treating as legacy reference: ${segment.mediaId}`);
-      return segment.mediaId;
-    }
-
-    // Search by display name
-    if (segment.mediaName) {
-      // Check ember photos
-      const photoMatch = emberPhotos.find(photo =>
-        photo.display_name === segment.mediaName ||
-        photo.original_filename === segment.mediaName
-      );
-      if (photoMatch) {
-        console.log(`✅ Found photo by name: ${photoMatch.display_name || photoMatch.original_filename}`);
-        return photoMatch.storage_url;
-      }
-
-      // Check supporting media
-      const mediaMatch = supportingMedia.find(media =>
-        media.display_name === segment.mediaName ||
-        media.file_name === segment.mediaName
-      );
-      if (mediaMatch) {
-        console.log(`✅ Found supporting media by name: ${mediaMatch.display_name || mediaMatch.file_name}`);
-        return mediaMatch.file_url;
-      }
-
-      console.log(`⚠️ No media found with name: ${segment.mediaName}`);
-      return null;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('❌ Error resolving media reference:', error);
-    return null;
-  }
-};
-
-// Helper function to estimate segment duration
-const estimateSegmentDuration = (content, segmentType) => {
-  // For media and hold segments, prioritize explicit duration from visual actions
-  if (segmentType === 'media' || segmentType === 'hold') {
-    // Extract duration from any visual action that has it
-    const durationMatch = content.match(/duration=([0-9.]+)/);
-    if (durationMatch) {
-      return parseFloat(durationMatch[1]).toFixed(2);
-    }
-
-    // Different defaults for media vs hold
-    if (segmentType === 'hold') {
-      return "3.00"; // Hold segments default to 3 seconds
-    } else {
-      return "2.00"; // Media segments default to 2 seconds
-    }
-  }
-
-  // For voice segments, estimate by text length (remove visual actions first)
-  const cleanContent = content.replace(/<[^>]+>/g, '').trim();
-  const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
-  return estimatedDuration.toFixed(2);
-};
-
-
-
-
-
-
-
-
-
-// Format script for display - simplified for ember script format
-const formatScriptForDisplay = async (script, ember, storyCut) => {
-  if (!script) return '';
-
-  console.log('🎨 formatScriptForDisplay called (simplified)');
-  console.log('🎨 Script preview (first 200 chars):', script.substring(0, 200));
-
-  // Ember script is already properly formatted, just resolve media display names
-  console.log('📝 Using ember script format (already processed)...');
-
-  // Get all media for this ember to resolve display names
-  try {
-    const [emberPhotos, supportingMedia] = await Promise.all([
-      getEmberPhotos(ember.id),
-      getEmberSupportingMedia(ember.id)
-    ]);
-
-    // Simple text replacement for media display names
-    let displayScript = script;
-
-    // Replace media ID references with display names
-    const mediaIdRegex = /\[\[MEDIA\]\]\s*<[^>]*id=([a-zA-Z0-9\-_]+)[^>]*>/g;
-    displayScript = displayScript.replace(mediaIdRegex, (match, mediaId) => {
-      console.log(`🔍 Resolving display name for media ID: ${mediaId}`);
-
-      // Search in photos first
-      const photoMatch = emberPhotos.find(photo => photo.id === mediaId);
-      if (photoMatch) {
-        const displayName = photoMatch.display_name || photoMatch.original_filename;
-        console.log(`✅ Found photo match: ${displayName}`);
-        return match.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
-      }
-
-      // Search in supporting media
-      const mediaMatch = supportingMedia.find(media => media.id === mediaId);
-      if (mediaMatch) {
-        const displayName = mediaMatch.display_name || mediaMatch.file_name;
-        console.log(`✅ Found supporting media match: ${displayName}`);
-        return match.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
-      }
-
-      console.log(`❌ No match found for media ID: ${mediaId}`);
-      return match; // Return unchanged if no match
-    });
-
-    console.log('✅ Display script formatting complete');
-    return displayScript;
-
-  } catch (error) {
-    console.error('❌ Error formatting script for display:', error);
-    // Fallback: return script as-is
-    return script;
-  }
-};
 
 // 🐛 DEBUG HELPER: Inspect recorded audio data
 const debugRecordedAudio = (recordedAudio, scriptSegments) => {
