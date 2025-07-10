@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -25,11 +26,15 @@ import {
   ExternalLink,
   Trash2,
   AlertTriangle,
-  Sparkles
+  Sparkles,
+  Edit2,
+  Check,
+  X
 } from 'lucide-react';
 import { PenNib, UsersThree, UserCirclePlus, ImageSquare } from 'phosphor-react';
 import { getEmberWithSharing } from '@/lib/sharing';
-import { getImageAnalysis, getAllStoryMessagesForEmber, deleteEmber, getEmberTaggedPeople, getEmberSupportingMedia } from '@/lib/database';
+import { getImageAnalysis, getAllStoryMessagesForEmber, deleteEmber, getEmberTaggedPeople, getEmberSupportingMedia, updateSupportingMediaDisplayName } from '@/lib/database';
+import { getEmberPhotos, updatePhotoDisplayName } from '@/lib/photos';
 import useStore from '@/store';
 
 export default function EmberWiki({ 
@@ -47,10 +52,19 @@ export default function EmberWiki({
   const [storyMessages, setStoryMessages] = useState([]);
   const [taggedPeople, setTaggedPeople] = useState([]);
   const [supportingMedia, setSupportingMedia] = useState([]);
+  const [emberPhotos, setEmberPhotos] = useState([]);
   
   // Delete ember state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Media editing state
+  const [editingMediaId, setEditingMediaId] = useState(null);
+  const [editingMediaName, setEditingMediaName] = useState('');
+  
+  // Photo editing state
+  const [editingPhotoId, setEditingPhotoId] = useState(null);
+  const [editingPhotoName, setEditingPhotoName] = useState('');
 
   // Check if current user is owner
   const isOwner = user && ember?.user_id === user.id;
@@ -62,6 +76,7 @@ export default function EmberWiki({
       fetchStoryMessages();
       fetchTaggedPeople();
       fetchSupportingMedia();
+      fetchEmberPhotos();
     }
   }, [ember?.id]);
 
@@ -82,6 +97,8 @@ export default function EmberWiki({
         return taggedPeople.length > 0;
       case 'supporting-media':
         return supportingMedia.length > 0;
+      case 'photos':
+        return emberPhotos.length > 1; // More than just the main ember image
       case 'contributors':
         return sharedUsers.length > 0 || emailOnlyInvites.length > 0;
       default:
@@ -191,6 +208,17 @@ export default function EmberWiki({
     }
   };
 
+  const fetchEmberPhotos = async () => {
+    try {
+      const photos = await getEmberPhotos(ember.id);
+      console.log('Wiki ember photos data:', photos);
+      setEmberPhotos(photos || []);
+    } catch (error) {
+      console.error('Error fetching ember photos:', error);
+      setEmberPhotos([]);
+    }
+  };
+
   // Delete ember functions
   const handleDeleteEmber = async () => {
     setIsDeleting(true);
@@ -213,6 +241,64 @@ export default function EmberWiki({
   const resetDeleteConfirm = () => {
     setShowDeleteConfirm(false);
     setIsDeleting(false);
+  };
+
+  // Media name editing functions
+  const handleStartEditMediaName = (media) => {
+    setEditingMediaId(media.id);
+    setEditingMediaName(media.display_name || media.file_name || '');
+  };
+
+  const handleSaveMediaName = async (mediaId) => {
+    if (!editingMediaName.trim()) return;
+    
+    try {
+      await updateSupportingMediaDisplayName(mediaId, editingMediaName.trim());
+      
+      // Update local state
+      setSupportingMedia(prev => prev.map(media => 
+        media.id === mediaId ? { ...media, display_name: editingMediaName.trim() } : media
+      ));
+      
+      setEditingMediaId(null);
+      setEditingMediaName('');
+    } catch (error) {
+      console.error('Failed to update media display name:', error);
+    }
+  };
+
+  const handleCancelEditMediaName = () => {
+    setEditingMediaId(null);
+    setEditingMediaName('');
+  };
+
+  // Photo name editing functions
+  const handleStartEditPhotoName = (photo) => {
+    setEditingPhotoId(photo.id);
+    setEditingPhotoName(photo.display_name || photo.original_filename || '');
+  };
+
+  const handleSavePhotoName = async (photoId) => {
+    if (!editingPhotoName.trim()) return;
+    
+    try {
+      await updatePhotoDisplayName(photoId, editingPhotoName.trim());
+      
+      // Update local state
+      setEmberPhotos(prev => prev.map(photo => 
+        photo.id === photoId ? { ...photo, display_name: editingPhotoName.trim() } : photo
+      ));
+      
+      setEditingPhotoId(null);
+      setEditingPhotoName('');
+    } catch (error) {
+      console.error('Failed to update photo display name:', error);
+    }
+  };
+
+  const handleCancelEditPhotoName = () => {
+    setEditingPhotoId(null);
+    setEditingPhotoName('');
   };
 
   return (
@@ -518,6 +604,126 @@ export default function EmberWiki({
             </div>
           </div>
 
+          {/* Photos Section */}
+          <div className="space-y-3">
+            <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Image className="w-4 h-4 text-blue-600" />
+                Photos
+              </div>
+              <StatusBadge isComplete={getSectionStatus('photos')} />
+            </h3>
+            <div className="text-sm text-gray-600 text-left space-y-3">
+              {emberPhotos.length > 0 ? (
+                emberPhotos.map((photo, index) => {
+                  const isEditing = editingPhotoId === photo.id;
+                  const displayName = photo.display_name || photo.original_filename || 'Untitled';
+
+                  return (
+                    <div key={photo.id || index} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Image size={16} className="text-orange-600" />
+                        {isEditing ? (
+                          <div className="flex items-center gap-2 flex-1">
+                            <Input
+                              value={editingPhotoName}
+                              onChange={(e) => setEditingPhotoName(e.target.value)}
+                              placeholder="Enter display name"
+                              className="text-sm flex-1"
+                              autoFocus
+                            />
+                            <Button
+                              onClick={() => handleSavePhotoName(photo.id)}
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 h-8 w-8 p-0"
+                            >
+                              <Check size={14} />
+                            </Button>
+                            <Button
+                              onClick={handleCancelEditPhotoName}
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                            >
+                              <X size={14} />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className="text-sm font-medium text-orange-900 flex-1">{displayName}</span>
+                            {isOwner && (
+                              <button
+                                onClick={() => handleStartEditPhotoName(photo)}
+                                className="text-gray-400 hover:text-blue-600 transition-colors"
+                                title="Edit display name"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {!isEditing && (
+                          <a 
+                            href={photo.storage_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-gray-600 hover:text-gray-800 flex-shrink-0"
+                            title="Open photo"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
+                      </div>
+                      {/* Show original filename if display name is different */}
+                      {photo.display_name && photo.display_name !== photo.original_filename && !isEditing && (
+                        <div className="text-xs text-gray-500 mb-2">
+                          Original: {photo.original_filename}
+                        </div>
+                      )}
+                      {!isEditing && (
+                        <div className="text-xs text-gray-400 mb-2">
+                          Script reference: name="{displayName}"
+                        </div>
+                      )}
+                      <div className="text-gray-900 space-y-1">
+                        <div className="flex items-center gap-4 text-xs text-gray-600">
+                          <span>Photo</span>
+                          {photo.file_size && (
+                            <span>{(photo.file_size / 1024 / 1024).toFixed(2)} MB</span>
+                          )}
+                          {photo.image_width && photo.image_height && (
+                            <span>{photo.image_width} × {photo.image_height}</span>
+                          )}
+                        </div>
+                        {photo.camera_make && photo.camera_model && (
+                          <div className="text-xs text-gray-600">
+                            Camera: {photo.camera_make} {photo.camera_model}
+                          </div>
+                        )}
+                        {photo.timestamp && (
+                          <div className="text-xs text-gray-500">
+                            Taken: {new Date(photo.timestamp).toLocaleString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-gray-500">
+                  No additional photos have been uploaded for this ember yet.
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Supporting Media Section */}
           <div className="space-y-3">
             <h3 className="font-medium text-lg text-gray-900 text-left flex items-center justify-between">
@@ -546,21 +752,75 @@ export default function EmberWiki({
                     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
                   };
 
+                  const isEditing = editingMediaId === media.id;
+                  const displayName = media.display_name || media.file_name || 'Untitled';
+
                   return (
                     <div key={media.id || index} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                       <div className="flex items-center gap-2 mb-2">
                         <IconComponent size={16} className="text-gray-600" />
-                        <span className="text-sm font-medium text-gray-900">{media.file_name}</span>
-                        <a 
-                          href={media.file_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="ml-auto text-gray-600 hover:text-gray-800"
-                          title="Open file"
-                        >
-                          <ExternalLink size={14} />
-                        </a>
+                        {isEditing ? (
+                          <div className="flex items-center gap-2 flex-1">
+                            <Input
+                              value={editingMediaName}
+                              onChange={(e) => setEditingMediaName(e.target.value)}
+                              placeholder="Enter display name"
+                              className="text-sm flex-1"
+                              autoFocus
+                            />
+                            <Button
+                              onClick={() => handleSaveMediaName(media.id)}
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 h-8 w-8 p-0"
+                            >
+                              <Check size={14} />
+                            </Button>
+                            <Button
+                              onClick={handleCancelEditMediaName}
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                            >
+                              <X size={14} />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className="text-sm font-medium text-gray-900 flex-1">{displayName}</span>
+                            {isOwner && (
+                              <button
+                                onClick={() => handleStartEditMediaName(media)}
+                                className="text-gray-400 hover:text-blue-600 transition-colors"
+                                title="Edit display name"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {!isEditing && (
+                          <a 
+                            href={media.file_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-gray-600 hover:text-gray-800 flex-shrink-0"
+                            title="Open file"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
                       </div>
+                      {/* Show original filename if display name is different */}
+                      {media.display_name && media.display_name !== media.file_name && !isEditing && (
+                        <div className="text-xs text-gray-500 mb-2">
+                          Original: {media.file_name}
+                        </div>
+                      )}
+                      {!isEditing && (
+                        <div className="text-xs text-gray-400 mb-2">
+                          Script reference: name="{displayName}"
+                        </div>
+                      )}
                       <div className="text-gray-900 space-y-1">
                         <div className="flex items-center gap-4 text-xs text-gray-600">
                           <span className="capitalize">{media.file_category}</span>
