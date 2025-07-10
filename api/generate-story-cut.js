@@ -45,6 +45,142 @@ function replaceVariables(text, variables) {
   return result;
 }
 
+// Self-contained AI script to Ember script processing (API version)
+function processAIScriptToEmberScriptAPI(aiScript, emberData) {
+  try {
+    console.log('🔄 API: Processing AI script to Ember script format');
+    console.log('📝 API: Input ai_script:', aiScript?.substring(0, 100) + '...');
+    
+    if (!aiScript || aiScript.trim() === '') {
+      console.error('❌ API: AI script is empty or null');
+      throw new Error('AI script is required');
+    }
+
+    // 1. Opening HOLD segment (2-second black fade-in)
+    const openingHold = '[[HOLD]] <COLOR:#000000,duration=2.0>';
+    
+    // 2. Process voice lines from AI script - add auto-colorization
+    const processedVoiceLines = aiScript
+      .split('\n\n')
+      .filter(line => line.trim())
+      .map(line => {
+        const trimmedLine = line.trim();
+        
+        // Skip if already processed or malformed
+        if (!trimmedLine.includes('[') || !trimmedLine.includes(']')) {
+          return trimmedLine;
+        }
+
+        // Extract voice tag and content
+        const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.*)$/);
+        if (!voiceMatch) {
+          return trimmedLine;
+        }
+
+        const [, voiceTag, content] = voiceMatch;
+        const cleanContent = content.trim();
+
+        // Determine voice type for auto-colorization
+        let autoColor = '';
+        const lowerVoiceTag = voiceTag.toLowerCase();
+        
+        if (lowerVoiceTag === 'ember voice') {
+          autoColor = ' <COLOR:#FF0000,TRAN:0.2>'; // Red for ember voice
+        } else if (lowerVoiceTag === 'narrator') {
+          autoColor = ' <COLOR:#0000FF,TRAN:0.2>'; // Blue for narrator
+        } else {
+          // Contributor voices (actual names like [Amado], [Sarah])
+          autoColor = ' <COLOR:#00FF00,TRAN:0.2>'; // Green for contributors
+        }
+
+        return `[${voiceTag}]${autoColor} ${cleanContent}`;
+      })
+      .join('\n\n');
+
+    // 3. Ember photo as MEDIA element
+    const emberPhotoMedia = `[[MEDIA]] <name="${emberData?.original_filename || 'ember_photo.jpg'}">`;
+    
+    // 4. Closing HOLD segment (4-second black fade-out)
+    const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
+
+    // 5. Combine all elements into complete ember script
+    const emberScript = [
+      openingHold,
+      processedVoiceLines,
+      emberPhotoMedia,
+      closingHold
+    ].join('\n\n');
+
+    console.log('✅ API: Ember script generated successfully');
+    console.log('📝 API: Output script length:', emberScript?.length || 0);
+    console.log('📝 API: Output script preview:', emberScript?.substring(0, 200) + '...');
+    
+    return emberScript;
+  } catch (error) {
+    console.error('❌ API: Error processing AI script to Ember script:', error);
+    console.log('🔄 API: Falling back to basic processing...');
+    return processAIScriptToEmberScriptBasic(aiScript);
+  }
+}
+
+// Fallback basic processing without ember data
+function processAIScriptToEmberScriptBasic(aiScript) {
+  try {
+    console.log('🔄 API: Using basic processing fallback');
+    console.log('📝 API: Basic processing input:', aiScript?.substring(0, 100) + '...');
+    
+    if (!aiScript || aiScript.trim() === '') {
+      console.error('❌ API: Basic processing - no script content available');
+      return '[EMBER VOICE] No script content available';
+    }
+
+    // Basic processing with minimal ember format
+    const openingHold = '[[HOLD]] <COLOR:#000000,duration=2.0>';
+    const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
+    const basicMediaElement = '[[MEDIA]] <name="ember_photo.jpg">';
+
+    // Add basic colorization
+    const processedContent = aiScript
+      .split('\n\n')
+      .filter(line => line.trim())
+      .map(line => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine.includes('[') || !trimmedLine.includes(']')) {
+          return trimmedLine;
+        }
+
+        const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.*)$/);
+        if (!voiceMatch) return trimmedLine;
+
+        const [, voiceTag, content] = voiceMatch;
+        const lowerVoiceTag = voiceTag.toLowerCase();
+        
+        let autoColor = '';
+        if (lowerVoiceTag === 'ember voice') {
+          autoColor = ' <COLOR:#FF0000,TRAN:0.2>';
+        } else if (lowerVoiceTag === 'narrator') {
+          autoColor = ' <COLOR:#0000FF,TRAN:0.2>';
+        } else {
+          autoColor = ' <COLOR:#00FF00,TRAN:0.2>';
+        }
+
+        return `[${voiceTag}]${autoColor} ${content.trim()}`;
+      })
+      .join('\n\n');
+
+    const finalScript = [openingHold, processedContent, basicMediaElement, closingHold].join('\n\n');
+    
+    console.log('✅ API: Basic processing completed');
+    console.log('📝 API: Basic output length:', finalScript?.length || 0);
+    console.log('📝 API: Basic output preview:', finalScript?.substring(0, 200) + '...');
+    
+    return finalScript;
+  } catch (error) {
+    console.error('❌ API: Error in basic processing:', error);
+    return '[EMBER VOICE] Error processing script content';
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -254,6 +390,59 @@ export default async function handler(req, res) {
     try {
       generatedStoryCut = JSON.parse(storyCut);
       console.log('✅ Generated story cut:', generatedStoryCut.title);
+      console.log('📝 AI script received:', generatedStoryCut.ai_script?.substring(0, 200) + '...');
+      
+      // 🔍 DEBUG: Log what OpenAI actually returned
+      console.log('🔍 API DEBUG - Raw OpenAI response:', storyCut);
+      console.log('🔍 API DEBUG - Parsed generatedStoryCut:', generatedStoryCut);
+      console.log('🔍 API DEBUG - ai_script field:', generatedStoryCut.ai_script);
+      console.log('🔍 API DEBUG - ai_script length:', generatedStoryCut.ai_script?.length || 0);
+      
+      // 🔄 PROCESS AI SCRIPT TO EMBER SCRIPT
+      if (generatedStoryCut.ai_script) {
+        console.log('🔄 Processing AI script to Ember script format...');
+        console.log('📝 AI script content preview:', generatedStoryCut.ai_script.substring(0, 200) + '...');
+        
+        try {
+          // Get ember data needed for processing
+          const { data: emberData, error: emberError } = await supabase
+            .from('embers')
+            .select('*')
+            .eq('id', emberId)
+            .single();
+          
+          if (emberError) {
+            console.warn('⚠️ Could not load ember data for script processing:', emberError);
+            // Fallback: use basic ember format without ember data
+            console.log('🔄 Using basic processing fallback...');
+            generatedStoryCut.full_script = processAIScriptToEmberScriptBasic(generatedStoryCut.ai_script);
+          } else {
+            // Use full processing with ember data
+            console.log('🔄 Using full processing with ember data...');
+            generatedStoryCut.full_script = processAIScriptToEmberScriptAPI(generatedStoryCut.ai_script, emberData);
+          }
+          
+          // Ensure we always have a full_script
+          if (!generatedStoryCut.full_script) {
+            console.error('❌ Processing failed - full_script is still null/undefined');
+            console.log('🔄 Emergency fallback - creating basic script...');
+            generatedStoryCut.full_script = `[[HOLD]] <COLOR:#000000,duration=2.0>\n\n${generatedStoryCut.ai_script}\n\n[[MEDIA]] <name="ember_photo.jpg">\n\n[[HOLD]] <COLOR:#000000,duration=4.0>`;
+          }
+          
+        } catch (processingError) {
+          console.error('❌ Error during script processing:', processingError);
+          console.log('🔄 Emergency fallback - creating basic script...');
+          generatedStoryCut.full_script = `[[HOLD]] <COLOR:#000000,duration=2.0>\n\n${generatedStoryCut.ai_script}\n\n[[MEDIA]] <name="ember_photo.jpg">\n\n[[HOLD]] <COLOR:#000000,duration=4.0>`;
+        }
+        
+        console.log('✅ Ember script generated');
+        console.log('📝 Ember script length:', generatedStoryCut.full_script?.length || 0);
+        console.log('📝 Ember script preview:', generatedStoryCut.full_script?.substring(0, 300) + '...');
+      } else {
+        console.warn('⚠️ No ai_script found in OpenAI response');
+        console.error('🔍 Available fields in OpenAI response:', Object.keys(generatedStoryCut));
+        generatedStoryCut.full_script = '[EMBER VOICE] No script content generated';
+      }
       
       // Add recorded audio URLs to the story cut data (MISSING LOGIC FROM LOCALHOST)
       generatedStoryCut.recordedAudio = {};

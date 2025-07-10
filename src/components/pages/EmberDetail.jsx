@@ -208,8 +208,6 @@ const StoryCutDetailContent = ({
   formatRelativeTime,
   storyMessages,
   ember,
-  hasBeenEnhanced,
-  getEditableScript,
   formattedScript
 }) => (
   <div className="space-y-6">
@@ -247,13 +245,12 @@ const StoryCutDetailContent = ({
         <h3 className="text-lg font-semibold text-gray-900">Complete Script</h3>
         {!isEditingScript && (
           <button
-            onClick={() => {
+            onClick={async () => {
               try {
                 console.log('✏️ Starting script edit...');
                 console.log('📝 Current stored script:', selectedStoryCut.full_script);
-                // Compute the current enhancement status instead of using potentially stale state
-                const scriptHasEnhancedContent = selectedStoryCut.full_script.includes('[[MEDIA]]') || selectedStoryCut.full_script.includes('[[HOLD]]');
-                const editableScript = getEditableScript(selectedStoryCut.full_script, ember, selectedStoryCut, scriptHasEnhancedContent);
+                // Use the same formatting as the display view
+                const editableScript = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
                 console.log('📝 Loaded editable script:', editableScript);
                 setIsEditingScript(true);
                 setEditedScript(editableScript);
@@ -1109,6 +1106,7 @@ export default function EmberDetail() {
   const [currentVoiceTransparency, setCurrentVoiceTransparency] = useState(0.2);
   const [currentMediaColor, setCurrentMediaColor] = useState(null);
   const [currentZoomScale, setCurrentZoomScale] = useState({ start: 1.0, end: 1.0 });
+  const [currentMediaImageUrl, setCurrentMediaImageUrl] = useState(null);
   const [availableVoices, setAvailableVoices] = useState([]);
   const [selectedEmberVoice, setSelectedEmberVoice] = useState('');
   const [selectedNarratorVoice, setSelectedNarratorVoice] = useState('');
@@ -1147,7 +1145,6 @@ export default function EmberDetail() {
   const [isEditingScript, setIsEditingScript] = useState(false);
   const [editedScript, setEditedScript] = useState('');
   const [isSavingScript, setIsSavingScript] = useState(false);
-  const [hasBeenEnhanced, setHasBeenEnhanced] = useState(false);
   const [formattedScript, setFormattedScript] = useState('');
 
   // Synchronized text display state (Option 1B: Sentence-by-Sentence)
@@ -1166,6 +1163,40 @@ export default function EmberDetail() {
   
   // 🎯 State for EXIF processing loading indicator
   const [isExifProcessing, setIsExifProcessing] = useState(false);
+
+  // 🐛 DEBUG: Test prompt format
+  const testPromptFormat = async () => {
+    try {
+      const { testCurrentPrompt } = await import('@/lib/initializePrompts');
+      const result = await testCurrentPrompt();
+      
+      if (result) {
+        const status = result.hasAiScript ? '✅ CORRECT (ai_script)' : '❌ OLD (full_script)';
+        console.log(`🔍 PROMPT STATUS: ${status}`);
+        console.log(`📝 Version: ${result.version}`);
+        setMessage({
+          type: result.hasAiScript ? 'success' : 'error',
+          text: `Prompt ${status} - Version: ${result.version}`
+        });
+      } else {
+        console.log('❌ No prompt found');
+        setMessage({ type: 'error', text: 'No prompt found in database' });
+      }
+    } catch (error) {
+      console.error('❌ Error testing prompt:', error);
+      setMessage({ type: 'error', text: 'Error testing prompt format' });
+    }
+  };
+
+  // 🐛 EXPOSE DEBUG FUNCTION TO CONSOLE
+  useEffect(() => {
+    window.testPromptFormat = testPromptFormat;
+    console.log('🐛 DEBUG: Call window.testPromptFormat() to test current prompt format');
+    
+    return () => {
+      delete window.testPromptFormat;
+    };
+  }, []);
 
   // Media query hook for responsive design
   const useMediaQuery = (query) => {
@@ -1935,6 +1966,16 @@ export default function EmberDetail() {
       setIsGeneratingStoryCut(true);
       setMessage(null);
 
+      // 🔄 ENSURE DATABASE HAS UPDATED AI-SCRIPT PROMPT
+      console.log('🔄 Checking/updating prompt in database...');
+      try {
+        const { updateStoryCutGenerationPrompt } = await import('@/lib/initializePrompts');
+        await updateStoryCutGenerationPrompt();
+        console.log('✅ Prompt database updated successfully');
+      } catch (promptError) {
+        console.warn('⚠️ Could not update prompt, but continuing:', promptError.message);
+      }
+
       // Form validation
       if (!selectedStoryStyle) {
         throw new Error('Please select a story style');
@@ -2094,6 +2135,20 @@ export default function EmberDetail() {
       
       console.log('✅ Story cut generated successfully:', generatedStoryCut.title);
       console.log('📄 Script length:', generatedStoryCut.full_script?.length || 0, 'characters');
+      
+      // 🔍 DEBUG: Log the complete API response structure
+      console.log('🔍 DEBUG - Raw API result:', result);
+      console.log('🔍 DEBUG - Generated story cut object:', generatedStoryCut);
+      console.log('🔍 DEBUG - ai_script content:', generatedStoryCut.ai_script);
+      console.log('🔍 DEBUG - full_script content:', generatedStoryCut.full_script);
+      console.log('🔍 DEBUG - All fields in response:', Object.keys(generatedStoryCut));
+      
+      // Check if full_script is null/undefined and prevent database error
+      if (!generatedStoryCut.full_script) {
+        console.error('❌ CRITICAL: full_script is null/undefined. Cannot save story cut.');
+        console.log('🔍 Available fields:', Object.keys(generatedStoryCut).join(', '));
+        throw new Error('Story generation failed - no script content received from API');
+      }
 
       // Save the story cut to database
       console.log('💾 Saving story cut to database...');
@@ -2394,6 +2449,7 @@ export default function EmberDetail() {
       console.log('📝 Script has MEDIA lines:', editedScript.includes('[[MEDIA]]'));
       console.log('📝 Script has HOLD lines:', editedScript.includes('[[HOLD]]'));
       console.log('📝 Original selectedStoryCut script before save (first 500 chars):', selectedStoryCut.full_script.substring(0, 500));
+      console.log('✅ SAVING EXACTLY what user typed - no modifications applied during save');
       
       // Count MEDIA and HOLD lines in edited script
       const mediaLines = (editedScript.match(/\[\[MEDIA\]\]/g) || []).length;
@@ -2459,10 +2515,6 @@ export default function EmberDetail() {
       setIsEditingScript(false);
       setMessage({ type: 'success', text: 'Script updated successfully!' });
       
-      // Mark as enhanced since we just saved a script with MEDIA or HOLD lines
-      const hasEnhancedContent = editedScript.includes('[[MEDIA]]') || editedScript.includes('[[HOLD]]');
-      setHasBeenEnhanced(hasEnhancedContent);
-      
       // Refresh story cuts to ensure we have the latest data
       console.log('🔄 Refreshing story cuts to get latest data...');
       await fetchStoryCuts();
@@ -2484,12 +2536,11 @@ export default function EmberDetail() {
     }
   };
 
-  const handleCancelScriptEdit = () => {
+  const handleCancelScriptEdit = async () => {
     console.log('🔄 Canceling script edit...');
     console.log('📝 Current stored script:', selectedStoryCut.full_script);
-    // Compute the current enhancement status instead of using potentially stale state
-    const scriptHasEnhancedContent = selectedStoryCut.full_script.includes('[[MEDIA]]') || selectedStoryCut.full_script.includes('[[HOLD]]');
-    const editableScript = getEditableScript(selectedStoryCut.full_script, ember, selectedStoryCut, scriptHasEnhancedContent);
+    // Use the same formatting as the display view
+    const editableScript = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
     console.log('📝 Loaded editable script:', editableScript);
     setEditedScript(editableScript);
     setIsEditingScript(false);
@@ -2497,36 +2548,36 @@ export default function EmberDetail() {
 
   // Set edited script when selectedStoryCut changes
   useEffect(() => {
-    if (selectedStoryCut && selectedStoryCut.full_script && !isSavingScript) {
-      console.log('🔄 useEffect: selectedStoryCut changed, updating edited script');
-      console.log('📝 New selectedStoryCut script:', selectedStoryCut.full_script);
-      
-      // 🚨 CRITICAL DEBUG: Check for HOLD segments in the stored script
-      const storedHoldMatches = selectedStoryCut.full_script.match(/\[\[HOLD\]\].*$/gm) || [];
-      console.log('🚨 HOLD SEGMENTS IN STORED SCRIPT (useEffect):');
-      storedHoldMatches.forEach((holdLine, index) => {
-        console.log(`  🚨 STORED HOLD ${index + 1}: "${holdLine}"`);
-      });
-      
-      // Reset enhancement flag for new story cut
-      const scriptHasEnhancedContent = selectedStoryCut.full_script.includes('[[MEDIA]]') || selectedStoryCut.full_script.includes('[[HOLD]]');
-      setHasBeenEnhanced(scriptHasEnhancedContent);
-      
-      // Use the computed value directly instead of the stale hasBeenEnhanced state
-      const editableScript = getEditableScript(selectedStoryCut.full_script, ember, selectedStoryCut, scriptHasEnhancedContent);
-      console.log('📝 Setting editedScript to:', editableScript);
-      
-      // 🚨 CRITICAL DEBUG: Check for HOLD segments in the editable script
-      const editableHoldMatches = editableScript.match(/\[\[HOLD\]\].*$/gm) || [];
-      console.log('🚨 HOLD SEGMENTS IN EDITABLE SCRIPT (useEffect):');
-      editableHoldMatches.forEach((holdLine, index) => {
-        console.log(`  🚨 EDITABLE HOLD ${index + 1}: "${holdLine}"`);
-      });
-      
-      setEditedScript(editableScript);
-    } else if (isSavingScript) {
-      console.log('🔄 useEffect: Skipping script update because save is in progress');
-    }
+    const updateEditedScript = async () => {
+      if (selectedStoryCut && selectedStoryCut.full_script && !isSavingScript) {
+        console.log('🔄 useEffect: selectedStoryCut changed, updating edited script');
+        console.log('📝 New selectedStoryCut script:', selectedStoryCut.full_script);
+        
+        // 🚨 CRITICAL DEBUG: Check for HOLD segments in the stored script
+        const storedHoldMatches = selectedStoryCut.full_script.match(/\[\[HOLD\]\].*$/gm) || [];
+        console.log('🚨 HOLD SEGMENTS IN STORED SCRIPT (useEffect):');
+        storedHoldMatches.forEach((holdLine, index) => {
+          console.log(`  🚨 STORED HOLD ${index + 1}: "${holdLine}"`);
+        });
+        
+        // Use the same formatting as the display view
+        const editableScript = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
+        console.log('📝 Setting editedScript to:', editableScript);
+        
+        // 🚨 CRITICAL DEBUG: Check for HOLD segments in the editable script
+        const editableHoldMatches = editableScript.match(/\[\[HOLD\]\].*$/gm) || [];
+        console.log('🚨 HOLD SEGMENTS IN EDITABLE SCRIPT (useEffect):');
+        editableHoldMatches.forEach((holdLine, index) => {
+          console.log(`  🚨 EDITABLE HOLD ${index + 1}: "${holdLine}"`);
+        });
+        
+        setEditedScript(editableScript);
+      } else if (isSavingScript) {
+        console.log('🔄 useEffect: Skipping script update because save is in progress');
+      }
+    };
+    
+    updateEditedScript();
   }, [selectedStoryCut, ember, isSavingScript]);
 
   // Extract all wiki content as text for narration
@@ -2719,6 +2770,7 @@ export default function EmberDetail() {
             setCurrentVoiceTransparency,
             setCurrentMediaColor,
             setCurrentZoomScale,
+            setCurrentMediaImageUrl,
             // 🎯 Add sentence-by-sentence display state setters
             setCurrentDisplayText,
             setCurrentVoiceTag,
@@ -2730,7 +2782,7 @@ export default function EmberDetail() {
             setMediaTimeouts,
             mediaTimeouts,
             mediaTimeoutsRef
-          });
+          }, ember);
         } else {
           // Fallback if no segments could be parsed
           console.log('⚠️ No segments could be parsed, falling back to single voice');
@@ -3798,13 +3850,11 @@ export default function EmberDetail() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0 text-left" style={{ textAlign: 'left' }}>
                           <h3 className="font-medium text-gray-900 truncate text-left" style={{ textAlign: 'left' }}>{cut.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1 line-clamp-2 text-left" style={{ textAlign: 'left' }}>
-                              {cut.story_focus || (cut.full_script ? (() => {
-                                // Remove voice tags like [EMBER VOICE], [NARRATOR], [NAME] from script snippet
-                                const cleanScript = cut.full_script.replace(/\[[^\]]+\]/g, '').trim();
-                                return cleanScript.substring(0, 100) + (cleanScript.length > 100 ? '...' : '');
-                              })() : '') || 'No description available'}
-                          </p>
+                          {cut.story_focus && (
+                            <p className="text-sm text-gray-600 mt-1 line-clamp-2 text-left" style={{ textAlign: 'left' }}>
+                              {cut.story_focus}
+                            </p>
+                          )}
                         </div>
                       </div>
                       
@@ -4024,8 +4074,6 @@ export default function EmberDetail() {
                     formatRelativeTime={formatRelativeTime}
                     storyMessages={storyMessages}
                     ember={ember}
-                    hasBeenEnhanced={hasBeenEnhanced}
-                    getEditableScript={getEditableScript}
                     formattedScript={formattedScript}
                   />
                 </div>
@@ -4057,8 +4105,6 @@ export default function EmberDetail() {
                   formatRelativeTime={formatRelativeTime}
                   storyMessages={storyMessages}
                   ember={ember}
-                  hasBeenEnhanced={hasBeenEnhanced}
-                  getEditableScript={getEditableScript}
                   formattedScript={formattedScript}
                 />
               </DialogContent>
@@ -4470,13 +4516,20 @@ export default function EmberDetail() {
       }
     });
     
-    // Remove exact duplicates
+    // Remove exact duplicates (but preserve HOLD segments since opening/closing are legitimately the same)
     const uniqueSegments = [];
     const seenSegments = new Set();
     
     console.log('🔄 Removing duplicates from', segments.length, 'segments...');
     
     segments.forEach((segment, index) => {
+      // Skip duplicate removal for HOLD segments - opening and closing are expected to be the same
+      if (segment.type === 'hold') {
+        uniqueSegments.push(segment);
+        console.log(`  ✅ Kept HOLD segment ${index + 1}: [[${segment.voiceTag}]] "${segment.content.substring(0, 50)}..." (skipping duplicate check)`);
+        return;
+      }
+      
       const key = `${segment.type}-${segment.voiceTag}-${segment.content}`;
       console.log(`🔍 Checking segment ${index + 1}: Key="${key.substring(0, 50)}..."`);
       
@@ -4706,327 +4759,67 @@ export default function EmberDetail() {
     return estimatedDuration.toFixed(2);
   };
 
-  // Parse original script format where voice segments are in one continuous string
-  const parseOriginalScriptFormat = (script) => {
-    if (!script) return [];
-    
-    const segments = [];
-    
-    // Split by voice tags - handle both bracketed formats
-    const voiceTagRegex = /\[([^\]]+)\]/g;
-    let lastIndex = 0;
-    let match;
-    let currentVoiceTag = null;
-    
-    while ((match = voiceTagRegex.exec(script)) !== null) {
-      // If we have a previous voice tag, process the content before this match
-      if (currentVoiceTag) {
-        const content = script.slice(lastIndex, match.index).trim();
-        if (content) {
-          const voiceType = getVoiceType(currentVoiceTag);
-          
-          // Add default colorization based on voice type
-          let colorizeAction = '';
-          switch (voiceType) {
-            case 'ember':
-              colorizeAction = '<COLOR:#FF0000,TRAN:0.2>';
-              break;
-            case 'narrator':
-              colorizeAction = '<COLOR:#0000FF,TRAN:0.2>';
-              break;
-            case 'contributor':
-              colorizeAction = '<COLOR:#00FF00,TRAN:0.2>';
-              break;
-          }
-          
-          segments.push({
-            voiceTag: currentVoiceTag,
-            content: `${colorizeAction} ${content}`.trim(),
-            originalContent: content,
-            type: voiceType,
-            visualActions: [],
-            hasAutoColorize: true
-          });
-        }
-      }
-      
-      // Update for next iteration
-      currentVoiceTag = match[1];
-      lastIndex = match.index + match[0].length;
-    }
-    
-    // Process the last segment after the final voice tag
-    if (currentVoiceTag) {
-      const content = script.slice(lastIndex).trim();
-      if (content) {
-        const voiceType = getVoiceType(currentVoiceTag);
-        
-        // Add default colorization based on voice type
-        let colorizeAction = '';
-        switch (voiceType) {
-          case 'ember':
-            colorizeAction = '<COLOR:#FF0000,TRAN:0.2>';
-            break;
-          case 'narrator':
-            colorizeAction = '<COLOR:#0000FF,TRAN:0.2>';
-            break;
-          case 'contributor':
-            colorizeAction = '<COLOR:#00FF00,TRAN:0.2>';
-            break;
-        }
-        
-        segments.push({
-          voiceTag: currentVoiceTag,
-          content: `${colorizeAction} ${content}`.trim(),
-          originalContent: content,
-          type: voiceType,
-          visualActions: [],
-          hasAutoColorize: true
-        });
-      }
-    }
-    
-    console.log('📝 Parsed original script format:', segments.length, 'segments');
-    segments.forEach((segment, index) => {
-      console.log(`  ${index + 1}. [${segment.voiceTag}] → "${segment.originalContent.substring(0, 50)}..."`);
-    });
-    
-    return segments;
-  };
 
-  // Generate enhanced script with current playback behavior as explicit MEDIA lines
-  const generateEnhancedScript = (originalScript, ember, storyCut) => {
-    if (!originalScript) return '';
-    
-    // For original scripts that don't have proper line breaks, we need to parse them differently
-    let segments;
-    if (originalScript.includes('[[MEDIA]]')) {
-      // Script already has MEDIA lines, use normal parsing
-      console.log('📝 Using standard parsing for script with MEDIA lines');
-      segments = parseScriptSegments(originalScript);
-    } else {
-      // Original format script - needs special parsing to separate voice segments
-      console.log('📝 Using original format parsing for script without MEDIA lines');
-      console.log('📝 Original script preview:', originalScript.substring(0, 200) + '...');
-      segments = parseOriginalScriptFormat(originalScript);
-    }
-    
-    const enhancedSegments = [];
-    
-    // Calculate total story duration from voice segments
-    let totalVoiceDuration = 0;
-    segments.forEach(segment => {
-      if (segment.type !== 'media' && segment.type !== 'hold') {
-        totalVoiceDuration += parseFloat(estimateSegmentDuration(segment.content, segment.type));
-      }
-    });
-    
-    // 1. Add opening black screen (current loading behavior)
-    enhancedSegments.push({
-      voiceTag: 'HOLD',
-      content: '<COLOR:#000000,duration=2.0>',
-      type: 'hold',
-      duration: '2.00'
-    });
-    
-    // 2. Add ember image with zoom out (current main playback behavior)
-    const emberId = ember?.id || 'current';
-    enhancedSegments.push({
-      voiceTag: 'MEDIA', 
-      content: `id=${emberId} <Z-OUT:scale=0.7,duration=${totalVoiceDuration.toFixed(2)}>`,
-      type: 'media',
-      duration: totalVoiceDuration.toFixed(2),
-      mediaId: emberId, // Add the mediaId property for display name resolution
-      originalContent: `id=${emberId}`,
-      visualActions: [`Z-OUT:scale=0.7,duration=${totalVoiceDuration.toFixed(2)}`]
-    });
-    
-    // 3. Add all voice segments
-    segments.forEach(segment => {
-      if (segment.type !== 'media' && segment.type !== 'hold') {
-        enhancedSegments.push(segment);
-      }
-    });
-    
-    // 4. Add ending black screen (current fade-out + hold behavior)
-    enhancedSegments.push({
-      voiceTag: 'HOLD',
-      content: '<COLOR:#000000,duration=4.0>',
-      type: 'hold', 
-      duration: '4.00' // 3 seconds fade + 1 second hold
-    });
-    
-    console.log('🔄 generateEnhancedScript: Final enhanced segments order:');
-    enhancedSegments.forEach((segment, index) => {
-      console.log(`  ${index + 1}. ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 30)}..."`);
-    });
-    
-    return enhancedSegments;
-  };
 
-  // Convert enhanced segments to editable script text
-  const segmentsToScriptText = (segments) => {
-    console.log('🔄 segmentsToScriptText: Converting', segments.length, 'segments to script text');
-    segments.forEach((segment, index) => {
-      console.log(`  ${index + 1}. ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 50)}..."`);
-    });
-    
-    const scriptText = segments.map(segment => {
-      const { voiceTag, content, type } = segment;
-      
-      // Format media/hold lines with [[TYPE]] and voice lines with [VOICE]  
-      const prefix = (type === 'media' || type === 'hold') ? `[[${voiceTag}]]` : `[${voiceTag}]`;
-      
-      return `${prefix} ${content}`;
-    }).join('\n\n');
-    
-    console.log('📝 Generated script text preview:', scriptText.substring(0, 200) + '...');
-    return scriptText;
-  };
 
-  // Get the script for editing (enhanced if original doesn't have MEDIA lines)
-  const getEditableScript = (script, ember, storyCut, hasBeenEnhancedFlag = false) => {
-    if (!script) return '';
-    
-    try {
-      // Check if script already has MEDIA or HOLD lines
-      const hasMediaLines = script.includes('[[MEDIA]]') || script.includes('[[HOLD]]');
-      
-      console.log('🔍 getEditableScript analysis:');
-      console.log('  - Script length:', script.length);
-      console.log('  - Has MEDIA lines:', script.includes('[[MEDIA]]'));
-      console.log('  - Has HOLD lines:', script.includes('[[HOLD]]'));
-      console.log('  - Has enhanced content:', hasMediaLines);
-      console.log('  - Script preview:', script.substring(0, 100) + '...');
-      console.log('  - Has been enhanced flag:', hasBeenEnhancedFlag);
-      
-      if (hasMediaLines) {
-        // Use script as-is if it already has MEDIA or HOLD lines
-        console.log('  - Decision: Using script as-is (already has enhanced content)');
-        return script;
-      } else {
-        // Generate enhanced script with current behavior as explicit MEDIA lines
-        console.log('  - Decision: Generating enhanced script (no enhanced content found)');
-        const segments = generateEnhancedScript(script, ember, storyCut);
-        const enhancedScript = segmentsToScriptText(segments);
-        console.log('  - Enhanced script preview:', enhancedScript.substring(0, 100) + '...');
-        
-        return enhancedScript;
-      }
-    } catch (error) {
-      console.error('❌ Error in getEditableScript:', error);
-      console.log('🔄 Returning original script as fallback');
-      return script;
-    }
-  };
 
-  // Format script for display with visual actions and spacing
+
+
+
+
+  // Format script for display - simplified for ember script format
   const formatScriptForDisplay = async (script, ember, storyCut) => {
     if (!script) return '';
     
-    console.log('🎨 formatScriptForDisplay called');
+    console.log('🎨 formatScriptForDisplay called (simplified)');
     console.log('🎨 Script preview (first 200 chars):', script.substring(0, 200));
     
-    // Check if script already has MEDIA or HOLD lines
-    const hasEnhancedContent = script.includes('[[MEDIA]]') || script.includes('[[HOLD]]');
-    console.log('🎨 Script has MEDIA lines:', script.includes('[[MEDIA]]'));
-    console.log('🎨 Script has HOLD lines:', script.includes('[[HOLD]]'));
-    console.log('🎨 Script has enhanced content:', hasEnhancedContent);
+    // Ember script is already properly formatted, just resolve media display names
+    console.log('📝 Using ember script format (already processed)...');
     
-    // Count MEDIA and HOLD lines
-    const mediaLinesCount = (script.match(/\[\[MEDIA\]\]/g) || []).length;
-    const holdLinesCount = (script.match(/\[\[HOLD\]\]/g) || []).length;
-    console.log('🎨 Number of MEDIA lines in script:', mediaLinesCount);
-    console.log('🎨 Number of HOLD lines in script:', holdLinesCount);
-    
-    let segments;
-    if (hasEnhancedContent) {
-      // Use script as-is if it already has MEDIA or HOLD lines - parse directly without enhancement
-      console.log('📝 Using existing script with enhanced content, parsing directly...');
-      segments = parseScriptSegments(script);
-      console.log('📝 Parsed segments from existing script:', segments.length);
-    } else {
-      // Generate enhanced script with current behavior as explicit MEDIA lines
-      console.log('📝 Script has no enhanced content, enhancing...');
-      segments = generateEnhancedScript(script, ember, storyCut);
-      console.log('📝 Generated enhanced segments:', segments.length);
-    }
-    
-    // 🚨 CRITICAL DEBUG: Check HOLD segments before display formatting
-    const holdSegmentsForDisplay = segments.filter(seg => seg.type === 'hold');
-    console.log('🚨 HOLD SEGMENTS FOR DISPLAY:', holdSegmentsForDisplay.length);
-    holdSegmentsForDisplay.forEach((holdSeg, index) => {
-      console.log(`  🚨 DISPLAY HOLD ${index + 1}: "${holdSeg.content}" (type: ${holdSeg.type})`);
-    });
-
     // Get all media for this ember to resolve display names
-    const [emberPhotos, supportingMedia] = await Promise.all([
-      getEmberPhotos(ember.id),
-      getEmberSupportingMedia(ember.id)
-    ]);
+    try {
+      const [emberPhotos, supportingMedia] = await Promise.all([
+        getEmberPhotos(ember.id),
+        getEmberSupportingMedia(ember.id)
+      ]);
 
-    const resolveMediaDisplayName = (segment) => {
-      if (segment.type !== 'media') return segment.content;
+      // Simple text replacement for media display names
+      let displayScript = script;
       
-      console.log('🔍 Resolving display name for segment:', {
-        mediaId: segment.mediaId,
-        mediaName: segment.mediaName,
-        content: segment.content,
-        availablePhotos: emberPhotos.length,
-        availableSupportingMedia: supportingMedia.length
-      });
-      
-      // Look up display name for media segments
-      if (segment.mediaId) {
-        console.log(`🔍 Searching for media ID: ${segment.mediaId}`);
+      // Replace media ID references with display names
+      const mediaIdRegex = /\[\[MEDIA\]\]\s*<[^>]*id=([a-zA-Z0-9\-_]+)[^>]*>/g;
+      displayScript = displayScript.replace(mediaIdRegex, (match, mediaId) => {
+        console.log(`🔍 Resolving display name for media ID: ${mediaId}`);
         
-        // Search by ID first
-        const photoMatch = emberPhotos.find(photo => photo.id === segment.mediaId);
+        // Search in photos first
+        const photoMatch = emberPhotos.find(photo => photo.id === mediaId);
         if (photoMatch) {
           const displayName = photoMatch.display_name || photoMatch.original_filename;
           console.log(`✅ Found photo match: ${displayName}`);
-          return segment.content.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
+          return match.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
         }
         
-        const mediaMatch = supportingMedia.find(media => media.id === segment.mediaId);
+        // Search in supporting media
+        const mediaMatch = supportingMedia.find(media => media.id === mediaId);
         if (mediaMatch) {
           const displayName = mediaMatch.display_name || mediaMatch.file_name;
           console.log(`✅ Found supporting media match: ${displayName}`);
-          return segment.content.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
+          return match.replace(/id=[a-zA-Z0-9\-_]+/, `name="${displayName}"`);
         }
         
-        console.log(`❌ No match found for media ID: ${segment.mediaId}`);
-        console.log('Available photo IDs:', emberPhotos.map(p => p.id));
-        console.log('Available media IDs:', supportingMedia.map(m => m.id));
-      }
-      
-      // If no match found or already has name format, return as-is
-      return segment.content;
-    };
+        console.log(`❌ No match found for media ID: ${mediaId}`);
+        return match; // Return unchanged if no match
+      });
 
-    const displaySegments = segments.map((segment, index) => {
-      const { voiceTag, content, type, duration } = segment;
-      const calculatedDuration = duration || estimateSegmentDuration(content, type);
+      console.log('✅ Display script formatting complete');
+      return displayScript;
       
-      // For media segments, replace ID with display name
-      const displayContent = resolveMediaDisplayName(segment);
-      
-      // Format media/hold lines with [[TYPE]] and voice lines with [VOICE]
-      const prefix = (type === 'media' || type === 'hold') ? `[[${voiceTag}]]` : `[${voiceTag}]`;
-      
-      const displayLine = `${prefix} ${displayContent} (${calculatedDuration})`;
-      console.log(`📝 Display segment ${index + 1}: "${displayLine}"`);
-      
-      // 🚨 CRITICAL DEBUG: Special logging for HOLD segments
-      if (type === 'hold') {
-        console.log(`🚨 FORMATTING HOLD SEGMENT: "${displayLine}"`);
-      }
-      
-      // Add double line breaks between segments for spacing
-      return displayLine;
-    });
-
-    return displaySegments.join('\n\n');
+    } catch (error) {
+      console.error('❌ Error formatting script for display:', error);
+      // Fallback: return script as-is
+      return script;
+    }
   };
 
   // 🐛 DEBUG HELPER: Inspect recorded audio data
@@ -5566,7 +5359,7 @@ export default function EmberDetail() {
   };
 
   // Play multiple audio segments sequentially
-  const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, stateSetters) => {
+  const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, stateSetters, ember) => {
     const { 
       setIsGeneratingAudio, 
       setIsPlaying, 
@@ -5578,6 +5371,7 @@ export default function EmberDetail() {
       setCurrentVoiceTransparency,
       setCurrentMediaColor,
       setCurrentZoomScale,
+      setCurrentMediaImageUrl,
       // 🎯 Sentence-by-sentence display state setters
       setCurrentDisplayText,
       setCurrentVoiceTag,
@@ -5674,17 +5468,35 @@ export default function EmberDetail() {
       // Apply background media effects before starting timeline
       const mediaEffects = segments.filter(segment => segment.type === 'media');
       console.log(`🎭 Applying ${mediaEffects.length} background media effects...`);
-      mediaEffects.forEach((segment, index) => {
-        console.log(`📺 Background effect ${index + 1}: ${segment.content.substring(0, 50)}...`);
+      
+      // Process each media segment to resolve and display the correct image
+      for (const segment of mediaEffects) {
+        console.log(`📺 Processing media segment: ${segment.content.substring(0, 50)}...`);
         
-        // Apply media background effects based on content
+        // Resolve the media reference to get the actual image URL
+        const resolvedMediaUrl = await resolveMediaReference(segment, ember.id);
+        console.log(`🔍 Resolved media URL for "${segment.mediaName || segment.mediaId}":`, resolvedMediaUrl);
+        
+        if (resolvedMediaUrl) {
+          // Update the current media image URL to display the specific media
+          console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
+          setCurrentMediaImageUrl(resolvedMediaUrl);
+        } else {
+          console.warn(`⚠️ Could not resolve media reference: ${segment.mediaName || segment.mediaId}`);
+          console.warn(`📋 Available photos: ${emberPhotos?.length || 0}`);
+          console.warn(`📋 Available supporting media: ${supportingMedia?.length || 0}`);
+          // Fall back to original ember image if media not found
+          setCurrentMediaImageUrl(ember.image_url);
+        }
+        
+        // Apply visual effects to the resolved image
         if (segment.content.includes('Z-OUT:')) {
           // Extract zoom scale values from Z-OUT command
           const zoomScale = extractZoomScaleFromAction(segment.content);
-          console.log(`🎬 Background effect: Image zoom out - from ${zoomScale.start} to ${zoomScale.end}`);
+          console.log(`🎬 Applying zoom effect: from ${zoomScale.start} to ${zoomScale.end}`);
           setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
         }
-      });
+      }
       
       let currentTimelineIndex = 0;
       // Clear any existing media timeouts before starting new playback
@@ -5710,6 +5522,7 @@ export default function EmberDetail() {
             setCurrentVoiceTransparency(0.2); // Reset to default
             setCurrentMediaColor(null);
             setCurrentZoomScale({ start: 1.0, end: 1.0 }); // Reset to default
+            setCurrentMediaImageUrl(null); // Reset to default ember image
             handlePlaybackComplete();
           } else {
             console.log('🛑 Timeline playback stopped');

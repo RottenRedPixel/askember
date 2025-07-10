@@ -1015,6 +1015,102 @@ export const deleteStoryCut = async (storyCutId, userId) => {
 };
 
 /**
+ * Process AI-generated script into Ember script format
+ * Takes raw AI script (pure voice content) and transforms it into complete ember playback format
+ * @param {string} aiScript - Raw AI script with just voice lines
+ * @param {Object} ember - Ember object containing image and metadata
+ * @param {string} emberId - Ember ID for media reference
+ * @returns {string} Complete ember script ready for playback
+ */
+export const processAIScriptToEmberScript = async (aiScript, ember, emberId) => {
+  try {
+    console.log('🔄 Processing AI script to Ember script format');
+    console.log('📝 AI script preview:', aiScript.substring(0, 200) + '...');
+    
+    if (!aiScript || !ember) {
+      throw new Error('AI script and ember data are required');
+    }
+
+    // 1. Opening HOLD segment (2-second black fade-in)
+    const openingHold = '[[HOLD]] <COLOR:#000000,duration=2.0>';
+    
+    // 2. Process voice lines from AI script - add auto-colorization
+    const processedVoiceLines = aiScript
+      .split('\n\n')
+      .filter(line => line.trim())
+      .map(line => {
+        const trimmedLine = line.trim();
+        
+        // Skip if already processed or malformed
+        if (!trimmedLine.includes('[') || !trimmedLine.includes(']')) {
+          return trimmedLine;
+        }
+
+        // Extract voice tag and content
+        const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.*)$/);
+        if (!voiceMatch) {
+          return trimmedLine;
+        }
+
+        const [, voiceTag, content] = voiceMatch;
+        const cleanContent = content.trim();
+
+        // Determine voice type for auto-colorization
+        let autoColor = '';
+        const lowerVoiceTag = voiceTag.toLowerCase();
+        
+        if (lowerVoiceTag === 'ember voice') {
+          autoColor = ' <COLOR:#FF0000,TRAN:0.2>'; // Red for ember voice
+        } else if (lowerVoiceTag === 'narrator') {
+          autoColor = ' <COLOR:#0000FF,TRAN:0.2>'; // Blue for narrator
+        } else {
+          // Contributor voices (actual names like [Amado], [Sarah])
+          autoColor = ' <COLOR:#00FF00,TRAN:0.2>'; // Green for contributors
+        }
+
+        return `[${voiceTag}]${autoColor} ${cleanContent}`;
+      })
+      .join('\n\n');
+
+    // 3. Ember photo as MEDIA element
+    const emberPhotoMedia = `[[MEDIA]] <name="${ember.original_filename || 'ember_photo.jpg'}">`;
+    
+    // 4. Closing HOLD segment (4-second black fade-out)
+    const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
+
+    // 5. Combine all elements into complete ember script
+    const emberScript = [
+      openingHold,
+      processedVoiceLines,
+      emberPhotoMedia,
+      closingHold
+    ].join('\n\n');
+
+    console.log('✅ Ember script generated successfully');
+    console.log('📝 Ember script preview:', emberScript.substring(0, 300) + '...');
+    
+    // Count segments for logging
+    const holdSegments = (emberScript.match(/\[\[HOLD\]\]/g) || []).length;
+    const mediaSegments = (emberScript.match(/\[\[MEDIA\]\]/g) || []).length;
+    const voiceSegments = (emberScript.match(/\[[^\[\]]+\]/g) || []).filter(match => 
+      !match.includes('[[')
+    ).length;
+    
+    console.log('📊 Ember script composition:', {
+      holdSegments,
+      mediaSegments, 
+      voiceSegments,
+      totalLength: emberScript.length
+    });
+
+    return emberScript;
+  } catch (error) {
+    console.error('❌ Error processing AI script to Ember script:', error);
+    throw error;
+  }
+};
+
+/**
  * Save image analysis data for an ember
  * @param {string} emberId - Ember ID
  * @param {string} userId - User ID
@@ -1925,18 +2021,53 @@ export const getEmberSupportingMedia = async (emberId) => {
  */
 export const updateSupportingMediaDisplayName = async (mediaId, displayName) => {
   try {
+    console.log('🔍 Attempting to update supporting media:', { mediaId, displayName });
+    
+    // First, check if the record exists
+    const { data: existingRecord, error: checkError } = await supabase
+      .from('ember_supporting_media')
+      .select('id, file_name, display_name')
+      .eq('id', mediaId);
+
+    console.log('🔍 Existing record check:', { existingRecord, checkError });
+
+    if (checkError) {
+      console.error('❌ Error checking existing record:', checkError);
+      throw new Error(checkError.message);
+    }
+
+    if (!existingRecord || existingRecord.length === 0) {
+      // Record not found
+      console.error(`❌ Supporting media record not found with ID: ${mediaId}`);
+      throw new Error(`No supporting media found with ID: ${mediaId}`);
+    }
+
+    // Now perform the update
     const { data, error } = await supabase
       .from('ember_supporting_media')
       .update({ display_name: displayName })
       .eq('id', mediaId)
-      .select()
-      .single();
+      .select();
+
+    console.log('🔍 Update query result:', { data, error, dataLength: data?.length });
 
     if (error) {
+      console.error('❌ Error updating record:', error);
+      // Check if it's a column doesn't exist error
+      if (error.message.includes('column') || error.message.includes('display_name')) {
+        throw new Error(`Column 'display_name' does not exist. Please run the migration first.`);
+      }
       throw new Error(error.message);
     }
 
-    return data;
+    // Check if any rows were updated
+    if (!data || data.length === 0) {
+      console.error('❌ Update returned 0 rows. This usually means the display_name column does not exist.');
+      throw new Error(`No rows updated for ID: ${mediaId}. The 'display_name' column may not exist. Please run the migration.`);
+    }
+
+    console.log('✅ Supporting media updated successfully:', data[0]);
+    return data[0]; // Return the first (and should be only) updated row
   } catch (error) {
     console.error('Error updating supporting media display name:', error);
     throw error;

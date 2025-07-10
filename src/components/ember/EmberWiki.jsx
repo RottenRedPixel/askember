@@ -35,6 +35,7 @@ import { PenNib, UsersThree, UserCirclePlus, ImageSquare } from 'phosphor-react'
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getImageAnalysis, getAllStoryMessagesForEmber, deleteEmber, getEmberTaggedPeople, getEmberSupportingMedia, updateSupportingMediaDisplayName } from '@/lib/database';
 import { getEmberPhotos, updatePhotoDisplayName } from '@/lib/photos';
+import { checkRLSPolicies } from '@/lib/debug-rls';
 import useStore from '@/store';
 
 export default function EmberWiki({ 
@@ -201,6 +202,7 @@ export default function EmberWiki({
     try {
       const media = await getEmberSupportingMedia(ember.id);
       console.log('Wiki supporting media data:', media);
+      console.log('Wiki supporting media IDs:', media?.map(m => m.id) || []);
       setSupportingMedia(media || []);
     } catch (error) {
       console.error('Error fetching supporting media:', error);
@@ -252,6 +254,12 @@ export default function EmberWiki({
   const handleSaveMediaName = async (mediaId) => {
     if (!editingMediaName.trim()) return;
     
+    console.log('📝 Attempting to save media name:', { 
+      mediaId, 
+      newName: editingMediaName.trim(),
+      currentMedia: supportingMedia.map(m => ({ id: m.id, name: m.display_name || m.file_name }))
+    });
+    
     try {
       await updateSupportingMediaDisplayName(mediaId, editingMediaName.trim());
       
@@ -262,6 +270,7 @@ export default function EmberWiki({
       
       setEditingMediaId(null);
       setEditingMediaName('');
+      console.log('✅ Successfully updated media name');
     } catch (error) {
       console.error('Failed to update media display name:', error);
     }
@@ -328,6 +337,13 @@ export default function EmberWiki({
                 Knowledge and information about this ember
               </p>
             </div>
+            {/* Temporary Debug Button */}
+            <Button 
+              onClick={() => checkRLSPolicies()}
+              className="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1"
+            >
+              🐛 Debug RLS
+            </Button>
           </div>
         
         {/* Content Sections */}
