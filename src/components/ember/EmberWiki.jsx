@@ -621,8 +621,28 @@ export default function EmberWiki({
 
                   return (
                     <div key={photo.id || index} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Image size={16} className="text-orange-600" />
+                      <div className="flex items-start gap-3 mb-2">
+                        {/* Photo thumbnail */}
+                        <div className="flex-shrink-0">
+                          <a 
+                            href={photo.storage_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            <img 
+                              src={photo.storage_url} 
+                              alt={displayName}
+                              className="w-16 h-16 object-cover rounded-lg border border-orange-300 hover:border-orange-400 transition-colors"
+                              loading="lazy"
+                            />
+                          </a>
+                        </div>
+                        
+                        {/* Photo details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Image size={16} className="text-orange-600" />
                         {isEditing ? (
                           <div className="flex items-center gap-2 flex-1">
                             <Input
@@ -673,45 +693,47 @@ export default function EmberWiki({
                             <ExternalLink size={14} />
                           </a>
                         )}
-                      </div>
-                      {/* Show original filename if display name is different */}
-                      {photo.display_name && photo.display_name !== photo.original_filename && !isEditing && (
-                        <div className="text-xs text-gray-500 mb-2">
-                          Original: {photo.original_filename}
-                        </div>
-                      )}
-                      {!isEditing && (
-                        <div className="text-xs text-gray-400 mb-2">
-                          Script reference: name="{displayName}"
-                        </div>
-                      )}
-                      <div className="text-gray-900 space-y-1">
-                        <div className="flex items-center gap-4 text-xs text-gray-600">
-                          <span>Photo</span>
-                          {photo.file_size && (
-                            <span>{(photo.file_size / 1024 / 1024).toFixed(2)} MB</span>
-                          )}
-                          {photo.image_width && photo.image_height && (
-                            <span>{photo.image_width} × {photo.image_height}</span>
-                          )}
-                        </div>
-                        {photo.camera_make && photo.camera_model && (
-                          <div className="text-xs text-gray-600">
-                            Camera: {photo.camera_make} {photo.camera_model}
                           </div>
-                        )}
-                        {photo.timestamp && (
-                          <div className="text-xs text-gray-500">
-                            Taken: {new Date(photo.timestamp).toLocaleString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: true
-                            })}
+                          {/* Show original filename if display name is different */}
+                          {photo.display_name && photo.display_name !== photo.original_filename && !isEditing && (
+                            <div className="text-xs text-gray-500 mb-1">
+                              Original: {photo.original_filename}
+                            </div>
+                          )}
+                          {!isEditing && (
+                            <div className="text-xs text-gray-400 mb-1">
+                              Script reference: name="{displayName}"
+                            </div>
+                          )}
+                          <div className="text-gray-900 space-y-1">
+                            <div className="flex items-center gap-4 text-xs text-gray-600">
+                              <span>Photo</span>
+                              {photo.file_size && (
+                                <span>{(photo.file_size / 1024 / 1024).toFixed(2)} MB</span>
+                              )}
+                              {photo.image_width && photo.image_height && (
+                                <span>{photo.image_width} × {photo.image_height}</span>
+                              )}
+                            </div>
+                            {photo.camera_make && photo.camera_model && (
+                              <div className="text-xs text-gray-600">
+                                Camera: {photo.camera_make} {photo.camera_model}
+                              </div>
+                            )}
+                            {photo.timestamp && (
+                              <div className="text-xs text-gray-500">
+                                Taken: {new Date(photo.timestamp).toLocaleString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true
+                                })}
+                              </div>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -757,8 +779,34 @@ export default function EmberWiki({
 
                   return (
                     <div key={media.id || index} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <IconComponent size={16} className="text-gray-600" />
+                      <div className="flex items-start gap-3 mb-2">
+                        {/* Media thumbnail or icon */}
+                        <div className="flex-shrink-0">
+                          {media.file_category === 'image' ? (
+                            <a 
+                              href={media.file_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="block"
+                            >
+                              <img 
+                                src={media.file_url} 
+                                alt={displayName}
+                                className="w-16 h-16 object-cover rounded-lg border border-gray-300 hover:border-gray-400 transition-colors"
+                                loading="lazy"
+                              />
+                            </a>
+                          ) : (
+                            <div className="w-16 h-16 bg-gray-100 rounded-lg border border-gray-300 flex items-center justify-center">
+                              <IconComponent size={24} className="text-gray-600" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Media details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <IconComponent size={16} className="text-gray-600" />
                         {isEditing ? (
                           <div className="flex items-center gap-2 flex-1">
                             <Input
@@ -809,38 +857,40 @@ export default function EmberWiki({
                             <ExternalLink size={14} />
                           </a>
                         )}
-                      </div>
-                      {/* Show original filename if display name is different */}
-                      {media.display_name && media.display_name !== media.file_name && !isEditing && (
-                        <div className="text-xs text-gray-500 mb-2">
-                          Original: {media.file_name}
-                        </div>
-                      )}
-                      {!isEditing && (
-                        <div className="text-xs text-gray-400 mb-2">
-                          Script reference: name="{displayName}"
-                        </div>
-                      )}
-                      <div className="text-gray-900 space-y-1">
-                        <div className="flex items-center gap-4 text-xs text-gray-600">
-                          <span className="capitalize">{media.file_category}</span>
-                          <span>{formatFileSize(media.file_size)}</span>
-                          <span>{media.file_type}</span>
-                        </div>
-                        {media.uploader && (
-                          <div className="text-xs text-gray-500">
-                            Uploaded by: {media.uploader.first_name} {media.uploader.last_name}
                           </div>
-                        )}
-                        <div className="text-xs text-gray-500">
-                          Added: {new Date(media.created_at).toLocaleString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: true
-                          })}
+                          {/* Show original filename if display name is different */}
+                          {media.display_name && media.display_name !== media.file_name && !isEditing && (
+                            <div className="text-xs text-gray-500 mb-1">
+                              Original: {media.file_name}
+                            </div>
+                          )}
+                          {!isEditing && (
+                            <div className="text-xs text-gray-400 mb-1">
+                              Script reference: name="{displayName}"
+                            </div>
+                          )}
+                          <div className="text-gray-900 space-y-1">
+                            <div className="flex items-center gap-4 text-xs text-gray-600">
+                              <span className="capitalize">{media.file_category}</span>
+                              <span>{formatFileSize(media.file_size)}</span>
+                              <span>{media.file_type}</span>
+                            </div>
+                            {media.uploader && (
+                              <div className="text-xs text-gray-500">
+                                Uploaded by: {media.uploader.first_name} {media.uploader.last_name}
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-500">
+                              Added: {new Date(media.created_at).toLocaleString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
