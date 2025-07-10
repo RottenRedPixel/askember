@@ -144,6 +144,7 @@ Your role is to:
 4. Create a cohesive narrative that honors the personal nature of the moment
 5. Generate scripts divided between ember voice and narrator voice
 6. Ensure the story fits the specified duration and focus
+7. ALWAYS include opening and closing HOLD segments for proper story cut structure
 
 CORE PRINCIPLES:
 - Use ONLY authentic details from the provided context
@@ -193,6 +194,7 @@ Create a {{duration}}-second story cut that weaves together the ember context an
 
 CRITICAL INSTRUCTIONS:
 - Target exactly {{duration}} seconds of content (approximately {{word_count}} words)
+- REMEMBER: Your voice content should be approximately {{duration}} minus 6 seconds (2s opening + 4s closing HOLD segments)
 - Use ONLY authentic details from the ember context and story conversations
 - Incorporate direct quotes from selected contributors when available
 - Assign appropriate content to ember voice vs narrator voice
@@ -200,6 +202,7 @@ CRITICAL INSTRUCTIONS:
 - If context is limited, focus on atmosphere and universal emotions rather than inventing specifics
 - Create content suitable for audio narration
 - Make the story personally meaningful while being accessible to listeners
+- ALWAYS include opening and closing HOLD segments in your full_script as specified in formatting instructions
 
 VOICE TAG NAMING:
 - Use [{{owner_first_name}}] for the ember owner's actual quotes (e.g., [Amado])
@@ -208,13 +211,17 @@ VOICE TAG NAMING:
 - DO NOT use generic tags like [Owner] or [CONTRIBUTOR NAME] - always use actual first names
 
 SCRIPT FORMATTING:
-- In full_script, start each voice change on a new line using \n characters
+- EVERY story cut MUST start with an opening HOLD segment and end with a closing HOLD segment
+- Opening HOLD: "[[HOLD]] <COLOR:#000000,duration=2.0>" (2-second black screen fade-in)
+- Closing HOLD: "[[HOLD]] <COLOR:#000000,duration=4.0>" (4-second black screen fade-out)
+- In full_script, start each voice change on a new line using \n\n (double line breaks)
 - Use these voice tags: [EMBER VOICE], [NARRATOR], [{{owner_first_name}}], [ACTUAL_CONTRIBUTOR_FIRST_NAME]
-- Format like: "[EMBER VOICE] Narrative line\n[NARRATOR] Context line\n[{{owner_first_name}}] Actual quote from owner\n[CONTRIBUTOR_FIRST_NAME] Quote from contributor"
-- Use clear voice tags and line breaks (\n) for readability
+- Format like: "[[HOLD]] <COLOR:#000000,duration=2.0>\n\n[EMBER VOICE] Narrative line\n\n[NARRATOR] Context line\n\n[{{owner_first_name}}] Actual quote from owner\n\n[CONTRIBUTOR_FIRST_NAME] Quote from contributor\n\n[[HOLD]] <COLOR:#000000,duration=4.0>"
+- Use clear voice tags and double line breaks (\n\n) for readability
 - Ember Voice and Narrator are for storytelling; Owner/Contributors are for actual quotes
 - Replace {{owner_first_name}} with the actual first name of the ember owner (e.g., [Amado])
 - Replace contributor placeholders with actual contributor first names (e.g., [Odama], [Sarah])
+- HOLD segments are not voice segments - they are visual pause/transition segments
 
 VOICE LINE ARRAYS REQUIREMENT:
 - MUST populate ember_voice_lines array with all [EMBER VOICE] lines from the full_script
@@ -235,7 +242,7 @@ Return a JSON object with this exact structure:
   "duration": {{duration}},
   "style": "{{selected_style}}",
   "wordCount": {{word_count}},
-  "full_script": "Complete narration script with [EMBER VOICE], [NARRATOR], [{{owner_first_name}}], and actual contributor first names.\n\nStart each voice on a new line for readability:\n[EMBER VOICE] First narrative line\n[NARRATOR] Context line\n[{{owner_first_name}}] Owner quote\n[CONTRIBUTOR_FIRST_NAME] Contributor quote",
+  "full_script": "[[HOLD]] <COLOR:#000000,duration=2.0>\n\n[EMBER VOICE] First narrative line\n\n[NARRATOR] Context line\n\n[{{owner_first_name}}] Owner quote\n\n[CONTRIBUTOR_FIRST_NAME] Contributor quote\n\n[[HOLD]] <COLOR:#000000,duration=4.0>",
   "ember_voice_lines": ["A classroom buzzes with anticipation", "Faces filled with determination"],
   "narrator_voice_lines": ["A dodgeball tournament begins", "Who will claim victory?"],
   "owner_lines": ["We went to a dodgeball tournament at the kid's school", "Anna, Zia and Luca"],
@@ -260,11 +267,11 @@ Return a JSON object with this exact structure:
     
     // Management & Versioning
     is_active: true,
-    version: 'v2.5',
+    version: 'v2.6',
     
     // Metadata
     tags: ['story', 'generation', 'master', 'orchestrator', 'narrative', 'audio'],
-    notes: 'Master story cut generator that orchestrates all elements (context, conversations, style) into complete narrative scripts ready for audio production.'
+    notes: 'Master story cut generator that orchestrates all elements (context, conversations, style) into complete narrative scripts ready for audio production. v2.6: Added mandatory HOLD segments at beginning and end of every story cut.'
   },
 
   // ===========================================

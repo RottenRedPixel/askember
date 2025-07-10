@@ -206,7 +206,8 @@ const StoryCutDetailContent = ({
   formatRelativeTime,
   storyMessages,
   ember,
-  formatScriptForDisplay
+  hasBeenEnhanced,
+  getEditableScript
 }) => (
   <div className="space-y-6">
     {/* Story Cut Info */}
@@ -243,7 +244,26 @@ const StoryCutDetailContent = ({
         <h3 className="text-lg font-semibold text-gray-900">Complete Script</h3>
         {!isEditingScript && (
           <button
-            onClick={() => setIsEditingScript(true)}
+            onClick={() => {
+              try {
+                console.log('✏️ Starting script edit...');
+                console.log('📝 Current stored script:', selectedStoryCut.full_script);
+                // Compute the current enhancement status instead of using potentially stale state
+                const scriptHasEnhancedContent = selectedStoryCut.full_script.includes('[[MEDIA]]') || selectedStoryCut.full_script.includes('[[HOLD]]');
+                const editableScript = getEditableScript(selectedStoryCut.full_script, ember, selectedStoryCut, scriptHasEnhancedContent);
+                console.log('📝 Loaded editable script:', editableScript);
+                setIsEditingScript(true);
+                setEditedScript(editableScript);
+              } catch (error) {
+                console.error('❌ Error loading script for editing:', error);
+                console.error('❌ Error details:', error.message);
+                console.error('❌ Stack trace:', error.stack);
+                // Fallback - use raw script
+                console.log('🔄 Falling back to raw script');
+                setIsEditingScript(true);
+                setEditedScript(selectedStoryCut.full_script || '');
+              }
+            }}
             className="text-sm text-blue-600 hover:text-blue-800 font-medium"
           >
             Edit
@@ -278,13 +298,15 @@ const StoryCutDetailContent = ({
         </div>
       ) : (
         <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <div className="text-gray-700 leading-relaxed font-mono text-sm space-y-4">
-            {formatScriptForDisplay(selectedStoryCut.full_script).split('\n\n').map((line, index) => {
-              // Parse voice tag and content
-              const voiceMatch = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+          <div className="text-gray-700 leading-relaxed font-mono text-sm">
+            {formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut).split('\n\n').map((line, index) => {
+              // Parse voice tag, content, and duration - handle both [[MEDIA]] and [VOICE] formats
+              const voiceMatch = line.match(/^(\[\[?[^\]]+\]\]?)\s*(.*?)\s*\((\d+\.\d+)\)$/);
               if (!voiceMatch) return <div key={index}>{line}</div>;
               
-              const [, voiceTag, content] = voiceMatch;
+              const [, voiceTagWithBrackets, content, duration] = voiceMatch;
+              const isMedia = voiceTagWithBrackets.startsWith('[[');
+              const voiceTag = voiceTagWithBrackets.replace(/^\[\[?|\]\]?$/g, '');
               
               // Split content into text and visual actions
               const parts = [];
@@ -304,7 +326,8 @@ const StoryCutDetailContent = ({
                 // Add the visual action
                 parts.push({
                   type: 'visual',
-                  content: `<${match[1]}>`
+                  content: `<${match[1]}>`,
+                  rawAction: match[1]
                 });
                 
                 currentIndex = match.index + match[0].length;
@@ -319,16 +342,37 @@ const StoryCutDetailContent = ({
               }
               
               return (
-                <div key={index} className="leading-relaxed">
-                  <span className="font-semibold">[{voiceTag}]</span>{' '}
+                <div key={index} className="leading-relaxed mb-4">
+                  <span className={`font-semibold ${isMedia ? 'text-blue-600' : ''}`}>
+                    {isMedia ? '[[' : '['}
+                    {voiceTag}
+                    {isMedia ? ']]' : ']'}
+                  </span>{' '}
                   {parts.map((part, partIndex) => (
                     <span 
                       key={partIndex}
-                      className={part.type === 'visual' ? 'text-green-600 font-medium' : ''}
+                      className={part.type === 'visual' ? 'text-gray-400 font-medium' : ''}
                     >
-                      {part.content}
+                      {part.type === 'visual' && part.rawAction?.startsWith('COLOR:') ? (
+                        <span className="inline-flex items-center gap-1">
+                          {part.content.replace(/color=/g, '').replace(/opacity=/g, 'TRAN:')}
+                          {(() => {
+                            const hexColor = extractColorFromAction(part.rawAction);
+                            return hexColor ? (
+                              <span 
+                                className="inline-block w-3 h-3 rounded-full border border-gray-300 flex-shrink-0"
+                                style={{ backgroundColor: hexColor }}
+                                title={hexColor}
+                              ></span>
+                            ) : null;
+                          })()}
+                        </span>
+                      ) : (
+                        part.content
+                      )}
                     </span>
                   ))}
+                  {' '}<span className="text-gray-400">({duration})</span>
                 </div>
               );
             })}
@@ -1053,14 +1097,14 @@ export default function EmberDetail() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [showFullscreenPlay, setShowFullscreenPlay] = useState(false);
-  const [zoomAnimationDuration, setZoomAnimationDuration] = useState(30); // Default 30 seconds
   const [currentAudio, setCurrentAudio] = useState(null);
   const [activeAudioSegments, setActiveAudioSegments] = useState([]);
   const playbackStoppedRef = useRef(false);
-  const [isExitingPlay, setIsExitingPlay] = useState(false);
   const [showEndHold, setShowEndHold] = useState(false);
-  const [isFadingOut, setIsFadingOut] = useState(false);
   const [currentVoiceType, setCurrentVoiceType] = useState(null);
+  const [currentVoiceTransparency, setCurrentVoiceTransparency] = useState(0.2);
+  const [currentMediaColor, setCurrentMediaColor] = useState(null);
+  const [currentZoomScale, setCurrentZoomScale] = useState({ start: 1.0, end: 1.0 });
   const [availableVoices, setAvailableVoices] = useState([]);
   const [selectedEmberVoice, setSelectedEmberVoice] = useState('');
   const [selectedNarratorVoice, setSelectedNarratorVoice] = useState('');
@@ -1099,6 +1143,7 @@ export default function EmberDetail() {
   const [isEditingScript, setIsEditingScript] = useState(false);
   const [editedScript, setEditedScript] = useState('');
   const [isSavingScript, setIsSavingScript] = useState(false);
+  const [hasBeenEnhanced, setHasBeenEnhanced] = useState(false);
 
   // Synchronized text display state (Option 1B: Sentence-by-Sentence)
   const [currentDisplayText, setCurrentDisplayText] = useState('');
@@ -1106,6 +1151,7 @@ export default function EmberDetail() {
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
   const [currentSegmentSentences, setCurrentSegmentSentences] = useState([]);
   const [sentenceTimeouts, setSentenceTimeouts] = useState([]);
+  const [mediaTimeouts, setMediaTimeouts] = useState([]);
   
   // 🎯 State for auto-analysis loading indicator
   const [isAutoAnalyzing, setIsAutoAnalyzing] = useState(false);
@@ -1223,9 +1269,21 @@ export default function EmberDetail() {
         currentAudio.pause();
         currentAudio.currentTime = 0;
       }
+      
       playbackStoppedRef.current = true;
     };
-  }, []);
+  }, [currentAudio]);
+
+  // Create a ref to store media timeouts for cleanup
+  const mediaTimeoutsRef = useRef([]);
+
+  // Cleanup media timeouts when component unmounts
+  useEffect(() => {
+    return () => {
+      // Clean up any media timeouts on unmount
+      mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+    };
+  }, []); // Empty dependency array - only runs on unmount
 
   // Fetch tagged people data for the current ember
   const fetchTaggedPeopleData = async () => {
@@ -2307,6 +2365,25 @@ export default function EmberDetail() {
     try {
       setIsSavingScript(true);
       
+      console.log('💾 Saving script...');
+      console.log('🔍 Edited script content (first 500 chars):', editedScript.trim().substring(0, 500));
+      console.log('📝 Script has MEDIA lines:', editedScript.includes('[[MEDIA]]'));
+      console.log('📝 Script has HOLD lines:', editedScript.includes('[[HOLD]]'));
+      console.log('📝 Original selectedStoryCut script before save (first 500 chars):', selectedStoryCut.full_script.substring(0, 500));
+      
+      // Count MEDIA and HOLD lines in edited script
+      const mediaLines = (editedScript.match(/\[\[MEDIA\]\]/g) || []).length;
+      const holdLines = (editedScript.match(/\[\[HOLD\]\]/g) || []).length;
+      console.log('📊 Number of MEDIA lines in edited script:', mediaLines);
+      console.log('📊 Number of HOLD lines in edited script:', holdLines);
+      
+      // 🚨 CRITICAL DEBUG: Find all HOLD lines in the edited script
+      const holdMatches = editedScript.match(/\[\[HOLD\]\].*$/gm) || [];
+      console.log('🚨 HOLD LINES FOUND IN EDITED SCRIPT:');
+      holdMatches.forEach((holdLine, index) => {
+        console.log(`  🚨 HOLD ${index + 1}: "${holdLine}"`);
+      });
+      
       // Import the update function
       const { updateStoryCut } = await import('@/lib/database');
       
@@ -2317,8 +2394,35 @@ export default function EmberDetail() {
         user.id
       );
       
-      // Update the local state
-      setSelectedStoryCut(updatedStoryCut);
+      console.log('📝 Database returned script (first 500 chars):', updatedStoryCut.full_script?.substring(0, 500));
+      console.log('📝 Database script has MEDIA lines:', updatedStoryCut.full_script?.includes('[[MEDIA]]'));
+      console.log('📝 Database script has HOLD lines:', updatedStoryCut.full_script?.includes('[[HOLD]]'));
+      
+      // Count MEDIA and HOLD lines in database response
+      const dbMediaLines = (updatedStoryCut.full_script?.match(/\[\[MEDIA\]\]/g) || []).length;
+      const dbHoldLines = (updatedStoryCut.full_script?.match(/\[\[HOLD\]\]/g) || []).length;
+      console.log('📊 Number of MEDIA lines in database response:', dbMediaLines);
+      console.log('📊 Number of HOLD lines in database response:', dbHoldLines);
+      
+      console.log('✅ Script saved successfully');
+      
+      // Update the local state with the actual saved script
+      const updatedStoryCutWithScript = {
+        ...updatedStoryCut,
+        full_script: editedScript.trim() // Ensure we use the edited script
+      };
+      
+      console.log('🔄 Updating selectedStoryCut with (first 500 chars):', updatedStoryCutWithScript.full_script.substring(0, 500));
+      console.log('🔄 Updated script has MEDIA lines:', updatedStoryCutWithScript.full_script.includes('[[MEDIA]]'));
+      console.log('🔄 Updated script has HOLD lines:', updatedStoryCutWithScript.full_script.includes('[[HOLD]]'));
+      
+      // Count MEDIA and HOLD lines in final state
+      const finalMediaLines = (updatedStoryCutWithScript.full_script.match(/\[\[MEDIA\]\]/g) || []).length;
+      const finalHoldLines = (updatedStoryCutWithScript.full_script.match(/\[\[HOLD\]\]/g) || []).length;
+      console.log('📊 Number of MEDIA lines in final state:', finalMediaLines);
+      console.log('📊 Number of HOLD lines in final state:', finalHoldLines);
+      
+      setSelectedStoryCut(updatedStoryCutWithScript);
       setStoryCuts(prev => 
         prev.map(cut => 
           cut.id === selectedStoryCut.id 
@@ -2331,6 +2435,23 @@ export default function EmberDetail() {
       setIsEditingScript(false);
       setMessage({ type: 'success', text: 'Script updated successfully!' });
       
+      // Mark as enhanced since we just saved a script with MEDIA or HOLD lines
+      const hasEnhancedContent = editedScript.includes('[[MEDIA]]') || editedScript.includes('[[HOLD]]');
+      setHasBeenEnhanced(hasEnhancedContent);
+      
+      // Refresh story cuts to ensure we have the latest data
+      console.log('🔄 Refreshing story cuts to get latest data...');
+      await fetchStoryCuts();
+      console.log('🔄 Story cuts refreshed');
+      
+      // 🚨 FINAL DEBUG: Check what's actually in the selectedStoryCut after save
+      console.log('🚨 FINAL SCRIPT AFTER SAVE:', selectedStoryCut.full_script);
+      const finalHoldMatches = selectedStoryCut.full_script?.match(/\[\[HOLD\]\].*$/gm) || [];
+      console.log('🚨 FINAL HOLD LINES IN STORED SCRIPT:');
+      finalHoldMatches.forEach((holdLine, index) => {
+        console.log(`  🚨 FINAL HOLD ${index + 1}: "${holdLine}"`);
+      });
+      
     } catch (error) {
       console.error('Failed to update script:', error);
       setMessage({ type: 'error', text: 'Failed to update script. Please try again.' });
@@ -2340,16 +2461,49 @@ export default function EmberDetail() {
   };
 
   const handleCancelScriptEdit = () => {
-    setEditedScript(selectedStoryCut.full_script || '');
+    console.log('🔄 Canceling script edit...');
+    console.log('📝 Current stored script:', selectedStoryCut.full_script);
+    // Compute the current enhancement status instead of using potentially stale state
+    const scriptHasEnhancedContent = selectedStoryCut.full_script.includes('[[MEDIA]]') || selectedStoryCut.full_script.includes('[[HOLD]]');
+    const editableScript = getEditableScript(selectedStoryCut.full_script, ember, selectedStoryCut, scriptHasEnhancedContent);
+    console.log('📝 Loaded editable script:', editableScript);
+    setEditedScript(editableScript);
     setIsEditingScript(false);
   };
 
   // Set edited script when selectedStoryCut changes
   useEffect(() => {
-    if (selectedStoryCut && selectedStoryCut.full_script) {
-      setEditedScript(selectedStoryCut.full_script);
+    if (selectedStoryCut && selectedStoryCut.full_script && !isSavingScript) {
+      console.log('🔄 useEffect: selectedStoryCut changed, updating edited script');
+      console.log('📝 New selectedStoryCut script:', selectedStoryCut.full_script);
+      
+      // 🚨 CRITICAL DEBUG: Check for HOLD segments in the stored script
+      const storedHoldMatches = selectedStoryCut.full_script.match(/\[\[HOLD\]\].*$/gm) || [];
+      console.log('🚨 HOLD SEGMENTS IN STORED SCRIPT (useEffect):');
+      storedHoldMatches.forEach((holdLine, index) => {
+        console.log(`  🚨 STORED HOLD ${index + 1}: "${holdLine}"`);
+      });
+      
+      // Reset enhancement flag for new story cut
+      const scriptHasEnhancedContent = selectedStoryCut.full_script.includes('[[MEDIA]]') || selectedStoryCut.full_script.includes('[[HOLD]]');
+      setHasBeenEnhanced(scriptHasEnhancedContent);
+      
+      // Use the computed value directly instead of the stale hasBeenEnhanced state
+      const editableScript = getEditableScript(selectedStoryCut.full_script, ember, selectedStoryCut, scriptHasEnhancedContent);
+      console.log('📝 Setting editedScript to:', editableScript);
+      
+      // 🚨 CRITICAL DEBUG: Check for HOLD segments in the editable script
+      const editableHoldMatches = editableScript.match(/\[\[HOLD\]\].*$/gm) || [];
+      console.log('🚨 HOLD SEGMENTS IN EDITABLE SCRIPT (useEffect):');
+      editableHoldMatches.forEach((holdLine, index) => {
+        console.log(`  🚨 EDITABLE HOLD ${index + 1}: "${holdLine}"`);
+      });
+      
+      setEditedScript(editableScript);
+    } else if (isSavingScript) {
+      console.log('🔄 useEffect: Skipping script update because save is in progress');
     }
-  }, [selectedStoryCut]);
+  }, [selectedStoryCut, ember, isSavingScript]);
 
   // Extract all wiki content as text for narration
   const extractWikiContent = (ember) => {
@@ -2358,9 +2512,9 @@ export default function EmberDetail() {
 
 
 
-  // Handle completion of playback with 3-second fade-out sequence
+  // Handle completion of playback
   const handlePlaybackComplete = () => {
-    console.log('🎬 Playback complete, starting 3-second fade-out...');
+    console.log('🎬 Playback complete, showing end hold...');
     
     // Stop multi-voice playback chain
     playbackStoppedRef.current = true;
@@ -2382,26 +2536,28 @@ export default function EmberDetail() {
     // Clear states immediately
     setIsPlaying(false);
     setCurrentVoiceType(null);
+    setCurrentVoiceTransparency(0.2); // Reset to default
+    setCurrentMediaColor(null);
+    setCurrentZoomScale({ start: 1.0, end: 1.0 }); // Reset to default
     setActiveAudioSegments([]);
     
-    // Start fade-out animation
-    setIsFadingOut(true);
+    // Clean up any remaining media timeouts
+    console.log('🧹 Cleaning up media timeouts on playback complete:', mediaTimeouts.length);
+    mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+    mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+    setMediaTimeouts([]);
+    mediaTimeoutsRef.current = [];
     
-    // After 3 seconds of fade-out, show black hold then exit
+    // Show black hold then exit
+    setShowEndHold(true);
+    
+    // After black hold, exit to normal view
     setTimeout(() => {
-      setIsFadingOut(false);
-      setShowEndHold(true);
-      
-      // After black hold, exit to normal view
-      setTimeout(() => {
-        handleExitPlay();
-      }, 1000); // Brief black hold after fade-out
-    }, 3000);
+      handleExitPlay();
+    }, 1000);
   };
 
   const handleExitPlay = () => {
-    setIsExitingPlay(true);
-    
     // Stop multi-voice playback chain
     playbackStoppedRef.current = true;
     
@@ -2411,7 +2567,7 @@ export default function EmberDetail() {
       currentAudio.currentTime = 0;
     }
     
-    // Stop all active audio segments from multi-voice playback
+    // Stop all active audio segments from multi-voice playbook
     activeAudioSegments.forEach((segment, index) => {
       if (segment.audio) {
         console.log(`🛑 Stopping segment ${index + 1}: [${segment.voiceTag}]`);
@@ -2432,26 +2588,30 @@ export default function EmberDetail() {
     setCurrentVoiceTag('');
     setCurrentSentenceIndex(0);
     setCurrentSegmentSentences([]);
+    
+    // 🎯 Clean up media timeouts
+    console.log('🧹 Cleaning up media timeouts on exit:', mediaTimeouts.length);
+    mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+    mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+    setMediaTimeouts([]);
+    mediaTimeoutsRef.current = [];
 
-    // Use React 18's automatic batching - no need for setTimeout
-    // The exit animation is handled by CSS transitions
-    setTimeout(() => {
-      // Batch all state updates together
-      setIsPlaying(false);
-      setIsGeneratingAudio(false);
-      setShowFullscreenPlay(false);
-      setIsExitingPlay(false);
-      setShowEndHold(false);
-      setIsFadingOut(false);
-      setCurrentlyPlayingStoryCut(null);
-      setCurrentAudio(null);
-      setActiveAudioSegments([]);
-      setCurrentVoiceType(null);
-      console.log('🎬 Voice type reset on exit');
-      
-      // Reset playback flag for next play
-      playbackStoppedRef.current = false;
-    }, 300);
+    // Batch all state updates together
+    setIsPlaying(false);
+    setIsGeneratingAudio(false);
+    setShowFullscreenPlay(false);
+    setShowEndHold(false);
+    setCurrentlyPlayingStoryCut(null);
+    setCurrentAudio(null);
+    setActiveAudioSegments([]);
+    setCurrentVoiceType(null);
+    setCurrentVoiceTransparency(0.2); // Reset to default
+    setCurrentMediaColor(null);
+    setCurrentZoomScale({ start: 1.0, end: 1.0 }); // Reset to default
+    console.log('🎬 Voice type reset on exit');
+    
+    // Reset playback flag for next play
+    playbackStoppedRef.current = false;
   };
 
   // Handle play button click - now uses story cuts if available
@@ -2484,7 +2644,6 @@ export default function EmberDetail() {
     try {
       setShowFullscreenPlay(true);
       setIsGeneratingAudio(true); // Show loading state
-      setIsExitingPlay(false);
 
       console.log('🎬 Visual effects will be driven by audio segments');
 
@@ -2502,9 +2661,7 @@ export default function EmberDetail() {
         
         setCurrentlyPlayingStoryCut(selectedStoryCut);
         
-        // Set zoom animation duration to match the story cut duration
-        setZoomAnimationDuration(selectedStoryCut.duration || 30);
-        console.log('🎬 Setting zoom animation duration to:', selectedStoryCut.duration || 30, 'seconds');
+
         
         console.log('📖 Story cut script:', selectedStoryCut.full_script);
         
@@ -2535,13 +2692,20 @@ export default function EmberDetail() {
             setActiveAudioSegments,
             playbackStoppedRef,
             setCurrentVoiceType,
+            setCurrentVoiceTransparency,
+            setCurrentMediaColor,
+            setCurrentZoomScale,
             // 🎯 Add sentence-by-sentence display state setters
             setCurrentDisplayText,
             setCurrentVoiceTag,
             setCurrentSentenceIndex,
             setCurrentSegmentSentences,
             setSentenceTimeouts,
-            sentenceTimeouts
+            sentenceTimeouts,
+            // 🎯 Add media timeout management
+            setMediaTimeouts,
+            mediaTimeouts,
+            mediaTimeoutsRef
           });
         } else {
           // Fallback if no segments could be parsed
@@ -2577,9 +2741,7 @@ export default function EmberDetail() {
         console.log('📖 No story cuts found, using basic wiki content');
         console.log('💡 Tip: Create a story cut for richer, AI-generated narration!');
         
-        // Set default zoom animation duration for fallback content
-        setZoomAnimationDuration(15); // 15 seconds for fallback content
-        console.log('🎬 Setting zoom animation duration to: 15 seconds (fallback)');
+
         
         setIsGeneratingAudio(false);
         setIsPlaying(true);
@@ -2950,7 +3112,7 @@ export default function EmberDetail() {
                         Story Cuts
                       </h4>
                       <p className="text-xs text-blue-100 text-center leading-tight mt-0.5">
-                        Edit & Create
+                        Creator
                       </p>
                     </CardContent>
                   </Card>
@@ -3819,7 +3981,8 @@ export default function EmberDetail() {
                     formatRelativeTime={formatRelativeTime}
                     storyMessages={storyMessages}
                     ember={ember}
-                    formatScriptForDisplay={formatScriptForDisplay}
+                    hasBeenEnhanced={hasBeenEnhanced}
+                    getEditableScript={getEditableScript}
                   />
                 </div>
               </DrawerContent>
@@ -3850,7 +4013,8 @@ export default function EmberDetail() {
                   formatRelativeTime={formatRelativeTime}
                   storyMessages={storyMessages}
                   ember={ember}
-                  formatScriptForDisplay={formatScriptForDisplay}
+                  hasBeenEnhanced={hasBeenEnhanced}
+                  getEditableScript={getEditableScript}
                 />
               </DialogContent>
             </Dialog>
@@ -3861,67 +4025,46 @@ export default function EmberDetail() {
       {/* Fullscreen Play Mode */}
       {showFullscreenPlay && (
         <>
-          {/* Dynamic CSS for zoom animation */}
-          <style>{`
-            @keyframes zoomInAnimation {
-              0% {
-                transform: scale(1.75);
-              }
-              100% {
-                transform: scale(1.0);
-              }
-            }
-          `}</style>
-          
-          <div 
-            className={`fixed inset-0 bg-black z-50 transition-all duration-500 ease-out ${
-              isExitingPlay ? 'opacity-0' : 'opacity-100'
-            }`}
-            style={{
-              animation: isExitingPlay ? 'fadeOut 0.5s ease-out' : 'fadeIn 0.7s ease-out'
-            }}
-          >
-                    {/* Background Image - only show when not loading and not in end hold */}
-          {!isGeneratingAudio && !showEndHold && (
+          <div className="fixed inset-0 bg-black z-50">
+                    {/* Background Image - only show when not loading, not in end hold, and no media color effect */}
+          {!isGeneratingAudio && !showEndHold && !currentMediaColor && (
             <img 
               src={ember.image_url} 
               alt={ember.title || 'Ember'}
               className="absolute inset-0 w-full h-full object-cover"
+            />
+          )}
+          
+          {/* Voice Type Overlay - only show when playing, not in end hold, and no media color effect */}
+          {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentVoiceType && (
+            <div 
+              className="absolute inset-0"
               style={{
-                animation: isFadingOut 
-                  ? 'fadeOutToBlack 3s ease-out' 
-                  : `zoomInAnimation ${zoomAnimationDuration}s ease-out`,
-                transformOrigin: 'center center'
+                backgroundColor: currentVoiceType === 'ember' ? `rgba(255, 0, 0, ${currentVoiceTransparency})` : 
+                                currentVoiceType === 'narrator' ? `rgba(0, 0, 255, ${currentVoiceTransparency})` : 
+                                currentVoiceType === 'contributor' ? `rgba(0, 255, 0, ${currentVoiceTransparency})` : 
+                                'transparent'
               }}
             />
           )}
           
-          {/* Voice Type Overlay - only show when playing and not fading out */}
-          {!isGeneratingAudio && !showEndHold && !isFadingOut && (
+          {/* Media Color Screen - solid color background when color effect is active */}
+          {!isGeneratingAudio && !showEndHold && currentMediaColor && (
             <div 
-              className={`absolute inset-0 transition-all duration-500 ease-out ${
-                currentVoiceType === 'ember' ? 'voice-overlay-ember' : 
-                currentVoiceType === 'narrator' ? 'voice-overlay-narrator' : 
-                currentVoiceType === 'contributor' ? 'voice-overlay-contributor' : ''
-              }`}
-            />
-          )}
-          
-          {/* Dark overlay - only show when playing and not fading out */}
-          {!isGeneratingAudio && !showEndHold && !isFadingOut && (
-            <div 
-              className="absolute inset-0 bg-black bg-opacity-40 transition-opacity duration-1000 ease-out"
+              className="absolute inset-0"
               style={{
-                animation: 'fadeInOverlay 1.2s ease-out'
+                backgroundColor: currentMediaColor
               }}
             />
           )}
           
-          {/* Title Overlay - only show when playing and not fading out */}
-          {!isGeneratingAudio && !showEndHold && !isFadingOut && (
-            <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none z-20">
+
+          
+          {/* Title Overlay - only show when playing, not in end hold, and no media color effect */}
+          {!isGeneratingAudio && !showEndHold && !currentMediaColor && (
+            <div className="absolute top-0 left-0 right-0 p-4 pointer-events-none z-20">
               <div className="container mx-auto max-w-4xl">
-                <h1 className="text-white text-2xl font-bold truncate drop-shadow-md text-left pl-2">
+                <h1 className="text-white text-2xl font-bold truncate text-left pl-2">
                   {ember.title || 'Untitled Ember'}
                 </h1>
                   </div>
@@ -3929,18 +4072,12 @@ export default function EmberDetail() {
           )}
 
           {/* 🎯 Synchronized Text Display (Option 1B: Sentence-by-Sentence) */}
-          {!isGeneratingAudio && !showEndHold && !isFadingOut && currentDisplayText && (
+          {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentDisplayText && (
             <div className="absolute bottom-20 left-0 right-0 p-4 pointer-events-none z-20">
               <div className="container mx-auto max-w-4xl">
-                <div className="bg-black/70 backdrop-blur-sm rounded-2xl p-6 shadow-2xl">
+                <div className="bg-black p-6">
                   {/* Current sentence text */}
-                  <p 
-                    className="text-white text-xl leading-relaxed font-medium drop-shadow-lg transition-all duration-500 ease-out"
-                    style={{
-                      animation: 'fadeInText 0.6s ease-out'
-                    }}
-                    key={currentDisplayText} // Force re-render for animation
-                  >
+                  <p className="text-white text-xl leading-relaxed font-medium">
                     {currentDisplayText}
                   </p>
                   
@@ -3951,7 +4088,7 @@ export default function EmberDetail() {
                         {currentSegmentSentences.map((_, index) => (
                           <div
                             key={index}
-                            className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                            className={`w-2 h-2 rounded-full ${
                               index === currentSentenceIndex ? 'bg-white' : 'bg-white/30'
                             }`}
                           />
@@ -3966,30 +4103,30 @@ export default function EmberDetail() {
 
 
 
-          {/* Bottom right capsule: Play controls and exit - hide during fade-out and end hold */}
-          {!showEndHold && !isFadingOut && (
+          {/* Bottom right capsule: Play controls and exit - hide during end hold */}
+          {!showEndHold && (
             <div className="absolute right-4 bottom-4 z-20">
-            <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+            <div className="flex flex-col items-center gap-2 bg-white px-2 py-3 rounded-full">
             
             {/* Play/Pause Button */}
             <button
               onClick={handlePlay}
-              className="rounded-full p-1 hover:bg-white/70 transition-colors"
+              className="rounded-full p-1"
               aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Pause playing" : "Resume playing")}
               type="button"
               disabled={isGeneratingAudio}
             >
               {isGeneratingAudio ? (
                 <div className="w-6 h-6 flex items-center justify-center">
-                  <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full" />
                 </div>
               ) : isPlaying ? (
                 <div className="w-6 h-6 flex items-center justify-center">
-                  <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm transition-all duration-300"></div>
-                  <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm transition-all duration-300"></div>
+                  <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm"></div>
+                  <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm"></div>
                 </div>
               ) : (
-                <PlayCircle size={24} className="text-gray-700 transition-all duration-300" />
+                <PlayCircle size={24} className="text-gray-700" />
               )}
             </button>
               
@@ -3999,11 +4136,11 @@ export default function EmberDetail() {
             {/* Close button */}
             <button
               onClick={handleExitPlay}
-              className="rounded-full p-1 hover:bg-white/70 transition-colors"
+              className="rounded-full p-1"
               aria-label="Close fullscreen"
               type="button"
             >
-              <svg className="w-6 h-6 text-gray-700 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -4011,12 +4148,12 @@ export default function EmberDetail() {
           </div>
           )}
           
-          {/* Loading screen - pure black with subtle loading indicator */}
+          {/* Loading screen - pure black with loading indicator */}
           {isGeneratingAudio && (
             <div className="absolute inset-0 bg-black z-30 flex items-center justify-center">
               <div className="flex items-center gap-3">
-                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin opacity-50" />
-                <span className="text-white text-lg font-medium opacity-50">Preparing Story...</span>
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full" />
+                <span className="text-white text-lg font-medium">Preparing Story...</span>
               </div>
             </div>
           )}
@@ -4088,14 +4225,106 @@ export default function EmberDetail() {
     const segments = [];
     const lines = script.split('\n');
     
+    console.log('🔍 parseScriptSegments: Processing', lines.length, 'lines');
+    console.log('🔍 FULL SCRIPT CONTENT:', script);
+    lines.forEach((line, index) => {
+      console.log(`🔍 Line ${index + 1}: "${line}"`);
+    });
+    
     for (const line of lines) {
       const trimmedLine = line.trim();
       if (!trimmedLine) continue;
       
-      // Match voice tags like [EMBER VOICE], [NARRATOR], [Amado], etc.
-      const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
+      console.log(`🔍 Processing line: "${trimmedLine.substring(0, 100)}..."`);
       
-      if (voiceMatch) {
+      // Skip malformed lines (common parsing artifacts)
+      if ((trimmedLine.includes('[[MEDIA]') && !trimmedLine.includes('[[MEDIA]]')) ||
+          (trimmedLine.includes('[[HOLD]') && !trimmedLine.includes('[[HOLD]]'))) {
+        console.log('⚠️ Skipping malformed MEDIA/HOLD line:', trimmedLine);
+        continue;
+      }
+      
+      // Match media tags like [[MEDIA]] or [[HOLD]] with content
+      const mediaMatch = trimmedLine.match(/^\[\[(MEDIA|HOLD)\]\]\s*(.*)$/);
+      
+      if (mediaMatch) {
+        const mediaType = mediaMatch[1]; // MEDIA or HOLD
+        const content = mediaMatch[2].trim();
+        
+        console.log(`🔍 ${mediaType} match found:`, {
+          fullMatch: mediaMatch[0],
+          type: mediaType,
+          content: content
+        });
+        
+        // Skip if content is empty or just whitespace
+        if (!content) {
+          console.log(`⚠️ Skipping empty ${mediaType} segment`);
+          continue;
+        }
+        
+        // Extract existing visual actions if any and clean the content
+        const existingVisualActions = [];
+        let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
+          existingVisualActions.push(action);
+          return '';
+        }).trim();
+        
+        // For media lines, the content after removing actions should be the media reference
+        const mediaReference = cleanContent;
+        
+        // Reconstruct content with visual actions FOR DISPLAY
+        const allVisualActions = existingVisualActions.map(action => `<${action}>`).join('');
+        const finalContent = mediaReference ? `${mediaReference} ${allVisualActions}`.trim() : allVisualActions;
+        
+        // Only add if we have actual content or visual actions
+        if (finalContent || existingVisualActions.length > 0) {
+          const segmentType = mediaType.toLowerCase(); // 'media' or 'hold'
+          segments.push({
+            voiceTag: mediaType,
+            content: finalContent,
+            originalContent: mediaReference,
+            type: segmentType,
+            visualActions: existingVisualActions,
+            hasAutoColorize: false
+          });
+          console.log(`🎬 Parsed ${mediaType} segment:`, { 
+            line: trimmedLine, 
+            finalContent, 
+            mediaReference, 
+            visualActions: existingVisualActions.length,
+            type: segmentType
+          });
+          
+          // 🐛 HOLD SPECIFIC DEBUG
+          if (segmentType === 'hold') {
+            console.log(`🔍 HOLD SEGMENT DEBUG:`, {
+              originalInput: trimmedLine,
+              extractedContent: content,
+              cleanContent: cleanContent,
+              mediaReference: mediaReference,
+              visualActions: existingVisualActions,
+              allVisualActions: allVisualActions,
+              finalContent: finalContent,
+              passedCondition: (finalContent || existingVisualActions.length > 0)
+            });
+          }
+        } else {
+          console.log(`❌ SKIPPED ${mediaType} segment - no content or visual actions:`, {
+            finalContent,
+            existingVisualActionsLength: existingVisualActions.length
+          });
+        }
+      } else {
+        // Match voice tags like [EMBER VOICE], [NARRATOR], [Amado], etc.
+        const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
+        
+        if (voiceMatch) {
+        console.log(`🔍 Voice match found:`, {
+          fullMatch: voiceMatch[0],
+          voiceTag: voiceMatch[1],
+          content: voiceMatch[2]
+        });
         const voiceTag = voiceMatch[1].trim();
         let content = voiceMatch[2].trim();
         const voiceType = getVoiceType(voiceTag);
@@ -4107,20 +4336,20 @@ export default function EmberDetail() {
           return '';
         }).trim();
         
-        // Add default colorization based on voice type (if no COLORIZE action exists)
+        // Add default colorization based on voice type (if no COLOR action exists)
         let colorizeAction = '';
-        const hasColorizeAction = existingVisualActions.some(action => action.startsWith('COLORIZE:'));
+        const hasColorizeAction = existingVisualActions.some(action => action.startsWith('COLOR:'));
         
         if (!hasColorizeAction) {
           switch (voiceType) {
             case 'ember':
-              colorizeAction = '<COLORIZE:r=255,g=0,b=0,opacity=0.2>';
+              colorizeAction = '<COLOR:#FF0000,TRAN:0.2>';
               break;
             case 'narrator':
-              colorizeAction = '<COLORIZE:r=0,g=0,b=255,opacity=0.2>';
+              colorizeAction = '<COLOR:#0000FF,TRAN:0.2>';
               break;
             case 'contributor':
-              colorizeAction = '<COLORIZE:r=0,g=255,b=0,opacity=0.2>';
+              colorizeAction = '<COLOR:#00FF00,TRAN:0.2>';
               break;
           }
         }
@@ -4141,11 +4370,14 @@ export default function EmberDetail() {
         }
       }
     }
+  }
     
     console.log('📝 Parsed script segments:', segments.length, 'segments');
     console.log('🎨 Applied auto-colorization based on voice types:');
     segments.forEach((segment, index) => {
-      if (segment.hasAutoColorize) {
+      if (segment.type === 'media' || segment.type === 'hold') {
+        console.log(`  ${index + 1}. [[${segment.voiceTag}]] → ${segment.type.toUpperCase()} SEGMENT (${segment.content})`);
+      } else if (segment.hasAutoColorize) {
         const colorMap = {
           ember: 'RED (255,0,0,0.2)',
           narrator: 'BLUE (0,0,255,0.2)', 
@@ -4155,7 +4387,43 @@ export default function EmberDetail() {
       }
     });
     
-    return segments;
+    // Remove exact duplicates
+    const uniqueSegments = [];
+    const seenSegments = new Set();
+    
+    console.log('🔄 Removing duplicates from', segments.length, 'segments...');
+    
+    segments.forEach((segment, index) => {
+      const key = `${segment.type}-${segment.voiceTag}-${segment.content}`;
+      console.log(`🔍 Checking segment ${index + 1}: Key="${key.substring(0, 50)}..."`);
+      
+      if (seenSegments.has(key)) {
+        console.warn('⚠️ Removing duplicate segment:', { 
+          index: index + 1,
+          key: key.substring(0, 100),
+          segment: `${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} ${segment.content.substring(0, 50)}...`
+        });
+      } else {
+        seenSegments.add(key);
+        uniqueSegments.push(segment);
+        console.log(`  ✅ Kept segment ${index + 1}: ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 50)}..."`);
+      }
+    });
+    
+    console.log(`📝 Removed ${segments.length - uniqueSegments.length} duplicate segments`);
+    console.log('📝 Final unique segments order:');
+    uniqueSegments.forEach((segment, index) => {
+      console.log(`  ${index + 1}. ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 30)}..."`);
+    });
+    
+    // 🚨 CRITICAL DEBUG: Count HOLD segments specifically
+    const holdSegments = uniqueSegments.filter(seg => seg.type === 'hold');
+    console.log(`🚨 HOLD SEGMENTS COUNT: ${holdSegments.length}`);
+    holdSegments.forEach((holdSeg, index) => {
+      console.log(`  🚨 HOLD ${index + 1}: "${holdSeg.content}" (type: ${holdSeg.type}, voiceTag: ${holdSeg.voiceTag})`);
+    });
+    
+    return uniqueSegments;
   };
 
   // Parse text into sentences for synchronized display (Option 1B)
@@ -4214,17 +4482,337 @@ export default function EmberDetail() {
     return 'contributor'; // Everything else is a contributor (user name)
   };
 
-  // Format script for display with visual actions and spacing
-  const formatScriptForDisplay = (script) => {
+  // Helper function to extract HEX color from COLOR action
+  const extractColorFromAction = (action) => {
+    // Support both old format (color=#FF0000) and new format (:FF0000)
+    const colorMatch = action.match(/(?:color=|:)#([A-Fa-f0-9]{3,6})/);
+    if (colorMatch) {
+      const hex = colorMatch[1];
+      // Convert 3-digit to 6-digit hex if needed
+      if (hex.length === 3) {
+        return `#${hex.split('').map(char => char + char).join('')}`;
+      }
+      return `#${hex}`;
+    }
+    return null;
+  };
+
+  // Helper function to extract transparency value from TRAN action
+  const extractTransparencyFromAction = (action) => {
+    const transparencyMatch = action.match(/TRAN:([0-9.]+)/);
+    if (transparencyMatch) {
+      const value = parseFloat(transparencyMatch[1]);
+      // Clamp between 0 and 1
+      return Math.max(0, Math.min(1, value));
+    }
+    return 0.2; // Default transparency
+  };
+
+  // Helper function to extract scale values from Z-OUT action
+  const extractZoomScaleFromAction = (action) => {
+    const scaleMatch = action.match(/scale=([0-9.]+)/);
+    if (scaleMatch) {
+      const endScale = parseFloat(scaleMatch[1]);
+      // Start scale is typically larger for zoom-in effect (reverse of zoom-out)
+      // If script specifies scale=0.7, we zoom FROM larger TO 0.7
+      const startScale = Math.max(1.2, endScale * 2.0); // More dramatic zoom effect
+      return { start: startScale, end: endScale };
+    }
+    // Default zoom: subtle zoom-in effect (no zoom out)
+    return { start: 1.1, end: 1.0 };
+  };
+
+  // Helper function to estimate segment duration
+  const estimateSegmentDuration = (content, segmentType) => {
+    // For media and hold segments, prioritize explicit duration from visual actions
+    if (segmentType === 'media' || segmentType === 'hold') {
+      // Extract duration from any visual action that has it
+      const durationMatch = content.match(/duration=([0-9.]+)/);
+      if (durationMatch) {
+        return parseFloat(durationMatch[1]).toFixed(2);
+      }
+      
+      // Different defaults for media vs hold
+      if (segmentType === 'hold') {
+        return "3.00"; // Hold segments default to 3 seconds
+      } else {
+        return "2.00"; // Media segments default to 2 seconds
+      }
+    }
+    
+    // For voice segments, estimate by text length (remove visual actions first)
+    const cleanContent = content.replace(/<[^>]+>/g, '').trim();
+    const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
+    return estimatedDuration.toFixed(2);
+  };
+
+  // Parse original script format where voice segments are in one continuous string
+  const parseOriginalScriptFormat = (script) => {
+    if (!script) return [];
+    
+    const segments = [];
+    
+    // Split by voice tags - handle both bracketed formats
+    const voiceTagRegex = /\[([^\]]+)\]/g;
+    let lastIndex = 0;
+    let match;
+    let currentVoiceTag = null;
+    
+    while ((match = voiceTagRegex.exec(script)) !== null) {
+      // If we have a previous voice tag, process the content before this match
+      if (currentVoiceTag) {
+        const content = script.slice(lastIndex, match.index).trim();
+        if (content) {
+          const voiceType = getVoiceType(currentVoiceTag);
+          
+          // Add default colorization based on voice type
+          let colorizeAction = '';
+          switch (voiceType) {
+            case 'ember':
+              colorizeAction = '<COLOR:#FF0000,TRAN:0.2>';
+              break;
+            case 'narrator':
+              colorizeAction = '<COLOR:#0000FF,TRAN:0.2>';
+              break;
+            case 'contributor':
+              colorizeAction = '<COLOR:#00FF00,TRAN:0.2>';
+              break;
+          }
+          
+          segments.push({
+            voiceTag: currentVoiceTag,
+            content: `${colorizeAction} ${content}`.trim(),
+            originalContent: content,
+            type: voiceType,
+            visualActions: [],
+            hasAutoColorize: true
+          });
+        }
+      }
+      
+      // Update for next iteration
+      currentVoiceTag = match[1];
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Process the last segment after the final voice tag
+    if (currentVoiceTag) {
+      const content = script.slice(lastIndex).trim();
+      if (content) {
+        const voiceType = getVoiceType(currentVoiceTag);
+        
+        // Add default colorization based on voice type
+        let colorizeAction = '';
+        switch (voiceType) {
+          case 'ember':
+            colorizeAction = '<COLOR:#FF0000,TRAN:0.2>';
+            break;
+          case 'narrator':
+            colorizeAction = '<COLOR:#0000FF,TRAN:0.2>';
+            break;
+          case 'contributor':
+            colorizeAction = '<COLOR:#00FF00,TRAN:0.2>';
+            break;
+        }
+        
+        segments.push({
+          voiceTag: currentVoiceTag,
+          content: `${colorizeAction} ${content}`.trim(),
+          originalContent: content,
+          type: voiceType,
+          visualActions: [],
+          hasAutoColorize: true
+        });
+      }
+    }
+    
+    console.log('📝 Parsed original script format:', segments.length, 'segments');
+    segments.forEach((segment, index) => {
+      console.log(`  ${index + 1}. [${segment.voiceTag}] → "${segment.originalContent.substring(0, 50)}..."`);
+    });
+    
+    return segments;
+  };
+
+  // Generate enhanced script with current playback behavior as explicit MEDIA lines
+  const generateEnhancedScript = (originalScript, ember, storyCut) => {
+    if (!originalScript) return '';
+    
+    // For original scripts that don't have proper line breaks, we need to parse them differently
+    let segments;
+    if (originalScript.includes('[[MEDIA]]')) {
+      // Script already has MEDIA lines, use normal parsing
+      console.log('📝 Using standard parsing for script with MEDIA lines');
+      segments = parseScriptSegments(originalScript);
+    } else {
+      // Original format script - needs special parsing to separate voice segments
+      console.log('📝 Using original format parsing for script without MEDIA lines');
+      console.log('📝 Original script preview:', originalScript.substring(0, 200) + '...');
+      segments = parseOriginalScriptFormat(originalScript);
+    }
+    
+    const enhancedSegments = [];
+    
+    // Calculate total story duration from voice segments
+    let totalVoiceDuration = 0;
+    segments.forEach(segment => {
+      if (segment.type !== 'media' && segment.type !== 'hold') {
+        totalVoiceDuration += parseFloat(estimateSegmentDuration(segment.content, segment.type));
+      }
+    });
+    
+    // 1. Add opening black screen (current loading behavior)
+    enhancedSegments.push({
+      voiceTag: 'HOLD',
+      content: '<COLOR:#000000,duration=2.0>',
+      type: 'hold',
+      duration: '2.00'
+    });
+    
+    // 2. Add ember image with zoom out (current main playback behavior)
+    const emberId = ember?.id || 'current';
+    enhancedSegments.push({
+      voiceTag: 'MEDIA', 
+      content: `id=${emberId} <Z-OUT:scale=0.7,duration=${totalVoiceDuration.toFixed(2)}>`,
+      type: 'media',
+      duration: totalVoiceDuration.toFixed(2)
+    });
+    
+    // 3. Add all voice segments
+    segments.forEach(segment => {
+      if (segment.type !== 'media' && segment.type !== 'hold') {
+        enhancedSegments.push(segment);
+      }
+    });
+    
+    // 4. Add ending black screen (current fade-out + hold behavior)
+    enhancedSegments.push({
+      voiceTag: 'HOLD',
+      content: '<COLOR:#000000,duration=4.0>',
+      type: 'hold', 
+      duration: '4.00' // 3 seconds fade + 1 second hold
+    });
+    
+    console.log('🔄 generateEnhancedScript: Final enhanced segments order:');
+    enhancedSegments.forEach((segment, index) => {
+      console.log(`  ${index + 1}. ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 30)}..."`);
+    });
+    
+    return enhancedSegments;
+  };
+
+  // Convert enhanced segments to editable script text
+  const segmentsToScriptText = (segments) => {
+    console.log('🔄 segmentsToScriptText: Converting', segments.length, 'segments to script text');
+    segments.forEach((segment, index) => {
+      console.log(`  ${index + 1}. ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 50)}..."`);
+    });
+    
+    const scriptText = segments.map(segment => {
+      const { voiceTag, content, type } = segment;
+      
+      // Format media/hold lines with [[TYPE]] and voice lines with [VOICE]  
+      const prefix = (type === 'media' || type === 'hold') ? `[[${voiceTag}]]` : `[${voiceTag}]`;
+      
+      return `${prefix} ${content}`;
+    }).join('\n\n');
+    
+    console.log('📝 Generated script text preview:', scriptText.substring(0, 200) + '...');
+    return scriptText;
+  };
+
+  // Get the script for editing (enhanced if original doesn't have MEDIA lines)
+  const getEditableScript = (script, ember, storyCut, hasBeenEnhancedFlag = false) => {
     if (!script) return '';
     
-    const segments = parseScriptSegments(script);
+    try {
+      // Check if script already has MEDIA or HOLD lines
+      const hasMediaLines = script.includes('[[MEDIA]]') || script.includes('[[HOLD]]');
+      
+      console.log('🔍 getEditableScript analysis:');
+      console.log('  - Script length:', script.length);
+      console.log('  - Has MEDIA lines:', script.includes('[[MEDIA]]'));
+      console.log('  - Has HOLD lines:', script.includes('[[HOLD]]'));
+      console.log('  - Has enhanced content:', hasMediaLines);
+      console.log('  - Script preview:', script.substring(0, 100) + '...');
+      console.log('  - Has been enhanced flag:', hasBeenEnhancedFlag);
+      
+      if (hasMediaLines) {
+        // Use script as-is if it already has MEDIA or HOLD lines
+        console.log('  - Decision: Using script as-is (already has enhanced content)');
+        return script;
+      } else {
+        // Generate enhanced script with current behavior as explicit MEDIA lines
+        console.log('  - Decision: Generating enhanced script (no enhanced content found)');
+        const segments = generateEnhancedScript(script, ember, storyCut);
+        const enhancedScript = segmentsToScriptText(segments);
+        console.log('  - Enhanced script preview:', enhancedScript.substring(0, 100) + '...');
+        
+        return enhancedScript;
+      }
+    } catch (error) {
+      console.error('❌ Error in getEditableScript:', error);
+      console.log('🔄 Returning original script as fallback');
+      return script;
+    }
+  };
+
+  // Format script for display with visual actions and spacing
+  const formatScriptForDisplay = (script, ember, storyCut) => {
+    if (!script) return '';
     
-    return segments.map(segment => {
-      const { voiceTag, content } = segment;
+    console.log('🎨 formatScriptForDisplay called');
+    console.log('🎨 Script preview (first 200 chars):', script.substring(0, 200));
+    
+    // Check if script already has MEDIA or HOLD lines
+    const hasEnhancedContent = script.includes('[[MEDIA]]') || script.includes('[[HOLD]]');
+    console.log('🎨 Script has MEDIA lines:', script.includes('[[MEDIA]]'));
+    console.log('🎨 Script has HOLD lines:', script.includes('[[HOLD]]'));
+    console.log('🎨 Script has enhanced content:', hasEnhancedContent);
+    
+    // Count MEDIA and HOLD lines
+    const mediaLinesCount = (script.match(/\[\[MEDIA\]\]/g) || []).length;
+    const holdLinesCount = (script.match(/\[\[HOLD\]\]/g) || []).length;
+    console.log('🎨 Number of MEDIA lines in script:', mediaLinesCount);
+    console.log('🎨 Number of HOLD lines in script:', holdLinesCount);
+    
+    let segments;
+    if (hasEnhancedContent) {
+      // Use script as-is if it already has MEDIA or HOLD lines - parse directly without enhancement
+      console.log('📝 Using existing script with enhanced content, parsing directly...');
+      segments = parseScriptSegments(script);
+      console.log('📝 Parsed segments from existing script:', segments.length);
+    } else {
+      // Generate enhanced script with current behavior as explicit MEDIA lines
+      console.log('📝 Script has no enhanced content, enhancing...');
+      segments = generateEnhancedScript(script, ember, storyCut);
+      console.log('📝 Generated enhanced segments:', segments.length);
+    }
+    
+    // 🚨 CRITICAL DEBUG: Check HOLD segments before display formatting
+    const holdSegmentsForDisplay = segments.filter(seg => seg.type === 'hold');
+    console.log('🚨 HOLD SEGMENTS FOR DISPLAY:', holdSegmentsForDisplay.length);
+    holdSegmentsForDisplay.forEach((holdSeg, index) => {
+      console.log(`  🚨 DISPLAY HOLD ${index + 1}: "${holdSeg.content}" (type: ${holdSeg.type})`);
+    });
+
+    return segments.map((segment, index) => {
+      const { voiceTag, content, type, duration } = segment;
+      const calculatedDuration = duration || estimateSegmentDuration(content, type);
+      
+      // Format media/hold lines with [[TYPE]] and voice lines with [VOICE]
+      const prefix = (type === 'media' || type === 'hold') ? `[[${voiceTag}]]` : `[${voiceTag}]`;
+      
+      const displayLine = `${prefix} ${content} (${calculatedDuration})`;
+      console.log(`📝 Display segment ${index + 1}: "${displayLine}"`);
+      
+      // 🚨 CRITICAL DEBUG: Special logging for HOLD segments
+      if (type === 'hold') {
+        console.log(`🚨 FORMATTING HOLD SEGMENT: "${displayLine}"`);
+      }
       
       // Add double line breaks between segments for spacing
-      return `[${voiceTag}] ${content}`;
+      return displayLine;
     }).join('\n\n');
   };
 
@@ -4291,7 +4879,13 @@ export default function EmberDetail() {
     const { voiceTag, content, originalContent, type } = segment;
     
     // Use originalContent for audio synthesis, content for display/matching
-    const audioContent = originalContent || content;
+    const rawAudioContent = originalContent || content;
+    
+    // Clean content for TTS: remove visual actions and voice tags
+    const audioContent = rawAudioContent
+      .replace(/<[^>]+>/g, '') // Remove visual actions like <COLOR:#FF0000,TRAN:0.2>
+      .replace(/^\[.*?\]\s*/, '') // Remove voice tags like [NARRATOR] or [EMBER VOICE]
+      .trim();
     
     console.log(`🎵 Generating audio for [${voiceTag}]: "${audioContent.substring(0, 50)}..."`);
     console.log(`🔍 Segment type: ${type}`);
@@ -4768,13 +5362,20 @@ export default function EmberDetail() {
       setActiveAudioSegments, 
       playbackStoppedRef, 
       setCurrentVoiceType,
+      setCurrentVoiceTransparency,
+      setCurrentMediaColor,
+      setCurrentZoomScale,
       // 🎯 Sentence-by-sentence display state setters
       setCurrentDisplayText,
       setCurrentVoiceTag,
       setCurrentSentenceIndex,
       setCurrentSegmentSentences,
       setSentenceTimeouts,
-      sentenceTimeouts
+      sentenceTimeouts,
+      // 🎯 Media timeout management
+      setMediaTimeouts,
+      mediaTimeouts,
+      mediaTimeoutsRef
     } = stateSetters;
     
     console.log('🎭 Starting multi-voice playback with', segments.length, 'segments');
@@ -4786,12 +5387,17 @@ export default function EmberDetail() {
     playbackStoppedRef.current = false;
     
     try {
-      // Generate all audio segments
-      console.log('⏳ Generating audio for all segments...');
+      // Separate media/hold and voice segments for different processing
+      const mediaSegments = segments.filter(segment => segment.type === 'media' || segment.type === 'hold');
+      const voiceSegments = segments.filter(segment => segment.type !== 'media' && segment.type !== 'hold');
+      console.log(`🎭 Segment breakdown: ${segments.length} total → ${mediaSegments.length} media/hold + ${voiceSegments.length} voice`);
+      
+      // Generate audio for voice segments only
+      console.log('⏳ Generating audio for voice segments...');
       const audioSegments = [];
-      for (let i = 0; i < segments.length; i++) {
-        const segment = segments[i];
-        console.log(`🔧 Generating segment ${i + 1}/${segments.length}: [${segment.voiceTag}] "${segment.originalContent || segment.content}"`);
+      for (let i = 0; i < voiceSegments.length; i++) {
+        const segment = voiceSegments[i];
+        console.log(`🔧 Generating segment ${i + 1}/${voiceSegments.length}: [${segment.voiceTag}] "${segment.originalContent || segment.content}"`);
         
         try {
           const audioSegment = await generateSegmentAudio(segment, storyCut, recordedAudio);
@@ -4805,54 +5411,181 @@ export default function EmberDetail() {
         }
       }
       
-      console.log('✅ Generated', audioSegments.length, 'audio segments');
-      console.log('🎬 Starting playback...');
+      // Create unified timeline with media effects and voice audio
+      const timeline = [];
+      let audioIndex = 0;
       
-      // Store segments in state for cleanup
+      console.log('🎬 Building unified timeline...');
+      segments.forEach((segment, index) => {
+        if (segment.type === 'hold') {
+          // Hold segment - blocks timeline for set duration
+          const duration = parseFloat(estimateSegmentDuration(segment.content, segment.type));
+          timeline.push({
+            type: 'hold',
+            segment,
+            duration,
+            index
+          });
+          console.log(`⏸️ Timeline ${index + 1}: HOLD effect for ${duration}s - ${segment.content.substring(0, 50)}...`);
+        } else if (segment.type === 'media') {
+          // Media segment - background effect (non-blocking)
+          console.log(`📺 Background ${index + 1}: MEDIA effect - ${segment.content.substring(0, 50)}...`);
+          // Apply media effect immediately when building timeline
+          // This will be handled separately in the background
+        } else {
+          // Voice segment - use generated audio
+          if (audioIndex < audioSegments.length) {
+            timeline.push({
+              type: 'voice',
+              segment,
+              audio: audioSegments[audioIndex],
+              index
+            });
+            console.log(`🎤 Timeline ${index + 1}: VOICE audio - [${segment.voiceTag}]`);
+            audioIndex++;
+          }
+        }
+      });
+      
+      console.log('✅ Generated', audioSegments.length, 'audio segments');
+      console.log('🎬 Starting unified timeline playback...');
+      console.log(`🎭 Timeline has ${timeline.length} steps (${mediaSegments.length} media + ${voiceSegments.length} voice)`);
+      
+      // Store audio segments in state for cleanup
       setActiveAudioSegments(audioSegments);
       
       // Switch from generating to playing state
       setIsGeneratingAudio(false);
       setIsPlaying(true);
       
-      let currentSegmentIndex = 0;
+      // Apply background media effects before starting timeline
+      const mediaEffects = segments.filter(segment => segment.type === 'media');
+      console.log(`🎭 Applying ${mediaEffects.length} background media effects...`);
+      mediaEffects.forEach((segment, index) => {
+        console.log(`📺 Background effect ${index + 1}: ${segment.content.substring(0, 50)}...`);
+        
+        // Apply media background effects based on content
+        if (segment.content.includes('Z-OUT:')) {
+          // Extract zoom scale values from Z-OUT command
+          const zoomScale = extractZoomScaleFromAction(segment.content);
+          console.log(`🎬 Background effect: Image zoom out - from ${zoomScale.start} to ${zoomScale.end}`);
+          setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
+        }
+      });
       
-      const playNextSegment = () => {
-        if (playbackStoppedRef.current || currentSegmentIndex >= audioSegments.length) {
-          // All segments finished or playback was stopped
+      let currentTimelineIndex = 0;
+      // Clear any existing media timeouts before starting new playback
+      mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+      mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+      setMediaTimeouts([]);
+      mediaTimeoutsRef.current = [];
+      
+      const playNextTimelineStep = () => {
+        if (playbackStoppedRef.current || currentTimelineIndex >= timeline.length) {
+          // Clean up any remaining media timeouts
+          console.log('🧹 Cleaning up', mediaTimeouts.length, 'media timeouts');
+          mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+          mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+          setMediaTimeouts([]);
+          mediaTimeoutsRef.current = [];
+          
+          // All timeline steps finished or playback was stopped
           if (!playbackStoppedRef.current) {
-            console.log('🎬 Multi-voice playback complete');
+            console.log('🎬 Timeline playback complete');
+            // Clear any remaining visual effects
+            setCurrentVoiceType(null);
+            setCurrentVoiceTransparency(0.2); // Reset to default
+            setCurrentMediaColor(null);
+            setCurrentZoomScale({ start: 1.0, end: 1.0 }); // Reset to default
             handlePlaybackComplete();
           } else {
-            console.log('🛑 Multi-voice playback stopped');
+            console.log('🛑 Timeline playback stopped');
           }
           return;
         }
         
-        const currentSegment = audioSegments[currentSegmentIndex];
-        const audio = currentSegment.audio;
+        const currentStep = timeline[currentTimelineIndex];
+        console.log(`🎬 Timeline step ${currentTimelineIndex + 1}/${timeline.length}: ${currentStep.type} - ${currentStep.type === 'hold' ? `${currentStep.duration}s` : `[${currentStep.segment.voiceTag}]`}`);
         
-        console.log(`▶️ Playing segment ${currentSegmentIndex + 1}/${audioSegments.length}: [${currentSegment.voiceTag}]`);
-        
-        // Trigger visual effect based on voice type
-        const segmentType = segments[currentSegmentIndex].type;
-        if (segmentType === 'ember') {
-          console.log('🎬 Visual effect: Ember voice - applying red overlay');
-          setCurrentVoiceType('ember');
-        } else if (segmentType === 'narrator') {
-          console.log('🎬 Visual effect: Narrator voice - applying blue overlay');
-          setCurrentVoiceType('narrator');
-        } else {
-          console.log('🎬 Visual effect: Contributor voice - applying green overlay');
-          setCurrentVoiceType('contributor');
-        }
+        if (currentStep.type === 'hold') {
+          // Hold step - apply visual effect and wait for duration
+          const segment = currentStep.segment;
+          const duration = currentStep.duration;
+          
+          console.log(`⏸️ Applying hold effect for ${duration}s: ${segment.content}`);
+          
+          // Apply visual effects based on content
+          if (segment.content.includes('COLOR:#000000')) {
+            console.log('🎬 Visual effect: Black screen');
+            setCurrentVoiceType(null); // Clear any voice overlay
+            setCurrentMediaColor('#000000'); // Set black color
+          } else if (segment.content.includes('Z-OUT:')) {
+            // Extract zoom scale values from Z-OUT command
+            const zoomScale = extractZoomScaleFromAction(segment.content);
+            console.log(`🎬 Visual effect: Image zoom out - from ${zoomScale.start} to ${zoomScale.end}`);
+            setCurrentVoiceType(null); // Image display, no voice overlay
+            setCurrentMediaColor(null); // Clear any color overlay
+            setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
+          } else if (segment.content.includes('COLOR:#')) {
+            // Extract color from COLOR:#RRGGBB format
+            const colorMatch = segment.content.match(/COLOR:#([0-9A-Fa-f]{6})/);
+            if (colorMatch) {
+              const colorValue = '#' + colorMatch[1];
+              console.log(`🎬 Visual effect: Color overlay - ${colorValue}`);
+              setCurrentVoiceType(null); // Clear any voice overlay
+              setCurrentMediaColor(colorValue); // Set the extracted color
+            }
+          }
+          
+          // Wait for the specified duration, then continue to next step
+          const timeoutId = setTimeout(() => {
+            if (!playbackStoppedRef.current) {
+              currentTimelineIndex++;
+              playNextTimelineStep();
+            }
+          }, duration * 1000);
+          
+          // Track timeout for cleanup
+          setMediaTimeouts(prev => [...prev, timeoutId]);
+          mediaTimeoutsRef.current.push(timeoutId);
+          
+                 } else if (currentStep.type === 'voice') {
+           // Voice step - play audio
+           const audio = currentStep.audio.audio;
+           const segment = currentStep.segment;
+         
+           console.log(`▶️ Playing voice segment: [${segment.voiceTag}]`);
+          
+          // Trigger visual effect based on voice type
+          const segmentType = segment.type;
+          
+          // Extract transparency from segment content
+          const transparency = extractTransparencyFromAction(segment.content);
+          console.log(`🎬 Voice transparency: ${transparency}`);
+          
+          if (segmentType === 'ember') {
+            console.log('🎬 Visual effect: Ember voice - applying red overlay');
+            setCurrentVoiceType('ember');
+            setCurrentVoiceTransparency(transparency);
+            setCurrentMediaColor(null); // Clear any color overlay
+          } else if (segmentType === 'narrator') {
+            console.log('🎬 Visual effect: Narrator voice - applying blue overlay');
+            setCurrentVoiceType('narrator');
+            setCurrentVoiceTransparency(transparency);
+            setCurrentMediaColor(null); // Clear any color overlay
+          } else {
+            console.log('🎬 Visual effect: Contributor voice - applying green overlay');
+            setCurrentVoiceType('contributor');
+            setCurrentVoiceTransparency(transparency);
+            setCurrentMediaColor(null); // Clear any color overlay
+          }
 
-        // 🎯 Option 1B: Sentence-by-Sentence Text Display
-        const currentSegmentData = segments[currentSegmentIndex];
+          // 🎯 Option 1B: Sentence-by-Sentence Text Display
+          const currentSegmentData = segment;
         const sentences = parseSentences(currentSegmentData.originalContent || currentSegmentData.content);
         const voiceTag = currentSegmentData.voiceTag;
         
-        console.log(`📝 Segment ${currentSegmentIndex + 1} sentences (clean):`, sentences);
+        console.log(`📝 Segment ${currentTimelineIndex + 1} sentences (clean):`, sentences);
         
         // Set up sentence display
         setCurrentVoiceTag(voiceTag);
@@ -4898,40 +5631,48 @@ export default function EmberDetail() {
           }
         }
         
-        // Handle segment completion
-        audio.onended = () => {
-          if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
+          // Handle audio completion
+          audio.onended = () => {
+            if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
+            
+            console.log(`✅ Completed voice segment: [${segment.voiceTag}]`);
+            currentTimelineIndex++;
+            playNextTimelineStep();
+          };
           
-          console.log(`✅ Completed segment: [${currentSegment.voiceTag}]`);
-          currentSegmentIndex++;
-          playNextSegment();
-        };
-        
-        // Handle errors
-        audio.onerror = (error) => {
-          if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
+          // Handle errors
+          audio.onerror = (error) => {
+            if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
+            
+            console.error(`❌ Error playing voice segment [${segment.voiceTag}]:`, error);
+            currentTimelineIndex++;
+            playNextTimelineStep(); // Continue to next timeline step
+          };
           
-          console.error(`❌ Error playing segment [${currentSegment.voiceTag}]:`, error);
-          currentSegmentIndex++;
-          playNextSegment(); // Continue to next segment
-        };
-        
-        // Play the segment
-        audio.play().catch(error => {
-          if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
-          
-          console.error(`❌ Failed to play segment [${currentSegment.voiceTag}]:`, error);
-          currentSegmentIndex++;
-          playNextSegment(); // Continue to next segment
-        });
+          // Play the audio
+          audio.play().catch(error => {
+            if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
+            
+            console.error(`❌ Failed to play voice segment [${segment.voiceTag}]:`, error);
+            currentTimelineIndex++;
+            playNextTimelineStep(); // Continue to next timeline step
+          });
+        }
       };
       
-      // Start playing the first segment
-      playNextSegment();
+      // Start playing the timeline
+      playNextTimelineStep();
       
     } catch (error) {
       console.error('❌ Error in multi-voice playback:', error);
       console.error('❌ Full error details:', error.message, error.stack);
+      
+      // Clean up media timeouts on error
+      console.log('🧹 Cleaning up media timeouts on error:', mediaTimeouts.length);
+      mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+      mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+      setMediaTimeouts([]);
+      mediaTimeoutsRef.current = [];
       
       // Reset states on error
       setIsGeneratingAudio(false);
