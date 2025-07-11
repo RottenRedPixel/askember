@@ -333,13 +333,7 @@ export default function EmberDetail() {
     }
   };
 
-  // Fetch story cuts and tagged people when ember changes
-  useEffect(() => {
-    if (ember?.id) {
-      fetchStoryCuts();
-      fetchTaggedPeopleData();
-    }
-  }, [ember?.id]);
+  // Note: Story cuts and tagged people are automatically fetched by useEmberData hook
 
   // Force re-render of story cuts when styles are loaded
   useEffect(() => {
@@ -775,7 +769,7 @@ export default function EmberDetail() {
       // 🎯 Auto-trigger location processing if needed (Android mobile fix)
       autoTriggerLocationProcessing(ember, user, { isAutoLocationProcessing, setIsAutoLocationProcessing, fetchEmber });
     }
-  }, [ember?.id, user, imageAnalysisData, isAutoAnalyzing, isExifProcessing, isAutoLocationProcessing, fetchEmber]);
+  }, [ember?.id, user]);
 
   const handleTitleEdit = () => {
     setNewTitle(ember.title || '');
