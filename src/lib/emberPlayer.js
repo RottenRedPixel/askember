@@ -412,10 +412,20 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       console.log(`🎤 User preference for "${audioContent.substring(0, 30)}...": ${userPreference}`);
       console.log(`🔍 All available preferences:`, window.messageAudioPreferences);
 
-      // Find the user ID by matching the voice tag (first name) with recorded audio data
-      const matchingUserId = Object.entries(recordedAudio).find(([userId, audioData]) => {
+      // Find the user ID by matching the voice tag (first name) with recorded audio data OR story cut contributors
+      let matchingUserId = Object.entries(recordedAudio).find(([userId, audioData]) => {
         return audioData.user_first_name === voiceTag;
       });
+
+      // If not found in recorded audio, check story cut contributors
+      if (!matchingUserId && storyCut.selected_contributors) {
+        console.log(`🔍 No recorded audio match, checking story cut contributors for: ${voiceTag}`);
+        const contributor = storyCut.selected_contributors.find(c => c.name === voiceTag);
+        if (contributor) {
+          console.log(`✅ Found contributor in story cut: ${contributor.name} (ID: ${contributor.id})`);
+          matchingUserId = [contributor.id, { user_first_name: contributor.name }];
+        }
+      }
 
       if (!matchingUserId) {
         console.log(`🔍 Could not find user ID for voice tag: ${voiceTag}`);
@@ -455,8 +465,14 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         const [userId, audioData] = matchingUserId;
         console.log(`🔍 Found user ID for ${voiceTag}: ${userId}`);
 
-        // Check for recorded audio match
+        // Check for recorded audio match (only if we have actual recorded audio data)
         const hasRecordedAudio = (() => {
+          // If audioData doesn't have message_content, it's from story cut contributors (no recorded audio)
+          if (!audioData.message_content) {
+            console.log(`  - No message content - this is from story cut contributors (synth voice only)`);
+            return false;
+          }
+
           const recordedContent = audioData.message_content?.toLowerCase() || '';
           const segmentContent = audioContent.toLowerCase();
 
