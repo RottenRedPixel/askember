@@ -21,7 +21,13 @@ export const getStyleDisplayName = (style, availableStoryStyles = []) => {
             'sports_commentary_style': 'Sports Commentary Style',
             'dramatic_monologue_style': 'Dramatic Monologue Style',
             'fairy_tale_style': 'Fairy Tale Style',
-            'news_report_style': 'News Report Style'
+            'news_report_style': 'News Report Style',
+            // Database format mappings
+            'story_style_movie_trailer': 'Movie Trailer',
+            'story_style_documentary': 'Documentary',
+            'story_style_news_report': 'News Report',
+            'story_style_public_radio': 'Public Radio',
+            'story_style_podcast_narrative': 'Podcast Narrative'
         };
 
         return styleMap[style] || style;

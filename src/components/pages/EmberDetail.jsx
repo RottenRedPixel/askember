@@ -1902,126 +1902,181 @@ export default function EmberDetail() {
               )}
 
               {/* Real Story Cuts */}
-              {!storyCutsLoading && storyCuts.map((cut) => {
-                const isPrimary = primaryStoryCut?.id === cut.id;
-                return (
-                  <div
-                    key={cut.id}
-                    className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors border border-gray-200 relative group"
-                  >
-                    {/* Primary Badge - Matches media section "Cover" badge style */}
-                    {isPrimary && (
-                      <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 z-10">
-                        <Star size={12} weight="fill" />
-                        The One
-                      </div>
-                    )}
+              {!storyCutsLoading && storyCuts
+                .sort((a, b) => {
+                  // Always put "The One" (primary story cut) first
+                  const aIsPrimary = primaryStoryCut?.id === a.id;
+                  const bIsPrimary = primaryStoryCut?.id === b.id;
 
+                  if (aIsPrimary && !bIsPrimary) return -1;
+                  if (!aIsPrimary && bIsPrimary) return 1;
 
-
-                    {/* Content area - click disabled */}
+                  // For non-primary cuts, sort by creation date (most recent first)
+                  return new Date(b.created_at) - new Date(a.created_at);
+                })
+                .map((cut) => {
+                  const isPrimary = primaryStoryCut?.id === cut.id;
+                  return (
                     <div
-                      className=""
+                      key={cut.id}
+                      className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors border border-gray-200 relative group"
                     >
-                      <div className="flex gap-4">
-                        {/* Thumbnail - Using ember image for now */}
-                        <div className="flex-shrink-0">
-                          <img
-                            src={ember.image_url}
-                            alt={cut.title}
-                            className="w-24 h-24 rounded-lg object-cover"
-                          />
+                      {/* Primary Badge - Matches media section "Cover" badge style */}
+                      {isPrimary && (
+                        <div className="absolute top-2 left-2 bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 z-10">
+                          <Star size={12} weight="fill" />
+                          The One
                         </div>
+                      )}
 
-                        {/* Content */}
-                        <div className="flex-1 min-w-0" style={{ textAlign: 'left' }}>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0 text-left" style={{ textAlign: 'left' }}>
-                              <h3 className="font-medium text-gray-900 truncate text-left" style={{ textAlign: 'left' }}>{cut.title}</h3>
-                              {cut.story_focus && (
-                                <p className="text-sm text-gray-600 mt-1 line-clamp-2 text-left" style={{ textAlign: 'left' }}>
-                                  {cut.story_focus}
-                                </p>
-                              )}
-                            </div>
+
+
+                      {/* Content area - click disabled */}
+                      <div
+                        className=""
+                      >
+                        <div className="flex gap-4">
+                          {/* Thumbnail - Using ember image for now */}
+                          <div className="flex-shrink-0">
+                            <img
+                              src={ember.image_url}
+                              alt={cut.title}
+                              className="w-24 h-24 rounded-lg object-cover"
+                            />
                           </div>
 
-                          {/* Metadata */}
-                          <div className="mt-3 text-xs text-gray-500" style={{ textAlign: 'left' }}>
-                            <div className="flex items-center gap-1 mb-1">
-                              <Avatar className="h-3 w-3">
-                                <AvatarImage src={cut.creator?.avatar_url} alt={`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim()} />
-                                <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
-                                  {cut.creator?.first_name?.[0] || cut.creator?.last_name?.[0] || 'U'}
-                                </AvatarFallback>
-                              </Avatar>
-                              {`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
+                          {/* Content */}
+                          <div className="flex-1 min-w-0" style={{ textAlign: 'left' }}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0 text-left" style={{ textAlign: 'left' }}>
+                                <h3 className="font-medium text-gray-900 truncate text-left" style={{ textAlign: 'left' }}>{cut.title}</h3>
+                                {cut.story_focus && (
+                                  <p className="text-sm text-gray-600 mt-1 line-clamp-2 text-left" style={{ textAlign: 'left' }}>
+                                    {cut.story_focus}
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                              <span className="flex items-center gap-1">
-                                <Clock size={12} />
-                                {formatDuration(cut.duration)}
+
+                            {/* Metadata */}
+                            <div className="mt-3 text-xs text-gray-500" style={{ textAlign: 'left' }}>
+                              <div className="flex items-center gap-1 mb-1">
+                                <Avatar className="h-3 w-3">
+                                  <AvatarImage src={cut.creator?.avatar_url} alt={`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim()} />
+                                  <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
+                                    {cut.creator?.first_name?.[0] || cut.creator?.last_name?.[0] || 'U'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                {`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <span className="flex items-center gap-1">
+                                  <Clock size={12} />
+                                  {formatDuration(cut.duration)}
+                                </span>
+                                <span>{formatRelativeTime(cut.created_at)}</span>
+                              </div>
+                            </div>
+
+                            {/* Style Badge with Actions */}
+                            <div className="mt-2 text-left flex items-center justify-between" style={{ textAlign: 'left' }}>
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {getStyleDisplayName(cut.style, availableStoryStyles)}
                               </span>
-                              <span>{formatRelativeTime(cut.created_at)}</span>
-                            </div>
-                          </div>
 
-                          {/* Style Badge with Actions */}
-                          <div className="mt-2 text-left flex items-center justify-between" style={{ textAlign: 'left' }}>
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {getStyleDisplayName(cut.style, availableStoryStyles)}
-                            </span>
+                              {/* Action buttons */}
+                              <div className="flex items-center gap-3">
+                                {/* Delete Button - Only show for creators */}
+                                {canDeleteStoryCut(cut) && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setStoryCutToDelete(cut);
+                                      setShowDeleteConfirm(true);
+                                    }}
+                                    className="p-1 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors duration-200"
+                                    title="Delete story cut"
+                                  >
+                                    <Trash size={18} />
+                                  </button>
+                                )}
 
-                            {/* Action buttons */}
-                            <div className="flex items-center gap-3">
-                              {/* Make Primary Button - Only show for owner and non-primary cuts */}
-                              {!isPrimary && userPermission === 'owner' && (
+                                {/* Studio Button - Always show for visual editing */}
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleSetPrimary(cut.id);
+                                    navigate(`/embers/${ember.id}/studio`);
                                   }}
-                                  className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full transition-colors duration-200"
-                                  title="Make This The One"
+                                  className="p-1 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-full transition-colors duration-200"
+                                  title="Open in Studio"
                                 >
-                                  <Star size={18} />
+                                  <Sliders size={18} />
                                 </button>
-                              )}
 
-                              {/* Studio Button - Always show for visual editing */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/embers/${ember.id}/studio`);
-                                }}
-                                className="p-1 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-full transition-colors duration-200"
-                                title="Open in Studio"
-                              >
-                                <Sliders size={18} />
-                              </button>
+                                {/* Make Primary Button - Always show for owner, blue when primary, grey when not */}
+                                {userPermission === 'owner' && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!isPrimary) {
+                                        handleSetPrimary(cut.id);
+                                      }
+                                    }}
+                                    disabled={isPrimary}
+                                    className={`p-1 rounded-full transition-colors duration-200 ${isPrimary
+                                      ? 'bg-blue-100 text-blue-600 cursor-not-allowed'
+                                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                                      }`}
+                                    title={isPrimary ? "This is The One" : "Make This The One"}
+                                  >
+                                    <Star size={18} />
+                                  </button>
+                                )}
 
-                              {/* Delete Button - Only show for creators */}
-                              {canDeleteStoryCut(cut) && (
+                                {/* Play Button - Always show to play this specific story cut */}
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setStoryCutToDelete(cut);
-                                    setShowDeleteConfirm(true);
+                                    handleMediaPlay(ember, storyCuts, cut, selectedEmberVoice, { isPlaying }, {
+                                      setShowFullscreenPlay,
+                                      setIsGeneratingAudio,
+                                      setCurrentlyPlayingStoryCut,
+                                      setIsPlaying,
+                                      setCurrentAudio,
+                                      handleExitPlay,
+                                      handlePlaybackComplete,
+                                      setActiveAudioSegments,
+                                      playbackStoppedRef,
+                                      setCurrentVoiceType,
+                                      setCurrentVoiceTransparency,
+                                      setCurrentMediaColor,
+                                      setCurrentZoomScale,
+                                      setCurrentMediaImageUrl,
+                                      setCurrentDisplayText,
+                                      setCurrentVoiceTag,
+                                      setCurrentSentenceIndex,
+                                      setCurrentSegmentSentences,
+                                      setSentenceTimeouts,
+                                      sentenceTimeouts,
+                                      setMediaTimeouts,
+                                      mediaTimeouts,
+                                      mediaTimeoutsRef,
+                                      setMessage
+                                    });
                                   }}
-                                  className="p-1 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors duration-200"
-                                  title="Delete story cut"
+                                  className="p-1 bg-green-100 hover:bg-green-200 text-green-600 rounded-full transition-colors duration-200"
+                                  title="Play This Story Cut"
                                 >
-                                  <Trash size={18} />
+                                  <PlayCircle size={18} />
                                 </button>
-                              )}
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
 
               {/* Empty State - Show when no cuts exist */}
               {!storyCutsLoading && storyCuts.length === 0 && (

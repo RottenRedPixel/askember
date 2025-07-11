@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, Code, Plus, GripVertical, Save, Play } from 'lucide-react';
+import { Eye, Code, Plus, GripVertical, Save, Play, X, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FilmSlate } from 'phosphor-react';
-import { getStoryCutById, getPrimaryStoryCut, updateStoryCut } from '@/lib/database';
+import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber } from '@/lib/database';
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import { formatDuration } from '@/lib/dateUtils';
 import { resolveMediaReference } from '@/lib/scriptParser';
+import { handlePlay as handleMediaPlay, handlePlaybackComplete as handleMediaPlaybackComplete, handleExitPlay as handleMediaExitPlay } from '@/lib/mediaHandlers';
 import useStore from '@/store';
 
 export default function StoryCutStudio() {
@@ -23,10 +24,35 @@ export default function StoryCutStudio() {
 
     // Real story cut data
     const [storyCut, setStoryCut] = useState(null);
+    const [ember, setEmber] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [updating, setUpdating] = useState(false);
     const [previewing, setPreviewing] = useState(false);
+
+    // Player state management
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+    const [showFullscreenPlay, setShowFullscreenPlay] = useState(false);
+    const [isPlayerFadingOut, setIsPlayerFadingOut] = useState(false);
+    const [currentAudio, setCurrentAudio] = useState(null);
+    const [activeAudioSegments, setActiveAudioSegments] = useState([]);
+    const [showEndHold, setShowEndHold] = useState(false);
+    const [currentVoiceType, setCurrentVoiceType] = useState(null);
+    const [currentVoiceTransparency, setCurrentVoiceTransparency] = useState(0.2);
+    const [currentMediaColor, setCurrentMediaColor] = useState(null);
+    const [currentZoomScale, setCurrentZoomScale] = useState({ start: 1.0, end: 1.0 });
+    const [currentMediaImageUrl, setCurrentMediaImageUrl] = useState(null);
+    const [currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut] = useState(null);
+    const [currentDisplayText, setCurrentDisplayText] = useState('');
+    const [currentVoiceTag, setCurrentVoiceTag] = useState('');
+    const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
+    const [currentSegmentSentences, setCurrentSegmentSentences] = useState([]);
+    const [sentenceTimeouts, setSentenceTimeouts] = useState([]);
+    const [mediaTimeouts, setMediaTimeouts] = useState([]);
+    const [message, setMessage] = useState(null);
+    const playbackStoppedRef = useRef(false);
+    const mediaTimeoutsRef = useRef([]);
 
     // Load real story cut data
     useEffect(() => {
@@ -48,6 +74,11 @@ export default function StoryCutStudio() {
 
                 console.log('✅ Loaded story cut:', primaryStoryCut.title);
                 setStoryCut(primaryStoryCut);
+
+                // Load ember data for the player
+                console.log('🌟 Loading ember data for player...');
+                const emberData = await getEmber(id);
+                setEmber(emberData);
 
                 // Parse the actual script and create blocks with real content
                 const realBlocks = [];
@@ -245,6 +276,25 @@ export default function StoryCutStudio() {
         loadStoryCut();
     }, [id]);
 
+    // Cleanup all audio when component unmounts
+    useEffect(() => {
+        return () => {
+            console.log('🧹 StoryCutStudio unmounting, cleaning up audio...');
+            // Stop any playing audio
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+            }
+
+            playbackStoppedRef.current = true;
+
+            // Clean up any timeouts
+            sentenceTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+            mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+            mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+        };
+    }, [currentAudio, sentenceTimeouts, mediaTimeouts]);
+
     const generateScript = () => {
         return blocks.map(block => {
             switch (block.type) {
@@ -338,32 +388,49 @@ export default function StoryCutStudio() {
 
     // Handle previewing the story cut
     const handlePreviewStory = async () => {
-        if (!storyCut) return;
+        if (!storyCut || !ember) return;
 
         try {
             setPreviewing(true);
             console.log('🎬 Previewing story cut:', storyCut.title);
 
-            // Import the ember player functionality
-            const { handlePlay } = await import('@/lib/mediaHandlers');
+            // Generate the updated script from current visual controls
+            const updatedScript = generateScript();
+            console.log('🔄 Generated script for preview');
 
             // Create a temporary updated story cut with the current script
             const updatedStoryCut = {
                 ...storyCut,
-                full_script: generateScript()
+                full_script: updatedScript
             };
 
-            // Trigger the ember play with the current story cut
-            await handlePlay(
-                { id }, // ember object with ID
-                [updatedStoryCut], // story cuts array
-                updatedStoryCut, // primary story cut
-                () => { }, // setShowFullscreenPlay
-                () => { }, // setIsGeneratingAudio
-                () => { }, // setCurrentlyPlayingStoryCut
-                [], // mediaTimeouts
-                { current: [] } // mediaTimeoutsRef
-            );
+            // Launch the ember player directly
+            await handleMediaPlay(ember, [updatedStoryCut], updatedStoryCut, storyCut.ember_voice_id, { isPlaying }, {
+                setShowFullscreenPlay,
+                setIsGeneratingAudio,
+                setCurrentlyPlayingStoryCut,
+                setIsPlaying,
+                setCurrentAudio,
+                handleExitPlay,
+                handlePlaybackComplete,
+                setActiveAudioSegments,
+                playbackStoppedRef,
+                setCurrentVoiceType,
+                setCurrentVoiceTransparency,
+                setCurrentMediaColor,
+                setCurrentZoomScale,
+                setCurrentMediaImageUrl,
+                setCurrentDisplayText,
+                setCurrentVoiceTag,
+                setCurrentSentenceIndex,
+                setCurrentSegmentSentences,
+                setSentenceTimeouts,
+                sentenceTimeouts,
+                setMediaTimeouts,
+                mediaTimeouts,
+                mediaTimeoutsRef,
+                setMessage
+            });
 
         } catch (error) {
             console.error('❌ Failed to preview story:', error);
@@ -373,6 +440,70 @@ export default function StoryCutStudio() {
         }
     };
 
+    // Player handlers
+    const handlePlaybackComplete = () => {
+        // Start fade-out animation
+        setIsPlayerFadingOut(true);
+
+        // After fade-out completes, handle the actual completion
+        setTimeout(() => {
+            handleMediaPlaybackComplete({
+                setIsPlaying,
+                setShowFullscreenPlay,
+                setCurrentlyPlayingStoryCut,
+                setActiveAudioSegments,
+                setCurrentVoiceType,
+                setCurrentVoiceTransparency,
+                setCurrentMediaColor,
+                setCurrentZoomScale,
+                setCurrentMediaImageUrl,
+                setCurrentDisplayText,
+                setCurrentVoiceTag,
+                setCurrentSentenceIndex,
+                setCurrentSegmentSentences,
+                setSentenceTimeouts,
+                setMediaTimeouts,
+                sentenceTimeouts,
+                mediaTimeouts,
+                mediaTimeoutsRef
+            });
+            setIsPlayerFadingOut(false);
+        }, 600); // Match fade-out duration
+    };
+
+    const handleExitPlay = () => {
+        // Start fade-out animation
+        setIsPlayerFadingOut(true);
+
+        // After fade-out completes, handle the actual exit
+        setTimeout(() => {
+            handleMediaExitPlay({
+                currentAudio,
+                setIsPlaying,
+                setShowFullscreenPlay,
+                setCurrentlyPlayingStoryCut,
+                activeAudioSegments,
+                setActiveAudioSegments,
+                setCurrentVoiceType,
+                setCurrentVoiceTransparency,
+                setCurrentMediaColor,
+                setCurrentZoomScale,
+                setCurrentMediaImageUrl,
+                setCurrentDisplayText,
+                setCurrentVoiceTag,
+                setCurrentSentenceIndex,
+                setCurrentSegmentSentences,
+                setSentenceTimeouts,
+                setMediaTimeouts,
+                sentenceTimeouts,
+                mediaTimeouts,
+                mediaTimeoutsRef,
+                playbackStoppedRef
+            });
+            setIsPlayerFadingOut(false);
+        }, 600); // Match fade-out duration
+    };
+
     // Helper functions
     const formatDuration = (seconds) => {
         const mins = Math.floor(seconds / 60);
@@ -380,19 +511,10 @@ export default function StoryCutStudio() {
         if (mins > 0) {
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
-        return `${secs}s`;
+        return `${secs} sec`;
     };
 
-    const getStyleDisplayName = (style) => {
-        const styleMap = {
-            'narrative': 'Narrative',
-            'documentary': 'Documentary',
-            'conversational': 'Conversational',
-            'dramatic': 'Dramatic',
-            'humorous': 'Humorous'
-        };
-        return styleMap[style] || style;
-    };
+
 
     // Group blocks by type for display
     const mediaBlocks = blocks.filter(block => block.type === 'media');
@@ -406,12 +528,6 @@ export default function StoryCutStudio() {
                 <div className="max-w-4xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => navigate(`/embers/${id}`)}
-                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                                <ArrowLeft className="w-5 h-5 text-gray-600" />
-                            </button>
                         </div>
                         <div className="flex items-center gap-2">
                             <button
@@ -572,7 +688,7 @@ export default function StoryCutStudio() {
                                                                 <span className={`font-semibold ${textColor}`}>{block.mediaName}</span>
                                                                 {block.effect && (
                                                                     <span className={`text-xs ${bgColor.replace('50', '100')} ${textColor.replace('600', '800')} px-2 py-1 rounded`}>
-                                                                        {block.effect} {block.duration > 0 ? `${block.duration}s` : ''}
+                                                                        {block.effect} {block.duration > 0 ? `${block.duration} sec` : ''}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -677,7 +793,7 @@ export default function StoryCutStudio() {
                                                                     <div className="flex-1 space-y-2">
                                                                         <div className="flex items-center justify-between">
                                                                             <span className="text-sm text-blue-700">Fade Duration</span>
-                                                                            <span className="text-sm text-blue-700">{effectDurations[`fade-${block.id}`] || 3.0}s</span>
+                                                                            <span className="text-sm text-blue-700">{effectDurations[`fade-${block.id}`] || 3.0} sec</span>
                                                                         </div>
                                                                         <input
                                                                             type="range"
@@ -720,7 +836,7 @@ export default function StoryCutStudio() {
                                                                     <div className="flex-1 space-y-2">
                                                                         <div className="flex items-center justify-between">
                                                                             <span className="text-sm text-blue-700">Pan Duration</span>
-                                                                            <span className="text-sm text-blue-700">{effectDurations[`pan-${block.id}`] || 4.0}s</span>
+                                                                            <span className="text-sm text-blue-700">{effectDurations[`pan-${block.id}`] || 4.0} sec</span>
                                                                         </div>
                                                                         <input
                                                                             type="range"
@@ -763,7 +879,7 @@ export default function StoryCutStudio() {
                                                                     <div className="flex-1 space-y-2">
                                                                         <div className="flex items-center justify-between">
                                                                             <span className="text-sm text-blue-700">Zoom Duration</span>
-                                                                            <span className="text-sm text-blue-700">{effectDurations[`zoom-${block.id}`] || 3.5}s</span>
+                                                                            <span className="text-sm text-blue-700">{effectDurations[`zoom-${block.id}`] || 3.5} sec</span>
                                                                         </div>
                                                                         <input
                                                                             type="range"
@@ -939,7 +1055,7 @@ export default function StoryCutStudio() {
                                                             <div className="space-y-2">
                                                                 <div className="flex items-center justify-between">
                                                                     <span className="text-sm text-gray-700">Fade Duration</span>
-                                                                    <span className="text-sm text-gray-700">{effectDurations[`hold-duration-${block.id}`] || 4.0}s</span>
+                                                                    <span className="text-sm text-gray-700">{effectDurations[`hold-duration-${block.id}`] || 4.0} sec</span>
                                                                 </div>
                                                                 <input
                                                                     type="range"
@@ -1023,6 +1139,112 @@ export default function StoryCutStudio() {
                     </div>
                 )}
             </div>
+
+            {/* Ember Player - Fullscreen Overlay */}
+            {showFullscreenPlay && (
+                <>
+                    <div className={`fixed inset-0 z-50 flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
+                        {/* Top Section - Player Area */}
+                        <div className="h-[65vh] relative bg-black">
+                            {/* Background Image - blurred when playing without story cut */}
+                            {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
+                                <img
+                                    src={currentMediaImageUrl}
+                                    alt={ember?.title || 'Ember'}
+                                    className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                                    id="ember-background-image"
+                                />
+                            )}
+
+                            {/* Show main ember image when no media image */}
+                            {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && ember?.image_url && (
+                                <img
+                                    src={ember.image_url}
+                                    alt={ember?.title || 'Ember'}
+                                    className="absolute inset-0 w-full h-full object-cover"
+                                />
+                            )}
+
+                            {/* Media Color Screen - solid color background when color effect is active */}
+                            {!isGeneratingAudio && !showEndHold && currentMediaColor && (
+                                <div
+                                    className="absolute inset-0 transition-colors duration-1000"
+                                    style={{ backgroundColor: currentMediaColor }}
+                                />
+                            )}
+
+                            {/* Loading State */}
+                            {isGeneratingAudio && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="text-white text-center">
+                                        <div className="mb-4">
+                                            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                        </div>
+                                        <p className="text-lg">Generating audio...</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Story Cut Content Display */}
+                            {!isGeneratingAudio && currentDisplayText && (
+                                <div className="absolute inset-0 flex items-center justify-center p-4">
+                                    <div className="container mx-auto max-w-4xl">
+                                        <div className="text-center">
+                                            {/* Voice Tag */}
+                                            {currentVoiceTag && (
+                                                <div className="mb-4">
+                                                    <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
+                                                        {currentVoiceTag}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* Display Text */}
+                                            <p className="text-white text-xl leading-relaxed font-medium">
+                                                {currentDisplayText}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Controls */}
+                            <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+                                {/* Play/Pause Button */}
+                                <button
+                                    onClick={isPlaying ? handleExitPlay : handlePreviewStory}
+                                    className="p-3 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors backdrop-blur-sm"
+                                    disabled={isGeneratingAudio}
+                                >
+                                    {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+                                </button>
+
+                                {/* Close Button */}
+                                <button
+                                    onClick={handleExitPlay}
+                                    className="p-3 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors backdrop-blur-sm"
+                                >
+                                    <X size={24} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Bottom Section - Story Info */}
+                        <div className="flex-1 bg-white p-6">
+                            <div className="container mx-auto max-w-4xl">
+                                <div className="text-center">
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                                        {currentlyPlayingStoryCut?.title || storyCut?.title || 'Preview Story'}
+                                    </h2>
+                                    <p className="text-gray-600">
+                                        {ember?.title || 'Ember Story Preview'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 } 
