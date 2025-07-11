@@ -231,15 +231,40 @@ export default function EmberDetail() {
     }
   };
 
-  // 🐛 EXPOSE DEBUG FUNCTION TO CONSOLE
+  // 🐛 DEBUG: Inspect current story cut data
+  const inspectStoryCut = () => {
+    if (primaryStoryCut) {
+      console.log('🔍 STORY CUT INSPECTION:');
+      console.log('📝 Title:', primaryStoryCut.title);
+      console.log('🎭 Contributors:', primaryStoryCut.selected_contributors);
+      console.log('🎙️ Recorded Audio in Metadata:', primaryStoryCut.metadata?.recordedAudio);
+      console.log('📊 Full Metadata:', primaryStoryCut.metadata);
+      console.log('🔍 Full Story Cut Object:', primaryStoryCut);
+
+      // Check if contributors have IDs
+      if (primaryStoryCut.selected_contributors) {
+        console.log('👥 Contributor Details:');
+        primaryStoryCut.selected_contributors.forEach((contributor, index) => {
+          console.log(`  ${index + 1}. ${contributor.name} (ID: ${contributor.id}, Role: ${contributor.role})`);
+        });
+      }
+    } else {
+      console.log('❌ No primary story cut available');
+    }
+  };
+
+  // 🐛 EXPOSE DEBUG FUNCTIONS TO CONSOLE
   useEffect(() => {
     window.testPromptFormat = testPromptFormat;
+    window.inspectStoryCut = inspectStoryCut;
     console.log('🐛 DEBUG: Call window.testPromptFormat() to test current prompt format');
+    console.log('🐛 DEBUG: Call window.inspectStoryCut() to inspect current story cut data');
 
     return () => {
       delete window.testPromptFormat;
+      delete window.inspectStoryCut;
     };
-  }, []);
+  }, [primaryStoryCut]);
 
   // Media query hook for responsive design
   const useMediaQuery = (query) => {
