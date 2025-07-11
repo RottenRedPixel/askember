@@ -54,6 +54,17 @@ import {
   formatScriptForDisplay
 } from '@/lib/scriptParser';
 import { debugRecordedAudio, generateSegmentAudio, playMultiVoiceAudio } from '@/lib/emberPlayer';
+import { useEmberData } from '@/lib/useEmberData';
+import {
+  autoTriggerImageAnalysis,
+  autoTriggerExifProcessing,
+  autoTriggerLocationProcessing,
+  determineFrameType,
+  handlePlay as handleMediaPlay,
+  handlePlaybackComplete as handleMediaPlaybackComplete,
+  handleExitPlay as handleMediaExitPlay
+} from '@/lib/mediaHandlers';
+import { useUIState } from '@/lib/useUIState';
 
 import StoryCutDetailContent from '@/components/StoryCutDetailContent';
 import StoryModalContent from '@/components/StoryModalContent';
@@ -62,111 +73,137 @@ import StoryModalContent from '@/components/StoryModalContent';
 export default function EmberDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [ember, setEmber] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [showFullImage, setShowFullImage] = useState(false);
-  const [showEmberSharing, setShowEmberSharing] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showNamesModal, setShowNamesModal] = useState(false);
-  const [showEmberWiki, setShowEmberWiki] = useState(false);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [message, setMessage] = useState(null);
   const { user, userProfile } = useStore();
-  const [hasVoted, setHasVoted] = useState(false);
-  const [votingResults, setVotingResults] = useState([]);
-  const [totalVotes, setTotalVotes] = useState(0);
-  const [userVote, setUserVote] = useState(null);
-  const [sharedUsers, setSharedUsers] = useState([]);
-  const [showStoryCutCreator, setShowStoryCutCreator] = useState(false);
-  const [showEmberStoryCuts, setShowEmberStoryCuts] = useState(false);
-  const [showStoryModal, setShowStoryModal] = useState(false);
-  const [showLocationModal, setShowLocationModal] = useState(false);
-  const [showTimeDateModal, setShowTimeDateModal] = useState(false);
-  const [showImageAnalysisModal, setShowImageAnalysisModal] = useState(false);
-  const [showTaggedPeopleModal, setShowTaggedPeopleModal] = useState(false);
-  const [showSupportingMediaModal, setShowSupportingMediaModal] = useState(false);
 
-  const [taggedPeopleCount, setTaggedPeopleCount] = useState(0);
-  const [taggedPeopleData, setTaggedPeopleData] = useState([]);
-  const [emberLength, setEmberLength] = useState(10);
-  const [selectedVoices, setSelectedVoices] = useState([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [userPermission, setUserPermission] = useState('none');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
-  const [showFullscreenPlay, setShowFullscreenPlay] = useState(false);
-  const [currentAudio, setCurrentAudio] = useState(null);
-  const [activeAudioSegments, setActiveAudioSegments] = useState([]);
-  const playbackStoppedRef = useRef(false);
-  const [showEndHold, setShowEndHold] = useState(false);
-  const [currentVoiceType, setCurrentVoiceType] = useState(null);
-  const [currentVoiceTransparency, setCurrentVoiceTransparency] = useState(0.2);
-  const [currentMediaColor, setCurrentMediaColor] = useState(null);
-  const [currentZoomScale, setCurrentZoomScale] = useState({ start: 1.0, end: 1.0 });
-  const [currentMediaImageUrl, setCurrentMediaImageUrl] = useState(null);
-  const [availableVoices, setAvailableVoices] = useState([]);
-  const [selectedEmberVoice, setSelectedEmberVoice] = useState('');
-  const [selectedNarratorVoice, setSelectedNarratorVoice] = useState('');
-  const [voicesLoading, setVoicesLoading] = useState(false);
-  const [useEmberVoice, setUseEmberVoice] = useState(true);
-  const [useNarratorVoice, setUseNarratorVoice] = useState(true);
-  const [selectedStoryStyle, setSelectedStoryStyle] = useState('');
-  const [isGeneratingStoryCut, setIsGeneratingStoryCut] = useState(false);
-  const [storyTitle, setStoryTitle] = useState('');
-  const [storyFocus, setStoryFocus] = useState('');
-  const [storyCuts, setStoryCuts] = useState([]);
-  const [storyCutsLoading, setStoryCutsLoading] = useState(false);
-  const [availableStoryStyles, setAvailableStoryStyles] = useState([]);
-  const [stylesLoading, setStylesLoading] = useState(false);
-  const [selectedStoryCut, setSelectedStoryCut] = useState(null);
-  const [showStoryCutDetail, setShowStoryCutDetail] = useState(false);
-  const [currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut] = useState(null);
-  const [primaryStoryCut, setPrimaryStoryCutState] = useState(null);
+  // Use the custom hook for all data fetching
+  const {
+    // Ember data
+    ember,
+    setEmber,
+    loading,
+    error,
+    sharedUsers,
+    userPermission,
+    imageAnalysisData,
+    isRefreshing,
+    fetchEmber,
+    updateImageAnalysis,
+    // Story cuts
+    storyCuts,
+    setStoryCuts,
+    storyCutsLoading,
+    primaryStoryCut,
+    setPrimaryStoryCutState,
+    fetchStoryCuts,
+    // Story messages
+    storyMessages,
+    storyContributorCount,
+    fetchStoryMessages,
+    // Tagged people
+    taggedPeopleData,
+    taggedPeopleCount,
+    fetchTaggedPeopleData,
+    // Supporting media
+    supportingMedia,
+    fetchSupportingMedia,
+    // Media for story
+    availableMediaForStory,
+    selectedMediaForStory,
+    mediaLoadingForStory,
+    fetchMediaForStory,
+    toggleMediaSelection,
+    selectAllMedia,
+    clearMediaSelection,
+    // Voices
+    availableVoices,
+    voicesLoading,
+    selectedEmberVoice,
+    setSelectedEmberVoice,
+    selectedNarratorVoice,
+    setSelectedNarratorVoice,
+    fetchVoices,
+    // Story styles
+    availableStoryStyles,
+    stylesLoading,
+    fetchStoryStyles
+  } = useEmberData(id, userProfile);
 
-  // Delete story cut state
-  const [storyCutToDelete, setStoryCutToDelete] = useState(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  // UI State Management - using custom hooks
+  const {
+    // Modal states
+    showFullImage, setShowFullImage,
+    showEmberSharing, setShowEmberSharing,
+    showInviteModal, setShowInviteModal,
+    showNamesModal, setShowNamesModal,
+    showEmberWiki, setShowEmberWiki,
+    showStoryCutCreator, setShowStoryCutCreator,
+    showEmberStoryCuts, setShowEmberStoryCuts,
+    showStoryModal, setShowStoryModal,
+    showLocationModal, setShowLocationModal,
+    showTimeDateModal, setShowTimeDateModal,
+    showImageAnalysisModal, setShowImageAnalysisModal,
+    showTaggedPeopleModal, setShowTaggedPeopleModal,
+    showSupportingMediaModal, setShowSupportingMediaModal,
+    showStoryCutDetail, setShowStoryCutDetail,
+    showDeleteConfirm, setShowDeleteConfirm,
 
-  // Image analysis data state
-  const [imageAnalysisData, setImageAnalysisData] = useState(null);
+    // Audio states
+    isPlaying, setIsPlaying,
+    isGeneratingAudio, setIsGeneratingAudio,
+    showFullscreenPlay, setShowFullscreenPlay,
+    currentAudio, setCurrentAudio,
+    activeAudioSegments, setActiveAudioSegments,
+    showEndHold, setShowEndHold,
+    currentVoiceType, setCurrentVoiceType,
+    currentVoiceTransparency, setCurrentVoiceTransparency,
+    currentMediaColor, setCurrentMediaColor,
+    currentZoomScale, setCurrentZoomScale,
+    currentMediaImageUrl, setCurrentMediaImageUrl,
+    currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut,
+    currentDisplayText, setCurrentDisplayText,
+    currentVoiceTag, setCurrentVoiceTag,
+    currentSentenceIndex, setCurrentSentenceIndex,
+    currentSegmentSentences, setCurrentSegmentSentences,
+    sentenceTimeouts, setSentenceTimeouts,
+    mediaTimeouts, setMediaTimeouts,
+    playbackStoppedRef,
+    mediaTimeoutsRef,
 
-  // Story messages state
-  const [storyMessages, setStoryMessages] = useState([]);
-  const [storyContributorCount, setStoryContributorCount] = useState(0);
+    // Form states
+    isEditingTitle, setIsEditingTitle,
+    newTitle, setNewTitle,
+    message, setMessage,
+    isEditingScript, setIsEditingScript,
+    editedScript, setEditedScript,
+    isSavingScript, setIsSavingScript,
+    formattedScript, setFormattedScript,
 
-  // Supporting media state
-  const [supportingMedia, setSupportingMedia] = useState([]);
+    // Story creation states
+    emberLength, setEmberLength,
+    selectedVoices, setSelectedVoices,
+    useEmberVoice, setUseEmberVoice,
+    useNarratorVoice, setUseNarratorVoice,
+    selectedStoryStyle, setSelectedStoryStyle,
+    isGeneratingStoryCut, setIsGeneratingStoryCut,
+    storyTitle, setStoryTitle,
+    storyFocus, setStoryFocus,
+    selectedStoryCut, setSelectedStoryCut,
 
-  // Media selection for story cuts
-  const [availableMediaForStory, setAvailableMediaForStory] = useState([]);
-  const [selectedMediaForStory, setSelectedMediaForStory] = useState([]);
-  const [mediaLoadingForStory, setMediaLoadingForStory] = useState(false);
+    // Deletion states
+    storyCutToDelete, setStoryCutToDelete,
+    isDeleting, setIsDeleting,
 
-  // Script editing state
-  const [isEditingScript, setIsEditingScript] = useState(false);
-  const [editedScript, setEditedScript] = useState('');
-  const [isSavingScript, setIsSavingScript] = useState(false);
-  const [formattedScript, setFormattedScript] = useState('');
+    // Loading states
+    isAutoAnalyzing, setIsAutoAnalyzing,
+    isAutoLocationProcessing, setIsAutoLocationProcessing,
+    isExifProcessing, setIsExifProcessing,
 
-  // Synchronized text display state (Option 1B: Sentence-by-Sentence)
-  const [currentDisplayText, setCurrentDisplayText] = useState('');
-  const [currentVoiceTag, setCurrentVoiceTag] = useState('');
-  const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
-  const [currentSegmentSentences, setCurrentSegmentSentences] = useState([]);
-  const [sentenceTimeouts, setSentenceTimeouts] = useState([]);
-  const [mediaTimeouts, setMediaTimeouts] = useState([]);
-
-  // 🎯 State for auto-analysis loading indicator
-  const [isAutoAnalyzing, setIsAutoAnalyzing] = useState(false);
-
-  // 🎯 State for auto-location processing loading indicator
-  const [isAutoLocationProcessing, setIsAutoLocationProcessing] = useState(false);
-
-  // 🎯 State for EXIF processing loading indicator
-  const [isExifProcessing, setIsExifProcessing] = useState(false);
+    // Voting states
+    hasVoted, setHasVoted,
+    votingResults, setVotingResults,
+    totalVotes, setTotalVotes,
+    userVote, setUserVote
+  } = useUIState();
 
   // 🐛 DEBUG: Test prompt format
   const testPromptFormat = async () => {
@@ -221,91 +258,12 @@ export default function EmberDetail() {
 
   const isMobile = useMediaQuery('(max-width: 768px)');
 
-  // Fetch available ElevenLabs voices
-  const fetchVoices = async () => {
-    try {
-      setVoicesLoading(true);
-      const voices = await getVoices();
-      setAvailableVoices(voices);
-
-      // Set default voices if none selected
-      if (!selectedEmberVoice && voices.length > 0) {
-        // Try to find "Lily" for Ember voice
-        const lilyVoice = voices.find(voice => voice.name && voice.name.toLowerCase() === 'lily');
-        if (lilyVoice) {
-          setSelectedEmberVoice(lilyVoice.voice_id);
-        } else {
-          // Fall back to first voice if Lily not found
-          setSelectedEmberVoice(voices[0].voice_id);
-        }
-      }
-      if (!selectedNarratorVoice && voices.length > 0) {
-        // Try to find "George" for Narrator voice
-        const georgeVoice = voices.find(voice => voice.name && voice.name.toLowerCase() === 'george');
-        if (georgeVoice) {
-          setSelectedNarratorVoice(georgeVoice.voice_id);
-        } else if (voices.length > 1) {
-          // Fall back to second voice if George not found
-          setSelectedNarratorVoice(voices[1].voice_id);
-        } else {
-          // Fall back to first voice if only one voice available
-          setSelectedNarratorVoice(voices[0].voice_id);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch voices:', error);
-    } finally {
-      setVoicesLoading(false);
-    }
-  };
-
-  // Fetch available story styles from database
-  const fetchStoryStyles = async () => {
-    try {
-      setStylesLoading(true);
-
-      // Load story style prompts from our prompt management system
-      const { getPromptsByCategory } = await import('@/lib/promptManager');
-      const storyStylePrompts = await getPromptsByCategory('story_styles');
-
-      // Transform prompts into the format expected by the UI
-      const styles = storyStylePrompts
-        .filter(prompt => prompt.is_active)
-        .map(prompt => ({
-          id: prompt.prompt_key,
-          name: prompt.title,
-          description: prompt.description,
-          subcategory: prompt.subcategory,
-          prompt_key: prompt.prompt_key
-        }));
-
-      console.log('📚 Loaded story styles:', styles.map(s => s.name));
-      setAvailableStoryStyles(styles);
-
-      // Force a re-render by updating the story cuts state
-      if (storyCuts.length > 0) {
-        setStoryCuts(prev => [...prev]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch story styles:', error);
-      setAvailableStoryStyles([]);
-    } finally {
-      setStylesLoading(false);
-    }
-  };
-
-  // Fetch voices and story styles on component mount
-  useEffect(() => {
-    fetchVoices();
-    fetchStoryStyles();
-  }, []);
-
   // Fetch media when story creation modal opens
   useEffect(() => {
     if (showStoryCutCreator && ember?.id) {
       fetchMediaForStory();
     }
-  }, [showStoryCutCreator, ember?.id]);
+  }, [showStoryCutCreator, ember?.id, fetchMediaForStory]);
 
   // Format script for display when selectedStoryCut changes
   useEffect(() => {
@@ -340,9 +298,6 @@ export default function EmberDetail() {
     };
   }, [currentAudio]);
 
-  // Create a ref to store media timeouts for cleanup
-  const mediaTimeoutsRef = useRef([]);
-
   // Cleanup media timeouts when component unmounts
   useEffect(() => {
     return () => {
@@ -351,87 +306,7 @@ export default function EmberDetail() {
     };
   }, []); // Empty dependency array - only runs on unmount
 
-  // Fetch tagged people data for the current ember
-  const fetchTaggedPeopleData = async () => {
-    if (!ember?.id) return;
 
-    try {
-      const { getEmberTaggedPeople } = await import('@/lib/database');
-      const taggedPeople = await getEmberTaggedPeople(ember.id);
-      setTaggedPeopleData(taggedPeople);
-      setTaggedPeopleCount(taggedPeople.length);
-    } catch (error) {
-      console.error('Error fetching tagged people:', error);
-      setTaggedPeopleData([]);
-      setTaggedPeopleCount(0);
-    }
-  };
-
-  // Fetch story cuts for the current ember
-  const fetchStoryCuts = async () => {
-    if (!ember?.id) return;
-
-    try {
-      setStoryCutsLoading(true);
-      const cuts = await getStoryCutsForEmber(ember.id);
-      setStoryCuts(cuts);
-
-      // Also fetch the primary story cut
-      const primary = await getPrimaryStoryCut(ember.id);
-      setPrimaryStoryCutState(primary);
-
-      // Auto-set single story cut as "The One" if no primary exists
-      if (cuts.length === 1 && !primary && userProfile?.user_id) {
-        try {
-          console.log('🎬 Auto-setting single story cut as "The One":', cuts[0].title);
-          await setPrimaryStoryCut(cuts[0].id, ember.id, userProfile.user_id);
-
-          // Refresh to get the updated primary status
-          const updatedPrimary = await getPrimaryStoryCut(ember.id);
-          setPrimaryStoryCutState(updatedPrimary);
-        } catch (error) {
-          console.error('Error auto-setting primary story cut:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching story cuts:', error);
-      setStoryCuts([]);
-    } finally {
-      setStoryCutsLoading(false);
-    }
-  };
-
-  // Fetch story messages for the current ember
-  const fetchStoryMessages = async () => {
-    if (!ember?.id) return;
-
-    try {
-      const result = await getAllStoryMessagesForEmber(ember.id);
-      const allMessages = result.messages || [];
-
-      // Filter to only include user responses (not AI questions)
-      const userResponses = allMessages.filter(message =>
-        message.sender === 'user' || message.message_type === 'response'
-      );
-
-      setStoryMessages(userResponses);
-
-      // Count unique contributors from user responses only
-      const uniqueContributors = new Set();
-      userResponses.forEach(message => {
-        if (message.user_id) {
-          uniqueContributors.add(message.user_id);
-        }
-      });
-      setStoryContributorCount(uniqueContributors.size);
-
-      console.log(`📊 Story data updated: ${userResponses.length} user responses from ${uniqueContributors.size} contributors (${allMessages.length} total messages)`);
-    } catch (error) {
-      console.error('Error fetching story messages:', error);
-      setStoryMessages([]);
-      setStoryContributorCount(0);
-    }
-  };
 
   // Set a story cut as the primary one
   const handleSetPrimary = async (storyCutId) => {
@@ -501,207 +376,11 @@ export default function EmberDetail() {
     }
   }, [showStoryCutCreator, ember?.user_id]);
 
-  // 🎯 Auto-trigger image analysis if not yet completed (mobile fix)
-  const autoTriggerImageAnalysis = async (ember) => {
-    if (!ember?.id || !ember?.image_url || !user?.id) {
-      console.log('🔍 [AUTO-ANALYSIS] Missing required data for auto-analysis');
-      return;
-    }
 
-    // Check if analysis already exists or is in progress
-    if (ember.image_analysis_completed || imageAnalysisData || isAutoAnalyzing) {
-      console.log('🔍 [AUTO-ANALYSIS] Analysis already exists/in progress, skipping auto-trigger');
-      return;
-    }
 
-    try {
-      console.log('🔍 [AUTO-ANALYSIS] Starting automatic image analysis for ember:', ember.id);
-      console.log('📸 [AUTO-ANALYSIS] Image URL:', ember.image_url.substring(0, 50) + '...');
 
-      // Set loading state
-      setIsAutoAnalyzing(true);
 
-      // Import the analysis functions dynamically
-      const { triggerImageAnalysis, saveImageAnalysis } = await import('@/lib/database');
 
-      // Trigger the analysis
-      const analysisResult = await triggerImageAnalysis(ember.id, ember.image_url);
-
-      if (analysisResult && analysisResult.success) {
-        console.log('💾 [AUTO-ANALYSIS] Saving analysis result...');
-
-        // Save the analysis result
-        await saveImageAnalysis(
-          ember.id,
-          user.id,
-          analysisResult.analysis,
-          ember.image_url,
-          analysisResult.model,
-          analysisResult.tokensUsed
-        );
-
-        console.log('✅ [AUTO-ANALYSIS] Image analysis completed and saved automatically');
-
-        // Refresh ember data to show the analysis
-        await fetchEmber();
-
-      } else {
-        console.warn('⚠️ [AUTO-ANALYSIS] Analysis result was not successful:', analysisResult);
-      }
-
-    } catch (error) {
-      console.error('❌ [AUTO-ANALYSIS] Automatic image analysis failed:', error);
-      // Don't show user error for background auto-analysis - they can always trigger manually
-    } finally {
-      // Clear loading state
-      setIsAutoAnalyzing(false);
-    }
-  };
-
-  // 🎯 Auto-trigger EXIF processing if not yet completed (ultra-fast creation)
-  const autoTriggerExifProcessing = async (ember) => {
-    if (!ember?.id || !ember?.image_url || !user?.id) {
-      console.log('📸 [AUTO-EXIF] Missing required data for auto-EXIF processing');
-      return;
-    }
-
-    // Check if EXIF processing already done or in progress
-    if (isExifProcessing) {
-      console.log('📸 [AUTO-EXIF] EXIF processing already in progress, skipping');
-      return;
-    }
-
-    // Check if we already have photos with EXIF data for this ember
-    try {
-      const { getEmberPhotos } = await import('@/lib/photos');
-      const photos = await getEmberPhotos(ember.id);
-
-      if (photos && photos.length > 0) {
-        console.log('📸 [AUTO-EXIF] EXIF processing already completed, skipping');
-        return;
-      }
-    } catch (error) {
-      console.log('📸 [AUTO-EXIF] Could not check existing photos, proceeding with EXIF processing');
-    }
-
-    try {
-      console.log('📸 [AUTO-EXIF] Starting automatic EXIF processing for ember:', ember.id);
-      console.log('📸 [AUTO-EXIF] Image URL:', ember.image_url.substring(0, 50) + '...');
-
-      // Set loading state
-      setIsExifProcessing(true);
-
-      // Fetch the image from the blob URL
-      console.log('📸 [AUTO-EXIF] Fetching image from blob URL...');
-      const response = await fetch(ember.image_url);
-      const blob = await response.blob();
-
-      // Convert blob to File object
-      const file = new File([blob], 'ember-image.jpg', { type: blob.type });
-
-      // Import the photo functions dynamically
-      const { uploadImageWithExif } = await import('@/lib/photos');
-      const { autoUpdateEmberTimestamp } = await import('@/lib/geocoding');
-
-      // Process EXIF data
-      console.log('📸 [AUTO-EXIF] Processing EXIF data...');
-      const photoResult = await uploadImageWithExif(file, user.id, ember.id);
-
-      if (photoResult.success) {
-        console.log('📸 [AUTO-EXIF] EXIF processing completed successfully');
-
-        // Process timestamp data
-        try {
-          console.log('🕐 [AUTO-EXIF] Processing timestamp data...');
-          await autoUpdateEmberTimestamp(ember, photoResult, user.id);
-          console.log('✅ [AUTO-EXIF] Timestamp data processed successfully');
-        } catch (timestampError) {
-          console.warn('⚠️ [AUTO-EXIF] Failed to process timestamp data:', timestampError);
-        }
-
-        // Refresh ember data to show the updates
-        await fetchEmber();
-
-      } else {
-        console.warn('⚠️ [AUTO-EXIF] EXIF processing was not successful:', photoResult);
-      }
-
-    } catch (error) {
-      console.error('❌ [AUTO-EXIF] Automatic EXIF processing failed:', error);
-      // Don't show user error for background auto-EXIF - not critical for user experience
-    } finally {
-      // Clear loading state
-      setIsExifProcessing(false);
-    }
-  };
-
-  // 🎯 Auto-trigger location processing if not yet completed (Android mobile fix)
-  const autoTriggerLocationProcessing = async (ember) => {
-    if (!ember?.id || !user?.id) {
-      console.log('📍 [AUTO-LOCATION] Missing required data for auto-location processing');
-      return;
-    }
-
-    // Check if location already exists or is in progress
-    if (ember.latitude && ember.longitude || isAutoLocationProcessing) {
-      console.log('📍 [AUTO-LOCATION] Location already exists/in progress, skipping auto-trigger');
-      return;
-    }
-
-    try {
-      console.log('📍 [AUTO-LOCATION] Starting automatic location processing for ember:', ember.id);
-
-      // Set loading state
-      setIsAutoLocationProcessing(true);
-
-      // Import the photo functions dynamically
-      const { getEmberPhotos } = await import('@/lib/photos');
-      const { autoUpdateEmberLocation } = await import('@/lib/geocoding');
-
-      // Get photos for this ember
-      const photos = await getEmberPhotos(ember.id);
-
-      if (photos && photos.length > 0) {
-        // Find the first photo with GPS data
-        const photoWithGPS = photos.find(photo => photo.latitude && photo.longitude);
-
-        if (photoWithGPS) {
-          console.log('📍 [AUTO-LOCATION] Found photo with GPS data, processing location...');
-
-          // Create photoResult-like object for the location processing function
-          const photoResult = {
-            success: true,
-            photo: photoWithGPS,
-            hasGPS: true,
-            hasTimestamp: !!photoWithGPS.timestamp
-          };
-
-          // Trigger the location processing
-          const locationResult = await autoUpdateEmberLocation(ember, photoResult, user.id);
-
-          if (locationResult) {
-            console.log('✅ [AUTO-LOCATION] Location processing completed successfully');
-
-            // Refresh ember data to show the location
-            await fetchEmber();
-          } else {
-            console.log('📍 [AUTO-LOCATION] Location processing completed but no update needed');
-          }
-        } else {
-          console.log('📍 [AUTO-LOCATION] No photos with GPS data found for this ember');
-        }
-      } else {
-        console.log('📍 [AUTO-LOCATION] No photos found for this ember');
-      }
-
-    } catch (error) {
-      console.error('❌ [AUTO-LOCATION] Automatic location processing failed:', error);
-      // Don't show user error for background auto-location - location isn't critical
-    } finally {
-      // Clear loading state
-      setIsAutoLocationProcessing(false);
-    }
-  };
 
   // Helper function to format relative time
 
@@ -1075,75 +754,6 @@ export default function EmberDetail() {
 
 
 
-  const fetchEmber = async () => {
-    try {
-      setLoading(true);
-      setIsRefreshing(true);
-      const data = await getEmber(id);
-      console.log('Fetched ember data:', data);
-      console.log('Image URL:', data?.image_url);
-
-      // Check if image analysis exists for this ember
-      try {
-        const { getImageAnalysis } = await import('@/lib/database');
-        const analysisData = await getImageAnalysis(id);
-        data.image_analysis_completed = !!analysisData;
-        setImageAnalysisData(analysisData); // Store the full analysis data
-      } catch (analysisError) {
-        console.warn('Failed to check image analysis status:', analysisError);
-        data.image_analysis_completed = false;
-        setImageAnalysisData(null);
-      }
-
-      setEmber(data);
-
-      // Also fetch sharing information to get invited users and permission level
-      try {
-        const sharingData = await getEmberWithSharing(id);
-        console.log('Sharing data:', sharingData);
-
-        // Set user's permission level
-        setUserPermission(sharingData.userPermission || 'none');
-        console.log('User permission:', sharingData.userPermission);
-
-        if (sharingData.shares && sharingData.shares.length > 0) {
-          // Extract shared users with their profile information
-          // Only include users who have actually created accounts (have user_id)
-          const invitedUsers = sharingData.shares
-            .filter(share => share.shared_user && share.shared_user.user_id) // Must have actual user account
-            .map(share => ({
-              id: share.shared_user.id,
-              user_id: share.shared_user.user_id,
-              first_name: share.shared_user.first_name,
-              last_name: share.shared_user.last_name,
-              avatar_url: share.shared_user.avatar_url,
-              email: share.shared_with_email,
-              permission_level: share.permission_level
-            }));
-          setSharedUsers(invitedUsers);
-          console.log('Invited users:', invitedUsers);
-        } else {
-          setSharedUsers([]);
-        }
-      } catch (sharingError) {
-        console.error('Error fetching sharing data:', sharingError);
-        // Don't fail the whole component if sharing data fails
-        setSharedUsers([]);
-        setUserPermission('none');
-      }
-    } catch (err) {
-      console.error('Error fetching ember:', err);
-      setError('Ember not found');
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEmber();
-  }, [id]);
-
   // Set initial story title when ember loads
   useEffect(() => {
     if (ember?.title) {
@@ -1153,24 +763,19 @@ export default function EmberDetail() {
     }
   }, [ember?.title]);
 
-  // Fetch dependent data when ember loads
+  // Auto-trigger processing when ember loads
   useEffect(() => {
     if (ember?.id) {
-      fetchStoryMessages();
-      fetchTaggedPeopleData();
-      fetchStoryCuts();
-      fetchSupportingMedia();
-
       // 🎯 Auto-trigger EXIF processing if needed (ultra-fast creation)
-      autoTriggerExifProcessing(ember);
+      autoTriggerExifProcessing(ember, user, { isExifProcessing, setIsExifProcessing, fetchEmber });
 
       // 🎯 Auto-trigger image analysis if needed (mobile fix)
-      autoTriggerImageAnalysis(ember);
+      autoTriggerImageAnalysis(ember, user, { imageAnalysisData, isAutoAnalyzing, setIsAutoAnalyzing, fetchEmber });
 
       // 🎯 Auto-trigger location processing if needed (Android mobile fix)
-      autoTriggerLocationProcessing(ember);
+      autoTriggerLocationProcessing(ember, user, { isAutoLocationProcessing, setIsAutoLocationProcessing, fetchEmber });
     }
-  }, [ember?.id]);
+  }, [ember?.id, user, imageAnalysisData, isAutoAnalyzing, isExifProcessing, isAutoLocationProcessing, fetchEmber]);
 
   const handleTitleEdit = () => {
     setNewTitle(ember.title || '');
@@ -1212,22 +817,7 @@ export default function EmberDetail() {
   };
 
   const handleImageAnalysisUpdate = async () => {
-    // Refresh the image analysis data when it's updated
-    if (!ember?.id) return;
-
-    try {
-      const { getImageAnalysis } = await import('@/lib/database');
-      const analysisData = await getImageAnalysis(ember.id);
-      setImageAnalysisData(analysisData);
-
-      // Update the ember state to reflect completion status
-      setEmber(prev => ({
-        ...prev,
-        image_analysis_completed: !!analysisData
-      }));
-    } catch (error) {
-      console.error('Error refreshing image analysis:', error);
-    }
+    await updateImageAnalysis();
   };
 
   const handleStoryUpdate = async () => {
@@ -1235,97 +825,12 @@ export default function EmberDetail() {
     await fetchStoryMessages();
   };
 
-  // Fetch supporting media for the current ember
-  const fetchSupportingMedia = async () => {
-    if (!ember?.id) return;
-
-    try {
-      const media = await getEmberSupportingMedia(ember.id);
-      setSupportingMedia(media);
-      console.log(`📁 Supporting media updated: ${media.length} files`);
-    } catch (error) {
-      console.error('Error fetching supporting media:', error);
-      setSupportingMedia([]);
-    }
-  };
-
   const handleSupportingMediaUpdate = async () => {
     // Refresh supporting media data when updated
     await fetchSupportingMedia();
   };
 
-  // Fetch available media for story cut creation
-  const fetchMediaForStory = async () => {
-    if (!ember?.id) return;
 
-    try {
-      setMediaLoadingForStory(true);
-      console.log('📸 Fetching available media for story creation...');
-
-      const [emberPhotos, supportingMediaFiles] = await Promise.all([
-        getEmberPhotos(ember.id),
-        getEmberSupportingMedia(ember.id)
-      ]);
-
-      // Combine and format all available media
-      const allMedia = [
-        // Ember photos
-        ...emberPhotos.map(photo => ({
-          id: photo.id,
-          name: photo.display_name || photo.original_filename,
-          filename: photo.original_filename,
-          url: photo.storage_url,
-          type: 'photo',
-          category: 'ember',
-          thumbnail: photo.storage_url,
-          duration: 3.0 // Default duration for photos
-        })),
-        // Supporting media
-        ...supportingMediaFiles.map(media => ({
-          id: media.id,
-          name: media.display_name || media.file_name,
-          filename: media.file_name,
-          url: media.file_url,
-          type: media.file_category || 'photo',
-          category: 'supporting',
-          thumbnail: media.file_url,
-          duration: media.file_category === 'video' ? 4.0 : 3.0 // Videos slightly longer
-        }))
-      ];
-
-      console.log(`📸 Found ${allMedia.length} available media files:`,
-        allMedia.map(m => `${m.name} (${m.type})`));
-
-      setAvailableMediaForStory(allMedia);
-
-      // Don't auto-select any media - let user choose
-      setSelectedMediaForStory([]);
-
-    } catch (error) {
-      console.error('❌ Error fetching media for story:', error);
-      setAvailableMediaForStory([]);
-      setSelectedMediaForStory([]);
-    } finally {
-      setMediaLoadingForStory(false);
-    }
-  };
-
-  // Media selection handlers for story creation
-  const toggleMediaSelection = (mediaId) => {
-    setSelectedMediaForStory(prev =>
-      prev.includes(mediaId)
-        ? prev.filter(id => id !== mediaId)
-        : [...prev, mediaId]
-    );
-  };
-
-  const selectAllMedia = () => {
-    setSelectedMediaForStory(availableMediaForStory.map(m => m.id));
-  };
-
-  const clearMediaSelection = () => {
-    setSelectedMediaForStory([]);
-  };
 
   // Script editing handlers
   const handleSaveScript = async () => {
@@ -1479,279 +984,83 @@ export default function EmberDetail() {
 
   // Handle completion of playback
   const handlePlaybackComplete = () => {
-    console.log('🎬 Playback complete, showing end hold...');
-
-    // Stop multi-voice playback chain
-    playbackStoppedRef.current = true;
-
-    // Stop all active audio segments
-    activeAudioSegments.forEach((segment, index) => {
-      if (segment.audio) {
-        console.log(`🛑 Stopping segment ${index + 1}: [${segment.voiceTag}]`);
-        segment.audio.pause();
-        segment.audio.currentTime = 0;
-
-        // Clean up blob URLs
-        if (segment.url && segment.url.startsWith('blob:')) {
-          URL.revokeObjectURL(segment.url);
-        }
-      }
+    handleMediaPlaybackComplete({
+      setIsPlaying,
+      setShowFullscreenPlay,
+      setCurrentlyPlayingStoryCut,
+      setActiveAudioSegments,
+      setCurrentVoiceType,
+      setCurrentVoiceTransparency,
+      setCurrentMediaColor,
+      setCurrentZoomScale,
+      setCurrentMediaImageUrl,
+      setCurrentDisplayText,
+      setCurrentVoiceTag,
+      setCurrentSentenceIndex,
+      setCurrentSegmentSentences,
+      setSentenceTimeouts,
+      setMediaTimeouts,
+      sentenceTimeouts,
+      mediaTimeouts,
+      mediaTimeoutsRef
     });
-
-    // Clear states immediately
-    setIsPlaying(false);
-    setCurrentVoiceType(null);
-    setCurrentVoiceTransparency(0.2); // Reset to default
-    setCurrentMediaColor(null);
-    setCurrentZoomScale({ start: 1.0, end: 1.0 }); // Reset to default
-    setActiveAudioSegments([]);
-
-    // Clean up any remaining media timeouts
-    console.log('🧹 Cleaning up media timeouts on playback complete:', mediaTimeouts.length);
-    mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
-    mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
-    setMediaTimeouts([]);
-    mediaTimeoutsRef.current = [];
-
-    // Exit immediately after script completes
-    handleExitPlay();
   };
 
   const handleExitPlay = () => {
-    // Stop multi-voice playback chain
-    playbackStoppedRef.current = true;
-
-    // Stop current single audio if it exists
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-    }
-
-    // Stop all active audio segments from multi-voice playbook
-    activeAudioSegments.forEach((segment, index) => {
-      if (segment.audio) {
-        console.log(`🛑 Stopping segment ${index + 1}: [${segment.voiceTag}]`);
-        segment.audio.pause();
-        segment.audio.currentTime = 0;
-
-        // Clean up blob URLs
-        if (segment.url && segment.url.startsWith('blob:')) {
-          URL.revokeObjectURL(segment.url);
-        }
-      }
+    handleMediaExitPlay({
+      currentAudio,
+      setIsPlaying,
+      setShowFullscreenPlay,
+      setCurrentlyPlayingStoryCut,
+      setActiveAudioSegments,
+      setCurrentVoiceType,
+      setCurrentVoiceTransparency,
+      setCurrentMediaColor,
+      setCurrentZoomScale,
+      setCurrentMediaImageUrl,
+      setCurrentDisplayText,
+      setCurrentVoiceTag,
+      setCurrentSentenceIndex,
+      setCurrentSegmentSentences,
+      setSentenceTimeouts,
+      setMediaTimeouts,
+      sentenceTimeouts,
+      mediaTimeouts,
+      mediaTimeoutsRef,
+      playbackStoppedRef
     });
-
-    // 🎯 Clean up sentence-by-sentence display
-    sentenceTimeouts.forEach(timeout => clearTimeout(timeout));
-    setSentenceTimeouts([]);
-    setCurrentDisplayText('');
-    setCurrentVoiceTag('');
-    setCurrentSentenceIndex(0);
-    setCurrentSegmentSentences([]);
-
-    // 🎯 Clean up media timeouts
-    console.log('🧹 Cleaning up media timeouts on exit:', mediaTimeouts.length);
-    mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
-    mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
-    setMediaTimeouts([]);
-    mediaTimeoutsRef.current = [];
-
-    // Batch all state updates together
-    setIsPlaying(false);
-    setIsGeneratingAudio(false);
-    setShowFullscreenPlay(false);
-    setShowEndHold(false);
-    setCurrentlyPlayingStoryCut(null);
-    setCurrentAudio(null);
-    setActiveAudioSegments([]);
-    setCurrentVoiceType(null);
-    setCurrentVoiceTransparency(0.2); // Reset to default
-    setCurrentMediaColor(null);
-    setCurrentZoomScale({ start: 1.0, end: 1.0 }); // Reset to default
-    console.log('🎬 Voice type reset on exit');
-
-    // Reset playback flag for next play
-    playbackStoppedRef.current = false;
   };
 
   // Handle play button click - now uses story cuts if available
-  // Detect frame type based on image orientation
-  const determineFrameType = (imageUrl) => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const aspectRatio = img.naturalWidth / img.naturalHeight;
 
-        if (aspectRatio > 1) {
-          // Landscape
-          resolve('landscape');
-        } else {
-          // Portrait
-          resolve('portrait');
-        }
-      };
-      img.src = imageUrl;
-    });
-  };
 
   const handlePlay = async () => {
-    if (isPlaying) {
-      // Stop current audio with smooth exit
-      handleExitPlay();
-      return;
-    }
-
-    try {
-      setShowFullscreenPlay(true);
-      setIsGeneratingAudio(true); // Show loading state
-
-      console.log('🎬 Visual effects will be driven by audio segments');
-
-      // Check if we have story cuts available
-      if (storyCuts && storyCuts.length > 0) {
-        // Prioritize "The One" primary story cut, fallback to most recent
-        let selectedStoryCut;
-        if (primaryStoryCut) {
-          selectedStoryCut = primaryStoryCut;
-          console.log('🎬 Playing "The One" primary story cut:', selectedStoryCut.title, '(' + selectedStoryCut.style + ')');
-        } else {
-          selectedStoryCut = storyCuts[0]; // They're ordered by created_at DESC
-          console.log('🎬 Playing most recent story cut:', selectedStoryCut.title, '(' + selectedStoryCut.style + ')');
-        }
-
-        setCurrentlyPlayingStoryCut(selectedStoryCut);
-
-
-
-        console.log('📖 Story cut script:', selectedStoryCut.full_script);
-
-        // Check if we have recorded audio URLs in the story cut
-        const recordedAudio = selectedStoryCut.metadata?.recordedAudio || {};
-        console.log('🎙️ Recorded audio available:', Object.keys(recordedAudio));
-
-        // Always use multi-voice playback system (recorded audio is optional)
-        console.log('🎵 Using multi-voice playback system');
-        console.log('🎙️ Available recorded audio:', recordedAudio);
-        console.log('🔍 Story cut voice IDs:', {
-          ember: selectedStoryCut.ember_voice_id,
-          narrator: selectedStoryCut.narrator_voice_id,
-          ember_name: selectedStoryCut.ember_voice_name,
-          narrator_name: selectedStoryCut.narrator_voice_name
-        });
-
-        // Parse the script into segments
-        const segments = parseScriptSegments(selectedStoryCut.full_script);
-
-        if (segments.length > 0) {
-          // Use multi-voice playback system (works with or without recorded audio)
-          await playMultiVoiceAudio(segments, selectedStoryCut, recordedAudio, {
-            setIsGeneratingAudio,
-            setIsPlaying,
-            handleExitPlay,
-            handlePlaybackComplete,
-            setActiveAudioSegments,
-            playbackStoppedRef,
-            setCurrentVoiceType,
-            setCurrentVoiceTransparency,
-            setCurrentMediaColor,
-            setCurrentZoomScale,
-            setCurrentMediaImageUrl,
-            // 🎯 Add sentence-by-sentence display state setters
-            setCurrentDisplayText,
-            setCurrentVoiceTag,
-            setCurrentSentenceIndex,
-            setCurrentSegmentSentences,
-            setSentenceTimeouts,
-            sentenceTimeouts,
-            // 🎯 Add media timeout management
-            setMediaTimeouts,
-            mediaTimeouts,
-            mediaTimeoutsRef
-          }, ember);
-        } else {
-          // Fallback if no segments could be parsed
-          console.log('⚠️ No segments could be parsed, falling back to single voice');
-          setIsGeneratingAudio(false);
-          setIsPlaying(true);
-
-          const content = selectedStoryCut.full_script;
-          const voiceId = selectedStoryCut.ember_voice_id;
-
-          const audioBlob = await textToSpeech(content, voiceId);
-          const audioUrl = URL.createObjectURL(audioBlob);
-          const audio = new Audio(audioUrl);
-
-          setCurrentAudio(audio);
-
-          audio.onended = () => {
-            handlePlaybackComplete();
-            URL.revokeObjectURL(audioUrl);
-          };
-
-          audio.onerror = () => {
-            console.error('Audio playback failed');
-            handleExitPlay();
-            URL.revokeObjectURL(audioUrl);
-          };
-
-          await audio.play();
-        }
-
-      } else {
-        // Fallback to basic wiki content if no story cuts exist
-        console.log('📖 No story cuts found, using basic wiki content');
-        console.log('💡 Tip: Create a story cut for richer, AI-generated narration!');
-
-
-
-        setIsGeneratingAudio(false);
-        setIsPlaying(true);
-
-        // Simple fallback content
-        const content = "Let's build this story together by pressing Story Cuts on the bottom left.";
-        console.log('📖 Content to narrate:', content);
-
-        // Generate speech using ElevenLabs with Ember voice (Lily)
-        const audioBlob = await textToSpeech(content, selectedEmberVoice);
-
-        // Create audio URL and play
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-
-        setCurrentAudio(audio);
-
-        // Handle audio end
-        audio.onended = () => {
-          handlePlaybackComplete();
-          URL.revokeObjectURL(audioUrl);
-
-          // Show helpful message about creating story cuts for richer narration
-          setTimeout(() => {
-            setMessage({
-              type: 'info',
-              text: 'Want richer narration? Create a Story Cut with AI-generated scripts in different styles!'
-            });
-            setTimeout(() => setMessage(null), 6000);
-          }, 1000);
-        };
-
-        // Handle audio error
-        audio.onerror = () => {
-          console.error('Audio playback failed');
-          handleExitPlay();
-          URL.revokeObjectURL(audioUrl);
-        };
-
-        await audio.play();
-      }
-
-    } catch (error) {
-      console.error('🔊 Play error:', error);
-      setIsPlaying(false);
-      setIsGeneratingAudio(false);
-      setShowFullscreenPlay(false);
-      alert('Failed to generate audio. Please check your ElevenLabs API key configuration.');
-    }
+    await handleMediaPlay(ember, storyCuts, primaryStoryCut, selectedEmberVoice, { isPlaying }, {
+      setShowFullscreenPlay,
+      setIsGeneratingAudio,
+      setCurrentlyPlayingStoryCut,
+      setIsPlaying,
+      setCurrentAudio,
+      handleExitPlay,
+      handlePlaybackComplete,
+      setActiveAudioSegments,
+      playbackStoppedRef,
+      setCurrentVoiceType,
+      setCurrentVoiceTransparency,
+      setCurrentMediaColor,
+      setCurrentZoomScale,
+      setCurrentMediaImageUrl,
+      setCurrentDisplayText,
+      setCurrentVoiceTag,
+      setCurrentSentenceIndex,
+      setCurrentSegmentSentences,
+      setSentenceTimeouts,
+      sentenceTimeouts,
+      setMediaTimeouts,
+      mediaTimeouts,
+      mediaTimeoutsRef,
+      setMessage
+    });
   };
 
   const handleTitleDelete = async () => {
