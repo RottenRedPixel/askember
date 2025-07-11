@@ -1031,8 +1031,8 @@ export const processAIScriptToEmberScript = async (aiScript, ember, emberId) => 
       throw new Error('AI script and ember data are required');
     }
 
-    // 1. Opening HOLD segment (2-second black fade-in)
-    const openingHold = '[[HOLD]] <COLOR:#000000,duration=2.0>';
+    // 1. Ember photo as MEDIA element (start immediately with ember image)
+    const emberPhotoMedia = `[[MEDIA]] <name="${ember.original_filename || 'ember_photo.jpg'}">`;
 
     // 2. Process voice lines from AI script - add auto-colorization
     const processedVoiceLines = aiScript
@@ -1060,17 +1060,13 @@ export const processAIScriptToEmberScript = async (aiScript, ember, emberId) => 
       })
       .join('\n\n');
 
-    // 3. Ember photo as MEDIA element
-    const emberPhotoMedia = `[[MEDIA]] <name="${ember.original_filename || 'ember_photo.jpg'}">`;
-
-    // 4. Closing HOLD segment (4-second black fade-out)
+    // 3. Closing HOLD segment (4-second black fade-out)
     const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
 
-    // 5. Combine all elements into complete ember script
+    // 4. Combine all elements into complete ember script - START WITH EMBER IMAGE
     const emberScript = [
-      openingHold,
+      emberPhotoMedia,  // Start with ember image immediately (no black opening)
       processedVoiceLines,
-      emberPhotoMedia,
       closingHold
     ].join('\n\n');
 

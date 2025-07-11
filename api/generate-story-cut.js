@@ -57,8 +57,52 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       throw new Error('AI script is required');
     }
 
-    // 1. Opening HOLD segment (2-second black fade-in)
-    const openingHold = '[[HOLD]] <COLOR:#000000,duration=2.0>';
+    // 1. Build MEDIA elements from selected media - prioritize ember photo first
+    let emberImage = '';
+    let additionalMediaElements = '';
+
+    if (selectedMedia && selectedMedia.length > 0) {
+      console.log('📸 API: Adding selected media to script:', selectedMedia.map(m => m.name));
+
+      // Sort media to put ember photo first
+      const sortedMedia = [...selectedMedia].sort((a, b) => {
+        // Check if media is the main ember photo (category 'ember' or name contains 'ember')
+        const aIsEmber = a.category === 'ember' || (a.name && a.name.toLowerCase().includes('ember'));
+        const bIsEmber = b.category === 'ember' || (b.name && b.name.toLowerCase().includes('ember'));
+
+        if (aIsEmber && !bIsEmber) return -1; // a comes first
+        if (!aIsEmber && bIsEmber) return 1;  // b comes first
+        return 0; // maintain original order for non-ember media
+      });
+
+      console.log('📸 API: Media order after ember prioritization:', sortedMedia.map(m => ({ name: m.name, category: m.category, isEmber: m.category === 'ember' || (m.name && m.name.toLowerCase().includes('ember')) })));
+
+      // Separate ember image (first) from additional media
+      if (sortedMedia.length > 0) {
+        const firstMedia = sortedMedia[0];
+        emberImage = firstMedia.id ? `[[MEDIA]] <id=${firstMedia.id}>` : `[[MEDIA]] <name="${firstMedia.filename || firstMedia.name}">`;
+
+        // Additional media (if any)
+        if (sortedMedia.length > 1) {
+          additionalMediaElements = sortedMedia.slice(1)
+            .map(media => {
+              if (media.id) {
+                return `[[MEDIA]] <id=${media.id}>`;
+              } else {
+                return `[[MEDIA]] <name="${media.filename || media.name}">`;
+              }
+            })
+            .join('\n\n');
+        }
+      }
+    } else {
+      // No media selected - use ember's own image data if available
+      console.log('📸 API: No media selected, checking for ember image from emberData');
+      if (emberData && emberData.original_filename) {
+        emberImage = `[[MEDIA]] <name="${emberData.original_filename}">`;
+        console.log('📸 API: Using ember original filename:', emberData.original_filename);
+      }
+    }
 
     // 2. Process voice lines from AI script - add auto-colorization
     const processedVoiceLines = aiScript
@@ -87,48 +131,27 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       })
       .join('\n\n');
 
-    // 3. Build MEDIA elements from selected media - prioritize ember photo first
-    let mediaElements = '';
-    if (selectedMedia && selectedMedia.length > 0) {
-      console.log('📸 API: Adding selected media to script:', selectedMedia.map(m => m.name));
-
-      // Sort media to put ember photo first
-      const sortedMedia = [...selectedMedia].sort((a, b) => {
-        // Check if media is the main ember photo (category 'ember' or name contains 'ember')
-        const aIsEmber = a.category === 'ember' || (a.name && a.name.toLowerCase().includes('ember'));
-        const bIsEmber = b.category === 'ember' || (b.name && b.name.toLowerCase().includes('ember'));
-
-        if (aIsEmber && !bIsEmber) return -1; // a comes first
-        if (!aIsEmber && bIsEmber) return 1;  // b comes first
-        return 0; // maintain original order for non-ember media
-      });
-
-      console.log('📸 API: Media order after ember prioritization:', sortedMedia.map(m => ({ name: m.name, category: m.category, isEmber: m.category === 'ember' || (m.name && m.name.toLowerCase().includes('ember')) })));
-
-      mediaElements = sortedMedia
-        .map(media => {
-          // Use proper media reference format
-          if (media.id) {
-            return `[[MEDIA]] <id=${media.id}>`;
-          } else {
-            return `[[MEDIA]] <name="${media.filename || media.name}">`;
-          }
-        })
-        .join('\n\n');
-    } else {
-      // No media selected - create story without media elements
-      console.log('📸 API: No media selected, creating story without media elements');
-      mediaElements = ''; // Empty - no media in the story
-    }
-
-    // 4. Closing HOLD segment (4-second black fade-out)
+    // 3. Closing HOLD segment (4-second black fade-out)
     const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
 
-    // 5. Combine all elements into complete ember script
-    const scriptParts = [openingHold, processedVoiceLines];
-    if (mediaElements) {
-      scriptParts.push(mediaElements);
+    // 4. Combine all elements into complete ember script - START WITH EMBER IMAGE
+    const scriptParts = [];
+
+    // Start with ember image immediately (no black opening)
+    if (emberImage) {
+      scriptParts.push(emberImage);
+      console.log('✅ API: Starting script with ember image');
     }
+
+    // Add voice content
+    scriptParts.push(processedVoiceLines);
+
+    // Add any additional media
+    if (additionalMediaElements) {
+      scriptParts.push(additionalMediaElements);
+    }
+
+    // End with closing hold
     scriptParts.push(closingHold);
 
     const emberScript = scriptParts.join('\n\n');
@@ -158,11 +181,12 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = []) {
     }
 
     // Basic processing with minimal ember format
-    const openingHold = '[[HOLD]] <COLOR:#000000,duration=2.0>';
     const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
 
     // Build media elements from selected media or none - prioritize ember photo first
-    let mediaElements = '';
+    let emberImage = '';
+    let additionalMediaElements = '';
+
     if (selectedMedia && selectedMedia.length > 0) {
       console.log('📸 API: Basic processing - adding selected media:', selectedMedia.map(m => m.name));
 
@@ -179,19 +203,27 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = []) {
 
       console.log('📸 API: Basic processing - media order after ember prioritization:', sortedMedia.map(m => ({ name: m.name, category: m.category, isEmber: m.category === 'ember' || (m.name && m.name.toLowerCase().includes('ember')) })));
 
-      mediaElements = sortedMedia
-        .map(media => {
-          // Use proper media reference format
-          if (media.id) {
-            return `[[MEDIA]] <id=${media.id}>`;
-          } else {
-            return `[[MEDIA]] <name="${media.filename || media.name}">`;
-          }
-        })
-        .join('\n\n');
+      // Separate ember image (first) from additional media
+      if (sortedMedia.length > 0) {
+        const firstMedia = sortedMedia[0];
+        emberImage = firstMedia.id ? `[[MEDIA]] <id=${firstMedia.id}>` : `[[MEDIA]] <name="${firstMedia.filename || firstMedia.name}">`;
+
+        // Additional media (if any)
+        if (sortedMedia.length > 1) {
+          additionalMediaElements = sortedMedia.slice(1)
+            .map(media => {
+              if (media.id) {
+                return `[[MEDIA]] <id=${media.id}>`;
+              } else {
+                return `[[MEDIA]] <name="${media.filename || media.name}">`;
+              }
+            })
+            .join('\n\n');
+        }
+      }
     } else {
       console.log('📸 API: Basic processing - no media selected, creating story without media');
-      mediaElements = ''; // Empty - no media in the story
+      // Note: In basic processing, we don't have emberData available, so no fallback ember image
     }
 
     // Add basic colorization
@@ -214,10 +246,23 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = []) {
       })
       .join('\n\n');
 
-    const scriptParts = [openingHold, processedContent];
-    if (mediaElements) {
-      scriptParts.push(mediaElements);
+    const scriptParts = [];
+
+    // Start with ember image immediately (no black opening)
+    if (emberImage) {
+      scriptParts.push(emberImage);
+      console.log('✅ API: Basic processing - starting script with ember image');
     }
+
+    // Add voice content
+    scriptParts.push(processedContent);
+
+    // Add any additional media
+    if (additionalMediaElements) {
+      scriptParts.push(additionalMediaElements);
+    }
+
+    // End with closing hold
     scriptParts.push(closingHold);
 
     const finalScript = scriptParts.join('\n\n');
