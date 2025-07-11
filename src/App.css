@@ -58,6 +58,47 @@
   animation: fade-out 600ms ease-in forwards;
 }
 
+/* Custom duration fade animations for ember images */
+.ember-fade-in-1s {
+  animation: fade-in 1s ease-out forwards;
+}
+
+.ember-fade-in-2s {
+  animation: fade-in 2s ease-out forwards;
+}
+
+.ember-fade-in-3s {
+  animation: fade-in 3s ease-out forwards;
+}
+
+.ember-fade-in-4s {
+  animation: fade-in 4s ease-out forwards;
+}
+
+.ember-fade-in-5s {
+  animation: fade-in 5s ease-out forwards;
+}
+
+.ember-fade-out-1s {
+  animation: fade-out 1s ease-in forwards;
+}
+
+.ember-fade-out-2s {
+  animation: fade-out 2s ease-in forwards;
+}
+
+.ember-fade-out-3s {
+  animation: fade-out 3s ease-in forwards;
+}
+
+.ember-fade-out-4s {
+  animation: fade-out 4s ease-in forwards;
+}
+
+.ember-fade-out-5s {
+  animation: fade-out 5s ease-in forwards;
+}
+
 
 
 @media (prefers-reduced-motion: no-preference) {

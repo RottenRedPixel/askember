@@ -384,6 +384,39 @@ export const extractZoomScaleFromAction = (action) => {
 };
 
 /**
+ * Helper function to extract fade values from FADE-IN/FADE-OUT actions
+ * @param {string} action - Action string to parse
+ * @returns {Object|null} Object with fade type and duration, or null if no fade
+ */
+export const extractFadeFromAction = (action) => {
+    // Check for FADE-IN with duration
+    const fadeInMatch = action.match(/FADE-IN:duration=([0-9.]+)/);
+    if (fadeInMatch) {
+        const duration = parseFloat(fadeInMatch[1]);
+        return { 
+            type: 'in', 
+            duration: Math.max(0.1, duration), // Minimum 0.1 second fade
+            startOpacity: 0,
+            endOpacity: 1
+        };
+    }
+    
+    // Check for FADE-OUT with duration
+    const fadeOutMatch = action.match(/FADE-OUT:duration=([0-9.]+)/);
+    if (fadeOutMatch) {
+        const duration = parseFloat(fadeOutMatch[1]);
+        return { 
+            type: 'out', 
+            duration: Math.max(0.1, duration), // Minimum 0.1 second fade
+            startOpacity: 1,
+            endOpacity: 0
+        };
+    }
+    
+    return null; // No fade effect found
+};
+
+/**
  * Helper function to estimate segment duration
  * @param {string} content - Content to analyze
  * @param {string} segmentType - Type of segment

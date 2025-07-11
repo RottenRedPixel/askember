@@ -5,6 +5,7 @@ import {
   estimateSentenceTimings,
   estimateSegmentDuration,
   extractZoomScaleFromAction,
+  extractFadeFromAction,
   resolveMediaReference
 } from '@/lib/scriptParser';
 
@@ -794,14 +795,87 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
           console.log(`🔍 Resolved media URL for "${segment.mediaName || segment.mediaId}":`, resolvedMediaUrl);
 
           if (resolvedMediaUrl) {
-            // Update the current media image URL to display the specific media
-            console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
-            setCurrentMediaImageUrl(resolvedMediaUrl);
+            // Check for fade effects BEFORE updating the image
+            if (segment.content.includes('FADE-')) {
+              const fadeEffect = extractFadeFromAction(segment.content);
+              if (fadeEffect && fadeEffect.type === 'in') {
+                console.log(`🎬 Setting up CSS fade-in effect: ${fadeEffect.duration}s`);
+
+                // Set the current image to transparent using CSS class
+                const imageElement = document.getElementById('ember-background-image');
+                if (imageElement) {
+                  // Remove any existing fade classes and set to transparent
+                  imageElement.className = imageElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
+                  imageElement.classList.add('opacity-0');
+                }
+
+                // Update the image URL
+                console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
+                setCurrentMediaImageUrl(resolvedMediaUrl);
+
+                // Wait for image to load, then trigger fade in with CSS animation
+                setTimeout(() => {
+                  const imageElement = document.getElementById('ember-background-image');
+                  if (imageElement) {
+                    console.log(`🎯 Starting CSS fade-in animation: ${fadeEffect.duration}s`);
+
+                    // Remove opacity-0 and add fade animation class
+                    imageElement.classList.remove('opacity-0');
+
+                    // Add the appropriate duration class
+                    const durationClass = `ember-fade-in-${Math.round(fadeEffect.duration)}s`;
+                    imageElement.classList.add(durationClass);
+
+                    console.log(`🎬 Applied CSS class: ${durationClass}`);
+
+                    setTimeout(() => {
+                      console.log(`🎬 Fade ${fadeEffect.type} completed`);
+                    }, fadeEffect.duration * 1000);
+                  }
+                }, 150); // Wait for React to update the image source
+              } else if (fadeEffect && fadeEffect.type === 'out') {
+                console.log(`🎬 Setting up CSS fade-out effect: ${fadeEffect.duration}s`);
+
+                // Update the image URL first (it will be visible)
+                console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
+                setCurrentMediaImageUrl(resolvedMediaUrl);
+
+                // Wait for image to load, then trigger fade out with CSS animation
+                setTimeout(() => {
+                  const imageElement = document.getElementById('ember-background-image');
+                  if (imageElement) {
+                    console.log(`🎯 Starting CSS fade-out animation: ${fadeEffect.duration}s`);
+
+                    // Remove any existing fade classes
+                    imageElement.className = imageElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
+                    imageElement.classList.remove('opacity-0');
+
+                    // Add the appropriate fade-out duration class
+                    const durationClass = `ember-fade-out-${Math.round(fadeEffect.duration)}s`;
+                    imageElement.classList.add(durationClass);
+
+                    console.log(`🎬 Applied CSS class: ${durationClass}`);
+
+                    setTimeout(() => {
+                      console.log(`🎬 Fade ${fadeEffect.type} completed`);
+                    }, fadeEffect.duration * 1000);
+                  }
+                }, 150); // Wait for React to update the image source
+              } else {
+                // No valid fade effect - just update image normally
+                console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
+                setCurrentMediaImageUrl(resolvedMediaUrl);
+              }
+            } else {
+              // No fade effect - just update image normally
+              console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
+              setCurrentMediaImageUrl(resolvedMediaUrl);
+            }
           } else {
             console.warn(`⚠️ Could not resolve media reference: ${segment.mediaName || segment.mediaId}`);
           }
 
-          // Apply visual effects to the resolved image
+          // Apply zoom effects
           if (segment.content.includes('Z-OUT:')) {
             // Extract zoom scale values from Z-OUT command
             const zoomScale = extractZoomScaleFromAction(segment.content);

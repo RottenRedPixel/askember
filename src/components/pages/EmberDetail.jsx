@@ -2205,7 +2205,8 @@ export default function EmberDetail() {
                 <img
                   src={currentMediaImageUrl}
                   alt={ember.title || 'Ember'}
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                  id="ember-background-image"
                 />
               )}
 
