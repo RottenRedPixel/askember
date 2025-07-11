@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, Code, Plus, GripVertical, Save } from 'lucide-react';
+import { ArrowLeft, Eye, Code, Plus, GripVertical, Save, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FilmSlate } from 'phosphor-react';
-import { getStoryCutById, getPrimaryStoryCut } from '@/lib/database';
+import { getStoryCutById, getPrimaryStoryCut, updateStoryCut } from '@/lib/database';
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import { formatDuration } from '@/lib/dateUtils';
 import { resolveMediaReference } from '@/lib/scriptParser';
+import useStore from '@/store';
 
 export default function StoryCutStudio() {
     const { id } = useParams(); // This is the ember ID
     const navigate = useNavigate();
+    const { user } = useStore();
     const [blocks, setBlocks] = useState([]);
     const [selectedBlock, setSelectedBlock] = useState(null);
     const [viewMode, setViewMode] = useState('visual'); // 'visual' or 'code'
@@ -23,6 +25,8 @@ export default function StoryCutStudio() {
     const [storyCut, setStoryCut] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [updating, setUpdating] = useState(false);
+    const [previewing, setPreviewing] = useState(false);
 
     // Load real story cut data
     useEffect(() => {
@@ -70,18 +74,18 @@ export default function StoryCutStudio() {
                             const mediaType = mediaMatch[1];
                             const content = mediaMatch[2].trim();
 
-                                                        if (mediaType === 'MEDIA') {
+                            if (mediaType === 'MEDIA') {
                                 // Extract media name or ID
                                 console.log('🔍 Parsing MEDIA content:', content);
-                                
+
                                 // Check for ID format first
                                 const idMatch = content.match(/id=([a-zA-Z0-9\-_]+)/);
                                 // Check for name format
                                 const nameMatch = content.match(/name="([^"]+)"/);
-                                
+
                                 let mediaName = 'Unknown Media';
                                 let mediaId = null;
-                                
+
                                 if (idMatch) {
                                     mediaId = idMatch[1];
                                     mediaName = 'Loading...'; // Will be replaced with actual display name
@@ -90,7 +94,7 @@ export default function StoryCutStudio() {
                                     mediaName = nameMatch[1];
                                     console.log('🔍 Extracted media name:', mediaName);
                                 }
-                                
+
                                 realBlocks.push({
                                     id: blockId++,
                                     type: 'media',
@@ -116,16 +120,16 @@ export default function StoryCutStudio() {
                                 });
                             }
                         } else {
-                                                        // Match voice tags
+                            // Match voice tags
                             const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
                             if (voiceMatch) {
                                 const voiceTag = voiceMatch[1].trim();
                                 const content = voiceMatch[2].trim();
-                                
+
                                 // Determine voice type and enhance display name
                                 let voiceType = 'contributor';
                                 let enhancedVoiceTag = voiceTag;
-                                
+
                                 if (voiceTag.toLowerCase().includes('ember')) {
                                     voiceType = 'ember';
                                     const emberVoiceName = primaryStoryCut.ember_voice_name || 'Unknown Voice';
@@ -135,7 +139,7 @@ export default function StoryCutStudio() {
                                     const narratorVoiceName = primaryStoryCut.narrator_voice_name || 'Unknown Voice';
                                     enhancedVoiceTag = `Narrator (${narratorVoiceName})`;
                                 }
-                                
+
                                 realBlocks.push({
                                     id: blockId++,
                                     type: 'voice',
@@ -164,7 +168,7 @@ export default function StoryCutStudio() {
                             // Get all available media for this ember to find display name
                             const { getEmberPhotos } = await import('@/lib/photos');
                             const { getEmberSupportingMedia } = await import('@/lib/database');
-                            
+
                             const [emberPhotos, supportingMedia] = await Promise.all([
                                 getEmberPhotos(id),
                                 getEmberSupportingMedia(id)
@@ -213,8 +217,8 @@ export default function StoryCutStudio() {
                 const initialDurations = {};
                 realBlocks.forEach(block => {
                     if (block.type === 'hold') {
-                        initialEffects[`hold-${block.id}`] = ['fade'];
-                        initialDurations[`hold-fade-${block.id}`] = block.duration || 4.0;
+                        initialEffects[`hold-${block.id}`] = [];
+                        initialDurations[`hold-duration-${block.id}`] = block.duration || 4.0;
                     }
                     // Set default directions for all effects
                     initialDirections[`fade-${block.id}`] = 'in';
@@ -245,7 +249,10 @@ export default function StoryCutStudio() {
         return blocks.map(block => {
             switch (block.type) {
                 case 'media':
-                    let mediaLine = `[[MEDIA]] <name="${block.mediaName}">`;
+                    // Use ID format if available, otherwise fallback to name format
+                    let mediaLine = block.mediaId ?
+                        `[[MEDIA]] <id=${block.mediaId}>` :
+                        `[[MEDIA]] <name="${block.mediaName}">`;
 
                     // Build effects from current state
                     const blockEffects = selectedEffects[`effect-${block.id}`] || [];
@@ -277,12 +284,12 @@ export default function StoryCutStudio() {
                     return `[${block.voiceTag}] ${block.content}`;
                 case 'hold':
                     const holdEffects = selectedEffects[`hold-${block.id}`] || [];
-                    const holdDuration = effectDurations[`hold-fade-${block.id}`] || block.duration || 4.0;
+                    const holdDuration = effectDurations[`hold-duration-${block.id}`] || block.duration || 4.0;
 
                     if (holdEffects.includes('fade')) {
                         return `[[HOLD]] <COLOR:${block.color},duration=${holdDuration}>`;
                     } else {
-                        return `[[HOLD]] <COLOR:${block.color},duration=${holdDuration}>`;
+                        return `[[HOLD]] <COLOR:${block.color}>`;
                     }
                 case 'start':
                     return ''; // Start blocks don't generate script content
@@ -292,6 +299,78 @@ export default function StoryCutStudio() {
                     return '';
             }
         }).filter(line => line.trim() !== '').join('\n\n');
+    };
+
+    // Handle updating the story cut
+    const handleUpdateStoryCut = async () => {
+        if (!user || !storyCut) return;
+
+        try {
+            setUpdating(true);
+
+            // Generate the updated script from current visual controls
+            const updatedScript = generateScript();
+            console.log('🔄 Updating story cut with script:', updatedScript);
+
+            // Update the story cut in the database
+            await updateStoryCut(storyCut.id, {
+                full_script: updatedScript
+            }, user.id);
+
+            console.log('✅ Story cut updated successfully');
+
+            // Update the local state to reflect the changes
+            setStoryCut(prev => ({
+                ...prev,
+                full_script: updatedScript
+            }));
+
+            // Optionally, show a success message or navigate back
+            // navigate(`/embers/${id}`);
+
+        } catch (error) {
+            console.error('❌ Failed to update story cut:', error);
+            setError('Failed to update story cut. Please try again.');
+        } finally {
+            setUpdating(false);
+        }
+    };
+
+    // Handle previewing the story cut
+    const handlePreviewStory = async () => {
+        if (!storyCut) return;
+
+        try {
+            setPreviewing(true);
+            console.log('🎬 Previewing story cut:', storyCut.title);
+
+            // Import the ember player functionality
+            const { handlePlay } = await import('@/lib/mediaHandlers');
+
+            // Create a temporary updated story cut with the current script
+            const updatedStoryCut = {
+                ...storyCut,
+                full_script: generateScript()
+            };
+
+            // Trigger the ember play with the current story cut
+            await handlePlay(
+                { id }, // ember object with ID
+                [updatedStoryCut], // story cuts array
+                updatedStoryCut, // primary story cut
+                () => { }, // setShowFullscreenPlay
+                () => { }, // setIsGeneratingAudio
+                () => { }, // setCurrentlyPlayingStoryCut
+                [], // mediaTimeouts
+                { current: [] } // mediaTimeoutsRef
+            );
+
+        } catch (error) {
+            console.error('❌ Failed to preview story:', error);
+            setError('Failed to preview story. Please try again.');
+        } finally {
+            setPreviewing(false);
+        }
     };
 
     // Helper functions
@@ -829,7 +908,6 @@ export default function StoryCutStudio() {
                                                                 <input
                                                                     type="checkbox"
                                                                     value="fade"
-                                                                    defaultChecked={true}
                                                                     className="w-4 h-4 text-gray-600 border-gray-300 focus:ring-gray-500 rounded"
                                                                     onChange={(e) => {
                                                                         setSelectedEffects(prev => {
@@ -855,24 +933,24 @@ export default function StoryCutStudio() {
                                                         </div>
                                                     </div>
 
-                                                    {/* Hold Fade Duration Slider */}
+                                                    {/* Hold Duration Slider - only show when fade is selected */}
                                                     {selectedEffects[`hold-${block.id}`] && selectedEffects[`hold-${block.id}`].includes('fade') && (
                                                         <div className="mt-3" style={{ marginLeft: '24px', marginRight: '24px' }}>
                                                             <div className="space-y-2">
                                                                 <div className="flex items-center justify-between">
                                                                     <span className="text-sm text-gray-700">Fade Duration</span>
-                                                                    <span className="text-sm text-gray-700">{effectDurations[`hold-fade-${block.id}`] || 4.0}s</span>
+                                                                    <span className="text-sm text-gray-700">{effectDurations[`hold-duration-${block.id}`] || 4.0}s</span>
                                                                 </div>
                                                                 <input
                                                                     type="range"
                                                                     min="0"
-                                                                    max="5"
+                                                                    max="10"
                                                                     step="0.1"
-                                                                    value={effectDurations[`hold-fade-${block.id}`] || 4.0}
+                                                                    value={effectDurations[`hold-duration-${block.id}`] || 4.0}
                                                                     onChange={(e) => {
                                                                         setEffectDurations(prev => ({
                                                                             ...prev,
-                                                                            [`hold-fade-${block.id}`]: parseFloat(e.target.value)
+                                                                            [`hold-duration-${block.id}`]: parseFloat(e.target.value)
                                                                         }));
                                                                     }}
                                                                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
@@ -880,6 +958,8 @@ export default function StoryCutStudio() {
                                                             </div>
                                                         </div>
                                                     )}
+
+
                                                 </>
                                             )}
 
@@ -903,25 +983,30 @@ export default function StoryCutStudio() {
 
                         {/* Action Buttons */}
                         {!loading && !error && (
-                            <div className="mt-6 flex justify-center gap-3">
+                            <div className="mt-6 flex gap-3 max-w-md mx-auto">
                                 <Button
                                     onClick={() => navigate(`/embers/${id}`)}
                                     variant="outline"
                                     size="lg"
-                                    className="px-6 py-3 h-auto"
+                                    className="px-6 py-3 h-auto flex-1"
                                 >
                                     Cancel
                                 </Button>
                                 <Button
-                                    onClick={() => {
-                                        // TODO: Implement update functionality
-                                        console.log('Update story cut with:', generateScript());
-                                    }}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 h-auto"
+                                    onClick={handlePreviewStory}
+                                    disabled={previewing}
+                                    size="lg"
+                                    className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 h-auto disabled:opacity-50 flex-1"
+                                >
+                                    {previewing ? 'Loading...' : 'Preview'}
+                                </Button>
+                                <Button
+                                    onClick={handleUpdateStoryCut}
+                                    disabled={updating}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 h-auto disabled:opacity-50 flex-1"
                                     size="lg"
                                 >
-                                    <Save className="w-5 h-5 mr-2" />
-                                    Update Story Cut
+                                    {updating ? 'Updating...' : 'Update'}
                                 </Button>
                             </div>
                         )}
