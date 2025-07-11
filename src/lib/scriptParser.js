@@ -393,27 +393,93 @@ export const extractFadeFromAction = (action) => {
     const fadeInMatch = action.match(/FADE-IN:duration=([0-9.]+)/);
     if (fadeInMatch) {
         const duration = parseFloat(fadeInMatch[1]);
-        return { 
-            type: 'in', 
+        return {
+            type: 'in',
             duration: Math.max(0.1, duration), // Minimum 0.1 second fade
             startOpacity: 0,
             endOpacity: 1
         };
     }
-    
+
     // Check for FADE-OUT with duration
     const fadeOutMatch = action.match(/FADE-OUT:duration=([0-9.]+)/);
     if (fadeOutMatch) {
         const duration = parseFloat(fadeOutMatch[1]);
-        return { 
-            type: 'out', 
+        return {
+            type: 'out',
             duration: Math.max(0.1, duration), // Minimum 0.1 second fade
             startOpacity: 1,
             endOpacity: 0
         };
     }
-    
+
     return null; // No fade effect found
+};
+
+/**
+ * Helper function to extract pan values from PAN-LEFT/PAN-RIGHT actions
+ * @param {string} action - Action string to parse
+ * @returns {Object|null} Object with pan direction and duration, or null if no pan
+ */
+export const extractPanFromAction = (action) => {
+    // Check for PAN-LEFT with duration
+    const panLeftMatch = action.match(/PAN-LEFT:duration=([0-9.]+)/);
+    if (panLeftMatch) {
+        const duration = parseFloat(panLeftMatch[1]);
+        return {
+            type: 'left',
+            duration: Math.max(0.1, duration), // Minimum 0.1 second pan
+            direction: 'left'
+        };
+    }
+
+    // Check for PAN-RIGHT with duration
+    const panRightMatch = action.match(/PAN-RIGHT:duration=([0-9.]+)/);
+    if (panRightMatch) {
+        const duration = parseFloat(panRightMatch[1]);
+        return {
+            type: 'right',
+            duration: Math.max(0.1, duration), // Minimum 0.1 second pan
+            direction: 'right'
+        };
+    }
+
+    return null; // No pan effect found
+};
+
+/**
+ * Helper function to extract zoom values from ZOOM-IN/ZOOM-OUT actions
+ * @param {string} action - Action string to parse
+ * @returns {Object|null} Object with zoom type and duration, or null if no zoom
+ */
+export const extractZoomFromAction = (action) => {
+    // Check for ZOOM-IN with duration
+    const zoomInMatch = action.match(/ZOOM-IN:duration=([0-9.]+)/);
+    if (zoomInMatch) {
+        const duration = parseFloat(zoomInMatch[1]);
+        return {
+            type: 'in',
+            duration: Math.max(0.1, duration), // Minimum 0.1 second zoom
+            direction: 'in',
+            startScale: 1,
+            endScale: 1.5
+        };
+    }
+
+    // Check for ZOOM-OUT with duration
+    const zoomOutMatch = action.match(/ZOOM-OUT:duration=([0-9.]+)/);
+    if (zoomOutMatch) {
+        const duration = parseFloat(zoomOutMatch[1]);
+        return {
+            type: 'out',
+            duration: Math.max(0.1, duration), // Minimum 0.1 second zoom
+            direction: 'out',
+            startScale: 1,
+            endScale: 0.7
+        };
+    }
+
+    return null; // No zoom effect found
 };
 
 /**

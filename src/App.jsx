@@ -6,6 +6,7 @@ import About from './components/pages/About';
 import Create from './components/pages/Create';
 import MyEmbers from './components/pages/MyEmbers';
 import EmberDetail from './components/pages/EmberDetail';
+import StoryCutStudio from './components/pages/StoryCutStudio';
 import Settings from './components/pages/Settings';
 import AuthGuard from './components/auth/AuthGuard';
 import AdminGuard from './components/auth/AdminGuard';
@@ -27,7 +28,7 @@ export default function App() {
   // Initialize authentication state on app startup
   useEffect(() => {
     initializeAuth();
-    
+
     // Run database migrations
     const runMigrations = async () => {
       try {
@@ -37,7 +38,7 @@ export default function App() {
         console.error('Error running migrations:', error);
       }
     };
-    
+
     runMigrations();
   }, [initializeAuth]);
 
@@ -45,7 +46,10 @@ export default function App() {
     <Routes>
       {/* Ember detail route without layout (no header, light pink background) */}
       <Route path="/embers/:id" element={<EmberDetail />} />
-      
+
+      {/* StoryCut Studio route without layout (full-screen editor) */}
+      <Route path="/embers/:id/studio" element={<StoryCutStudio />} />
+
       {/* All other routes with layout */}
       <Route path="/*" element={
         <Layout>
@@ -64,7 +68,7 @@ export default function App() {
                 <Settings />
               </AuthGuard>
             } />
-            
+
             {/* Admin Routes */}
             <Route path="/admin/*" element={
               <AdminGuard>

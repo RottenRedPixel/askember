@@ -6,6 +6,8 @@ import {
   estimateSegmentDuration,
   extractZoomScaleFromAction,
   extractFadeFromAction,
+  extractPanFromAction,
+  extractZoomFromAction,
   resolveMediaReference
 } from '@/lib/scriptParser';
 
@@ -804,8 +806,8 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
                 // Set the current image to transparent using CSS class
                 const imageElement = document.getElementById('ember-background-image');
                 if (imageElement) {
-                  // Remove any existing fade classes and set to transparent
-                  imageElement.className = imageElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
+                  // Remove any existing animation classes and set to transparent
+                  imageElement.className = imageElement.className.replace(/ember-(fade|pan|zoom)-(in|out|left|right)-\d+s/g, '');
                   imageElement.classList.add('opacity-0');
                 }
 
@@ -846,8 +848,8 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
                   if (imageElement) {
                     console.log(`🎯 Starting CSS fade-out animation: ${fadeEffect.duration}s`);
 
-                    // Remove any existing fade classes
-                    imageElement.className = imageElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
+                    // Remove any existing animation classes
+                    imageElement.className = imageElement.className.replace(/ember-(fade|pan|zoom)-(in|out|left|right)-\d+s/g, '');
                     imageElement.classList.remove('opacity-0');
 
                     // Add the appropriate fade-out duration class
@@ -870,16 +872,85 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
               // No fade effect - just update image normally
               console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
               setCurrentMediaImageUrl(resolvedMediaUrl);
+
+              // Clear any existing animation classes when no effects are specified
+              setTimeout(() => {
+                const imageElement = document.getElementById('ember-background-image');
+                if (imageElement) {
+                  console.log(`🧹 Clearing animation classes (no effects specified)`);
+                  imageElement.className = imageElement.className.replace(/ember-(fade|pan|zoom)-(in|out|left|right)-\d+s/g, '');
+                }
+              }, 150);
             }
           } else {
             console.warn(`⚠️ Could not resolve media reference: ${segment.mediaName || segment.mediaId}`);
           }
 
-          // Apply zoom effects
+          // Apply pan effects
+          if (segment.content.includes('PAN-')) {
+            const panEffect = extractPanFromAction(segment.content);
+            if (panEffect) {
+              console.log(`🎬 Setting up CSS pan effect: ${panEffect.direction} for ${panEffect.duration}s`);
+
+              setTimeout(() => {
+                const imageElement = document.getElementById('ember-background-image');
+                if (imageElement) {
+                  console.log(`🎯 Starting CSS pan-${panEffect.direction} animation: ${panEffect.duration}s`);
+
+                  // Remove any existing animation classes
+                  imageElement.className = imageElement.className.replace(/ember-(fade|pan|zoom)-(in|out|left|right)-\d+s/g, '');
+
+                  // Add the appropriate pan class
+                  const durationClass = `ember-pan-${panEffect.direction}-${Math.round(panEffect.duration)}s`;
+                  imageElement.classList.add(durationClass);
+
+                  console.log(`🎬 Applied CSS class: ${durationClass}`);
+
+                  setTimeout(() => {
+                    console.log(`🎬 Pan ${panEffect.direction} completed`);
+                  }, panEffect.duration * 1000);
+                } else {
+                  console.warn(`⚠️ Could not find image element for pan effect`);
+                }
+              }, 150);
+            }
+          }
+
+          // Apply zoom effects (new ZOOM-IN/ZOOM-OUT system)
+          if (segment.content.includes('ZOOM-')) {
+            const zoomEffect = extractZoomFromAction(segment.content);
+            if (zoomEffect) {
+              console.log(`🎬 Setting up CSS zoom effect: ${zoomEffect.direction} for ${zoomEffect.duration}s`);
+
+              setTimeout(() => {
+                const imageElement = document.getElementById('ember-background-image');
+                if (imageElement) {
+                  console.log(`🎯 Starting CSS zoom-${zoomEffect.direction} animation: ${zoomEffect.duration}s`);
+
+                  // Remove any existing animation classes
+                  imageElement.className = imageElement.className.replace(/ember-(fade|pan|zoom)-(in|out|left|right)-\d+s/g, '');
+
+                  // Add the appropriate zoom class
+                  const durationClass = `ember-zoom-${zoomEffect.direction}-${Math.round(zoomEffect.duration)}s`;
+                  imageElement.classList.add(durationClass);
+
+                  console.log(`🎬 Applied CSS class: ${durationClass}`);
+
+                  setTimeout(() => {
+                    console.log(`🎬 Zoom ${zoomEffect.direction} completed`);
+                  }, zoomEffect.duration * 1000);
+                } else {
+                  console.warn(`⚠️ Could not find image element for zoom effect`);
+                }
+              }, 150);
+            }
+          }
+
+          // Apply legacy zoom effects (Z-OUT: system)
           if (segment.content.includes('Z-OUT:')) {
             // Extract zoom scale values from Z-OUT command
             const zoomScale = extractZoomScaleFromAction(segment.content);
-            console.log(`🎬 Applying zoom effect: from ${zoomScale.start} to ${zoomScale.end}`);
+            console.log(`🎬 Applying legacy zoom effect: from ${zoomScale.start} to ${zoomScale.end}`);
             setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
           }
 

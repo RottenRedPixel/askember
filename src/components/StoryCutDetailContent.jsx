@@ -53,31 +53,39 @@ const StoryCutDetailContent = ({
                 <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-gray-900">Complete Script</h3>
                     {!isEditingScript && (
-                        <button
-                            onClick={async () => {
-                                try {
-                                    console.log('✏️ Starting script edit...');
-                                    console.log('📝 Current stored script:', selectedStoryCut.full_script);
-                                    // Use the same formatting as the display view
-                                    const { formatScriptForDisplay } = await import('@/lib/scriptParser');
-                                    const editableScript = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
-                                    console.log('📝 Loaded editable script:', editableScript);
-                                    setIsEditingScript(true);
-                                    setEditedScript(editableScript);
-                                } catch (error) {
-                                    console.error('❌ Error loading script for editing:', error);
-                                    console.error('❌ Error details:', error.message);
-                                    console.error('❌ Stack trace:', error.stack);
-                                    // Fallback - use raw script
-                                    console.log('🔄 Falling back to raw script');
-                                    setIsEditingScript(true);
-                                    setEditedScript(selectedStoryCut.full_script || '');
-                                }
-                            }}
-                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                            Edit
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <a
+                                href={`/embers/${ember?.id}/studio`}
+                                className="text-sm bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg font-medium flex items-center gap-1"
+                            >
+                                🎬 Studio
+                            </a>
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        console.log('✏️ Starting script edit...');
+                                        console.log('📝 Current stored script:', selectedStoryCut.full_script);
+                                        // Use the same formatting as the display view
+                                        const { formatScriptForDisplay } = await import('@/lib/scriptParser');
+                                        const editableScript = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
+                                        console.log('📝 Loaded editable script:', editableScript);
+                                        setIsEditingScript(true);
+                                        setEditedScript(editableScript);
+                                    } catch (error) {
+                                        console.error('❌ Error loading script for editing:', error);
+                                        console.error('❌ Error details:', error.message);
+                                        console.error('❌ Stack trace:', error.stack);
+                                        // Fallback - use raw script
+                                        console.log('🔄 Falling back to raw script');
+                                        setIsEditingScript(true);
+                                        setEditedScript(selectedStoryCut.full_script || '');
+                                    }
+                                }}
+                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                                Edit
+                            </button>
+                        </div>
                     )}
                 </div>
 
