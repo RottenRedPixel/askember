@@ -118,38 +118,14 @@ const StoryCutDetailContent = ({
                                 const isMedia = voiceTagWithBrackets.startsWith('[[');
                                 const voiceTag = voiceTagWithBrackets.replace(/^\[\[?|\]\]?$/g, '');
 
-                                // Split content into text and visual actions
-                                const parts = [];
-                                let currentIndex = 0;
-                                const visualActionRegex = /<([^>]+)>/g;
-                                let match;
+                                // Clean content by removing visual actions (color indicators, etc.)
+                                const cleanContent = content.replace(/<([^>]+)>/g, '').trim();
 
-                                while ((match = visualActionRegex.exec(content)) !== null) {
-                                    // Add text before the visual action
-                                    if (match.index > currentIndex) {
-                                        parts.push({
-                                            type: 'text',
-                                            content: content.slice(currentIndex, match.index)
-                                        });
-                                    }
-
-                                    // Add the visual action
-                                    parts.push({
-                                        type: 'visual',
-                                        content: `<${match[1]}>`,
-                                        rawAction: match[1]
-                                    });
-
-                                    currentIndex = match.index + match[0].length;
-                                }
-
-                                // Add remaining text
-                                if (currentIndex < content.length) {
-                                    parts.push({
-                                        type: 'text',
-                                        content: content.slice(currentIndex)
-                                    });
-                                }
+                                // Create a single text part with clean content
+                                const parts = [{
+                                    type: 'text',
+                                    content: cleanContent
+                                }];
 
                                 return (
                                     <div key={index} className="leading-relaxed mb-4">
@@ -159,10 +135,7 @@ const StoryCutDetailContent = ({
                                             {isMedia ? ']]' : ']'}
                                         </span>{' '}
                                         {parts.map((part, partIndex) => (
-                                            <span
-                                                key={partIndex}
-                                                className={part.type === 'visual' ? 'text-gray-400 font-medium' : ''}
-                                            >
+                                            <span key={partIndex}>
                                                 {part.content}
                                             </span>
                                         ))}

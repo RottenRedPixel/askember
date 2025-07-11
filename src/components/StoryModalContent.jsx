@@ -466,16 +466,7 @@ const StoryModalContent = ({
         </div>
       )}
 
-      {selectedMediaForStory.length > 0 && (
-        <div className="mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="text-sm text-blue-800 font-medium">
-            {selectedMediaForStory.length} media file{selectedMediaForStory.length !== 1 ? 's' : ''} selected
-          </div>
-          <div className="text-xs text-blue-600 mt-1">
-            Selected media will appear in your story with fade in/out effects for rich visual storytelling.
-          </div>
-        </div>
-      )}
+
     </div>
 
     {/* Action Buttons */}

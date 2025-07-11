@@ -1,12 +1,11 @@
 import { getUserVoiceModel } from '@/lib/database';
 import { textToSpeech } from '@/lib/elevenlabs';
 import {
-    parseSentences,
-    estimateSentenceTimings,
-    estimateSegmentDuration,
-    extractTransparencyFromAction,
-    extractZoomScaleFromAction,
-    resolveMediaReference
+  parseSentences,
+  estimateSentenceTimings,
+  estimateSegmentDuration,
+  extractZoomScaleFromAction,
+  resolveMediaReference
 } from '@/lib/scriptParser';
 
 /**
@@ -287,60 +286,60 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
  * @param {Array} scriptSegments - Script segments to analyze
  */
 export const debugRecordedAudio = (recordedAudio, scriptSegments) => {
-    console.log('🐛 ===== RECORDED AUDIO DEBUG REPORT =====');
-    console.log('🎙️ Available recorded audio:');
-    Object.entries(recordedAudio).forEach(([userId, audioData]) => {
-        console.log(`  📤 User ${userId}:`);
-        console.log(`    - Name: "${audioData.user_first_name}"`);
-        console.log(`    - Message: "${audioData.message_content}"`);
-        console.log(`    - Audio URL: ${audioData.audio_url ? '✅ EXISTS' : '❌ MISSING'}`);
-        console.log(`    - Duration: ${audioData.audio_duration_seconds}s`);
+  console.log('🐛 ===== RECORDED AUDIO DEBUG REPORT =====');
+  console.log('🎙️ Available recorded audio:');
+  Object.entries(recordedAudio).forEach(([userId, audioData]) => {
+    console.log(`  📤 User ${userId}:`);
+    console.log(`    - Name: "${audioData.user_first_name}"`);
+    console.log(`    - Message: "${audioData.message_content}"`);
+    console.log(`    - Audio URL: ${audioData.audio_url ? '✅ EXISTS' : '❌ MISSING'}`);
+    console.log(`    - Duration: ${audioData.audio_duration_seconds}s`);
+  });
+
+  console.log('\n📝 Script segments requiring recorded audio:');
+  scriptSegments.filter(seg => seg.type === 'contributor').forEach((segment, index) => {
+    console.log(`  📋 Segment ${index + 1}:`);
+    console.log(`    - Voice Tag: "${segment.voiceTag}"`);
+    console.log(`    - Content: "${segment.content}"`);
+    console.log(`    - Type: ${segment.type}`);
+
+    // Check for matches
+    const matches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
+      const nameMatches = audioData.user_first_name === segment.voiceTag;
+      const recordedContent = audioData.message_content?.toLowerCase() || '';
+      const segmentContent = segment.content.toLowerCase();
+      const contentMatches = recordedContent === segmentContent ||
+        recordedContent.includes(segmentContent) ||
+        segmentContent.includes(recordedContent);
+      return nameMatches && contentMatches;
     });
 
-    console.log('\n📝 Script segments requiring recorded audio:');
-    scriptSegments.filter(seg => seg.type === 'contributor').forEach((segment, index) => {
-        console.log(`  📋 Segment ${index + 1}:`);
-        console.log(`    - Voice Tag: "${segment.voiceTag}"`);
-        console.log(`    - Content: "${segment.content}"`);
-        console.log(`    - Type: ${segment.type}`);
+    if (matches.length > 0) {
+      console.log(`    - 🎙️ MATCH FOUND: User ${matches[0][0]} (${matches[0][1].user_first_name})`);
+    } else {
+      console.log(`    - ❌ NO MATCH`);
+      console.log(`    - Available names: ${Object.values(recordedAudio).map(a => a.user_first_name).join(', ')}`);
 
-        // Check for matches
-        const matches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
-            const nameMatches = audioData.user_first_name === segment.voiceTag;
-            const recordedContent = audioData.message_content?.toLowerCase() || '';
-            const segmentContent = segment.content.toLowerCase();
-            const contentMatches = recordedContent === segmentContent ||
-                recordedContent.includes(segmentContent) ||
-                segmentContent.includes(recordedContent);
-            return nameMatches && contentMatches;
+      // Check for personal voice model as fallback
+      const nameMatches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
+        return audioData.user_first_name === segment.voiceTag;
+      });
+
+      if (nameMatches.length > 0) {
+        const [userId] = nameMatches[0];
+        getUserVoiceModel(userId).then(voiceModel => {
+          if (voiceModel && voiceModel.elevenlabs_voice_id) {
+            console.log(`    - 🎤 Personal Voice Model Available: ${voiceModel.elevenlabs_voice_name}`);
+          } else {
+            console.log(`    - 🎤 No personal voice model available`);
+          }
+        }).catch(err => {
+          console.log(`    - ⚠️ Error checking voice model: ${err.message}`);
         });
-
-        if (matches.length > 0) {
-            console.log(`    - 🎙️ MATCH FOUND: User ${matches[0][0]} (${matches[0][1].user_first_name})`);
-        } else {
-            console.log(`    - ❌ NO MATCH`);
-            console.log(`    - Available names: ${Object.values(recordedAudio).map(a => a.user_first_name).join(', ')}`);
-
-            // Check for personal voice model as fallback
-            const nameMatches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
-                return audioData.user_first_name === segment.voiceTag;
-            });
-
-            if (nameMatches.length > 0) {
-                const [userId] = nameMatches[0];
-                getUserVoiceModel(userId).then(voiceModel => {
-                    if (voiceModel && voiceModel.elevenlabs_voice_id) {
-                        console.log(`    - 🎤 Personal Voice Model Available: ${voiceModel.elevenlabs_voice_name}`);
-                    } else {
-                        console.log(`    - 🎤 No personal voice model available`);
-                    }
-                }).catch(err => {
-                    console.log(`    - ⚠️ Error checking voice model: ${err.message}`);
-                });
-            }
-        }
-    });
-    console.log('🐛 ===== END DEBUG REPORT =====');
+      }
+    }
+  });
+  console.log('🐛 ===== END DEBUG REPORT =====');
 };
 
 /**
@@ -351,180 +350,211 @@ export const debugRecordedAudio = (recordedAudio, scriptSegments) => {
  * @returns {Promise<Object>} Audio segment with metadata
  */
 export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => {
-    const { voiceTag, content, originalContent, type } = segment;
+  const { voiceTag, content, originalContent, type } = segment;
 
-    // Use originalContent for audio synthesis, content for display/matching
-    const rawAudioContent = originalContent || content;
+  // Use originalContent for audio synthesis, content for display/matching
+  const rawAudioContent = originalContent || content;
 
-    // Clean content for TTS: remove visual actions and voice tags
-    const audioContent = rawAudioContent
-        .replace(/<[^>]+>/g, '') // Remove visual actions like <COLOR:#FF0000,TRAN:0.2>
-        .replace(/^\[.*?\]\s*/, '') // Remove voice tags like [NARRATOR] or [EMBER VOICE]
-        .trim();
+  // Clean content for TTS: remove visual actions and voice tags
+  const audioContent = rawAudioContent
+    .replace(/<[^>]+>/g, '') // Remove visual actions like <COLOR:#FF0000,TRAN:0.2>
+    .replace(/^\[.*?\]\s*/, '') // Remove voice tags like [NARRATOR] or [EMBER VOICE]
+    .trim();
 
-    console.log(`🎵 Generating audio for [${voiceTag}]: "${audioContent.substring(0, 50)}..."`);
-    console.log(`🔍 Segment type: ${type}`);
-    console.log(`🎨 Full content with visual actions: "${content}"`);
-    console.log(`🎙️ Audio content (no visual actions): "${audioContent}"`);
+  console.log(`🎵 Generating audio for [${voiceTag}]: "${audioContent.substring(0, 50)}..."`);
+  console.log(`🔍 Segment type: ${type}`);
+  console.log(`🎨 Full content with visual actions: "${content}"`);
+  console.log(`🎙️ Audio content (no visual actions): "${audioContent}"`);
 
-    // 🐛 ENHANCED DEBUG: Log all available recorded audio
-    console.log('🐛 DEBUG - All recorded audio available:');
-    Object.entries(recordedAudio).forEach(([userId, audioData]) => {
-        console.log(`  - User ${userId} (${audioData.user_first_name}): "${audioData.message_content?.substring(0, 50)}..."`);
-        console.log(`    Audio URL: ${audioData.audio_url ? 'EXISTS' : 'MISSING'}`);
-    });
+  // 🐛 ENHANCED DEBUG: Log all available recorded audio
+  console.log('🐛 DEBUG - All recorded audio available:');
+  Object.entries(recordedAudio).forEach(([userId, audioData]) => {
+    console.log(`  - User ${userId} (${audioData.user_first_name}): "${audioData.message_content?.substring(0, 50)}..."`);
+    console.log(`    Audio URL: ${audioData.audio_url ? 'EXISTS' : 'MISSING'}`);
+  });
 
-    try {
-        if (type === 'contributor') {
-            console.log(`🐛 DEBUG - Looking for recorded audio for contributor: ${voiceTag}`);
-            console.log(`🐛 DEBUG - Script content: "${audioContent}"`);
+  try {
+    if (type === 'contributor') {
+      console.log(`🐛 DEBUG - Looking for recorded audio for contributor: ${voiceTag}`);
+      console.log(`🐛 DEBUG - Script content: "${audioContent}"`);
 
-            // Check per-message preference for this content
-            let userPreference = 'recorded'; // default
+      // Check per-message preference for this content
+      let userPreference = 'recorded'; // default
 
-            // Look for matching message preference - try multiple matching strategies
-            if (window.messageAudioPreferences) {
-                // Strategy 1: Try to find exact content match
-                const matchingKey = Object.keys(window.messageAudioPreferences).find(key => {
-                    const keyContent = key.split('-').slice(1).join('-'); // Remove messageIndex prefix
-                    return keyContent === audioContent.substring(0, 50) || audioContent.includes(keyContent);
-                });
-
-                if (matchingKey) {
-                    userPreference = window.messageAudioPreferences[matchingKey];
-                    console.log(`🎯 Found preference match: "${matchingKey}" → ${userPreference}`);
-                } else {
-                    // Strategy 2: Try partial content matching
-                    const partialMatch = Object.keys(window.messageAudioPreferences).find(key => {
-                        const keyContent = key.split('-').slice(1).join('-');
-                        return keyContent.length > 10 && audioContent.includes(keyContent);
-                    });
-
-                    if (partialMatch) {
-                        userPreference = window.messageAudioPreferences[partialMatch];
-                        console.log(`🎯 Found partial preference match: "${partialMatch}" → ${userPreference}`);
-                    } else {
-                        console.log(`⚠️ No preference match found for content: "${audioContent.substring(0, 50)}..."`);
-                        console.log(`⚠️ Available preferences:`, Object.keys(window.messageAudioPreferences));
-                    }
-                }
-            }
-
-            console.log(`🎤 User preference for "${audioContent.substring(0, 30)}...": ${userPreference}`);
-            console.log(`🔍 All available preferences:`, window.messageAudioPreferences);
-
-            // Find the user ID by matching the voice tag (first name) with recorded audio data
-            const matchingUserId = Object.entries(recordedAudio).find(([userId, audioData]) => {
-                return audioData.user_first_name === voiceTag;
-            });
-
-            if (!matchingUserId) {
-                console.log(`🔍 Could not find user ID for voice tag: ${voiceTag}`);
-                // Jump to final fallback
-            } else {
-                const [userId, audioData] = matchingUserId;
-                console.log(`🔍 Found user ID for ${voiceTag}: ${userId}`);
-
-                // Check for recorded audio match
-                const hasRecordedAudio = (() => {
-                    const recordedContent = audioData.message_content?.toLowerCase() || '';
-                    const segmentContent = audioContent.toLowerCase();
-
-                    console.log(`  - Recorded content: "${recordedContent}"`);
-                    console.log(`  - Segment content: "${segmentContent}"`);
-
-                    const exactMatch = recordedContent === segmentContent;
-                    const recordedContainsSegment = recordedContent.includes(segmentContent);
-                    const segmentContainsRecorded = segmentContent.includes(recordedContent);
-
-                    console.log(`  - Exact match: ${exactMatch}`);
-                    console.log(`  - Recorded contains segment: ${recordedContainsSegment}`);
-                    console.log(`  - Segment contains recorded: ${segmentContainsRecorded}`);
-
-                    const contentMatches = exactMatch || recordedContainsSegment || segmentContainsRecorded;
-                    console.log(`  - Content match result: ${contentMatches}`);
-
-                    return contentMatches && audioData.audio_url;
-                })();
-
-                // Check for personal voice model
-                let userVoiceModel = null;
-                try {
-                    console.log(`🔍 Fetching voice model for ${voiceTag} (userId: ${userId})...`);
-                    userVoiceModel = await getUserVoiceModel(userId);
-                    console.log(`✅ Voice model result for ${voiceTag}:`, userVoiceModel);
-                } catch (error) {
-                    console.log(`⚠️ Error fetching voice model for ${voiceTag}:`, error.message);
-                }
-
-                const hasPersonalVoice = userVoiceModel && userVoiceModel.elevenlabs_voice_id;
-
-                console.log(`🎤 ${voiceTag} audio options:`);
-                console.log(`  - Recorded audio: ${hasRecordedAudio ? '✅' : '❌'}`);
-                console.log(`  - Personal voice: ${hasPersonalVoice ? '✅' : '❌'} ${hasPersonalVoice ? `(${userVoiceModel.elevenlabs_voice_name})` : ''}`);
-                console.log(`  - User preference: ${userPreference}`);
-                console.log(`  - User ID: ${userId}`);
-                console.log(`  - Voice model data:`, userVoiceModel);
-
-                // Decision logic for audio preference handling continues in next part...
-                return await handleContributorAudioGeneration(userPreference, hasRecordedAudio, hasPersonalVoice, audioData, userVoiceModel, storyCut, voiceTag, audioContent, content);
-            }
-        } else if (type === 'ember') {
-            // EMBER VOICE
-            console.log(`🔥 Generating EMBER voice audio: "${audioContent}"`);
-
-            const voiceId = storyCut.ember_voice_id;
-            if (!voiceId) {
-                throw new Error('No ember voice ID configured for this story cut');
-            }
-
-            const audioBlob = await textToSpeech(audioContent, voiceId);
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-
-            return {
-                type: 'ember_voice',
-                audio,
-                url: audioUrl,
-                blob: audioBlob,
-                voiceTag,
-                content: audioContent
-            };
-        } else if (type === 'narrator') {
-            // NARRATOR VOICE
-            console.log(`🎤 Generating NARRATOR audio: "${audioContent}"`);
-
-            const voiceId = storyCut.narrator_voice_id;
-            if (!voiceId) {
-                throw new Error('No narrator voice ID configured for this story cut');
-            }
-
-            const audioBlob = await textToSpeech(audioContent, voiceId);
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-
-            return {
-                type: 'narrator_voice',
-                audio,
-                url: audioUrl,
-                blob: audioBlob,
-                voiceTag,
-                content: audioContent
-            };
-        } else {
-            console.log(`⚠️ Unknown segment type: ${type}`);
-            throw new Error(`Unknown segment type: ${type}`);
-        }
-    } catch (error) {
-        console.error(`❌ Error generating audio for [${voiceTag}]:`, error);
-        console.error(`❌ Segment data:`, {
-            voiceTag,
-            content,
-            originalContent,
-            type,
-            audioContent
+      // Look for matching message preference - try multiple matching strategies
+      if (window.messageAudioPreferences) {
+        // Strategy 1: Try to find exact content match
+        const matchingKey = Object.keys(window.messageAudioPreferences).find(key => {
+          const keyContent = key.split('-').slice(1).join('-'); // Remove messageIndex prefix
+          return keyContent === audioContent.substring(0, 50) || audioContent.includes(keyContent);
         });
-            throw error;
+
+        if (matchingKey) {
+          userPreference = window.messageAudioPreferences[matchingKey];
+          console.log(`🎯 Found preference match: "${matchingKey}" → ${userPreference}`);
+        } else {
+          // Strategy 2: Try partial content matching
+          const partialMatch = Object.keys(window.messageAudioPreferences).find(key => {
+            const keyContent = key.split('-').slice(1).join('-');
+            return keyContent.length > 10 && audioContent.includes(keyContent);
+          });
+
+          if (partialMatch) {
+            userPreference = window.messageAudioPreferences[partialMatch];
+            console.log(`🎯 Found partial preference match: "${partialMatch}" → ${userPreference}`);
+          } else {
+            console.log(`⚠️ No preference match found for content: "${audioContent.substring(0, 50)}..."`);
+            console.log(`⚠️ Available preferences:`, Object.keys(window.messageAudioPreferences));
+          }
+        }
+      }
+
+      console.log(`🎤 User preference for "${audioContent.substring(0, 30)}...": ${userPreference}`);
+      console.log(`🔍 All available preferences:`, window.messageAudioPreferences);
+
+      // Find the user ID by matching the voice tag (first name) with recorded audio data
+      const matchingUserId = Object.entries(recordedAudio).find(([userId, audioData]) => {
+        return audioData.user_first_name === voiceTag;
+      });
+
+      if (!matchingUserId) {
+        console.log(`🔍 Could not find user ID for voice tag: ${voiceTag}`);
+        console.log(`🔄 Using narrator/ember voice fallback for unmatched contributor: ${voiceTag}`);
+
+        // Final fallback: Use narrator or ember voice with attribution
+        let fallbackVoiceId = null;
+        let fallbackVoiceName = null;
+
+        if (storyCut.narrator_voice_id) {
+          fallbackVoiceId = storyCut.narrator_voice_id;
+          fallbackVoiceName = 'narrator';
+          console.log(`🎤 Using narrator voice for unmatched contributor fallback`);
+        } else if (storyCut.ember_voice_id) {
+          fallbackVoiceId = storyCut.ember_voice_id;
+          fallbackVoiceName = 'ember';
+          console.log(`🎤 Using ember voice for unmatched contributor fallback`);
+        } else {
+          throw new Error(`No voice available for contributor fallback: ${voiceTag}`);
+        }
+
+        const narratedContent = `${voiceTag} said, "${audioContent}"`;
+        const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        return {
+          type: 'contributor_fallback',
+          audio,
+          url: audioUrl,
+          blob: audioBlob,
+          voiceTag,
+          content: narratedContent,
+          fallbackVoice: fallbackVoiceName
+        };
+      } else {
+        const [userId, audioData] = matchingUserId;
+        console.log(`🔍 Found user ID for ${voiceTag}: ${userId}`);
+
+        // Check for recorded audio match
+        const hasRecordedAudio = (() => {
+          const recordedContent = audioData.message_content?.toLowerCase() || '';
+          const segmentContent = audioContent.toLowerCase();
+
+          console.log(`  - Recorded content: "${recordedContent}"`);
+          console.log(`  - Segment content: "${segmentContent}"`);
+
+          const exactMatch = recordedContent === segmentContent;
+          const recordedContainsSegment = recordedContent.includes(segmentContent);
+          const segmentContainsRecorded = segmentContent.includes(recordedContent);
+
+          console.log(`  - Exact match: ${exactMatch}`);
+          console.log(`  - Recorded contains segment: ${recordedContainsSegment}`);
+          console.log(`  - Segment contains recorded: ${segmentContainsRecorded}`);
+
+          const contentMatches = exactMatch || recordedContainsSegment || segmentContainsRecorded;
+          console.log(`  - Content match result: ${contentMatches}`);
+
+          return contentMatches && audioData.audio_url;
+        })();
+
+        // Check for personal voice model
+        let userVoiceModel = null;
+        try {
+          console.log(`🔍 Fetching voice model for ${voiceTag} (userId: ${userId})...`);
+          userVoiceModel = await getUserVoiceModel(userId);
+          console.log(`✅ Voice model result for ${voiceTag}:`, userVoiceModel);
+        } catch (error) {
+          console.log(`⚠️ Error fetching voice model for ${voiceTag}:`, error.message);
+        }
+
+        const hasPersonalVoice = userVoiceModel && userVoiceModel.elevenlabs_voice_id;
+
+        console.log(`🎤 ${voiceTag} audio options:`);
+        console.log(`  - Recorded audio: ${hasRecordedAudio ? '✅' : '❌'}`);
+        console.log(`  - Personal voice: ${hasPersonalVoice ? '✅' : '❌'} ${hasPersonalVoice ? `(${userVoiceModel.elevenlabs_voice_name})` : ''}`);
+        console.log(`  - User preference: ${userPreference}`);
+        console.log(`  - User ID: ${userId}`);
+        console.log(`  - Voice model data:`, userVoiceModel);
+
+        // Decision logic for audio preference handling continues in next part...
+        return await handleContributorAudioGeneration(userPreference, hasRecordedAudio, hasPersonalVoice, audioData, userVoiceModel, storyCut, voiceTag, audioContent, content);
+      }
+    } else if (type === 'ember') {
+      // EMBER VOICE
+      console.log(`🔥 Generating EMBER voice audio: "${audioContent}"`);
+
+      const voiceId = storyCut.ember_voice_id;
+      if (!voiceId) {
+        throw new Error('No ember voice ID configured for this story cut');
+      }
+
+      const audioBlob = await textToSpeech(audioContent, voiceId);
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      return {
+        type: 'ember_voice',
+        audio,
+        url: audioUrl,
+        blob: audioBlob,
+        voiceTag,
+        content: audioContent
+      };
+    } else if (type === 'narrator') {
+      // NARRATOR VOICE
+      console.log(`🎤 Generating NARRATOR audio: "${audioContent}"`);
+
+      const voiceId = storyCut.narrator_voice_id;
+      if (!voiceId) {
+        throw new Error('No narrator voice ID configured for this story cut');
+      }
+
+      const audioBlob = await textToSpeech(audioContent, voiceId);
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      return {
+        type: 'narrator_voice',
+        audio,
+        url: audioUrl,
+        blob: audioBlob,
+        voiceTag,
+        content: audioContent
+      };
+    } else {
+      console.log(`⚠️ Unknown segment type: ${type}`);
+      throw new Error(`Unknown segment type: ${type}`);
+    }
+  } catch (error) {
+    console.error(`❌ Error generating audio for [${voiceTag}]:`, error);
+    console.error(`❌ Segment data:`, {
+      voiceTag,
+      content,
+      originalContent,
+      type,
+      audioContent
+    });
+    throw error;
   }
 };
 
@@ -592,7 +622,10 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
         console.error(`❌ Failed to generate segment ${i + 1} [${segment.voiceTag}]:`, segmentError);
         console.error(`❌ Segment content: "${segment.originalContent || segment.content}"`);
         console.error(`❌ Segment type: ${segment.type}`);
-        throw new Error(`Failed to generate audio for segment "${segment.voiceTag}": ${segmentError.message}`);
+
+        // Instead of throwing, push null to maintain index alignment
+        audioSegments.push(null);
+        console.warn(`⚠️ Skipping segment ${i + 1} [${segment.voiceTag}] due to audio generation failure`);
       }
     }
 
@@ -623,13 +656,18 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
       } else {
         // Voice segment - use generated audio
         if (audioIndex < audioSegments.length) {
-          timeline.push({
-            type: 'voice',
-            segment,
-            audio: audioSegments[audioIndex],
-            index
-          });
-          console.log(`🎤 Timeline ${index + 1}: VOICE audio - [${segment.voiceTag}]`);
+          const audioSegment = audioSegments[audioIndex];
+          if (audioSegment) {
+            timeline.push({
+              type: 'voice',
+              segment,
+              audio: audioSegment,
+              index
+            });
+            console.log(`🎤 Timeline ${index + 1}: VOICE audio - [${segment.voiceTag}]`);
+          } else {
+            console.warn(`⚠️ Skipping timeline step ${index + 1}: No audio available for [${segment.voiceTag}]`);
+          }
           audioIndex++;
         }
       }
@@ -703,7 +741,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
           setCurrentMediaColor(null); // Clear any color overlay
           setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
         } else if (segment.content.includes('COLOR:#')) {
-          // Extract color from COLOR:#RRGGBB format
+          // Extract color from COLOR:#RRGGBB format - only for explicit HOLD effects
           const colorMatch = segment.content.match(/COLOR:#([0-9A-Fa-f]{6})/);
           if (colorMatch) {
             const colorValue = '#' + colorMatch[1];
@@ -711,6 +749,10 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
             setCurrentVoiceType(null); // Clear any voice overlay
             setCurrentMediaColor(colorValue); // Set the extracted color
           }
+        } else {
+          // Clear any existing color overlays if no explicit color command
+          setCurrentVoiceType(null);
+          setCurrentMediaColor(null);
         }
 
         // Wait for the specified duration, then continue to next step
@@ -763,34 +805,21 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
 
       } else if (currentStep.type === 'voice') {
         // Voice step - play audio
+        if (!currentStep.audio || !currentStep.audio.audio) {
+          console.error(`❌ No audio available for voice segment [${currentStep.segment.voiceTag}] - skipping`);
+          currentTimelineIndex++;
+          playNextTimelineStep();
+          return;
+        }
+
         const audio = currentStep.audio.audio;
         const segment = currentStep.segment;
 
         console.log(`▶️ Playing voice segment: [${segment.voiceTag}]`);
 
-        // Trigger visual effect based on voice type
-        const segmentType = segment.type;
-
-        // Extract transparency from segment content
-        const transparency = extractTransparencyFromAction(segment.content);
-        console.log(`🎬 Voice transparency: ${transparency}`);
-
-        if (segmentType === 'ember') {
-          console.log('🎬 Visual effect: Ember voice - applying red overlay');
-          setCurrentVoiceType('ember');
-          setCurrentVoiceTransparency(transparency);
-          setCurrentMediaColor(null); // Clear any color overlay
-        } else if (segmentType === 'narrator') {
-          console.log('🎬 Visual effect: Narrator voice - applying blue overlay');
-          setCurrentVoiceType('narrator');
-          setCurrentVoiceTransparency(transparency);
-          setCurrentMediaColor(null); // Clear any color overlay
-        } else {
-          console.log('🎬 Visual effect: Contributor voice - applying green overlay');
-          setCurrentVoiceType('contributor');
-          setCurrentVoiceTransparency(transparency);
-          setCurrentMediaColor(null); // Clear any color overlay
-        }
+        // Clear any color overlays during voice playback
+        setCurrentVoiceType(null);
+        setCurrentMediaColor(null);
 
         // 🎯 Option 1B: Sentence-by-Sentence Text Display
         const currentSegmentData = segment;

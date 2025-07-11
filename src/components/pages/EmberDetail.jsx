@@ -152,6 +152,7 @@ export default function EmberDetail() {
     isPlaying, setIsPlaying,
     isGeneratingAudio, setIsGeneratingAudio,
     showFullscreenPlay, setShowFullscreenPlay,
+    isPlayerFadingOut, setIsPlayerFadingOut,
     currentAudio, setCurrentAudio,
     activeAudioSegments, setActiveAudioSegments,
     showEndHold, setShowEndHold,
@@ -730,7 +731,7 @@ export default function EmberDetail() {
       setStoryTitle('');
       setStoryFocus('');
       setSelectedVoices([]);
-      setSelectedMediaForStory([]);
+      clearMediaSelection();
 
     } catch (error) {
       console.error('❌ Error generating story cut:', error);
@@ -1014,51 +1015,66 @@ export default function EmberDetail() {
 
   // Handle completion of playback
   const handlePlaybackComplete = () => {
-    handleMediaPlaybackComplete({
-      setIsPlaying,
-      setShowFullscreenPlay,
-      setCurrentlyPlayingStoryCut,
-      setActiveAudioSegments,
-      setCurrentVoiceType,
-      setCurrentVoiceTransparency,
-      setCurrentMediaColor,
-      setCurrentZoomScale,
-      setCurrentMediaImageUrl,
-      setCurrentDisplayText,
-      setCurrentVoiceTag,
-      setCurrentSentenceIndex,
-      setCurrentSegmentSentences,
-      setSentenceTimeouts,
-      setMediaTimeouts,
-      sentenceTimeouts,
-      mediaTimeouts,
-      mediaTimeoutsRef
-    });
+    // Start fade-out animation
+    setIsPlayerFadingOut(true);
+
+    // After fade-out completes, handle the actual completion
+    setTimeout(() => {
+      handleMediaPlaybackComplete({
+        setIsPlaying,
+        setShowFullscreenPlay,
+        setCurrentlyPlayingStoryCut,
+        setActiveAudioSegments,
+        setCurrentVoiceType,
+        setCurrentVoiceTransparency,
+        setCurrentMediaColor,
+        setCurrentZoomScale,
+        setCurrentMediaImageUrl,
+        setCurrentDisplayText,
+        setCurrentVoiceTag,
+        setCurrentSentenceIndex,
+        setCurrentSegmentSentences,
+        setSentenceTimeouts,
+        setMediaTimeouts,
+        sentenceTimeouts,
+        mediaTimeouts,
+        mediaTimeoutsRef
+      });
+      setIsPlayerFadingOut(false);
+    }, 600); // Match fade-out duration
   };
 
   const handleExitPlay = () => {
-    handleMediaExitPlay({
-      currentAudio,
-      setIsPlaying,
-      setShowFullscreenPlay,
-      setCurrentlyPlayingStoryCut,
-      setActiveAudioSegments,
-      setCurrentVoiceType,
-      setCurrentVoiceTransparency,
-      setCurrentMediaColor,
-      setCurrentZoomScale,
-      setCurrentMediaImageUrl,
-      setCurrentDisplayText,
-      setCurrentVoiceTag,
-      setCurrentSentenceIndex,
-      setCurrentSegmentSentences,
-      setSentenceTimeouts,
-      setMediaTimeouts,
-      sentenceTimeouts,
-      mediaTimeouts,
-      mediaTimeoutsRef,
-      playbackStoppedRef
-    });
+    // Start fade-out animation
+    setIsPlayerFadingOut(true);
+
+    // After fade-out completes, handle the actual exit
+    setTimeout(() => {
+      handleMediaExitPlay({
+        currentAudio,
+        setIsPlaying,
+        setShowFullscreenPlay,
+        setCurrentlyPlayingStoryCut,
+        activeAudioSegments,
+        setActiveAudioSegments,
+        setCurrentVoiceType,
+        setCurrentVoiceTransparency,
+        setCurrentMediaColor,
+        setCurrentZoomScale,
+        setCurrentMediaImageUrl,
+        setCurrentDisplayText,
+        setCurrentVoiceTag,
+        setCurrentSentenceIndex,
+        setCurrentSegmentSentences,
+        setSentenceTimeouts,
+        setMediaTimeouts,
+        sentenceTimeouts,
+        mediaTimeouts,
+        mediaTimeoutsRef,
+        playbackStoppedRef
+      });
+      setIsPlayerFadingOut(false);
+    }, 600); // Match fade-out duration
   };
 
   // Handle play button click - now uses story cuts if available
@@ -2153,148 +2169,192 @@ export default function EmberDetail() {
         </>
       )}
 
-      {/* Fullscreen Play Mode */}
+      {/* Ember Player - Split Screen Layout */}
       {showFullscreenPlay && (
         <>
-          <div className="fixed inset-0 bg-black z-50">
-            {/* Background Image - only show when script contains MEDIA elements */}
-            {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
-              <img
-                src={currentMediaImageUrl}
-                alt={ember.title || 'Ember'}
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            )}
+          <div className={`fixed inset-0 z-50 flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
+            {/* Top Section - Clean background, no orange */}
+            <div className="h-[65vh] relative bg-black">
+              {/* Background Image - blurred when playing without story cut */}
+              {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
+                <img
+                  src={currentMediaImageUrl}
+                  alt={ember.title || 'Ember'}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              )}
 
-            {/* Voice Type Overlay - only show when playing, not in end hold, and no media color effect */}
-            {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentVoiceType && (
-              <div
-                className="absolute inset-0"
-                style={{
-                  backgroundColor: currentVoiceType === 'ember' ? `rgba(255, 0, 0, ${currentVoiceTransparency})` :
-                    currentVoiceType === 'narrator' ? `rgba(0, 0, 255, ${currentVoiceTransparency})` :
-                      currentVoiceType === 'contributor' ? `rgba(0, 255, 0, ${currentVoiceTransparency})` :
-                        'transparent'
-                }}
-              />
-            )}
-
-            {/* Media Color Screen - solid color background when color effect is active */}
-            {!isGeneratingAudio && !showEndHold && currentMediaColor && (
-              <div
-                className="absolute inset-0"
-                style={{
-                  backgroundColor: currentMediaColor
-                }}
-              />
-            )}
+              {/* Show main ember image when no media image and playing without story cut */}
+              {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
+                <img
+                  src={ember.image_url}
+                  alt={ember.title || 'Ember'}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              )}
 
 
 
-            {/* Title Overlay - only show when playing, not in end hold, and no media color effect */}
-            {!isGeneratingAudio && !showEndHold && !currentMediaColor && (
-              <div className="absolute top-0 left-0 right-0 p-4 pointer-events-none z-20">
-                <div className="container mx-auto max-w-4xl">
-                  <h1 className="text-white text-2xl font-bold truncate text-left pl-2">
-                    {ember.title || 'Untitled Ember'}
-                  </h1>
-                </div>
-              </div>
-            )}
+              {/* Media Color Screen - solid color background when color effect is active */}
+              {!isGeneratingAudio && !showEndHold && currentMediaColor && (
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backgroundColor: currentMediaColor
+                  }}
+                />
+              )}
 
-            {/* 🎯 Synchronized Text Display (Option 1B: Sentence-by-Sentence) */}
-            {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentDisplayText && (
-              <div className="absolute bottom-20 left-0 right-0 p-4 pointer-events-none z-20">
-                <div className="container mx-auto max-w-4xl">
-                  <div className="bg-black p-6">
-                    {/* Current sentence text */}
-                    <p className="text-white text-xl leading-relaxed font-medium">
-                      {currentDisplayText}
-                    </p>
 
-                    {/* Progress indicator for sentences */}
-                    {currentSegmentSentences.length > 1 && (
-                      <div className="flex justify-center mt-4">
-                        <div className="flex gap-1">
-                          {currentSegmentSentences.map((_, index) => (
-                            <div
-                              key={index}
-                              className={`w-2 h-2 rounded-full ${index === currentSentenceIndex ? 'bg-white' : 'bg-white/30'
-                                }`}
-                            />
-                          ))}
-                        </div>
+
+              {/* Bottom right capsule: Main EmberDetail capsule in top section */}
+              {!showEndHold && (
+                <div className="absolute right-4 bottom-4 z-[60]">
+                  <div className="flex flex-col items-center gap-2 bg-white/80 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+                    {/* Action Icons */}
+                    <button
+                      className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                      onClick={() => setShowFullImage((prev) => !prev)}
+                      aria-label={showFullImage ? 'Show cropped view' : 'Show full image with blur'}
+                      type="button"
+                    >
+                      <CornersOut size={24} className="text-gray-700" />
+                    </button>
+
+                    {/* Owner Avatar - Always at the top of the stack */}
+                    {ember?.owner && (
+                      <div
+                        className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                        style={{
+                          marginTop: '0px',
+                          zIndex: 35 // Highest z-index to appear on top
+                        }}
+                        title={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
+                      >
+                        <Avatar className="h-6 w-6 ring-2 ring-amber-400">
+                          <AvatarImage
+                            src={ember.owner.avatar_url}
+                            alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
+                          />
+                          <AvatarFallback className="text-xs bg-amber-100 text-amber-700">
+                            {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || 'O'}
+                          </AvatarFallback>
+                        </Avatar>
                       </div>
                     )}
+
+                    {/* Invited Users Avatars - Stacked with 16px overlap */}
+                    {sharedUsers.map((sharedUser, index) => (
+                      <div
+                        key={sharedUser.id || index}
+                        className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                        style={{
+                          marginTop: ember?.owner ? '-24px' : (index === 0 ? '-8px' : '-24px'),
+                          zIndex: ember?.owner ? (34 - index) : (30 - index) // Adjust z-index if owner is present
+                        }}
+                        title={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
+                      >
+                        <Avatar className="h-6 w-6 ring-1 ring-white">
+                          <AvatarImage
+                            src={sharedUser.avatar_url}
+                            alt={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
+                          />
+                          <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
+                            {sharedUser.first_name?.[0] || sharedUser.last_name?.[0] || sharedUser.email?.[0]?.toUpperCase() || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+                    ))}
+
+                    {/* Horizontal divider */}
+                    <div className="h-px w-6 bg-gray-300 my-1"></div>
+
+                    {/* Play/Stop Button - toggles between play and stop */}
+                    <button
+                      className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                      onClick={isPlaying ? handleExitPlay : handlePlay}
+                      aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Stop story" : "Play story")}
+                      type="button"
+                      disabled={isGeneratingAudio}
+                    >
+                      {isGeneratingAudio ? (
+                        <div className="w-6 h-6 flex items-center justify-center">
+                          <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      ) : isPlaying ? (
+                        <div className="w-6 h-6 flex items-center justify-center">
+                          <div className="w-4 h-4 border-2 border-gray-700 rounded-sm"></div>
+                        </div>
+                      ) : (
+                        <PlayCircle size={24} className="text-gray-700" />
+                      )}
+                    </button>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
+            {/* Bottom Section - Black - 35% height to match EmberDetail */}
+            <div className="h-[35vh] bg-black relative">
+              {/* 🎯 Synchronized Text Display (Option 1B: Sentence-by-Sentence) */}
+              {!isGeneratingAudio && !showEndHold && currentDisplayText && (
+                <div className="absolute inset-0 flex items-center justify-center p-4">
+                  <div className="container mx-auto max-w-4xl">
+                    <div className="text-center">
+                      {/* Current sentence text */}
+                      <p className="text-white text-xl leading-relaxed font-medium">
+                        {currentDisplayText}
+                      </p>
 
-
-            {/* Bottom right capsule: Play controls and exit - hide during end hold */}
-            {!showEndHold && (
-              <div className="absolute right-4 bottom-4 z-20">
-                <div className="flex flex-col items-center gap-2 bg-white px-2 py-3 rounded-full">
-
-                  {/* Play/Pause Button */}
-                  <button
-                    onClick={handlePlay}
-                    className="rounded-full p-1"
-                    aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Pause playing" : "Resume playing")}
-                    type="button"
-                    disabled={isGeneratingAudio}
-                  >
-                    {isGeneratingAudio ? (
-                      <div className="w-6 h-6 flex items-center justify-center">
-                        <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full" />
-                      </div>
-                    ) : isPlaying ? (
-                      <div className="w-6 h-6 flex items-center justify-center">
-                        <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm"></div>
-                        <div className="w-1.5 h-4 bg-gray-700 mx-0.5 rounded-sm"></div>
-                      </div>
-                    ) : (
-                      <PlayCircle size={24} className="text-gray-700" />
-                    )}
-                  </button>
-
-                  {/* Horizontal divider */}
-                  <div className="h-px w-6 bg-gray-300 my-1"></div>
-
-                  {/* Close button */}
-                  <button
-                    onClick={handleExitPlay}
-                    className="rounded-full p-1"
-                    aria-label="Close fullscreen"
-                    type="button"
-                  >
-                    <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                      {/* Progress indicator for sentences */}
+                      {currentSegmentSentences.length > 1 && (
+                        <div className="flex justify-center mt-4">
+                          <div className="flex gap-1">
+                            {currentSegmentSentences.map((_, index) => (
+                              <div
+                                key={index}
+                                className={`w-2 h-2 rounded-full ${index === currentSentenceIndex ? 'bg-white' : 'bg-white/30'
+                                  }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Loading screen - pure black with loading indicator */}
-            {isGeneratingAudio && (
-              <div className="absolute inset-0 bg-black z-30 flex items-center justify-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full" />
-                  <span className="text-white text-lg font-medium">Preparing Story...</span>
+              {/* Show ember content when not playing story cuts OR when playing without story cut */}
+              {!isGeneratingAudio && !showEndHold && !currentDisplayText && !currentlyPlayingStoryCut && (
+                <div className="absolute inset-0 flex items-center justify-center p-4">
+                  <div className="container mx-auto max-w-4xl">
+                    <div className="text-center">
+                      <p className="text-white text-xl leading-relaxed font-medium">
+                        {isPlaying
+                          ? (ember.content || "Let's build this story together! Add your voice, memories, and details to bring this ember to life.")
+                          : (ember.content || 'No content available')
+                        }
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {/* End hold screen - pure black */}
-            {showEndHold && (
-              <div className="absolute inset-0 bg-black z-30">
-                {/* Completely black screen */}
-              </div>
-            )}
+              )}
+            </div>
           </div>
+
+
+
+
+
+
+
+          {/* End hold screen - pure black */}
+          {showEndHold && (
+            <div className="absolute inset-0 bg-black z-30">
+              {/* Completely black screen */}
+            </div>
+          )}
         </>
       )}
 

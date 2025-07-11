@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
-import { 
-  getEmber, 
-  getStoryCutsForEmber, 
-  getPrimaryStoryCut, 
-  setPrimaryStoryCut,
-  getAllStoryMessagesForEmber,
-  getEmberTaggedPeople,
-  getEmberSupportingMedia
+import { useState, useEffect, useCallback } from 'react';
+import {
+    getEmber,
+    getStoryCutsForEmber,
+    getPrimaryStoryCut,
+    setPrimaryStoryCut,
+    getAllStoryMessagesForEmber,
+    getEmberTaggedPeople,
+    getEmberSupportingMedia
 } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getEmberPhotos } from '@/lib/photos';
@@ -401,7 +401,7 @@ export const useMediaForStory = (emberId) => {
     const [selectedMediaForStory, setSelectedMediaForStory] = useState([]);
     const [mediaLoadingForStory, setMediaLoadingForStory] = useState(false);
 
-    const fetchMediaForStory = async () => {
+    const fetchMediaForStory = useCallback(async () => {
         if (!emberId) return;
 
         try {
@@ -454,7 +454,7 @@ export const useMediaForStory = (emberId) => {
         } finally {
             setMediaLoadingForStory(false);
         }
-    };
+    }, [emberId]);
 
     // Media selection handlers
     const toggleMediaSelection = (mediaId) => {
@@ -472,6 +472,13 @@ export const useMediaForStory = (emberId) => {
     const clearMediaSelection = () => {
         setSelectedMediaForStory([]);
     };
+
+    // Auto-fetch media when emberId changes
+    useEffect(() => {
+        if (emberId) {
+            fetchMediaForStory();
+        }
+    }, [emberId, fetchMediaForStory]);
 
     return {
         availableMediaForStory,

@@ -62,7 +62,7 @@ export const parseScriptSegments = (script) => {
                 if (action.startsWith('name=') || action.startsWith('id=')) {
                     return match; // Keep media references in the content
                 }
-                // Only extract actual visual actions
+                // Extract all visual actions for HOLD/MEDIA segments (including COLOR:)
                 existingVisualActions.push(action);
                 return '';
             }).trim();
@@ -165,38 +165,27 @@ export const parseScriptSegments = (script) => {
                 const voiceType = getVoiceType(voiceTag);
 
                 // Extract visual actions (but NOT media references like <name="file.jpg"> or <id=abc123>)
+                // Also ignore color overlay commands for voice segments
                 const existingVisualActions = [];
                 let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
                     // Don't treat media references as visual actions
                     if (action.startsWith('name=') || action.startsWith('id=')) {
                         return match; // Keep media references in the content
                     }
-                    // Only extract actual visual actions
+                    // Skip color overlay commands for voice segments (COLOR:, TRAN:)
+                    if (action.startsWith('COLOR:') || action.startsWith('TRAN:')) {
+                        return ''; // Remove color overlay commands
+                    }
+                    // Only extract actual visual actions (zoom, etc.)
                     existingVisualActions.push(action);
                     return '';
                 }).trim();
 
-                // Add default colorization based on voice type (if no COLOR action exists)
-                let colorizeAction = '';
-                const hasColorizeAction = existingVisualActions.some(action => action.startsWith('COLOR:'));
-
-                if (!hasColorizeAction) {
-                    switch (voiceType) {
-                        case 'ember':
-                            colorizeAction = '<COLOR:#FF0000,TRAN:0.2>';
-                            break;
-                        case 'narrator':
-                            colorizeAction = '<COLOR:#0000FF,TRAN:0.2>';
-                            break;
-                        case 'contributor':
-                            colorizeAction = '<COLOR:#00FF00,TRAN:0.2>';
-                            break;
-                    }
-                }
+                // No automatic colorization - removed color overlay system
 
                 // Reconstruct content with visual actions FOR DISPLAY
                 const allVisualActions = existingVisualActions.map(action => `<${action}>`).join('');
-                const finalContent = `${colorizeAction}${allVisualActions} ${cleanContent}`.trim();
+                const finalContent = `${allVisualActions} ${cleanContent}`.trim();
 
                 if (cleanContent) {
                     segments.push({
@@ -205,7 +194,7 @@ export const parseScriptSegments = (script) => {
                         originalContent: cleanContent, // For audio synthesis (clean text only)
                         type: voiceType,
                         visualActions: existingVisualActions,
-                        hasAutoColorize: !hasColorizeAction
+                        hasAutoColorize: false // No auto-colorization anymore
                     });
                 }
             }

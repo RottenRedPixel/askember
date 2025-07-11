@@ -404,10 +404,20 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
 
     } catch (error) {
         console.error('🔊 Play error:', error);
+        console.error('🔊 Error details:', error.message);
+        console.error('🔊 Error stack:', error.stack);
         setIsPlaying(false);
         setIsGeneratingAudio(false);
         setShowFullscreenPlay(false);
-        alert('Failed to generate audio. Please check your ElevenLabs API key configuration.');
+
+        // More specific error messages
+        if (error.message?.includes('ElevenLabs') || error.message?.includes('API')) {
+            alert('Failed to generate audio. Please check your ElevenLabs API key configuration.');
+        } else if (error.message?.includes('segments') || error.message?.includes('script')) {
+            alert('Failed to parse story script. Please check the story cut format.');
+        } else {
+            alert(`Playback failed: ${error.message || 'Unknown error'}`);
+        }
     }
 };
 
@@ -496,11 +506,27 @@ export const handleExitPlay = (setters) => {
     // Signal that playback should stop
     playbackStoppedRef.current = true;
 
-    // Stop current audio if playing
+    // Stop current audio if playing (simple playback)
     if (currentAudio) {
         console.log('⏹️ Stopping current audio...');
         currentAudio.pause();
         currentAudio.currentTime = 0;
+    }
+
+    // Stop all active audio segments (multi-voice playback)
+    if (setters.activeAudioSegments && setters.activeAudioSegments.length > 0) {
+        console.log('⏹️ Stopping all active audio segments...');
+        setters.activeAudioSegments.forEach((segment, index) => {
+            if (segment && segment.audio) {
+                try {
+                    segment.audio.pause();
+                    segment.audio.currentTime = 0;
+                    console.log(`⏹️ Stopped audio segment ${index + 1}: [${segment.voiceTag || 'Unknown'}]`);
+                } catch (error) {
+                    console.warn(`⚠️ Error stopping audio segment ${index + 1}:`, error);
+                }
+            }
+        });
     }
 
     // Clear all visual state immediately

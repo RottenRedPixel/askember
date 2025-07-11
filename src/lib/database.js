@@ -7,12 +7,12 @@ import { supabase } from './supabase';
 export const executeSQL = async (sql) => {
   try {
     const { data, error } = await supabase.rpc('execute_sql', { sql_query: sql });
-    
+
     if (error) {
       console.error('SQL execution error:', error);
       return { success: false, error: error.message };
     }
-    
+
     return { success: true, data };
   } catch (error) {
     console.error('SQL execution failed:', error);
@@ -26,9 +26,9 @@ export const executeSQL = async (sql) => {
 export const runMigration = async (migrationName, sqlContent) => {
   try {
     console.log(`Running migration: ${migrationName}`);
-    
+
     const result = await executeSQL(sqlContent);
-    
+
     if (result.success) {
       console.log(`Migration ${migrationName} completed successfully`);
       return true;
@@ -51,7 +51,7 @@ export const tableExists = async (tableName) => {
     const { error } = await supabase
       .from(tableName)
       .select('count', { count: 'exact', head: true });
-    
+
     // If no error or just a PGRST116 (no rows), table exists
     return !error || error.code === 'PGRST116';
   } catch (error) {
@@ -66,17 +66,17 @@ export const tableExists = async (tableName) => {
 export const getTableSchema = async (tableName) => {
   try {
     // We'll create a simple RPC function to get schema info
-    const { data, error } = await supabase.rpc('get_table_info', { 
-      input_table_name: tableName 
+    const { data, error } = await supabase.rpc('get_table_info', {
+      input_table_name: tableName
     });
-    
+
     if (error) {
       console.error('Error getting table schema:', error);
       // Fallback: just return basic info that table exists
       const exists = await tableExists(tableName);
       return exists ? [{ info: `Table ${tableName} exists (schema details unavailable)` }] : null;
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error getting table schema:', error);
@@ -92,11 +92,11 @@ export const healthCheck = async () => {
     const { data, error } = await supabase
       .from('user_profiles')
       .select('count', { count: 'exact', head: true });
-    
+
     if (error && error.code !== 'PGRST116') {
       return { healthy: false, error: error.message };
     }
-    
+
     return { healthy: true, userCount: data };
   } catch (error) {
     return { healthy: false, error: error.message };
@@ -124,9 +124,9 @@ export const debugStorageSetup = async () => {
       const { data, error } = await supabase.storage
         .from('avatars')
         .upload(`test-${Date.now()}.txt`, testFile);
-      
+
       results.uploadTest = { data, error: error?.message };
-      
+
       if (data) {
         // Clean up test file
         await supabase.storage.from('avatars').remove([data.path]);
@@ -140,7 +140,7 @@ export const debugStorageSetup = async () => {
       const { data: objects, error: listError } = await supabase.storage
         .from('avatars')
         .list();
-      
+
       results.listTest = { data: objects?.length || 0, error: listError?.message };
     } catch (listError) {
       results.listTest = { error: listError.message };
@@ -150,7 +150,7 @@ export const debugStorageSetup = async () => {
     try {
       const { data: bucketData, error: bucketError } = await supabase.storage
         .getBucket('avatars');
-      
+
       results.bucketInfo = { data: bucketData, error: bucketError?.message };
     } catch (bucketError) {
       results.bucketInfo = { error: bucketError.message };
@@ -494,49 +494,49 @@ export const deleteChatMessage = async (messageId, userId) => {
 export const getOrCreateStoryConversation = async (emberId, userId, conversationType = 'story') => {
   try {
     console.log('💬 [DATABASE] getOrCreateStoryConversation called:', { emberId, userId, conversationType });
-    
+
     // First, let's check what access the user has to this ember
     const { data: emberData, error: emberError } = await supabase
       .from('embers')
       .select('*')
       .eq('id', emberId)
       .single();
-    
+
     if (emberError) {
       console.error('🚨 [DATABASE] Error fetching ember:', emberError);
     } else {
-      console.log('📝 [DATABASE] Ember details:', { 
-        id: emberData.id, 
-        title: emberData.title, 
-        owner_id: emberData.user_id, 
+      console.log('📝 [DATABASE] Ember details:', {
+        id: emberData.id,
+        title: emberData.title,
+        owner_id: emberData.user_id,
         is_public: emberData.is_public,
         is_user_owner: emberData.user_id === userId
       });
     }
-    
+
     // Check if user has shared access
     const { data: shareData, error: shareError } = await supabase
       .from('ember_shares')
       .select('*')
       .eq('ember_id', emberId);
-    
+
     if (shareError) {
       console.error('🚨 [DATABASE] Error fetching shares:', shareError);
     } else {
       console.log('🤝 [DATABASE] Ember shares:', shareData);
     }
-    
+
     // Get current user's email from auth
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError) {
       console.error('🚨 [DATABASE] Error getting user:', userError);
     } else {
       console.log('👤 [DATABASE] Current user email:', user?.email);
-      
+
       // Check if user has access via shares
-      const hasSharedAccess = shareData?.some(share => 
-        share.shared_with_email === user?.email && 
-        share.is_active && 
+      const hasSharedAccess = shareData?.some(share =>
+        share.shared_with_email === user?.email &&
+        share.is_active &&
         (!share.expires_at || new Date(share.expires_at) > new Date())
       );
       console.log('🔐 [DATABASE] User has shared access:', hasSharedAccess);
@@ -561,7 +561,7 @@ export const getOrCreateStoryConversation = async (emberId, userId, conversation
 
     // Find the first non-completed conversation
     const existingConversation = conversations?.find(conv => !conv.is_completed);
-    
+
     if (existingConversation) {
       console.log('✅ [DATABASE] Found existing conversation:', existingConversation.id);
       return existingConversation;
@@ -577,9 +577,9 @@ export const getOrCreateStoryConversation = async (emberId, userId, conversation
       is_completed: false,
       message_count: 0
     };
-    
+
     console.log('📝 [DATABASE] Conversation data to insert:', conversationData);
-    
+
     const { data: newConversation, error: createError } = await supabase
       .from('ember_story_conversations')
       .insert([conversationData])
@@ -683,7 +683,7 @@ export const completeStoryConversation = async (conversationId, userId) => {
   try {
     const { data, error } = await supabase
       .from('ember_story_conversations')
-      .update({ 
+      .update({
         is_completed: true,
         updated_at: new Date().toISOString()
       })
@@ -712,7 +712,7 @@ export const getAllStoryMessagesForEmber = async (emberId) => {
   try {
     console.log('🔍 [DATABASE] getAllStoryMessagesForEmber called with ember ID:', emberId, typeof emberId);
     console.log('🔍 [DATABASE] Starting RPC call to get_all_story_messages_for_ember...');
-    
+
     // Use RPC function to bypass RLS and get all story messages for an ember
     const { data, error } = await supabase.rpc('get_all_story_messages_for_ember', {
       input_ember_id: emberId
@@ -726,20 +726,20 @@ export const getAllStoryMessagesForEmber = async (emberId) => {
 
     console.log('📊 [DATABASE] RPC SUCCESS - Total messages returned:', data?.length || 0);
     console.log('📋 [DATABASE] Raw data from RPC:', data);
-    
+
     // Debug: Analyze the returned data
     if (data && data.length > 0) {
       console.log('🔍 [DATABASE] Analyzing returned messages...');
-      
+
       // Check ember IDs
       const emberIds = [...new Set(data.map(msg => msg.ember_id || 'unknown'))];
       console.log('🔍 [DATABASE] Unique ember IDs in results:', emberIds);
-      
+
       // Check user IDs and names
       const userIds = [...new Set(data.map(msg => msg.user_id))];
       console.log('👤 [DATABASE] Unique user IDs in results:', userIds);
       console.log('👤 [DATABASE] User ID types:', userIds.map(id => ({ id, type: typeof id })));
-      
+
       // Check user names
       const userNames = data.map(msg => ({
         user_id: msg.user_id,
@@ -749,7 +749,7 @@ export const getAllStoryMessagesForEmber = async (emberId) => {
         message_type: msg.message_type
       }));
       console.log('👤 [DATABASE] User names in messages:', userNames);
-      
+
       // Check message types and senders
       const messageSummary = data.map(msg => ({
         id: msg.id,
@@ -761,7 +761,7 @@ export const getAllStoryMessagesForEmber = async (emberId) => {
         created_at: msg.created_at
       }));
       console.log('📝 [DATABASE] Message summary:', messageSummary);
-      
+
       // Check for multiple users
       const messagesByUser = userIds.map(userId => ({
         user_id: userId,
@@ -769,11 +769,11 @@ export const getAllStoryMessagesForEmber = async (emberId) => {
         first_name: data.find(msg => msg.user_id === userId)?.user_first_name
       }));
       console.log('👥 [DATABASE] Messages by user:', messagesByUser);
-      
+
     } else {
       console.log('📭 [DATABASE] No messages found for ember:', emberId);
     }
-    
+
     return {
       messages: data || []
     };
@@ -792,7 +792,7 @@ export const deleteStoryMessage = async (messageId, emberId, userId) => {
   try {
     console.log('🗑️ Calling deleteStoryMessage with params:', {
       messageId,
-      emberId, 
+      emberId,
       userId,
       messageIdType: typeof messageId,
       emberIdType: typeof emberId,
@@ -1026,21 +1026,21 @@ export const processAIScriptToEmberScript = async (aiScript, ember, emberId) => 
   try {
     console.log('🔄 Processing AI script to Ember script format');
     console.log('📝 AI script preview:', aiScript.substring(0, 200) + '...');
-    
+
     if (!aiScript || !ember) {
       throw new Error('AI script and ember data are required');
     }
 
     // 1. Opening HOLD segment (2-second black fade-in)
     const openingHold = '[[HOLD]] <COLOR:#000000,duration=2.0>';
-    
+
     // 2. Process voice lines from AI script - add auto-colorization
     const processedVoiceLines = aiScript
       .split('\n\n')
       .filter(line => line.trim())
       .map(line => {
         const trimmedLine = line.trim();
-        
+
         // Skip if already processed or malformed
         if (!trimmedLine.includes('[') || !trimmedLine.includes(']')) {
           return trimmedLine;
@@ -1055,26 +1055,14 @@ export const processAIScriptToEmberScript = async (aiScript, ember, emberId) => 
         const [, voiceTag, content] = voiceMatch;
         const cleanContent = content.trim();
 
-        // Determine voice type for auto-colorization
-        let autoColor = '';
-        const lowerVoiceTag = voiceTag.toLowerCase();
-        
-        if (lowerVoiceTag === 'ember voice') {
-          autoColor = ' <COLOR:#FF0000,TRAN:0.2>'; // Red for ember voice
-        } else if (lowerVoiceTag === 'narrator') {
-          autoColor = ' <COLOR:#0000FF,TRAN:0.2>'; // Blue for narrator
-        } else {
-          // Contributor voices (actual names like [Amado], [Sarah])
-          autoColor = ' <COLOR:#00FF00,TRAN:0.2>'; // Green for contributors
-        }
-
-        return `[${voiceTag}]${autoColor} ${cleanContent}`;
+        // No color indicators - clean script format
+        return `[${voiceTag}] ${cleanContent}`;
       })
       .join('\n\n');
 
     // 3. Ember photo as MEDIA element
     const emberPhotoMedia = `[[MEDIA]] <name="${ember.original_filename || 'ember_photo.jpg'}">`;
-    
+
     // 4. Closing HOLD segment (4-second black fade-out)
     const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
 
@@ -1088,17 +1076,17 @@ export const processAIScriptToEmberScript = async (aiScript, ember, emberId) => 
 
     console.log('✅ Ember script generated successfully');
     console.log('📝 Ember script preview:', emberScript.substring(0, 300) + '...');
-    
+
     // Count segments for logging
     const holdSegments = (emberScript.match(/\[\[HOLD\]\]/g) || []).length;
     const mediaSegments = (emberScript.match(/\[\[MEDIA\]\]/g) || []).length;
-    const voiceSegments = (emberScript.match(/\[[^\[\]]+\]/g) || []).filter(match => 
+    const voiceSegments = (emberScript.match(/\[[^\[\]]+\]/g) || []).filter(match =>
       !match.includes('[[')
     ).length;
-    
+
     console.log('📊 Ember script composition:', {
       holdSegments,
-      mediaSegments, 
+      mediaSegments,
       voiceSegments,
       totalLength: emberScript.length
     });
@@ -1207,7 +1195,7 @@ export const triggerImageAnalysis = async (emberId, imageUrl) => {
     return result;
   } catch (error) {
     console.error('❌ [DATABASE] triggerImageAnalysis failed:', error);
-    
+
     // Enhance error information
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
       throw new Error(`Network Error: ${error.message} (Check internet connection or API endpoint)`);
@@ -1216,7 +1204,7 @@ export const triggerImageAnalysis = async (emberId, imageUrl) => {
     } else if (error.message.includes('Failed to fetch')) {
       throw new Error('Connection Failed: Unable to reach the API server (network or CORS issue)');
     }
-    
+
     throw error;
   }
 };
@@ -1233,7 +1221,7 @@ export const triggerImageAnalysis = async (emberId, imageUrl) => {
 export const getActivePrompt = async (promptKey) => {
   try {
     console.log('🔍 [DATABASE] Getting active prompt:', promptKey);
-    
+
     const { data, error } = await supabase
       .rpc('get_active_prompt', { prompt_key_param: promptKey });
 
@@ -1259,11 +1247,11 @@ export const getActivePrompt = async (promptKey) => {
 export const getPromptsByCategory = async (category, subcategory = null) => {
   try {
     console.log('🔍 [DATABASE] Getting prompts by category:', { category, subcategory });
-    
+
     const { data, error } = await supabase
-      .rpc('get_prompts_by_category', { 
+      .rpc('get_prompts_by_category', {
         category_param: category,
-        subcategory_param: subcategory 
+        subcategory_param: subcategory
       });
 
     if (error) {
@@ -1285,7 +1273,7 @@ export const getPromptsByCategory = async (category, subcategory = null) => {
 export const getAllPrompts = async () => {
   try {
     console.log('🔍 [DATABASE] Getting all prompts (admin)');
-    
+
     const { data, error } = await supabase
       .from('prompts')
       .select('*')
@@ -1312,7 +1300,7 @@ export const getAllPrompts = async () => {
 export const createPrompt = async (promptData) => {
   try {
     console.log('🚀 [DATABASE] Creating new prompt:', promptData.name);
-    
+
     const { data, error } = await supabase
       .from('prompts')
       .insert([promptData])
@@ -1340,7 +1328,7 @@ export const createPrompt = async (promptData) => {
 export const updatePrompt = async (promptId, updates) => {
   try {
     console.log('🔄 [DATABASE] Updating prompt:', promptId);
-    
+
     const { data, error } = await supabase
       .from('prompts')
       .update(updates)
@@ -1368,7 +1356,7 @@ export const updatePrompt = async (promptId, updates) => {
 export const deletePrompt = async (promptId) => {
   try {
     console.log('🗑️ [DATABASE] Deleting prompt:', promptId);
-    
+
     const { error } = await supabase
       .from('prompts')
       .delete()
@@ -1395,7 +1383,7 @@ export const deletePrompt = async (promptId) => {
 export const togglePromptStatus = async (promptId, isActive) => {
   try {
     console.log('🔄 [DATABASE] Toggling prompt status:', { promptId, isActive });
-    
+
     const { data, error } = await supabase
       .from('prompts')
       .update({ is_active: isActive })
@@ -1427,16 +1415,16 @@ export const setPrimaryStoryCut = async (storyCutId, emberId, userId) => {
       .select('user_id')
       .eq('id', emberId)
       .single();
-    
+
     if (emberError) {
       throw new Error(emberError.message);
     }
-    
+
     // Only the ember owner can set the primary story cut
     if (ember.user_id !== userId) {
       throw new Error('Only the ember owner can set the primary story cut');
     }
-    
+
     // Update the ember with the primary story cut ID
     const { data, error } = await supabase
       .from('embers')
@@ -1445,11 +1433,11 @@ export const setPrimaryStoryCut = async (storyCutId, emberId, userId) => {
       .eq('user_id', userId) // Extra safety check
       .select()
       .single();
-    
+
     if (error) {
       throw new Error(error.message);
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error setting primary story cut:', error);
@@ -1468,28 +1456,28 @@ export const getPrimaryStoryCut = async (emberId) => {
       .select('primary_story_cut_id')
       .eq('id', emberId)
       .single();
-    
+
     if (emberError) {
       throw new Error(emberError.message);
     }
-    
+
     // If no primary story cut is set, return null
     if (!ember.primary_story_cut_id) {
       return null;
     }
-    
+
     // Get the primary story cut details
     const { data: storyCut, error: storyCutError } = await supabase
       .from('ember_story_cuts')
       .select('*')
       .eq('id', ember.primary_story_cut_id)
       .single();
-    
+
     if (storyCutError) {
       console.warn('Primary story cut not found:', storyCutError.message);
       return null;
     }
-    
+
     return storyCut;
   } catch (error) {
     console.error('Error getting primary story cut:', error);
@@ -1503,7 +1491,7 @@ export const getPrimaryStoryCut = async (emberId) => {
 export const addPrimaryStoryCutColumn = async () => {
   try {
     console.log('Checking if primary_story_cut_id column exists in embers table...');
-    
+
     // Check if the column exists
     const { data, error } = await supabase.rpc('execute_sql', {
       sql_query: `
@@ -1513,20 +1501,20 @@ export const addPrimaryStoryCutColumn = async () => {
         AND column_name = 'primary_story_cut_id'
       `
     });
-    
+
     if (error) {
       console.error('Error checking for primary_story_cut_id column:', error);
       return false;
     }
-    
+
     // If column exists, nothing to do
     if (data && data.length > 0) {
       console.log('primary_story_cut_id column already exists');
       return true;
     }
-    
+
     console.log('Adding primary_story_cut_id column to embers table...');
-    
+
     // Add the column
     const result = await supabase.rpc('execute_sql', {
       sql_query: `
@@ -1536,12 +1524,12 @@ export const addPrimaryStoryCutColumn = async () => {
         CREATE INDEX IF NOT EXISTS embers_primary_story_cut_id_idx ON embers(primary_story_cut_id);
       `
     });
-    
+
     if (result.error) {
       console.error('Error adding primary_story_cut_id column:', result.error);
       return false;
     }
-    
+
     console.log('Successfully added primary_story_cut_id column to embers table');
     return true;
   } catch (error) {
@@ -1634,19 +1622,19 @@ export const getEmberAnalytics = async () => {
 
     const embersWithContributors = Object.keys(contributorStats).length;
     const totalContributorConnections = shares.length;
-    const averageContributorsPerEmber = embersWithContributors > 0 
-      ? (totalContributorConnections / embersWithContributors).toFixed(1) 
+    const averageContributorsPerEmber = embersWithContributors > 0
+      ? (totalContributorConnections / embersWithContributors).toFixed(1)
       : 0;
 
     // Recent activity (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const recentEmbers = emberStats.filter(ember => 
+
+    const recentEmbers = emberStats.filter(ember =>
       new Date(ember.created_at) > thirtyDaysAgo
     );
-    
-    const recentStoryCuts = storyCuts.filter(cut => 
+
+    const recentStoryCuts = storyCuts.filter(cut =>
       new Date(cut.created_at) > thirtyDaysAgo
     );
 
@@ -1733,7 +1721,7 @@ export const getAdminEmberList = async (limit = 50, offset = 0) => {
 
     // Get story cuts counts for these embers
     const emberIds = embers.map(e => e.id);
-    
+
     const { data: storyCutCounts, error: storyCutError } = await supabase
       .from('ember_story_cuts')
       .select('ember_id')
@@ -1888,7 +1876,7 @@ export const getPotentialContributorMatches = async (emberId, personName) => {
   try {
     // Import the sharing function here to avoid circular imports
     const { getEmberWithSharing } = await import('./sharing.js');
-    
+
     // Get all contributors for this ember
     const emberData = await getEmberWithSharing(emberId);
     const contributors = emberData.shares || [];
@@ -1899,11 +1887,11 @@ export const getPotentialContributorMatches = async (emberId, personName) => {
       const contributorName = contributor.shared_user?.first_name?.toLowerCase() || '';
       const contributorLastName = contributor.shared_user?.last_name?.toLowerCase() || '';
       const fullName = `${contributorName} ${contributorLastName}`.trim();
-      
-      return contributorName.includes(nameToMatch) || 
-             contributorLastName.includes(nameToMatch) ||
-             fullName.includes(nameToMatch) ||
-             nameToMatch.includes(contributorName);
+
+      return contributorName.includes(nameToMatch) ||
+        contributorLastName.includes(nameToMatch) ||
+        fullName.includes(nameToMatch) ||
+        nameToMatch.includes(contributorName);
     });
 
     return matches;
@@ -1923,40 +1911,40 @@ export const getPotentialContributorMatches = async (emberId, personName) => {
 export const saveEmberSupportingMedia = async (emberId, userId, mediaFiles) => {
   try {
     console.log('💾 Saving supporting media for ember:', emberId, mediaFiles.length, 'files');
-    
+
     // Generate smart display name for supporting media
     const generateDisplayName = (filename, fileCategory) => {
       if (!filename || filename === '') {
         return fileCategory ? fileCategory.charAt(0).toUpperCase() + fileCategory.slice(1) : 'Media';
       }
-      
+
       // Remove file extension
       let name = filename.replace(/\.[^.]*$/, '');
-      
+
       // Replace underscores and hyphens with spaces
       name = name.replace(/[_-]/g, ' ');
-      
+
       // Replace multiple spaces with single space
       name = name.replace(/\s+/g, ' ');
-      
+
       // Trim whitespace
       name = name.trim();
-      
+
       // Capitalize first letter of each word
-      name = name.split(' ').map(word => 
+      name = name.split(' ').map(word =>
         word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
       ).join(' ');
-      
+
       // Handle common abbreviations and patterns
       name = name.replace(/\bVid\b/gi, 'Video');
       name = name.replace(/\bRec\b/gi, 'Recording');
       name = name.replace(/\bDoc\b/gi, 'Document');
       name = name.replace(/\bImg\b/gi, 'Image');
       name = name.replace(/\bPic\b/gi, 'Image');
-      
+
       return name.length > 0 ? name : (fileCategory || 'Media');
     };
-    
+
     const mediaRecords = mediaFiles.map(file => ({
       ember_id: emberId,
       uploaded_by_user_id: userId,
@@ -2022,7 +2010,7 @@ export const getEmberSupportingMedia = async (emberId) => {
 export const updateSupportingMediaDisplayName = async (mediaId, displayName) => {
   try {
     console.log('🔍 Attempting to update supporting media:', { mediaId, displayName });
-    
+
     // First, check if the record exists
     const { data: existingRecord, error: checkError } = await supabase
       .from('ember_supporting_media')
@@ -2094,8 +2082,8 @@ export const deleteEmberSupportingMedia = async (mediaId, userId) => {
     }
 
     // Check permissions
-    const canDelete = mediaItem.uploaded_by_user_id === userId || 
-                     mediaItem.ember.user_id === userId;
+    const canDelete = mediaItem.uploaded_by_user_id === userId ||
+      mediaItem.ember.user_id === userId;
 
     if (!canDelete) {
       throw new Error('Permission denied: You can only delete media you uploaded or if you own the ember');
@@ -2174,7 +2162,7 @@ export const getAllUsersWithEmails = async () => {
   try {
     // NOTE: RPC function exists but doesn't include first_name, last_name, bio, avatar_url
     // Using direct table query to get all profile fields, then merging with email data
-    
+
     const { data: profiles, error: profilesError } = await supabase
       .from('user_profiles')
       .select('*')
@@ -2193,7 +2181,7 @@ export const getAllUsersWithEmails = async () => {
     } catch (e) {
       console.log('Could not get emails from RPC:', e);
     }
-    
+
     const usersWithEmails = (profiles || []).map(profile => {
       // Find matching email data
       const emailInfo = emailData.find(e => e.user_id === profile.user_id);
@@ -2207,12 +2195,12 @@ export const getAllUsersWithEmails = async () => {
 
 
 
-          return usersWithEmails;
+    return usersWithEmails;
   } catch (error) {
     console.error('Error fetching all users with emails:', error);
     throw error;
   }
-}; 
+};
 
 /**
  * Save audio preferences for a story cut
@@ -2287,13 +2275,13 @@ export const updateMessageAudioPreference = async (storyCutId, messageKey, prefe
   try {
     // First get current preferences
     const currentPreferences = await getStoryCutAudioPreferences(storyCutId);
-    
+
     // Update the specific message preference
     const updatedPreferences = {
       ...currentPreferences,
       [messageKey]: preference
     };
-    
+
     // Save back to database
     return await saveStoryCutAudioPreferences(storyCutId, updatedPreferences);
   } catch (error) {

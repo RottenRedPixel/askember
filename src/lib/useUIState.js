@@ -63,6 +63,7 @@ export const useAudioState = () => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
     const [showFullscreenPlay, setShowFullscreenPlay] = useState(false);
+    const [isPlayerFadingOut, setIsPlayerFadingOut] = useState(false);
     const [currentAudio, setCurrentAudio] = useState(null);
     const [activeAudioSegments, setActiveAudioSegments] = useState([]);
     const [showEndHold, setShowEndHold] = useState(false);
@@ -89,6 +90,7 @@ export const useAudioState = () => {
         setIsPlaying(false);
         setIsGeneratingAudio(false);
         setShowFullscreenPlay(false);
+        setIsPlayerFadingOut(false);
         setCurrentAudio(null);
         setActiveAudioSegments([]);
         setShowEndHold(false);
@@ -113,6 +115,7 @@ export const useAudioState = () => {
         isPlaying, setIsPlaying,
         isGeneratingAudio, setIsGeneratingAudio,
         showFullscreenPlay, setShowFullscreenPlay,
+        isPlayerFadingOut, setIsPlayerFadingOut,
         currentAudio, setCurrentAudio,
         activeAudioSegments, setActiveAudioSegments,
         showEndHold, setShowEndHold,
