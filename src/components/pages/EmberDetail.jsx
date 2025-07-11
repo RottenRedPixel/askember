@@ -68,6 +68,7 @@ import { useUIState } from '@/lib/useUIState';
 
 import StoryCutDetailContent from '@/components/StoryCutDetailContent';
 import StoryModalContent from '@/components/StoryModalContent';
+import EmberCarousel from '@/components/ember/EmberCarousel';
 
 
 export default function EmberDetail() {
@@ -428,6 +429,41 @@ export default function EmberDetail() {
   // Check if current user can delete a story cut (must be creator)
   const canDeleteStoryCut = (storyCut) => {
     return userProfile?.user_id === storyCut.creator_user_id;
+  };
+
+  // Handle carousel card clicks
+  const handleCarouselCardClick = (cardType) => {
+    switch (cardType) {
+      case 'story-cuts':
+        setShowStoryCutCreator(true);
+        break;
+      case 'title':
+        setShowNamesModal(true);
+        break;
+      case 'location':
+        setShowLocationModal(true);
+        break;
+      case 'time-date':
+        setShowTimeDateModal(true);
+        break;
+      case 'story':
+        setShowStoryModal(true);
+        break;
+      case 'people':
+        setShowTaggedPeopleModal(true);
+        break;
+      case 'supporting-media':
+        setShowSupportingMediaModal(true);
+        break;
+      case 'analysis':
+        setShowImageAnalysisModal(true);
+        break;
+      case 'contributors':
+        setShowInviteModal(true);
+        break;
+      default:
+        console.warn('Unknown card type:', cardType);
+    }
   };
 
 
@@ -1361,208 +1397,25 @@ export default function EmberDetail() {
           </div>
 
           {/* Content area - Card Carousel */}
-          <div className="flex-1 flex flex-col justify-start pb-1 md:pb-8">
-            <Carousel
-              className="w-full"
-              opts={{
-                align: "center",
-                loop: false,
-                skipSnaps: false,
-                dragFree: true
-              }}
-            >
-              <CarouselContent className="pl-4 md:pl-6 -ml-2 md:-ml-4">
-                {/* Story Cuts Square Card - New 1:1 Aspect Ratio Style */}
-                <CarouselItem className="pl-2 md:pl-4 basis-auto flex-shrink-0">
-                  <Card
-                    className="w-32 h-32 bg-blue-600 border-blue-700 cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => setShowStoryCutCreator(true)}
-                  >
-                    <CardContent className="p-2 h-full flex flex-col justify-center items-center">
-                      <div className="flex justify-center items-center mb-1">
-                        <FilmSlate size={18} className="text-white" />
-                      </div>
-                      <h4 className="text-sm font-medium text-white text-center leading-tight">
-                        Story Cuts
-                      </h4>
-                      <p className="text-xs text-blue-100 text-center leading-tight mt-0.5">
-                        Creator
-                      </p>
-                    </CardContent>
-                  </Card>
-                </CarouselItem>
-
-                {(() => {
-                  // Define all carousel cards with their configuration
-                  const carouselCards = [
-                    {
-                      id: 'title',
-                      sectionType: 'title',
-                      icon: PenNib,
-                      title: () => 'Title',
-                      description: (isComplete) => (!isComplete ? 'pick the perfect title' : ember.title),
-                      onClick: () => () => setShowNamesModal(true)
-                    },
-                    {
-                      id: 'location',
-                      sectionType: 'location',
-                      icon: MapPin,
-                      title: () => 'Location',
-                      description: (isComplete) => {
-                        if (isAutoLocationProcessing) {
-                          return 'Processing location...';
-                        }
-                        if (isComplete) {
-                          const formattedLocation = formatDisplayLocation(ember);
-                          return formattedLocation || 'Location information available';
-                        }
-                        return 'Where this moment happened';
-                      },
-                      onClick: () => () => setShowLocationModal(true)
-                    },
-                    {
-                      id: 'time-date',
-                      sectionType: 'time-date',
-                      icon: Clock,
-                      title: () => 'Time & Date',
-                      description: (isComplete) => {
-                        if (isExifProcessing) {
-                          return 'Processing image data...';
-                        }
-                        if (isComplete) {
-                          const dateToShow = ember?.ember_timestamp || ember?.manual_datetime;
-                          const formattedDate = formatDisplayDate(dateToShow);
-                          return formattedDate || 'Date information available';
-                        }
-                        return 'When this moment occurred';
-                      },
-                      onClick: () => () => setShowTimeDateModal(true)
-                    },
-                    {
-                      id: 'story',
-                      sectionType: 'story',
-                      icon: BookOpen,
-                      title: () => 'Story Circle',
-                      description: (isComplete) => {
-                        if (isComplete) {
-                          return `${storyMessages.length} comments from ${storyContributorCount} contributor${storyContributorCount !== 1 ? 's' : ''}`;
-                        }
-                        return 'The narrative behind this ember';
-                      },
-                      onClick: () => () => setShowStoryModal(true)
-                    },
-                    {
-                      id: 'people',
-                      sectionType: 'people',
-                      icon: UsersThree,
-                      title: () => 'Tagged People',
-                      description: (isComplete) => (!isComplete ? 'Identify and tag people in this image' : `${taggedPeopleCount} ${taggedPeopleCount !== 1 ? 'people' : 'person'} tagged`),
-                      onClick: () => () => setShowTaggedPeopleModal(true)
-                    },
-                    {
-                      id: 'supporting-media',
-                      sectionType: 'supporting-media',
-                      icon: ImageSquare,
-                      title: () => 'Supporting Media',
-                      description: (isComplete) => {
-                        if (isComplete) {
-                          return `${supportingMedia.length} media file${supportingMedia.length !== 1 ? 's' : ''} added`;
-                        }
-                        return 'Additional photos and videos';
-                      },
-                      onClick: () => () => setShowSupportingMediaModal(true)
-                    },
-                    {
-                      id: 'analysis',
-                      sectionType: 'analysis',
-                      icon: Sparkles,
-                      title: () => 'Image Analysis',
-                      description: (isComplete) => {
-                        if (isAutoAnalyzing) {
-                          return 'Auto-analyzing image...';
-                        }
-                        if (isComplete && imageAnalysisData?.tokens_used) {
-                          return `${imageAnalysisData.tokens_used} tokens used to complete`;
-                        }
-                        return 'Deep analysis of this image';
-                      },
-                      onClick: () => () => setShowImageAnalysisModal(true)
-                    },
-                    {
-                      id: 'contributors',
-                      sectionType: 'contributors',
-                      icon: UserCirclePlus,
-                      title: () => 'Contributors',
-                      description: (isComplete) => (!isComplete ? 'Invite people to edit and contribute' : `${sharedUsers.length} contributor${sharedUsers.length !== 1 ? 's' : ''} invited`),
-                      onClick: () => () => setShowInviteModal(true)
-                    }
-                  ];
-
-                  // Sort cards: Story Circle always first, then Not Done, then Done
-                  const sortedCards = carouselCards.sort((a, b) => {
-                    // Story Circle always comes first
-                    if (a.sectionType === 'story') return -1;
-                    if (b.sectionType === 'story') return 1;
-
-                    const aComplete = getSectionStatus(a.sectionType);
-                    const bComplete = getSectionStatus(b.sectionType);
-
-                    // If completion status is the same, maintain original order
-                    if (aComplete === bComplete) return 0;
-
-                    // Not Done (false) comes first, Done (true) comes last
-                    return aComplete - bComplete;
-                  });
-
-                  return sortedCards.map((card) => {
-                    const isComplete = getSectionStatus(card.sectionType);
-                    const IconComponent = card.icon;
-
-                    // Special handling for story card to show progress
-                    let statusText = isComplete ? 'Done' : 'Not Done';
-                    if (card.sectionType === 'story' && !isComplete) {
-                      const storyProgress = getStoryProgress();
-                      statusText = `${storyProgress.current} of ${storyProgress.required}`;
-                    }
-
-                    return (
-                      <CarouselItem key={card.id} className="pl-2 md:pl-4 basis-3/5 md:basis-1/3 lg:basis-2/5">
-                        <Card
-                          className="h-32 bg-white border-gray-200 cursor-pointer hover:shadow-md transition-all duration-200"
-                          onClick={card.onClick()}
-                        >
-                          <CardContent className="px-4 pt-1 pb-2 h-full flex flex-col justify-between">
-                            <div>
-                              {/* Header with icon and status badge */}
-                              <div className="flex justify-center items-center relative mb-2">
-                                <IconComponent size={22} className="text-blue-600" />
-                                <div className={`absolute right-0 px-2 py-1 text-xs rounded-full font-medium ${isComplete
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-gray-100 text-gray-600'
-                                  }`}>
-                                  {statusText}
-                                </div>
-                              </div>
-
-                              {/* Wiki Title */}
-                              <h3 className="font-semibold text-gray-900 text-center mb-1">
-                                {card.title(isComplete)}
-                              </h3>
-
-                              {/* Dynamic Content */}
-                              <p className="text-sm text-gray-600 text-center">
-                                {card.description(isComplete)}
-                              </p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </CarouselItem>
-                    );
-                  });
-                })()}
-              </CarouselContent>
-            </Carousel>
-          </div>
+          <EmberCarousel
+            ember={ember}
+            emberId={ember?.id}
+            onCardClick={handleCarouselCardClick}
+            storyMessages={storyMessages}
+            storyContributorCount={storyContributorCount}
+            taggedPeopleData={taggedPeopleData}
+            taggedPeopleCount={taggedPeopleCount}
+            supportingMedia={supportingMedia}
+            imageAnalysisData={imageAnalysisData}
+            sharedUsers={sharedUsers}
+            isAutoAnalyzing={isAutoAnalyzing}
+            isAutoLocationProcessing={isAutoLocationProcessing}
+            isExifProcessing={isExifProcessing}
+            getSectionStatus={getSectionStatus}
+            getStoryProgress={getStoryProgress}
+            formatDisplayLocation={formatDisplayLocation}
+            formatDisplayDate={formatDisplayDate}
+          />
         </div>
       )
     },
