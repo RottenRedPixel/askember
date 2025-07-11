@@ -301,6 +301,24 @@ export default async function handler(req, res) {
     console.log('🔍 API DEBUG - Story messages loaded from RPC:', storyMessages?.length || 0);
     console.log('🔍 API DEBUG - Voice casting contributors:', voiceCasting.contributors?.length || 0);
 
+    // 🐛 ENHANCED DEBUG: Log all story messages details
+    console.log('🐛 API DEBUG - All story messages:');
+    if (storyMessages && Array.isArray(storyMessages)) {
+      storyMessages.forEach((msg, index) => {
+        console.log(`  Message ${index + 1}:`);
+        console.log(`    - ID: ${msg.id}`);
+        console.log(`    - User ID: ${msg.user_id} (${typeof msg.user_id})`);
+        console.log(`    - First Name: ${msg.user_first_name}`);
+        console.log(`    - Sender: ${msg.sender}`);
+        console.log(`    - Content: "${msg.content?.substring(0, 50)}..."`);
+        console.log(`    - Audio URL: ${msg.audio_url ? 'EXISTS' : 'MISSING'}`);
+        console.log(`    - Audio Filename: ${msg.audio_filename || 'N/A'}`);
+        console.log(`    - Audio Duration: ${msg.audio_duration_seconds || 'N/A'}s`);
+      });
+    } else {
+      console.log('  No story messages found or not an array');
+    }
+
     // Get the master story cut generation prompt
     console.log('🔍 Loading master story cut generation prompt...');
     const masterPrompt = await getActivePrompt('story_cut_generation');
@@ -574,6 +592,14 @@ export default async function handler(req, res) {
         voiceCasting.contributors.forEach(contributor => {
           const hasAudio = recordedAudioMap.has(contributor.id);
           console.log(`🔍 API DEBUG - Contributor ${contributor.name} (${contributor.id}): ${hasAudio ? 'HAS AUDIO' : 'NO AUDIO'}`);
+          console.log(`🔍 API DEBUG - Contributor ID type: ${typeof contributor.id}`);
+
+          // Check if there's a type mismatch
+          const audioUsers = Array.from(recordedAudioMap.keys());
+          const matchingUser = audioUsers.find(userId => userId == contributor.id); // Use loose equality
+          if (matchingUser) {
+            console.log(`🔍 API DEBUG - Found matching user with loose equality: ${matchingUser} (${typeof matchingUser})`);
+          }
         });
       }
 
