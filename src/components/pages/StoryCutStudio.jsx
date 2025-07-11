@@ -985,7 +985,7 @@ export default function StoryCutStudio() {
                         {!loading && !error && (
                             <div className="mt-6 flex gap-3 max-w-md mx-auto">
                                 <Button
-                                    onClick={() => navigate(`/embers/${id}`)}
+                                    onClick={() => navigate(`/embers/${id}?view=story-cuts`)}
                                     variant="outline"
                                     size="lg"
                                     className="px-6 py-3 h-auto flex-1"

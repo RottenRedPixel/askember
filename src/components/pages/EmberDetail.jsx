@@ -207,6 +207,18 @@ export default function EmberDetail() {
     userVote, setUserVote
   } = useUIState();
 
+  // Check URL parameters to auto-open views
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const view = urlParams.get('view');
+
+    if (view === 'story-cuts') {
+      setShowEmberStoryCuts(true);
+      // Clean up the URL parameter
+      navigate(`/embers/${id}`, { replace: true });
+    }
+  }, [id, navigate, setShowEmberStoryCuts]);
+
   // 🐛 DEBUG: Test prompt format
   const testPromptFormat = async () => {
     try {
@@ -1907,13 +1919,9 @@ export default function EmberDetail() {
 
 
 
-                    {/* Clickable content area */}
+                    {/* Content area - click disabled */}
                     <div
-                      className="cursor-pointer"
-                      onClick={() => {
-                        setSelectedStoryCut(cut);
-                        setShowStoryCutDetail(true);
-                      }}
+                      className=""
                     >
                       <div className="flex gap-4">
                         {/* Thumbnail - Using ember image for now */}
@@ -1965,7 +1973,7 @@ export default function EmberDetail() {
                             </span>
 
                             {/* Action buttons */}
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-3">
                               {/* Make Primary Button - Only show for owner and non-primary cuts */}
                               {!isPrimary && userPermission === 'owner' && (
                                 <button
@@ -1973,12 +1981,24 @@ export default function EmberDetail() {
                                     e.stopPropagation();
                                     handleSetPrimary(cut.id);
                                   }}
-                                  className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors duration-200"
+                                  className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full transition-colors duration-200"
                                   title="Make This The One"
                                 >
-                                  <Star size={12} weight="fill" />
+                                  <Star size={18} />
                                 </button>
                               )}
+
+                              {/* Studio Button - Always show for visual editing */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/embers/${ember.id}/studio`);
+                                }}
+                                className="p-1 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-full transition-colors duration-200"
+                                title="Open in Studio"
+                              >
+                                <Sliders size={18} />
+                              </button>
 
                               {/* Delete Button - Only show for creators */}
                               {canDeleteStoryCut(cut) && (
@@ -1991,7 +2011,7 @@ export default function EmberDetail() {
                                   className="p-1 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors duration-200"
                                   title="Delete story cut"
                                 >
-                                  <Trash size={12} />
+                                  <Trash size={18} />
                                 </button>
                               )}
                             </div>
