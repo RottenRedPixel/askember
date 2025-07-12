@@ -313,7 +313,10 @@ export default function StoryCutStudio() {
                     title: 'Start Story'
                 });
 
-                // Parse the actual script
+                // Parse the actual script and initialize effects state
+                const initialEffects = {};
+                const initialDirections = {};
+                const initialDurations = {};
                 if (primaryStoryCut.full_script) {
                     const lines = primaryStoryCut.full_script.split('\n');
                     let blockId = 2;
@@ -349,6 +352,66 @@ export default function StoryCutStudio() {
                                     console.log('🔍 Extracted media name:', mediaName);
                                 }
 
+                                // Parse effects from the content
+                                const currentBlockId = blockId;
+                                const blockKey = `effect-${currentBlockId}`;
+                                const currentBlockEffects = [];
+
+                                // Find all effect patterns like <FADE-IN:duration=3.0,PAN-LEFT:duration=4.0>
+                                const effectsMatch = content.match(/<([^>]+)>/g);
+                                if (effectsMatch) {
+                                    effectsMatch.forEach(effectMatch => {
+                                        const effectContent = effectMatch.slice(1, -1); // Remove < >
+
+                                        // Skip media references (id= or name=)
+                                        if (effectContent.startsWith('id=') || effectContent.startsWith('name=')) {
+                                            return;
+                                        }
+
+                                        // Parse individual effects separated by commas
+                                        const effects = effectContent.split(',');
+                                        effects.forEach(effect => {
+                                            const trimmedEffect = effect.trim();
+
+                                            // Parse FADE effects: FADE-IN:duration=3.0 or FADE-OUT:duration=2.5
+                                            const fadeMatch = trimmedEffect.match(/FADE-(IN|OUT):duration=([0-9.]+)/);
+                                            if (fadeMatch) {
+                                                const [, direction, duration] = fadeMatch;
+                                                currentBlockEffects.push('fade');
+                                                initialDirections[`fade-${currentBlockId}`] = direction.toLowerCase();
+                                                initialDurations[`fade-${currentBlockId}`] = parseFloat(duration);
+                                                console.log(`🎬 Parsed FADE effect: ${direction} ${duration}s for block ${currentBlockId}`);
+                                            }
+
+                                            // Parse PAN effects: PAN-LEFT:duration=4.0 or PAN-RIGHT:duration=3.5
+                                            const panMatch = trimmedEffect.match(/PAN-(LEFT|RIGHT):duration=([0-9.]+)/);
+                                            if (panMatch) {
+                                                const [, direction, duration] = panMatch;
+                                                currentBlockEffects.push('pan');
+                                                initialDirections[`pan-${currentBlockId}`] = direction.toLowerCase();
+                                                initialDurations[`pan-${currentBlockId}`] = parseFloat(duration);
+                                                console.log(`🎬 Parsed PAN effect: ${direction} ${duration}s for block ${currentBlockId}`);
+                                            }
+
+                                            // Parse ZOOM effects: ZOOM-IN:duration=3.5 or ZOOM-OUT:duration=2.0
+                                            const zoomMatch = trimmedEffect.match(/ZOOM-(IN|OUT):duration=([0-9.]+)/);
+                                            if (zoomMatch) {
+                                                const [, direction, duration] = zoomMatch;
+                                                currentBlockEffects.push('zoom');
+                                                initialDirections[`zoom-${currentBlockId}`] = direction.toLowerCase();
+                                                initialDurations[`zoom-${currentBlockId}`] = parseFloat(duration);
+                                                console.log(`🎬 Parsed ZOOM effect: ${direction} ${duration}s for block ${currentBlockId}`);
+                                            }
+                                        });
+                                    });
+                                }
+
+                                // Store parsed effects for this block
+                                if (currentBlockEffects.length > 0) {
+                                    initialEffects[blockKey] = currentBlockEffects;
+                                    console.log(`🎬 Stored effects for block ${currentBlockId}:`, currentBlockEffects);
+                                }
+
                                 realBlocks.push({
                                     id: blockId++,
                                     type: 'media',
@@ -364,6 +427,16 @@ export default function StoryCutStudio() {
                                 const durationMatch = content.match(/duration=([\d.]+)/);
                                 const color = colorMatch ? colorMatch[1] : '#000000';
                                 const duration = durationMatch ? parseFloat(durationMatch[1]) : 4.0;
+
+                                // Parse HOLD fade (if duration is present, fade is enabled)
+                                const currentBlockId = blockId;
+                                if (durationMatch) {
+                                    // HOLD has fade enabled if duration is specified
+                                    const blockKey = `hold-${currentBlockId}`;
+                                    initialEffects[blockKey] = ['fade'];
+                                    initialDurations[`hold-duration-${currentBlockId}`] = duration;
+                                    console.log(`🎬 Parsed HOLD fade: ${duration}s for block ${currentBlockId}`);
+                                }
 
                                 realBlocks.push({
                                     id: blockId++,
@@ -469,23 +542,39 @@ export default function StoryCutStudio() {
                 setBlocks(realBlocks);
 
                 // Initialize selected effects for blocks that have effects by default
-                const initialEffects = {};
-                const initialDirections = {};
-                const initialDurations = {};
                 realBlocks.forEach(block => {
                     if (block.type === 'hold') {
-                        initialEffects[`hold-${block.id}`] = [];
-                        initialDurations[`hold-duration-${block.id}`] = block.duration || 4.0;
+                        // Only set default empty array if no effects were already parsed
+                        if (!initialEffects[`hold-${block.id}`]) {
+                            initialEffects[`hold-${block.id}`] = [];
+                        }
+                        // Only set default duration if not already parsed
+                        if (!initialDurations[`hold-duration-${block.id}`]) {
+                            initialDurations[`hold-duration-${block.id}`] = block.duration || 4.0;
+                        }
                     }
-                    // Set default directions for all effects
-                    initialDirections[`fade-${block.id}`] = 'in';
-                    initialDirections[`pan-${block.id}`] = 'left';
-                    initialDirections[`zoom-${block.id}`] = 'in';
 
-                    // Set default durations for all effects
-                    initialDurations[`fade-${block.id}`] = 3.0;
-                    initialDurations[`pan-${block.id}`] = 4.0;
-                    initialDurations[`zoom-${block.id}`] = 3.5;
+                    // Set default directions for all effects (only if not already set)
+                    if (!initialDirections[`fade-${block.id}`]) {
+                        initialDirections[`fade-${block.id}`] = 'in';
+                    }
+                    if (!initialDirections[`pan-${block.id}`]) {
+                        initialDirections[`pan-${block.id}`] = 'left';
+                    }
+                    if (!initialDirections[`zoom-${block.id}`]) {
+                        initialDirections[`zoom-${block.id}`] = 'in';
+                    }
+
+                    // Set default durations for all effects (only if not already set)
+                    if (!initialDurations[`fade-${block.id}`]) {
+                        initialDurations[`fade-${block.id}`] = 3.0;
+                    }
+                    if (!initialDurations[`pan-${block.id}`]) {
+                        initialDurations[`pan-${block.id}`] = 4.0;
+                    }
+                    if (!initialDurations[`zoom-${block.id}`]) {
+                        initialDurations[`zoom-${block.id}`] = 3.5;
+                    }
                 });
                 setSelectedEffects(initialEffects);
                 setEffectDirections(initialDirections);
@@ -844,9 +933,9 @@ export default function StoryCutStudio() {
                         <div className="flex items-center gap-3">
                             {/* Back Arrow */}
                             <button
-                                onClick={() => navigate(`/embers/${id}`)}
+                                onClick={() => navigate(`/embers/${id}?view=story-cuts`)}
                                 className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-                                title="Back to Ember"
+                                title="Back to Story Cuts"
                             >
                                 <ArrowLeft className="w-5 h-5" />
                             </button>
@@ -925,10 +1014,10 @@ export default function StoryCutStudio() {
                             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                                 <div className="text-red-700">{error}</div>
                                 <button
-                                    onClick={() => navigate(`/embers/${id}`)}
+                                    onClick={() => navigate(`/embers/${id}?view=story-cuts`)}
                                     className="text-red-600 hover:text-red-800 text-sm mt-2 underline"
                                 >
-                                    ← Go back to ember
+                                    ← Go back to story cuts
                                 </button>
                             </div>
                         )}
@@ -1057,7 +1146,7 @@ export default function StoryCutStudio() {
                                                                 <input
                                                                     type="checkbox"
                                                                     value="fade"
-                                                                    defaultChecked={block.effect && block.effect.includes('FADE')}
+                                                                    checked={selectedEffects[`effect-${block.id}`] && selectedEffects[`effect-${block.id}`].includes('fade')}
                                                                     className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 rounded"
                                                                     onChange={(e) => {
                                                                         setSelectedEffects(prev => {
@@ -1084,7 +1173,7 @@ export default function StoryCutStudio() {
                                                                 <input
                                                                     type="checkbox"
                                                                     value="pan"
-                                                                    defaultChecked={block.effect && block.effect.includes('PAN')}
+                                                                    checked={selectedEffects[`effect-${block.id}`] && selectedEffects[`effect-${block.id}`].includes('pan')}
                                                                     className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 rounded"
                                                                     onChange={(e) => {
                                                                         setSelectedEffects(prev => {
@@ -1111,7 +1200,7 @@ export default function StoryCutStudio() {
                                                                 <input
                                                                     type="checkbox"
                                                                     value="zoom"
-                                                                    defaultChecked={block.effect && block.effect.includes('ZOOM')}
+                                                                    checked={selectedEffects[`effect-${block.id}`] && selectedEffects[`effect-${block.id}`].includes('zoom')}
                                                                     className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 rounded"
                                                                     onChange={(e) => {
                                                                         setSelectedEffects(prev => {
@@ -1501,6 +1590,7 @@ export default function StoryCutStudio() {
                                                                 <input
                                                                     type="checkbox"
                                                                     value="fade"
+                                                                    checked={selectedEffects[`hold-${block.id}`] && selectedEffects[`hold-${block.id}`].includes('fade')}
                                                                     className="w-4 h-4 text-gray-600 border-gray-300 focus:ring-gray-500 rounded"
                                                                     onChange={(e) => {
                                                                         setSelectedEffects(prev => {

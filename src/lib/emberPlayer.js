@@ -906,153 +906,123 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
           console.log(`🔍 Resolved media URL for "${segment.mediaName || segment.mediaId}":`, resolvedMediaUrl);
 
           if (resolvedMediaUrl) {
-            // Check for fade effects BEFORE updating the image
-            if (segment.content.includes('FADE-')) {
-              const fadeEffect = extractFadeFromAction(segment.content);
-              if (fadeEffect && fadeEffect.type === 'in') {
-                console.log(`🎬 Setting up CSS fade-in effect: ${fadeEffect.duration}s`);
+            // Extract all effects first
+            const hasFadeEffects = segment.content.includes('FADE-');
+            const hasPanEffects = segment.content.includes('PAN-');
+            const hasZoomEffects = segment.content.includes('ZOOM-');
+            const hasLegacyZoomEffects = segment.content.includes('Z-OUT:');
 
-                // Set the current image to transparent using CSS class
-                const imageElement = document.getElementById('ember-background-image');
-                if (imageElement) {
-                  // Remove any existing animation classes and set to transparent
-                  imageElement.className = imageElement.className.replace(/ember-(fade|pan|zoom)-(in|out|left|right)-\d+s/g, '');
-                  imageElement.classList.add('opacity-0');
-                }
+            let fadeEffect = null;
+            let panEffect = null;
+            let zoomEffect = null;
 
-                // Update the image URL
-                console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
-                setCurrentMediaImageUrl(resolvedMediaUrl);
+            if (hasFadeEffects) {
+              fadeEffect = extractFadeFromAction(segment.content);
+            }
+            if (hasPanEffects) {
+              panEffect = extractPanFromAction(segment.content);
+            }
+            if (hasZoomEffects) {
+              zoomEffect = extractZoomFromAction(segment.content);
+            }
 
-                // Wait for image to load, then trigger fade in with CSS animation
-                setTimeout(() => {
-                  const imageElement = document.getElementById('ember-background-image');
-                  if (imageElement) {
+            // Handle fade-in special case (need to set opacity-0 before image change)
+            if (fadeEffect && fadeEffect.type === 'in') {
+              console.log(`🎬 Setting up CSS fade-in effect: ${fadeEffect.duration}s`);
+
+              const imageElement = document.getElementById('ember-background-image');
+              if (imageElement) {
+                // Remove existing FADE animation classes and set to transparent
+                imageElement.className = imageElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
+                imageElement.classList.add('opacity-0');
+              }
+            }
+
+            // Update the image URL
+            console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
+            setCurrentMediaImageUrl(resolvedMediaUrl);
+
+            // Apply all effects together after image loads
+            setTimeout(() => {
+              const imageElement = document.getElementById('ember-background-image');
+              if (imageElement) {
+                console.log(`🎯 Applying all effects together`);
+
+                // Apply fade effects
+                if (fadeEffect) {
+                  if (fadeEffect.type === 'in') {
                     console.log(`🎯 Starting CSS fade-in animation: ${fadeEffect.duration}s`);
 
                     // Remove opacity-0 and add fade animation class
                     imageElement.classList.remove('opacity-0');
+                    imageElement.className = imageElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
 
-                    // Add the appropriate duration class
                     const durationClass = `ember-fade-in-${Math.round(fadeEffect.duration)}s`;
                     imageElement.classList.add(durationClass);
-
                     console.log(`🎬 Applied CSS class: ${durationClass}`);
 
                     setTimeout(() => {
                       console.log(`🎬 Fade ${fadeEffect.type} completed`);
                     }, fadeEffect.duration * 1000);
-                  }
-                }, 150); // Wait for React to update the image source
-              } else if (fadeEffect && fadeEffect.type === 'out') {
-                console.log(`🎬 Setting up CSS fade-out effect: ${fadeEffect.duration}s`);
-
-                // Update the image URL first (it will be visible)
-                console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
-                setCurrentMediaImageUrl(resolvedMediaUrl);
-
-                // Wait for image to load, then trigger fade out with CSS animation
-                setTimeout(() => {
-                  const imageElement = document.getElementById('ember-background-image');
-                  if (imageElement) {
+                  } else if (fadeEffect.type === 'out') {
                     console.log(`🎯 Starting CSS fade-out animation: ${fadeEffect.duration}s`);
 
-                    // Remove any existing animation classes
-                    imageElement.className = imageElement.className.replace(/ember-(fade|pan|zoom)-(in|out|left|right)-\d+s/g, '');
+                    imageElement.className = imageElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
                     imageElement.classList.remove('opacity-0');
 
-                    // Add the appropriate fade-out duration class
                     const durationClass = `ember-fade-out-${Math.round(fadeEffect.duration)}s`;
                     imageElement.classList.add(durationClass);
-
                     console.log(`🎬 Applied CSS class: ${durationClass}`);
 
                     setTimeout(() => {
                       console.log(`🎬 Fade ${fadeEffect.type} completed`);
                     }, fadeEffect.duration * 1000);
                   }
-                }, 150); // Wait for React to update the image source
-              } else {
-                // No valid fade effect - just update image normally
-                console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
-                setCurrentMediaImageUrl(resolvedMediaUrl);
-              }
-            } else {
-              // No fade effect - just update image normally
-              console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
-              setCurrentMediaImageUrl(resolvedMediaUrl);
-
-              // Clear any existing animation classes when no effects are specified
-              setTimeout(() => {
-                const imageElement = document.getElementById('ember-background-image');
-                if (imageElement) {
-                  console.log(`🧹 Clearing animation classes (no effects specified)`);
-                  imageElement.className = imageElement.className.replace(/ember-(fade|pan|zoom)-(in|out|left|right)-\d+s/g, '');
                 }
-              }, 150);
-            }
-          } else {
-            console.warn(`⚠️ Could not resolve media reference: ${segment.mediaName || segment.mediaId}`);
-          }
 
-          // Apply pan effects
-          if (segment.content.includes('PAN-')) {
-            const panEffect = extractPanFromAction(segment.content);
-            if (panEffect) {
-              console.log(`🎬 Setting up CSS pan effect: ${panEffect.direction} for ${panEffect.duration}s`);
-
-              setTimeout(() => {
-                const imageElement = document.getElementById('ember-background-image');
-                if (imageElement) {
+                // Apply pan effects
+                if (panEffect) {
                   console.log(`🎯 Starting CSS pan-${panEffect.direction} animation: ${panEffect.duration}s`);
 
-                  // Remove any existing animation classes
-                  imageElement.className = imageElement.className.replace(/ember-(fade|pan|zoom)-(in|out|left|right)-\d+s/g, '');
+                  // Remove existing PAN animation classes
+                  imageElement.className = imageElement.className.replace(/ember-pan-(left|right)-\d+s/g, '');
 
-                  // Add the appropriate pan class
                   const durationClass = `ember-pan-${panEffect.direction}-${Math.round(panEffect.duration)}s`;
                   imageElement.classList.add(durationClass);
-
                   console.log(`🎬 Applied CSS class: ${durationClass}`);
 
                   setTimeout(() => {
                     console.log(`🎬 Pan ${panEffect.direction} completed`);
                   }, panEffect.duration * 1000);
-                } else {
-                  console.warn(`⚠️ Could not find image element for pan effect`);
                 }
-              }, 150);
-            }
-          }
 
-          // Apply zoom effects (new ZOOM-IN/ZOOM-OUT system)
-          if (segment.content.includes('ZOOM-')) {
-            const zoomEffect = extractZoomFromAction(segment.content);
-            if (zoomEffect) {
-              console.log(`🎬 Setting up CSS zoom effect: ${zoomEffect.direction} for ${zoomEffect.duration}s`);
-
-              setTimeout(() => {
-                const imageElement = document.getElementById('ember-background-image');
-                if (imageElement) {
+                // Apply zoom effects
+                if (zoomEffect) {
                   console.log(`🎯 Starting CSS zoom-${zoomEffect.direction} animation: ${zoomEffect.duration}s`);
 
-                  // Remove any existing animation classes
-                  imageElement.className = imageElement.className.replace(/ember-(fade|pan|zoom)-(in|out|left|right)-\d+s/g, '');
+                  // Remove existing ZOOM animation classes
+                  imageElement.className = imageElement.className.replace(/ember-zoom-(in|out)-\d+s/g, '');
 
-                  // Add the appropriate zoom class
                   const durationClass = `ember-zoom-${zoomEffect.direction}-${Math.round(zoomEffect.duration)}s`;
                   imageElement.classList.add(durationClass);
-
                   console.log(`🎬 Applied CSS class: ${durationClass}`);
 
                   setTimeout(() => {
                     console.log(`🎬 Zoom ${zoomEffect.direction} completed`);
                   }, zoomEffect.duration * 1000);
-                } else {
-                  console.warn(`⚠️ Could not find image element for zoom effect`);
                 }
-              }, 150);
-            }
+
+                // Clear animation classes only when NO effects are specified
+                if (!hasFadeEffects && !hasPanEffects && !hasZoomEffects && !hasLegacyZoomEffects) {
+                  console.log(`🧹 Clearing animation classes (no effects specified)`);
+                  imageElement.className = imageElement.className.replace(/ember-(fade|pan|zoom)-(in|out|left|right)-\d+s/g, '');
+                }
+              } else {
+                console.warn(`⚠️ Could not find image element for effects`);
+              }
+            }, 150); // Wait for React to update the image source
+          } else {
+            console.warn(`⚠️ Could not resolve media reference: ${segment.mediaName || segment.mediaId}`);
           }
 
           // Apply legacy zoom effects (Z-OUT: system)
