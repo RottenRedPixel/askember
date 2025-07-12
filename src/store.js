@@ -37,6 +37,12 @@ const useStore = create((set, get) => ({
     }
   },
 
+  // Password gate functions
+  clearPassword: () => {
+    localStorage.removeItem('askember_password_verified');
+    window.location.reload();
+  },
+
   // Fetch user profile
   fetchUserProfile: async (userId) => {
     try {

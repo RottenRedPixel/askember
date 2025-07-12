@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import useStore from './store';
 import Layout from './components/layout/Layout';
 import About from './components/pages/About';
@@ -12,6 +12,7 @@ import AuthGuard from './components/auth/AuthGuard';
 import AdminGuard from './components/auth/AdminGuard';
 import AuthCallback from './components/auth/AuthCallback';
 import AuthPage from './components/auth/AuthPage';
+import PasswordGate from './components/auth/PasswordGate';
 
 // Admin Components
 import AdminLayout from './components/admin/layout/AdminLayout';
@@ -24,10 +25,17 @@ import './App.css'
 
 export default function App() {
   const { initializeAuth } = useStore();
+  const [isPasswordVerified, setIsPasswordVerified] = useState(false);
 
   // Initialize authentication state on app startup
   useEffect(() => {
     initializeAuth();
+
+    // Check if password is already verified
+    const isPasswordVerified = localStorage.getItem('askember_password_verified');
+    if (isPasswordVerified === 'true') {
+      setIsPasswordVerified(true);
+    }
 
     // Run database migrations
     const runMigrations = async () => {
@@ -41,6 +49,15 @@ export default function App() {
 
     runMigrations();
   }, [initializeAuth]);
+
+  // Show password gate if not verified
+  if (!isPasswordVerified) {
+    return (
+      <PasswordGate 
+        onPasswordCorrect={() => setIsPasswordVerified(true)} 
+      />
+    );
+  }
 
   return (
     <Routes>
