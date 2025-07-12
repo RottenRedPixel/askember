@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Eye, Code, Plus, GripVertical, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { FilmSlate, PencilSimple } from 'phosphor-react';
 import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber, saveContributorAudioPreferences, loadContributorAudioPreferences } from '@/lib/database';
 import { getStyleDisplayName } from '@/lib/styleUtils';
@@ -1430,104 +1431,105 @@ export default function StoryCutStudio() {
                 )}
             </div>
 
-            {/* EmberPlay - Uses the same fullscreen experience as EmberDetail */}
+            {/* EmberPlay - Same wrapper structure as EmberDetail */}
             {showFullscreenPlay && (
-                <div className={`fixed inset-0 z-50 flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
-                    {/* Top Section - Clean background, no orange */}
-                    <div className="h-[65vh] relative bg-black">
-                        {/* Background Image - blurred when playing without story cut */}
-                        {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
-                            <img
-                                src={currentMediaImageUrl}
-                                alt={ember?.title || 'Ember'}
-                                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-                                id="ember-background-image"
-                            />
-                        )}
+                <>
+                    {/* Mobile Layout */}
+                    <div className="md:hidden h-screen overflow-hidden">
+                        <div className={`h-full bg-gray-100 flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
+                            {/* Top Section - Clean background, no orange */}
+                            <div className="h-[70vh] relative bg-black">
+                                {/* Background Image - blurred when playing without story cut */}
+                                {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
+                                    <img
+                                        src={currentMediaImageUrl}
+                                        alt={ember?.title || 'Ember'}
+                                        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                                        id="ember-background-image"
+                                    />
+                                )}
 
-                        {/* Show main ember image when no media image and playing without story cut */}
-                        {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
-                            <img
-                                src={ember.image_url}
-                                alt={ember?.title || 'Ember'}
-                                className="absolute inset-0 w-full h-full object-cover"
-                            />
-                        )}
+                                {/* Show main ember image when no media image and playing without story cut */}
+                                {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
+                                    <img
+                                        src={ember.image_url}
+                                        alt={ember?.title || 'Ember'}
+                                        className="absolute inset-0 w-full h-full object-cover"
+                                    />
+                                )}
 
-                        {/* Media Color Screen - solid color background when color effect is active */}
-                        {!isGeneratingAudio && !showEndHold && currentMediaColor && (
-                            <div
-                                className="absolute inset-0"
-                                style={{
-                                    backgroundColor: currentMediaColor
-                                }}
-                            />
-                        )}
+                                {/* Media Color Screen - solid color background when color effect is active */}
+                                {!isGeneratingAudio && !showEndHold && currentMediaColor && (
+                                    <div
+                                        className="absolute inset-0"
+                                        style={{
+                                            backgroundColor: currentMediaColor
+                                        }}
+                                    />
+                                )}
 
-                        {/* Loading State */}
-                        {isGeneratingAudio && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="text-white text-center">
-                                    <div className="mb-4">
-                                        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
-                                    </div>
-                                    <p className="text-lg">Generating audio...</p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Story Cut Content Display */}
-                        {!isGeneratingAudio && currentDisplayText && (
-                            <div className="absolute inset-0 flex items-center justify-center p-4">
-                                <div className="container mx-auto max-w-4xl">
-                                    <div className="text-center">
-                                        {/* Voice Tag */}
-                                        {currentVoiceTag && (
+                                {/* Loading State */}
+                                {isGeneratingAudio && (
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="text-white text-center">
                                             <div className="mb-4">
-                                                <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
-                                                    {currentVoiceTag}
-                                                </span>
+                                                <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
                                             </div>
-                                        )}
+                                            <p className="text-lg">Generating audio...</p>
+                                        </div>
+                                    </div>
+                                )}
 
-                                        {/* Display Text */}
-                                        <p className="text-white text-xl leading-relaxed font-medium">
-                                            {currentDisplayText}
-                                        </p>
+                                {/* Story Cut Content Display */}
+                                {!isGeneratingAudio && currentDisplayText && (
+                                    <div className="absolute inset-0 flex items-center justify-center p-4">
+                                        <div className="container mx-auto max-w-4xl">
+                                            <div className="text-center">
+                                                {/* Voice Tag */}
+                                                {currentVoiceTag && (
+                                                    <div className="mb-4">
+                                                        <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
+                                                            {currentVoiceTag}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {/* Display Text */}
+                                                <p className="text-white text-lg font-bold">
+                                                    {currentDisplayText}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Bottom right capsule: Main EmberDetail capsule in top section */}
+                                <div className="absolute right-4 bottom-4 z-20">
+                                    <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+                                        <button
+                                            className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                            onClick={handleExitPlay}
+                                            aria-label="Close player"
+                                            type="button"
+                                        >
+                                            <X size={24} className="text-gray-700" />
+                                        </button>
                                     </div>
                                 </div>
                             </div>
-                        )}
 
-                        {/* Bottom right capsule: Main EmberDetail capsule in top section */}
-                        <div className="absolute right-4 bottom-4 z-20">
-                            <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
-                                <button
-                                    className="p-1 hover:bg-white/70 rounded-full transition-colors"
-                                    onClick={handleExitPlay}
-                                    aria-label="Close player"
-                                    type="button"
-                                >
-                                    <X size={24} className="text-gray-700" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                            {/* Bottom Section - Black - 30% height to match EmberDetail */}
+                            <div className="h-[30vh] bg-black relative">
+                                {/* End Hold Effect */}
+                                {showEndHold && (
+                                    <div className="absolute inset-0 bg-black" />
+                                )}
 
-                    {/* Bottom Section - Black - 35% height to match EmberDetail */}
-                    <div className="h-[35vh] bg-black relative">
-                        {/* End Hold Effect */}
-                        {showEndHold && (
-                            <div className="absolute inset-0 bg-black" />
-                        )}
-
-                        {/* Text Content Display */}
-                        <div className="absolute inset-0 flex items-center justify-center p-4">
-                            <div className="container mx-auto max-w-4xl">
-                                <div className="text-center">
+                                {/* Text Content Display */}
+                                <div className="w-full px-4 pt-3 pb-2 md:px-6 flex-shrink-0">
                                     {/* Voice Tag */}
                                     {currentVoiceTag && (
-                                        <div className="mb-4">
+                                        <div className="text-center mb-2">
                                             <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
                                                 {currentVoiceTag}
                                             </span>
@@ -1535,14 +1537,135 @@ export default function StoryCutStudio() {
                                     )}
 
                                     {/* Display Text */}
-                                    <p className="text-white text-xl leading-relaxed font-medium">
+                                    <p className="text-lg font-bold text-white text-center">
                                         {currentDisplayText}
                                     </p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
+
+                    {/* Desktop Layout */}
+                    <div className="hidden md:block">
+                        <div className="container mx-auto px-1.5 py-8">
+                            <div className="max-w-4xl mx-auto">
+                                <div className="rounded-xl bg-white shadow-sm">
+                                    <Card className="py-0 w-full bg-gray-100">
+                                        <CardContent className="p-0 h-full">
+                                            <div className={`h-screen flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
+                                                {/* Top Section - Clean background, no orange */}
+                                                <div className="h-[70vh] relative bg-black">
+                                                    {/* Background Image - blurred when playing without story cut */}
+                                                    {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
+                                                        <img
+                                                            src={currentMediaImageUrl}
+                                                            alt={ember?.title || 'Ember'}
+                                                            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                                                            id="ember-background-image"
+                                                        />
+                                                    )}
+
+                                                    {/* Show main ember image when no media image and playing without story cut */}
+                                                    {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
+                                                        <img
+                                                            src={ember.image_url}
+                                                            alt={ember?.title || 'Ember'}
+                                                            className="absolute inset-0 w-full h-full object-cover"
+                                                        />
+                                                    )}
+
+                                                    {/* Media Color Screen - solid color background when color effect is active */}
+                                                    {!isGeneratingAudio && !showEndHold && currentMediaColor && (
+                                                        <div
+                                                            className="absolute inset-0"
+                                                            style={{
+                                                                backgroundColor: currentMediaColor
+                                                            }}
+                                                        />
+                                                    )}
+
+                                                    {/* Loading State */}
+                                                    {isGeneratingAudio && (
+                                                        <div className="absolute inset-0 flex items-center justify-center">
+                                                            <div className="text-white text-center">
+                                                                <div className="mb-4">
+                                                                    <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                                                </div>
+                                                                <p className="text-lg">Generating audio...</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Story Cut Content Display */}
+                                                    {!isGeneratingAudio && currentDisplayText && (
+                                                        <div className="absolute inset-0 flex items-center justify-center p-4">
+                                                            <div className="container mx-auto max-w-4xl">
+                                                                <div className="text-center">
+                                                                    {/* Voice Tag */}
+                                                                    {currentVoiceTag && (
+                                                                        <div className="mb-4">
+                                                                            <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
+                                                                                {currentVoiceTag}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Display Text */}
+                                                                    <p className="text-white text-lg font-bold">
+                                                                        {currentDisplayText}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Bottom right capsule: Main EmberDetail capsule in top section */}
+                                                    <div className="absolute right-4 bottom-4 z-20">
+                                                        <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+                                                            <button
+                                                                className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                                                onClick={handleExitPlay}
+                                                                aria-label="Close player"
+                                                                type="button"
+                                                            >
+                                                                <X size={24} className="text-gray-700" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Bottom Section - Black - 30% height to match EmberDetail */}
+                                                <div className="h-[30vh] bg-black relative">
+                                                    {/* End Hold Effect */}
+                                                    {showEndHold && (
+                                                        <div className="absolute inset-0 bg-black" />
+                                                    )}
+
+                                                    {/* Text Content Display */}
+                                                    <div className="w-full px-4 pt-3 pb-2 md:px-6 flex-shrink-0">
+                                                        {/* Voice Tag */}
+                                                        {currentVoiceTag && (
+                                                            <div className="text-center mb-2">
+                                                                <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
+                                                                    {currentVoiceTag}
+                                                                </span>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Display Text */}
+                                                        <p className="text-lg font-bold text-white text-center">
+                                                            {currentDisplayText}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </>
             )}
         </div>
     );
