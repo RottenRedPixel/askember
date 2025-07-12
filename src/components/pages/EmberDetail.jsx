@@ -1251,7 +1251,7 @@ export default function EmberDetail() {
         <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
           {/* Photo area (with toggle, blurred bg, main image, icon bar) */}
           <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[65vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-auto overflow-hidden">
-            {/* Top right vertical capsule: Owner Avatar and Invited Users */}
+            {/* Top right vertical capsule: Home and Image Controls */}
             <div className="absolute top-4 right-4 z-30 flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
               {/* Home Icon - clickable to go to My Embers */}
               <button
@@ -1263,46 +1263,15 @@ export default function EmberDetail() {
                 <House size={24} className="text-gray-700" />
               </button>
 
-              {/* Horizontal divider below home icon */}
-              <div className="h-px w-6 bg-gray-300 my-1"></div>
-
-              {/* Ember Wiki button - Only show for ember owner */}
-              {isOwner && (
-                <button
-                  className="rounded-full p-1 hover:bg-white/70 transition-colors"
-                  onClick={() => setShowEmberWiki(true)}
-                  aria-label="Ember Wiki"
-                  type="button"
-                >
-                  <Info size={24} className="text-gray-700" />
-                </button>
-              )}
-
-              {/* Story Cuts button - Show for all users */}
+              {/* Image crop/full screen button */}
               <button
-                className="rounded-full p-1 hover:bg-white/70 transition-colors relative"
-                onClick={() => setShowEmberStoryCuts(true)}
-                aria-label="Story Cuts"
+                className="rounded-full p-1 hover:bg-white/50 transition-colors"
+                onClick={() => setShowFullImage((prev) => !prev)}
+                aria-label={showFullImage ? 'Show cropped view' : 'Show full image with blur'}
                 type="button"
               >
-                <FilmSlate size={24} className="text-gray-700" />
-                {/* Indicator dot when story cuts exist */}
-                {storyCuts.length > 0 && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full shadow-sm"></div>
-                )}
+                <CornersOut size={24} className="text-gray-700" />
               </button>
-
-              {/* Share button - View-only sharing for everyone */}
-              {(!ember?.is_public || user) && (
-                <button
-                  className="rounded-full p-1 hover:bg-white/70 transition-colors"
-                  onClick={() => setShowEmberSharing(true)}
-                  aria-label="Share ember (view-only)"
-                  type="button"
-                >
-                  <ShareNetwork size={24} className="text-gray-700" />
-                </button>
-              )}
             </div>
             {/* Blurred background with fade */}
             <img
@@ -1348,19 +1317,10 @@ export default function EmberDetail() {
               </div>
             </div>
 
-            {/* Bottom right capsule: Action icons above horizontal divider above feature icons */}
+            {/* Bottom right capsule: Avatar stack, divider, share/wiki/storycuts, divider, play button */}
             <div className="absolute right-4 bottom-4 z-20">
               <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
-                {/* Action Icons */}
-                <button
-                  className="rounded-full p-1 hover:bg-white/50 transition-colors"
-                  onClick={() => setShowFullImage((prev) => !prev)}
-                  aria-label={showFullImage ? 'Show cropped view' : 'Show full image with blur'}
-                  type="button"
-                >
-                  <CornersOut size={24} className="text-gray-700" />
-                </button>
-
+                {/* Avatar Stack */}
                 {/* Owner Avatar - Always at the top of the stack */}
                 {ember?.owner && (
                   <div
@@ -1409,7 +1369,49 @@ export default function EmberDetail() {
                 {/* Horizontal divider */}
                 <div className="h-px w-6 bg-gray-300 my-1"></div>
 
-                {/* Feature Icons */}
+                {/* Share, Wiki, Story Cuts buttons */}
+                {/* Share button - View-only sharing for everyone */}
+                {(!ember?.is_public || user) && (
+                  <button
+                    className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                    onClick={() => setShowEmberSharing(true)}
+                    aria-label="Share ember (view-only)"
+                    type="button"
+                  >
+                    <ShareNetwork size={24} className="text-gray-700" />
+                  </button>
+                )}
+
+                {/* Ember Wiki button - Only show for ember owner */}
+                {isOwner && (
+                  <button
+                    className="rounded-full p-1 hover:bg-white/70 transition-colors"
+                    onClick={() => setShowEmberWiki(true)}
+                    aria-label="Ember Wiki"
+                    type="button"
+                  >
+                    <Info size={24} className="text-gray-700" />
+                  </button>
+                )}
+
+                {/* Story Cuts button - Show for all users */}
+                <button
+                  className="rounded-full p-1 hover:bg-white/70 transition-colors relative"
+                  onClick={() => setShowEmberStoryCuts(true)}
+                  aria-label="Story Cuts"
+                  type="button"
+                >
+                  <FilmSlate size={24} className="text-gray-700" />
+                  {/* Indicator dot when story cuts exist */}
+                  {storyCuts.length > 0 && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full shadow-sm"></div>
+                  )}
+                </button>
+
+                {/* Horizontal divider */}
+                <div className="h-px w-6 bg-gray-300 my-1"></div>
+
+                {/* Play button */}
                 <button
                   className="p-1 hover:bg-white/50 rounded-full transition-colors"
                   onClick={handlePlay}
@@ -1429,18 +1431,8 @@ export default function EmberDetail() {
             </div>
           </div>
 
-          {/* Wiki Progress Bar - Full Width Capsule */}
-          <div className="w-full px-4 pt-3 pb-1.5 md:px-6">
-            <div className="w-full bg-gray-200 rounded-full h-4">
-              <div
-                className="bg-blue-500 h-4 rounded-full transition-all duration-300 ease-out"
-                style={{ width: `${wikiProgress.percentage}%` }}
-              />
-            </div>
-          </div>
-
           {/* Progress Message */}
-          <div className="w-full px-4 pt-2 pb-2 md:px-6">
+          <div className="w-full px-4 pt-3 pb-2 md:px-6">
             <p className="text-lg font-bold text-gray-800 text-center">
               {wikiProgress.percentage === 100
                 ? `Congrats ${userProfile?.first_name || 'User'}! We did it! Now let's try Story Cuts!`
@@ -1469,6 +1461,8 @@ export default function EmberDetail() {
             formatDisplayLocation={formatDisplayLocation}
             formatDisplayDate={formatDisplayDate}
           />
+
+
         </div>
       )
     },
@@ -2309,17 +2303,7 @@ export default function EmberDetail() {
               {/* Bottom right capsule: Main EmberDetail capsule in top section */}
               {!showEndHold && (
                 <div className="absolute right-4 bottom-4 z-[60]">
-                  <div className="flex flex-col items-center gap-2 bg-white/80 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
-                    {/* Action Icons */}
-                    <button
-                      className="rounded-full p-1 hover:bg-white/70 transition-colors"
-                      onClick={() => setShowFullImage((prev) => !prev)}
-                      aria-label={showFullImage ? 'Show cropped view' : 'Show full image with blur'}
-                      type="button"
-                    >
-                      <CornersOut size={24} className="text-gray-700" />
-                    </button>
-
+                  <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
                     {/* Owner Avatar - Always at the top of the stack */}
                     {ember?.owner && (
                       <div
