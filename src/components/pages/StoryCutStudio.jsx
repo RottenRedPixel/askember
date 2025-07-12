@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Eye, Code, Plus, GripVertical, Save, X, ArrowLeft } from 'lucide-react';
+import { Eye, Code, Plus, Save, X, ArrowLeft, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -521,6 +521,101 @@ export default function StoryCutStudio() {
         };
     }, [currentAudio, sentenceTimeouts, mediaTimeouts]);
 
+    // Helper function to get arrow button colors based on block type
+    const getArrowButtonColors = (block) => {
+        if (block.type === 'media') {
+            return {
+                active: 'bg-blue-100 hover:bg-blue-200 text-blue-600',
+                disabled: 'bg-blue-50 text-blue-300 cursor-not-allowed'
+            };
+        } else if (block.type === 'voice') {
+            if (block.voiceType === 'ember') {
+                return {
+                    active: 'bg-purple-100 hover:bg-purple-200 text-purple-600',
+                    disabled: 'bg-purple-50 text-purple-300 cursor-not-allowed'
+                };
+            } else if (block.voiceType === 'narrator') {
+                return {
+                    active: 'bg-yellow-100 hover:bg-yellow-200 text-yellow-600',
+                    disabled: 'bg-yellow-50 text-yellow-300 cursor-not-allowed'
+                };
+            } else if (block.voiceType === 'contributor') {
+                return {
+                    active: 'bg-green-100 hover:bg-green-200 text-green-600',
+                    disabled: 'bg-green-50 text-green-300 cursor-not-allowed'
+                };
+            }
+        } else if (block.type === 'hold') {
+            return {
+                active: 'bg-gray-100 hover:bg-gray-200 text-gray-600',
+                disabled: 'bg-gray-50 text-gray-300 cursor-not-allowed'
+            };
+        }
+
+        // Default fallback
+        return {
+            active: 'bg-gray-100 hover:bg-gray-200 text-gray-600',
+            disabled: 'bg-gray-50 text-gray-300 cursor-not-allowed'
+        };
+    };
+
+    // Block reordering functions
+    const moveBlockUp = async (index) => {
+        if (index === 0) return; // Can't move first block up
+
+        const newBlocks = [...blocks];
+        const blockToMove = newBlocks[index];
+        newBlocks[index] = newBlocks[index - 1];
+        newBlocks[index - 1] = blockToMove;
+
+        setBlocks(newBlocks);
+        console.log(`🔄 Moved block ${blockToMove.id} up (index ${index} → ${index - 1})`);
+
+        // Auto-save the reordered script to database
+        if (user && storyCut) {
+            try {
+                // Wait for state to update, then generate and save
+                setTimeout(async () => {
+                    const updatedScript = generateScript();
+                    await updateStoryCut(storyCut.id, {
+                        full_script: updatedScript
+                    }, user.id);
+                    console.log('✅ Block reordering auto-saved to database');
+                }, 100);
+            } catch (error) {
+                console.error('❌ Failed to auto-save reordered blocks:', error);
+            }
+        }
+    };
+
+    const moveBlockDown = async (index) => {
+        if (index === blocks.length - 1) return; // Can't move last block down
+
+        const newBlocks = [...blocks];
+        const blockToMove = newBlocks[index];
+        newBlocks[index] = newBlocks[index + 1];
+        newBlocks[index + 1] = blockToMove;
+
+        setBlocks(newBlocks);
+        console.log(`🔄 Moved block ${blockToMove.id} down (index ${index} → ${index + 1})`);
+
+        // Auto-save the reordered script to database
+        if (user && storyCut) {
+            try {
+                // Wait for state to update, then generate and save
+                setTimeout(async () => {
+                    const updatedScript = generateScript();
+                    await updateStoryCut(storyCut.id, {
+                        full_script: updatedScript
+                    }, user.id);
+                    console.log('✅ Block reordering auto-saved to database');
+                }, 100);
+            } catch (error) {
+                console.error('❌ Failed to auto-save reordered blocks:', error);
+            }
+        }
+    };
+
     const generateScript = () => {
         return blocks.map(block => {
             switch (block.type) {
@@ -895,7 +990,37 @@ export default function StoryCutStudio() {
                                                 <>
                                                     <div className="flex items-center justify-between mb-2">
                                                         <div className="flex items-center gap-3">
-                                                            <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
+                                                            {/* Reorder Controls */}
+                                                            <div className="flex flex-col gap-2.5">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        moveBlockUp(index);
+                                                                    }}
+                                                                    disabled={index === 0}
+                                                                    className={`p-1 rounded-full transition-colors duration-200 ${index === 0
+                                                                        ? getArrowButtonColors(block).disabled
+                                                                        : getArrowButtonColors(block).active
+                                                                        }`}
+                                                                    title="Move up"
+                                                                >
+                                                                    <ArrowUp className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        moveBlockDown(index);
+                                                                    }}
+                                                                    disabled={index === blocks.length - 1}
+                                                                    className={`p-1 rounded-full transition-colors duration-200 ${index === blocks.length - 1
+                                                                        ? getArrowButtonColors(block).disabled
+                                                                        : getArrowButtonColors(block).active
+                                                                        }`}
+                                                                    title="Move down"
+                                                                >
+                                                                    <ArrowDown className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
 
                                                             {/* Media Thumbnail */}
                                                             {block.mediaUrl && (
@@ -1155,7 +1280,37 @@ export default function StoryCutStudio() {
                                                         <>
                                                             <div className="flex items-center justify-between mb-2">
                                                                 <div className="flex items-center gap-2">
-                                                                    <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
+                                                                    {/* Reorder Controls */}
+                                                                    <div className="flex flex-col gap-2.5 mr-1">
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                moveBlockUp(index);
+                                                                            }}
+                                                                            disabled={index === 0}
+                                                                            className={`p-1 rounded-full transition-colors duration-200 ${index === 0
+                                                                                ? getArrowButtonColors(block).disabled
+                                                                                : getArrowButtonColors(block).active
+                                                                                }`}
+                                                                            title="Move up"
+                                                                        >
+                                                                            <ArrowUp className="w-4 h-4" />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                moveBlockDown(index);
+                                                                            }}
+                                                                            disabled={index === blocks.length - 1}
+                                                                            className={`p-1 rounded-full transition-colors duration-200 ${index === blocks.length - 1
+                                                                                ? getArrowButtonColors(block).disabled
+                                                                                : getArrowButtonColors(block).active
+                                                                                }`}
+                                                                            title="Move down"
+                                                                        >
+                                                                            <ArrowDown className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
                                                                     <div className="flex items-center gap-2">
                                                                         <img
                                                                             src={block.avatarUrl}
@@ -1184,7 +1339,37 @@ export default function StoryCutStudio() {
                                                     ) : (
                                                         <>
                                                             <div className="flex items-center gap-2 mb-2">
-                                                                <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
+                                                                {/* Reorder Controls */}
+                                                                <div className="flex flex-col gap-2.5 mr-1">
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            moveBlockUp(index);
+                                                                        }}
+                                                                        disabled={index === 0}
+                                                                        className={`p-1 rounded-full transition-colors duration-200 ${index === 0
+                                                                            ? getArrowButtonColors(block).disabled
+                                                                            : getArrowButtonColors(block).active
+                                                                            }`}
+                                                                        title="Move up"
+                                                                    >
+                                                                        <ArrowUp className="w-4 h-4" />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            moveBlockDown(index);
+                                                                        }}
+                                                                        disabled={index === blocks.length - 1}
+                                                                        className={`p-1 rounded-full transition-colors duration-200 ${index === blocks.length - 1
+                                                                            ? getArrowButtonColors(block).disabled
+                                                                            : getArrowButtonColors(block).active
+                                                                            }`}
+                                                                        title="Move down"
+                                                                    >
+                                                                        <ArrowDown className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
                                                                 <span className={`font-semibold ${textColor}`}>[{block.voiceTag}]</span>
                                                             </div>
                                                             <p className={`${textColor.replace('600', '700')} ml-6`}>{block.content}</p>
@@ -1267,7 +1452,37 @@ export default function StoryCutStudio() {
                                                 <>
                                                     <div className="flex items-center justify-between mb-2">
                                                         <div className="flex items-center gap-2">
-                                                            <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
+                                                            {/* Reorder Controls */}
+                                                            <div className="flex flex-col gap-2.5 mr-1">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        moveBlockUp(index);
+                                                                    }}
+                                                                    disabled={index === 0}
+                                                                    className={`p-1 rounded-full transition-colors duration-200 ${index === 0
+                                                                        ? getArrowButtonColors(block).disabled
+                                                                        : getArrowButtonColors(block).active
+                                                                        }`}
+                                                                    title="Move up"
+                                                                >
+                                                                    <ArrowUp className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        moveBlockDown(index);
+                                                                    }}
+                                                                    disabled={index === blocks.length - 1}
+                                                                    className={`p-1 rounded-full transition-colors duration-200 ${index === blocks.length - 1
+                                                                        ? getArrowButtonColors(block).disabled
+                                                                        : getArrowButtonColors(block).active
+                                                                        }`}
+                                                                    title="Move down"
+                                                                >
+                                                                    <ArrowDown className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
                                                             <div
                                                                 className="w-8 h-8 rounded border border-gray-300"
                                                                 style={{ backgroundColor: block.color }}
