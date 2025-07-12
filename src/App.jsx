@@ -8,7 +8,6 @@ import MyEmbers from './components/pages/MyEmbers';
 import EmberDetail from './components/pages/EmberDetail';
 import StoryCutStudio from './components/pages/StoryCutStudio';
 import Settings from './components/pages/Settings';
-import EmberPlayExample from './components/EmberPlayExample';
 import AuthGuard from './components/auth/AuthGuard';
 import AdminGuard from './components/auth/AdminGuard';
 import AuthCallback from './components/auth/AuthCallback';
@@ -54,8 +53,8 @@ export default function App() {
   // Show password gate if not verified
   if (!isPasswordVerified) {
     return (
-      <PasswordGate 
-        onPasswordCorrect={() => setIsPasswordVerified(true)} 
+      <PasswordGate
+        onPasswordCorrect={() => setIsPasswordVerified(true)}
       />
     );
   }
@@ -74,8 +73,6 @@ export default function App() {
           <Routes>
             <Route path="/" element={<About />} />
             <Route path="/create" element={<Create />} />
-            <Route path="/test-emberplay" element={<EmberPlayExample />} />
-            <Route path="/test-emberplay/:id" element={<EmberPlayExample />} />
             <Route path="/login" element={<AuthPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/embers" element={

@@ -200,12 +200,21 @@ export default function EmberPlay({
 
                                 {/* Show ember content when not playing story cuts OR when playing without story cut */}
                                 {!isGeneratingAudio && !showEndHold && !currentDisplayText && !currentlyPlayingStoryCut && (
-                                    <p className="text-lg font-bold text-white text-center">
-                                        {isPlaying
-                                            ? (ember?.content || "Let's build this story together! Add your voice, memories, and details to bring this ember to life.")
-                                            : (ember?.content || 'No content available')
-                                        }
-                                    </p>
+                                    <>
+                                        {/* When playing, show content or default message */}
+                                        {isPlaying && (
+                                            <p className="text-lg font-bold text-white text-center">
+                                                {ember?.content || "Let's build this story together! Add your voice, memories, and details to bring this ember to life."}
+                                            </p>
+                                        )}
+                                        
+                                        {/* When stopped, only show content if it exists */}
+                                        {!isPlaying && ember?.content && (
+                                            <p className="text-lg font-bold text-white text-center">
+                                                {ember.content}
+                                            </p>
+                                        )}
+                                    </>
                                 )}
                             </div>
 
@@ -380,12 +389,21 @@ export default function EmberPlay({
 
                                             {/* Show ember content when not playing story cuts OR when playing without story cut */}
                                             {!isGeneratingAudio && !showEndHold && !currentDisplayText && !currentlyPlayingStoryCut && (
-                                                <p className="text-lg font-bold text-white text-center">
-                                                    {isPlaying
-                                                        ? (ember?.content || "Let's build this story together! Add your voice, memories, and details to bring this ember to life.")
-                                                        : (ember?.content || 'No content available')
-                                                    }
-                                                </p>
+                                                <>
+                                                    {/* When playing, show content or default message */}
+                                                    {isPlaying && (
+                                                        <p className="text-lg font-bold text-white text-center">
+                                                            {ember?.content || "Let's build this story together! Add your voice, memories, and details to bring this ember to life."}
+                                                        </p>
+                                                    )}
+                                                    
+                                                    {/* When stopped, only show content if it exists */}
+                                                    {!isPlaying && ember?.content && (
+                                                        <p className="text-lg font-bold text-white text-center">
+                                                            {ember.content}
+                                                        </p>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
 
