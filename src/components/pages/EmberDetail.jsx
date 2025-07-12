@@ -1444,7 +1444,7 @@ export default function EmberDetail() {
             <p className="text-lg font-bold text-gray-800 text-center">
               {wikiProgress.percentage === 100
                 ? `Congrats ${userProfile?.first_name || 'User'}! We did it! Now let's try Story Cuts!`
-                : `${userProfile?.first_name || 'User'}, we have to complete all these cards...`
+                : `${userProfile?.first_name || 'User'}, lets complete these cards...`
               }
             </p>
           </div>

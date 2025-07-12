@@ -4,7 +4,7 @@ import { Eye, Code, Plus, GripVertical, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FilmSlate, PencilSimple } from 'phosphor-react';
-import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber } from '@/lib/database';
+import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber, saveContributorAudioPreferences, loadContributorAudioPreferences } from '@/lib/database';
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import { formatDuration } from '@/lib/dateUtils';
 import { resolveMediaReference } from '@/lib/scriptParser';
@@ -41,21 +41,57 @@ export default function StoryCutStudio() {
     const [editedScript, setEditedScript] = useState('');
     const [isSavingScript, setIsSavingScript] = useState(false);
 
-    // Load saved preferences from localStorage on component mount
+    // Load saved preferences from database on component mount
     useEffect(() => {
-        if (id) {
-            try {
-                const savedPreferences = localStorage.getItem(`contributorAudioPreferences_${id}`);
-                if (savedPreferences) {
-                    const parsed = JSON.parse(savedPreferences);
-                    setContributorAudioPreferences(parsed);
-                    console.log('🔄 Loaded saved contributor preferences:', parsed);
+        if (id && user) {
+            const loadPreferences = async () => {
+                try {
+                    console.log('🔄 Loading contributor preferences from database...');
+                    const databasePreferences = await loadContributorAudioPreferences(id);
+
+                    // Migration: Check for existing localStorage data
+                    const localStorageKey = `contributorAudioPreferences_${id}`;
+                    const localStoragePreferences = localStorage.getItem(localStorageKey);
+
+                    if (localStoragePreferences && Object.keys(databasePreferences).length === 0) {
+                        // Migrate localStorage data to database
+                        try {
+                            const parsed = JSON.parse(localStoragePreferences);
+                            console.log('🔄 Migrating localStorage preferences to database:', parsed);
+                            await saveContributorAudioPreferences(id, parsed);
+                            setContributorAudioPreferences(parsed);
+
+                            // Clean up localStorage after successful migration
+                            localStorage.removeItem(localStorageKey);
+                            console.log('✅ Migration complete, localStorage cleaned up');
+                        } catch (migrationError) {
+                            console.warn('⚠️ Failed to migrate localStorage data:', migrationError);
+                            setContributorAudioPreferences(databasePreferences);
+                        }
+                    } else {
+                        // Use database preferences
+                        setContributorAudioPreferences(databasePreferences);
+                        console.log('✅ Loaded contributor preferences from database:', databasePreferences);
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Failed to load preferences from database:', error);
+                    // Fallback to localStorage if database fails
+                    try {
+                        const savedPreferences = localStorage.getItem(`contributorAudioPreferences_${id}`);
+                        if (savedPreferences) {
+                            const parsed = JSON.parse(savedPreferences);
+                            setContributorAudioPreferences(parsed);
+                            console.log('🔄 Fallback: Loaded preferences from localStorage:', parsed);
+                        }
+                    } catch (fallbackError) {
+                        console.warn('⚠️ Fallback to localStorage also failed:', fallbackError);
+                    }
                 }
-            } catch (error) {
-                console.warn('⚠️ Failed to load saved preferences:', error);
-            }
+            };
+
+            loadPreferences();
         }
-    }, [id]);
+    }, [id, user]);
 
     // Initialize contributor preferences when blocks are loaded
     useEffect(() => {
@@ -86,17 +122,30 @@ export default function StoryCutStudio() {
         }
     }, [blocks]);
 
-    // Save preferences to localStorage whenever they change
+    // Save preferences to database whenever they change
     useEffect(() => {
-        if (id && Object.keys(contributorAudioPreferences).length > 0) {
-            try {
-                localStorage.setItem(`contributorAudioPreferences_${id}`, JSON.stringify(contributorAudioPreferences));
-                console.log('💾 Saved contributor preferences to localStorage:', contributorAudioPreferences);
-            } catch (error) {
-                console.warn('⚠️ Failed to save preferences:', error);
-            }
+        if (id && user && Object.keys(contributorAudioPreferences).length > 0) {
+            const savePreferences = async () => {
+                try {
+                    await saveContributorAudioPreferences(id, contributorAudioPreferences);
+                    console.log('💾 Saved contributor preferences to database:', contributorAudioPreferences);
+                } catch (error) {
+                    console.warn('⚠️ Failed to save preferences to database:', error);
+                    // Fallback to localStorage if database fails
+                    try {
+                        localStorage.setItem(`contributorAudioPreferences_${id}`, JSON.stringify(contributorAudioPreferences));
+                        console.log('💾 Fallback: Saved preferences to localStorage');
+                    } catch (fallbackError) {
+                        console.warn('⚠️ Fallback to localStorage also failed:', fallbackError);
+                    }
+                }
+            };
+
+            // Debounce saving to avoid too many database calls
+            const timeoutId = setTimeout(savePreferences, 500);
+            return () => clearTimeout(timeoutId);
         }
-    }, [contributorAudioPreferences, id]);
+    }, [contributorAudioPreferences, id, user]);
 
     // Expose contributor preferences globally for audio generation
     useEffect(() => {
@@ -1152,7 +1201,7 @@ export default function StoryCutStudio() {
                                                                                             ...prev,
                                                                                             [blockKey]: 'recorded'
                                                                                         }));
-                                                                                        console.log(`🎙️ Set ${blockKey} to use recorded audio (PERSISTENT)`);
+                                                                                        console.log(`🎙️ Set ${blockKey} to use recorded audio (DATABASE PERSISTENT)`);
                                                                                     }
                                                                                 }}
                                                                                 className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
@@ -1172,7 +1221,7 @@ export default function StoryCutStudio() {
                                                                                         ...prev,
                                                                                         [blockKey]: 'synth'
                                                                                     }));
-                                                                                    console.log(`🎤 Set ${blockKey} to use synth voice (PERSISTENT)`);
+                                                                                    console.log(`🎤 Set ${blockKey} to use synth voice (DATABASE PERSISTENT)`);
                                                                                 }
                                                                             }}
                                                                             className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
@@ -1191,7 +1240,7 @@ export default function StoryCutStudio() {
                                                                                         ...prev,
                                                                                         [blockKey]: 'text'
                                                                                     }));
-                                                                                    console.log(`📝 Set ${blockKey} to use text response (PERSISTENT)`);
+                                                                                    console.log(`📝 Set ${blockKey} to use text response (DATABASE PERSISTENT)`);
                                                                                 }
                                                                             }}
                                                                             className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
