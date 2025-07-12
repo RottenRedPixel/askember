@@ -1250,7 +1250,7 @@ export default function EmberDetail() {
       content: (
         <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
           {/* Photo area (with toggle, blurred bg, main image, icon bar) */}
-          <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[65vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-auto overflow-hidden">
+          <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[70vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-[70vh] overflow-hidden">
             {/* Top right vertical capsule: Home and Image Controls */}
             <div className="absolute top-4 right-4 z-30 flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
               {/* Home Icon - clickable to go to My Embers */}
@@ -1431,36 +1431,41 @@ export default function EmberDetail() {
             </div>
           </div>
 
-          {/* Progress Message */}
-          <div className="w-full px-4 pt-3 pb-2 md:px-6">
-            <p className="text-lg font-bold text-gray-800 text-center">
-              {wikiProgress.percentage === 100
-                ? `Congrats ${userProfile?.first_name || 'User'}! We did it! Now let's try Story Cuts!`
-                : `${userProfile?.first_name || 'User'}, lets complete these cards...`
-              }
-            </p>
-          </div>
+          {/* Bottom Section - Fixed height to match EmberPlay */}
+          <div className="h-[30vh] flex flex-col">
+            {/* Progress Message */}
+            <div className="w-full px-4 pt-3 pb-2 md:px-6 flex-shrink-0">
+              <p className="text-lg font-bold text-gray-800 text-center">
+                {wikiProgress.percentage === 100
+                  ? `Congrats ${userProfile?.first_name || 'User'}! We did it! Now let's try Story Cuts!`
+                  : `${userProfile?.first_name || 'User'}, lets complete these cards...`
+                }
+              </p>
+            </div>
 
-          {/* Content area - Card Carousel */}
-          <EmberCarousel
-            ember={ember}
-            emberId={ember?.id}
-            onCardClick={handleCarouselCardClick}
-            storyMessages={storyMessages}
-            storyContributorCount={storyContributorCount}
-            taggedPeopleData={taggedPeopleData}
-            taggedPeopleCount={taggedPeopleCount}
-            supportingMedia={supportingMedia}
-            imageAnalysisData={imageAnalysisData}
-            sharedUsers={sharedUsers}
-            isAutoAnalyzing={isAutoAnalyzing}
-            isAutoLocationProcessing={isAutoLocationProcessing}
-            isExifProcessing={isExifProcessing}
-            getSectionStatus={getSectionStatus}
-            getStoryProgress={getStoryProgress}
-            formatDisplayLocation={formatDisplayLocation}
-            formatDisplayDate={formatDisplayDate}
-          />
+            {/* Content area - Card Carousel */}
+            <div className="flex-1 overflow-hidden">
+              <EmberCarousel
+                ember={ember}
+                emberId={ember?.id}
+                onCardClick={handleCarouselCardClick}
+                storyMessages={storyMessages}
+                storyContributorCount={storyContributorCount}
+                taggedPeopleData={taggedPeopleData}
+                taggedPeopleCount={taggedPeopleCount}
+                supportingMedia={supportingMedia}
+                imageAnalysisData={imageAnalysisData}
+                sharedUsers={sharedUsers}
+                isAutoAnalyzing={isAutoAnalyzing}
+                isAutoLocationProcessing={isAutoLocationProcessing}
+                isExifProcessing={isExifProcessing}
+                getSectionStatus={getSectionStatus}
+                getStoryProgress={getStoryProgress}
+                formatDisplayLocation={formatDisplayLocation}
+                formatDisplayDate={formatDisplayDate}
+              />
+            </div>
+          </div>
 
 
         </div>
@@ -2266,7 +2271,7 @@ export default function EmberDetail() {
         <>
           <div className={`fixed inset-0 z-50 flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
             {/* Top Section - Clean background, no orange */}
-            <div className="h-[65vh] relative bg-black">
+            <div className="h-[70vh] relative bg-black">
               {/* Background Image - blurred when playing without story cut */}
               {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
                 <img
@@ -2377,50 +2382,41 @@ export default function EmberDetail() {
               )}
             </div>
 
-            {/* Bottom Section - Black - 35% height to match EmberDetail */}
-            <div className="h-[35vh] bg-black relative">
+            {/* Bottom Section - Black - 30% height to match EmberDetail */}
+            <div className="h-[30vh] bg-black relative">
               {/* 🎯 Synchronized Text Display (Option 1B: Sentence-by-Sentence) */}
               {!isGeneratingAudio && !showEndHold && currentDisplayText && (
-                <div className="absolute inset-0 flex items-center justify-center p-4">
-                  <div className="container mx-auto max-w-4xl">
-                    <div className="text-center">
-                      {/* Current sentence text */}
-                      <p className="text-white text-xl leading-relaxed font-medium">
-                        {currentDisplayText}
-                      </p>
+                <div className="w-full px-4 pt-3 pb-2 md:px-6 flex-shrink-0">
+                  <p className="text-lg font-bold text-white text-center">
+                    {currentDisplayText}
+                  </p>
 
-                      {/* Progress indicator for sentences */}
-                      {currentSegmentSentences.length > 1 && (
-                        <div className="flex justify-center mt-4">
-                          <div className="flex gap-1">
-                            {currentSegmentSentences.map((_, index) => (
-                              <div
-                                key={index}
-                                className={`w-2 h-2 rounded-full ${index === currentSentenceIndex ? 'bg-white' : 'bg-white/30'
-                                  }`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                  {/* Progress indicator for sentences */}
+                  {currentSegmentSentences.length > 1 && (
+                    <div className="flex justify-center mt-4">
+                      <div className="flex gap-1">
+                        {currentSegmentSentences.map((_, index) => (
+                          <div
+                            key={index}
+                            className={`w-2 h-2 rounded-full ${index === currentSentenceIndex ? 'bg-white' : 'bg-white/30'
+                              }`}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
               {/* Show ember content when not playing story cuts OR when playing without story cut */}
               {!isGeneratingAudio && !showEndHold && !currentDisplayText && !currentlyPlayingStoryCut && (
-                <div className="absolute inset-0 flex items-center justify-center p-4">
-                  <div className="container mx-auto max-w-4xl">
-                    <div className="text-center">
-                      <p className="text-white text-xl leading-relaxed font-medium">
-                        {isPlaying
-                          ? (ember.content || "Let's build this story together! Add your voice, memories, and details to bring this ember to life.")
-                          : (ember.content || 'No content available')
-                        }
-                      </p>
-                    </div>
-                  </div>
+                <div className="w-full px-4 pt-3 pb-2 md:px-6 flex-shrink-0">
+                  <p className="text-lg font-bold text-white text-center">
+                    {isPlaying
+                      ? (ember.content || "Let's build this story together! Add your voice, memories, and details to bring this ember to life.")
+                      : (ember.content || 'No content available')
+                    }
+                  </p>
                 </div>
               )}
             </div>

@@ -1434,7 +1434,7 @@ export default function StoryCutStudio() {
             {showFullscreenPlay && (
                 <div className={`fixed inset-0 z-50 flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
                     {/* Top Section - Clean background, no orange */}
-                    <div className="h-[65vh] relative bg-black">
+                    <div className="h-[70vh] relative bg-black">
                         {/* Background Image - blurred when playing without story cut */}
                         {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
                             <img
@@ -1491,7 +1491,7 @@ export default function StoryCutStudio() {
                                         )}
 
                                         {/* Display Text */}
-                                        <p className="text-white text-xl leading-relaxed font-medium">
+                                        <p className="text-white text-lg font-bold">
                                             {currentDisplayText}
                                         </p>
                                     </div>
@@ -1514,32 +1514,28 @@ export default function StoryCutStudio() {
                         </div>
                     </div>
 
-                    {/* Bottom Section - Black - 35% height to match EmberDetail */}
-                    <div className="h-[35vh] bg-black relative">
+                    {/* Bottom Section - Black - 30% height to match EmberDetail */}
+                    <div className="h-[30vh] bg-black relative">
                         {/* End Hold Effect */}
                         {showEndHold && (
                             <div className="absolute inset-0 bg-black" />
                         )}
 
                         {/* Text Content Display */}
-                        <div className="absolute inset-0 flex items-center justify-center p-4">
-                            <div className="container mx-auto max-w-4xl">
-                                <div className="text-center">
-                                    {/* Voice Tag */}
-                                    {currentVoiceTag && (
-                                        <div className="mb-4">
-                                            <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
-                                                {currentVoiceTag}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Display Text */}
-                                    <p className="text-white text-xl leading-relaxed font-medium">
-                                        {currentDisplayText}
-                                    </p>
+                        <div className="w-full px-4 pt-3 pb-2 md:px-6 flex-shrink-0">
+                            {/* Voice Tag */}
+                            {currentVoiceTag && (
+                                <div className="text-center mb-2">
+                                    <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
+                                        {currentVoiceTag}
+                                    </span>
                                 </div>
-                            </div>
+                            )}
+
+                            {/* Display Text */}
+                            <p className="text-lg font-bold text-white text-center">
+                                {currentDisplayText}
+                            </p>
                         </div>
                     </div>
                 </div>
