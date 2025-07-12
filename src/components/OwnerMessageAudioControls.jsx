@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { getStoryCutAudioPreferences, getUserVoiceModel, updateMessageAudioPreference } from '@/lib/database';
 
 /**
- * Audio controls for owner messages in story cuts
+ * Audio controls for voice messages in story cuts (owner and contributors)
  * Extracted from EmberDetail.jsx to improve maintainability
  */
-const OwnerMessageAudioControls = ({ line, messageIndex, messageType, storyMessages, ember, storyCutId }) => {
+const MessageAudioControls = ({ line, messageIndex, messageType, storyMessages, ember, storyCutId, userId = null }) => {
     const [messagePreferences, setMessagePreferences] = useState({});
+    const [preferencesLoaded, setPreferencesLoaded] = useState(false);
 
     // Expose data globally for debugging
     useEffect(() => {
@@ -18,31 +19,50 @@ const OwnerMessageAudioControls = ({ line, messageIndex, messageType, storyMessa
     // Load preferences from database when component mounts
     useEffect(() => {
         const loadPreferences = async () => {
-            if (!storyCutId) return;
+            if (!storyCutId) {
+                setPreferencesLoaded(true);
+                return;
+            }
 
             try {
+                console.log(`🔄 Loading audio preferences for story cut: ${storyCutId}`);
                 const savedPreferences = await getStoryCutAudioPreferences(storyCutId);
+                console.log(`✅ Loaded audio preferences:`, savedPreferences);
                 if (savedPreferences) {
                     setMessagePreferences(savedPreferences);
                 }
+                setPreferencesLoaded(true);
             } catch (error) {
                 console.error('Error loading audio preferences:', error);
+                setPreferencesLoaded(true);
             }
         };
 
         loadPreferences();
     }, [storyCutId]);
 
-    // Analyze this specific message
+    // Analyze this specific message and set defaults only if no saved preference exists
     useEffect(() => {
         const analyzeMessage = async () => {
-            if (!line || !storyMessages?.length || !ember?.user_id) return;
+            // Only run after preferences have been loaded from database
+            if (!preferencesLoaded || !line || !storyMessages?.length) return;
 
             const messageKey = `${messageIndex}-${line.substring(0, 50)}`;
 
+            // If we already have a saved preference for this message, don't override it
+            if (messagePreferences[messageKey]) {
+                console.log(`✅ Using saved preference for message ${messageIndex}: ${messagePreferences[messageKey]}`);
+                return;
+            }
+
+            // Use provided userId or default to ember owner
+            const targetUserId = userId || ember?.user_id;
+
+            if (!targetUserId) return;
+
             try {
-                // Check if owner has a personal voice model
-                const userVoiceModel = await getUserVoiceModel(ember.user_id);
+                // Check if user has a personal voice model
+                const userVoiceModel = await getUserVoiceModel(targetUserId);
                 const hasPersonalVoice = userVoiceModel && userVoiceModel.elevenlabs_voice_id;
 
                 // Check if this message has recorded audio
@@ -67,22 +87,23 @@ const OwnerMessageAudioControls = ({ line, messageIndex, messageType, storyMessa
                     defaultPreference = 'text'; // Text messages naturally default to text response
                 }
 
+                console.log(`🎯 Setting default preference for message ${messageIndex}: ${defaultPreference}`);
                 setMessagePreferences(prev => ({
                     ...prev,
-                    [messageKey]: prev[messageKey] || defaultPreference
+                    [messageKey]: defaultPreference
                 }));
             } catch (error) {
                 console.log(`⚠️ Error analyzing message ${messageIndex}:`, error.message);
                 // Still show controls even if there's an error - text response is always available
                 setMessagePreferences(prev => ({
                     ...prev,
-                    [messageKey]: prev[messageKey] || 'text'
+                    [messageKey]: 'text'
                 }));
             }
         };
 
         analyzeMessage();
-    }, [line, messageIndex, messageType, storyMessages, ember]);
+    }, [line, messageIndex, messageType, storyMessages, ember, userId, preferencesLoaded, messagePreferences]);
 
     // Store preferences globally for audio generation
     useEffect(() => {
@@ -92,6 +113,8 @@ const OwnerMessageAudioControls = ({ line, messageIndex, messageType, storyMessa
     }, [messagePreferences]);
 
     const handlePreferenceChange = async (messageKey, preference) => {
+        console.log(`🔄 Changing preference for message ${messageIndex} (${messageKey}): ${preference}`);
+
         // Update local state immediately
         setMessagePreferences(prev => ({
             ...prev,
@@ -101,11 +124,14 @@ const OwnerMessageAudioControls = ({ line, messageIndex, messageType, storyMessa
         // Save to database
         if (storyCutId) {
             try {
-                await updateMessageAudioPreference(storyCutId, messageKey, preference);
-                console.log(`✅ Saved preference for message ${messageIndex}: ${preference}`);
+                console.log(`💾 Saving preference to database: storyCutId=${storyCutId}, messageKey=${messageKey}, preference=${preference}`);
+                const result = await updateMessageAudioPreference(storyCutId, messageKey, preference);
+                console.log(`✅ Saved preference for message ${messageIndex}: ${preference}`, result);
             } catch (error) {
-                console.error('Error saving audio preference:', error);
+                console.error('❌ Error saving audio preference:', error);
             }
+        } else {
+            console.warn('⚠️ No storyCutId provided - cannot save preference');
         }
     };
 
@@ -159,4 +185,7 @@ const OwnerMessageAudioControls = ({ line, messageIndex, messageType, storyMessa
     );
 };
 
-export default OwnerMessageAudioControls; 
+export default MessageAudioControls;
+
+// Legacy export for backward compatibility
+export { MessageAudioControls as OwnerMessageAudioControls }; 

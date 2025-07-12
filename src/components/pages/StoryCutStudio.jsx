@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Eye, Code, Plus, GripVertical, Save, Play, X, Pause } from 'lucide-react';
+import { Eye, Code, Plus, GripVertical, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FilmSlate } from 'phosphor-react';
-import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber } from '@/lib/database';
+import { FilmSlate, PencilSimple } from 'phosphor-react';
+import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber } from '@/lib/database';
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import { formatDuration } from '@/lib/dateUtils';
 import { resolveMediaReference } from '@/lib/scriptParser';
 import { handlePlay as handleMediaPlay, handlePlaybackComplete as handleMediaPlaybackComplete, handleExitPlay as handleMediaExitPlay } from '@/lib/mediaHandlers';
 import useStore from '@/store';
+import { useUIState } from '@/lib/useUIState';
 
 export default function StoryCutStudio() {
     const { id } = useParams(); // This is the ember ID
@@ -28,31 +29,113 @@ export default function StoryCutStudio() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [updating, setUpdating] = useState(false);
-    const [previewing, setPreviewing] = useState(false);
 
-    // Player state management
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
-    const [showFullscreenPlay, setShowFullscreenPlay] = useState(false);
-    const [isPlayerFadingOut, setIsPlayerFadingOut] = useState(false);
-    const [currentAudio, setCurrentAudio] = useState(null);
-    const [activeAudioSegments, setActiveAudioSegments] = useState([]);
-    const [showEndHold, setShowEndHold] = useState(false);
-    const [currentVoiceType, setCurrentVoiceType] = useState(null);
-    const [currentVoiceTransparency, setCurrentVoiceTransparency] = useState(0.2);
-    const [currentMediaColor, setCurrentMediaColor] = useState(null);
-    const [currentZoomScale, setCurrentZoomScale] = useState({ start: 1.0, end: 1.0 });
-    const [currentMediaImageUrl, setCurrentMediaImageUrl] = useState(null);
-    const [currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut] = useState(null);
-    const [currentDisplayText, setCurrentDisplayText] = useState('');
-    const [currentVoiceTag, setCurrentVoiceTag] = useState('');
-    const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
-    const [currentSegmentSentences, setCurrentSegmentSentences] = useState([]);
-    const [sentenceTimeouts, setSentenceTimeouts] = useState([]);
-    const [mediaTimeouts, setMediaTimeouts] = useState([]);
-    const [message, setMessage] = useState(null);
-    const playbackStoppedRef = useRef(false);
-    const mediaTimeoutsRef = useRef([]);
+    // Story messages for determining contributor message types
+    const [storyMessages, setStoryMessages] = useState([]);
+
+    // Contributor audio preferences - store per block
+    const [contributorAudioPreferences, setContributorAudioPreferences] = useState({});
+
+    // Script editing state
+    const [isEditingScript, setIsEditingScript] = useState(false);
+    const [editedScript, setEditedScript] = useState('');
+    const [isSavingScript, setIsSavingScript] = useState(false);
+
+    // Load saved preferences from localStorage on component mount
+    useEffect(() => {
+        if (id) {
+            try {
+                const savedPreferences = localStorage.getItem(`contributorAudioPreferences_${id}`);
+                if (savedPreferences) {
+                    const parsed = JSON.parse(savedPreferences);
+                    setContributorAudioPreferences(parsed);
+                    console.log('🔄 Loaded saved contributor preferences:', parsed);
+                }
+            } catch (error) {
+                console.warn('⚠️ Failed to load saved preferences:', error);
+            }
+        }
+    }, [id]);
+
+    // Initialize contributor preferences when blocks are loaded
+    useEffect(() => {
+        if (blocks && blocks.length > 0) {
+            const contributorBlocks = blocks.filter(block => block.voiceType === 'contributor');
+
+            setContributorAudioPreferences(prev => {
+                const newPreferences = { ...prev };
+                let hasChanges = false;
+
+                contributorBlocks.forEach(block => {
+                    // Use unique key for each block (voiceTag + block content)
+                    const blockKey = `${block.voiceTag}-${block.id}`;
+
+                    // Only set default if no preference exists yet
+                    if (!newPreferences[blockKey]) {
+                        // Set default based on message type
+                        const defaultPreference = block.messageType === 'Audio Message' ? 'recorded' : 'text';
+                        newPreferences[blockKey] = defaultPreference;
+                        hasChanges = true;
+                        console.log(`🎯 Setting default preference for ${blockKey} (${block.messageType}): ${defaultPreference}`);
+                    }
+                });
+
+                // Only return new object if there were changes
+                return hasChanges ? newPreferences : prev;
+            });
+        }
+    }, [blocks]);
+
+    // Save preferences to localStorage whenever they change
+    useEffect(() => {
+        if (id && Object.keys(contributorAudioPreferences).length > 0) {
+            try {
+                localStorage.setItem(`contributorAudioPreferences_${id}`, JSON.stringify(contributorAudioPreferences));
+                console.log('💾 Saved contributor preferences to localStorage:', contributorAudioPreferences);
+            } catch (error) {
+                console.warn('⚠️ Failed to save preferences:', error);
+            }
+        }
+    }, [contributorAudioPreferences, id]);
+
+    // Expose contributor preferences globally for audio generation
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            // For multiple blocks per contributor, use block-specific preferences
+            // The audio player will match blocks individually rather than consolidating
+            window.contributorAudioPreferences = contributorAudioPreferences;
+            console.log('🎭 Updated contributor audio preferences for audio player:', contributorAudioPreferences);
+            console.log('🎭 Raw block preferences:', contributorAudioPreferences);
+        }
+    }, [contributorAudioPreferences]);
+
+    // Use the same UI state management as EmberDetail
+    const uiState = useUIState();
+    const {
+        // Audio states
+        isPlaying, setIsPlaying,
+        isGeneratingAudio, setIsGeneratingAudio,
+        showFullscreenPlay, setShowFullscreenPlay,
+        isPlayerFadingOut, setIsPlayerFadingOut,
+        currentAudio, setCurrentAudio,
+        activeAudioSegments, setActiveAudioSegments,
+        showEndHold, setShowEndHold,
+        currentVoiceType, setCurrentVoiceType,
+        currentVoiceTransparency, setCurrentVoiceTransparency,
+        currentMediaColor, setCurrentMediaColor,
+        currentZoomScale, setCurrentZoomScale,
+        currentMediaImageUrl, setCurrentMediaImageUrl,
+        currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut,
+        currentDisplayText, setCurrentDisplayText,
+        currentVoiceTag, setCurrentVoiceTag,
+        currentSentenceIndex, setCurrentSentenceIndex,
+        currentSegmentSentences, setCurrentSegmentSentences,
+        sentenceTimeouts, setSentenceTimeouts,
+        mediaTimeouts, setMediaTimeouts,
+        playbackStoppedRef,
+        mediaTimeoutsRef,
+        message, setMessage
+    } = uiState;
 
     // Load real story cut data
     useEffect(() => {
@@ -79,6 +162,96 @@ export default function StoryCutStudio() {
                 console.log('🌟 Loading ember data for player...');
                 const emberData = await getEmber(id);
                 setEmber(emberData);
+
+                // Load story messages for contributor type detection
+                console.log('📖 Loading story messages for contributor type detection...');
+                let loadedStoryMessages = [];
+                try {
+                    const allStoryMessages = await getAllStoryMessagesForEmber(id);
+                    loadedStoryMessages = allStoryMessages?.messages || [];
+                    setStoryMessages(loadedStoryMessages);
+                    console.log('✅ Loaded story messages:', loadedStoryMessages.length);
+                } catch (messageError) {
+                    console.warn('⚠️ Could not load story messages:', messageError);
+                    setStoryMessages([]);
+                }
+
+                // Function to determine message type based on original story messages
+                const determineMessageType = (voiceTag, content, voiceType) => {
+                    if (voiceType !== 'contributor') {
+                        return 'AI Voice';
+                    }
+
+                    // For contributors, try to match with original story messages
+                    if (!loadedStoryMessages || loadedStoryMessages.length === 0) {
+                        console.log(`🔍 No story messages available for ${voiceTag}`);
+                        return 'Text Response'; // Default to text if no messages available
+                    }
+
+                    console.log(`🔍 DEBUGGING ${voiceTag}:`);
+                    console.log(`  Script content: "${content}"`);
+                    console.log(`  Total story messages: ${loadedStoryMessages.length}`);
+                    console.log(`  Ember owner user_id: ${emberData?.user_id}`);
+
+                    // Debug all messages before filtering
+                    loadedStoryMessages.forEach((msg, index) => {
+                        console.log(`  Message ${index}: user_id="${msg.user_id}", sender="${msg.sender}", content="${msg.content?.substring(0, 50)}...", has_audio=${msg.has_audio}`);
+                    });
+
+                    // Get contributor messages (filter by sender - "user" messages are from contributors)
+                    const contributorMessages = loadedStoryMessages.filter(msg => msg.sender === 'user')
+                        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+                    console.log(`  Available contributor messages after filtering: ${contributorMessages.length}`);
+
+                    // Try to find a message that corresponds to this voice line by content matching
+                    for (const msg of contributorMessages) {
+                        if (msg.content && msg.content.trim()) {
+                            console.log(`  Checking message: "${msg.content}" (has_audio: ${msg.has_audio})`);
+
+                            // More flexible matching approach
+                            const msgContent = msg.content.toLowerCase().trim();
+                            const scriptContent = content.toLowerCase().trim();
+
+                            // Method 1: Exact match
+                            if (msgContent === scriptContent) {
+                                console.log(`  ✅ EXACT MATCH found! has_audio: ${msg.has_audio}`);
+                                return msg.has_audio ? 'Audio Message' : 'Text Response';
+                            }
+
+                            // Method 2: One contains the other
+                            if (msgContent.includes(scriptContent) || scriptContent.includes(msgContent)) {
+                                console.log(`  ✅ SUBSTRING MATCH found! has_audio: ${msg.has_audio}`);
+                                return msg.has_audio ? 'Audio Message' : 'Text Response';
+                            }
+
+                            // Method 3: Word-based matching with lower threshold
+                            const msgWords = msgContent.split(/\s+/).filter(word => word.length > 2);
+                            const scriptWords = scriptContent.split(/\s+/).filter(word => word.length > 2);
+
+                            // Count matching words
+                            let matchingWords = 0;
+                            for (const word of msgWords) {
+                                if (scriptWords.includes(word)) {
+                                    matchingWords++;
+                                }
+                            }
+
+                            // If more than 50% of words match, consider it a match
+                            const matchPercentage = matchingWords / Math.min(msgWords.length, scriptWords.length);
+                            console.log(`  Word match: ${matchingWords}/${Math.min(msgWords.length, scriptWords.length)} = ${Math.round(matchPercentage * 100)}%`);
+
+                            if (matchPercentage >= 0.5 && matchingWords >= 2) {
+                                console.log(`  ✅ WORD MATCH found! has_audio: ${msg.has_audio}`);
+                                return msg.has_audio ? 'Audio Message' : 'Text Response';
+                            }
+                        }
+                    }
+
+                    // Default to text response if no match found
+                    console.log(`  ❌ No message match found for "${content.substring(0, 50)}..." - defaulting to Text Response`);
+                    return 'Text Response';
+                };
 
                 // Parse the actual script and create blocks with real content
                 const realBlocks = [];
@@ -171,6 +344,9 @@ export default function StoryCutStudio() {
                                     enhancedVoiceTag = `Narrator (${narratorVoiceName})`;
                                 }
 
+                                // Determine the correct message type
+                                const messageType = determineMessageType(voiceTag, content, voiceType);
+
                                 realBlocks.push({
                                     id: blockId++,
                                     type: 'voice',
@@ -178,7 +354,7 @@ export default function StoryCutStudio() {
                                     content: content,
                                     voiceType: voiceType,
                                     avatarUrl: voiceType === 'contributor' ? 'https://i.pravatar.cc/40?img=1' : '/EMBERFAV.svg',
-                                    messageType: voiceType === 'contributor' ? 'Audio Message' : 'AI Voice'
+                                    messageType: messageType
                                 });
                             }
                         }
@@ -386,59 +562,52 @@ export default function StoryCutStudio() {
         }
     };
 
-    // Handle previewing the story cut
-    const handlePreviewStory = async () => {
-        if (!storyCut || !ember) return;
+    // Script editing handlers
+    const handleEditScript = () => {
+        setEditedScript(storyCut?.full_script || '');
+        setIsEditingScript(true);
+    };
+
+    const handleCancelScriptEdit = () => {
+        setIsEditingScript(false);
+        setEditedScript('');
+    };
+
+    const handleSaveScript = async () => {
+        if (!user || !storyCut?.id || !editedScript.trim()) return;
 
         try {
-            setPreviewing(true);
-            console.log('🎬 Previewing story cut:', storyCut.title);
+            setIsSavingScript(true);
 
-            // Generate the updated script from current visual controls
-            const updatedScript = generateScript();
-            console.log('🔄 Generated script for preview');
+            console.log('🔄 Saving edited script...');
 
-            // Create a temporary updated story cut with the current script
-            const updatedStoryCut = {
-                ...storyCut,
-                full_script: updatedScript
-            };
+            // Update the story cut in the database
+            await updateStoryCut(storyCut.id, {
+                full_script: editedScript.trim()
+            }, user.id);
 
-            // Launch the ember player directly
-            await handleMediaPlay(ember, [updatedStoryCut], updatedStoryCut, storyCut.ember_voice_id, { isPlaying }, {
-                setShowFullscreenPlay,
-                setIsGeneratingAudio,
-                setCurrentlyPlayingStoryCut,
-                setIsPlaying,
-                setCurrentAudio,
-                handleExitPlay,
-                handlePlaybackComplete,
-                setActiveAudioSegments,
-                playbackStoppedRef,
-                setCurrentVoiceType,
-                setCurrentVoiceTransparency,
-                setCurrentMediaColor,
-                setCurrentZoomScale,
-                setCurrentMediaImageUrl,
-                setCurrentDisplayText,
-                setCurrentVoiceTag,
-                setCurrentSentenceIndex,
-                setCurrentSegmentSentences,
-                setSentenceTimeouts,
-                sentenceTimeouts,
-                setMediaTimeouts,
-                mediaTimeouts,
-                mediaTimeoutsRef,
-                setMessage
-            });
+            console.log('✅ Script updated successfully');
+
+            // Update the local state
+            setStoryCut(prev => ({
+                ...prev,
+                full_script: editedScript.trim()
+            }));
+
+            // Exit edit mode
+            setIsEditingScript(false);
+            setEditedScript('');
 
         } catch (error) {
-            console.error('❌ Failed to preview story:', error);
-            setError('Failed to preview story. Please try again.');
+            console.error('❌ Error updating script:', error);
+            setError('Failed to update script. Please try again.');
         } finally {
-            setPreviewing(false);
+            setIsSavingScript(false);
         }
     };
+
+    // Handle previewing the story cut
+
 
     // Player handlers
     const handlePlaybackComplete = () => {
@@ -964,40 +1133,75 @@ export default function StoryCutStudio() {
                                                         </>
                                                     )}
 
-                                                    {block.voiceType === 'contributor' && (
-                                                        <div className="mt-3" style={{ marginLeft: '24px' }}>
-                                                            <div className="flex items-center gap-4">
-                                                                <label className="flex items-center gap-2 cursor-pointer">
-                                                                    <input
-                                                                        type="radio"
-                                                                        name={`audio-${block.id}`}
-                                                                        value="recorded"
-                                                                        defaultChecked={true}
-                                                                        className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
-                                                                    />
-                                                                    <span className="text-sm text-green-700">Recorded</span>
-                                                                </label>
-                                                                <label className="flex items-center gap-2 cursor-pointer">
-                                                                    <input
-                                                                        type="radio"
-                                                                        name={`audio-${block.id}`}
-                                                                        value="synth"
-                                                                        className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
-                                                                    />
-                                                                    <span className="text-sm text-green-700">Synth</span>
-                                                                </label>
-                                                                <label className="flex items-center gap-2 cursor-pointer">
-                                                                    <input
-                                                                        type="radio"
-                                                                        name={`audio-${block.id}`}
-                                                                        value="text"
-                                                                        className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
-                                                                    />
-                                                                    <span className="text-sm text-green-700">Text Response</span>
-                                                                </label>
+                                                    {block.voiceType === 'contributor' && (() => {
+                                                        const blockKey = `${block.voiceTag}-${block.id}`;
+                                                        return (
+                                                            <div className="mt-3" style={{ marginLeft: '24px' }}>
+                                                                <div className="flex items-center gap-4">
+                                                                    {/* Show "Recorded" option only if contributor left an audio message */}
+                                                                    {block.messageType === 'Audio Message' && (
+                                                                        <label className="flex items-center gap-2 cursor-pointer">
+                                                                            <input
+                                                                                type="radio"
+                                                                                name={`audio-${block.id}`}
+                                                                                value="recorded"
+                                                                                checked={contributorAudioPreferences[blockKey] === 'recorded'}
+                                                                                onChange={(e) => {
+                                                                                    if (e.target.checked) {
+                                                                                        setContributorAudioPreferences(prev => ({
+                                                                                            ...prev,
+                                                                                            [blockKey]: 'recorded'
+                                                                                        }));
+                                                                                        console.log(`🎙️ Set ${blockKey} to use recorded audio (PERSISTENT)`);
+                                                                                    }
+                                                                                }}
+                                                                                className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
+                                                                            />
+                                                                            <span className="text-sm text-green-700">Recorded</span>
+                                                                        </label>
+                                                                    )}
+                                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                                        <input
+                                                                            type="radio"
+                                                                            name={`audio-${block.id}`}
+                                                                            value="synth"
+                                                                            checked={contributorAudioPreferences[blockKey] === 'synth'}
+                                                                            onChange={(e) => {
+                                                                                if (e.target.checked) {
+                                                                                    setContributorAudioPreferences(prev => ({
+                                                                                        ...prev,
+                                                                                        [blockKey]: 'synth'
+                                                                                    }));
+                                                                                    console.log(`🎤 Set ${blockKey} to use synth voice (PERSISTENT)`);
+                                                                                }
+                                                                            }}
+                                                                            className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
+                                                                        />
+                                                                        <span className="text-sm text-green-700">Synth</span>
+                                                                    </label>
+                                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                                        <input
+                                                                            type="radio"
+                                                                            name={`audio-${block.id}`}
+                                                                            value="text"
+                                                                            checked={contributorAudioPreferences[blockKey] === 'text'}
+                                                                            onChange={(e) => {
+                                                                                if (e.target.checked) {
+                                                                                    setContributorAudioPreferences(prev => ({
+                                                                                        ...prev,
+                                                                                        [blockKey]: 'text'
+                                                                                    }));
+                                                                                    console.log(`📝 Set ${blockKey} to use text response (PERSISTENT)`);
+                                                                                }
+                                                                            }}
+                                                                            className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
+                                                                        />
+                                                                        <span className="text-sm text-green-700">Text Response</span>
+                                                                    </label>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
+                                                        );
+                                                    })()}
                                                 </>
                                             )}
 
@@ -1106,15 +1310,7 @@ export default function StoryCutStudio() {
                                     size="lg"
                                     className="px-6 py-3 h-auto flex-1"
                                 >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={handlePreviewStory}
-                                    disabled={previewing}
-                                    size="lg"
-                                    className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 h-auto disabled:opacity-50 flex-1"
-                                >
-                                    {previewing ? 'Loading...' : 'Preview'}
+                                    Back
                                 </Button>
                                 <Button
                                     onClick={handleUpdateStoryCut}
@@ -1128,122 +1324,176 @@ export default function StoryCutStudio() {
                         )}
                     </div>
                 ) : (
-                    /* Code View - matches Complete Script styling */
+                    /* Code View - Script editing functionality */
                     <div className="space-y-3">
-                        <h3 className="text-lg font-semibold text-gray-900">Generated Script</h3>
-                        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <div className="text-gray-700 leading-relaxed font-mono text-sm">
-                                <pre className="whitespace-pre-wrap">{storyCut?.full_script || 'Loading script...'}</pre>
-                            </div>
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-gray-900">Generated Script</h3>
+                            {!isEditingScript && (
+                                <Button
+                                    onClick={handleEditScript}
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex items-center gap-2"
+                                >
+                                    <PencilSimple size={16} />
+                                    Edit
+                                </Button>
+                            )}
                         </div>
+
+                        {isEditingScript ? (
+                            /* Edit Mode */
+                            <div className="space-y-3">
+                                <textarea
+                                    value={editedScript}
+                                    onChange={(e) => setEditedScript(e.target.value)}
+                                    className="w-full h-96 p-4 bg-white border border-gray-300 rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Enter your script here..."
+                                />
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        onClick={handleSaveScript}
+                                        disabled={isSavingScript || !editedScript.trim()}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    >
+                                        <Save size={16} className="mr-2" />
+                                        {isSavingScript ? 'Saving...' : 'Save'}
+                                    </Button>
+                                    <Button
+                                        onClick={handleCancelScriptEdit}
+                                        variant="outline"
+                                        disabled={isSavingScript}
+                                    >
+                                        <X size={16} className="mr-2" />
+                                        Cancel
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            /* View Mode */
+                            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="text-gray-700 leading-relaxed font-mono text-sm">
+                                    <pre className="whitespace-pre-wrap">{storyCut?.full_script || 'Loading script...'}</pre>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
 
-            {/* Ember Player - Fullscreen Overlay */}
+            {/* EmberPlay - Uses the same fullscreen experience as EmberDetail */}
             {showFullscreenPlay && (
-                <>
-                    <div className={`fixed inset-0 z-50 flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
-                        {/* Top Section - Player Area */}
-                        <div className="h-[65vh] relative bg-black">
-                            {/* Background Image - blurred when playing without story cut */}
-                            {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
-                                <img
-                                    src={currentMediaImageUrl}
-                                    alt={ember?.title || 'Ember'}
-                                    className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-                                    id="ember-background-image"
-                                />
-                            )}
+                <div className={`fixed inset-0 z-50 flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
+                    {/* Top Section - Clean background, no orange */}
+                    <div className="h-[65vh] relative bg-black">
+                        {/* Background Image - blurred when playing without story cut */}
+                        {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
+                            <img
+                                src={currentMediaImageUrl}
+                                alt={ember?.title || 'Ember'}
+                                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                                id="ember-background-image"
+                            />
+                        )}
 
-                            {/* Show main ember image when no media image */}
-                            {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && ember?.image_url && (
-                                <img
-                                    src={ember.image_url}
-                                    alt={ember?.title || 'Ember'}
-                                    className="absolute inset-0 w-full h-full object-cover"
-                                />
-                            )}
+                        {/* Show main ember image when no media image and playing without story cut */}
+                        {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
+                            <img
+                                src={ember.image_url}
+                                alt={ember?.title || 'Ember'}
+                                className="absolute inset-0 w-full h-full object-cover"
+                            />
+                        )}
 
-                            {/* Media Color Screen - solid color background when color effect is active */}
-                            {!isGeneratingAudio && !showEndHold && currentMediaColor && (
-                                <div
-                                    className="absolute inset-0 transition-colors duration-1000"
-                                    style={{ backgroundColor: currentMediaColor }}
-                                />
-                            )}
+                        {/* Media Color Screen - solid color background when color effect is active */}
+                        {!isGeneratingAudio && !showEndHold && currentMediaColor && (
+                            <div
+                                className="absolute inset-0"
+                                style={{
+                                    backgroundColor: currentMediaColor
+                                }}
+                            />
+                        )}
 
-                            {/* Loading State */}
-                            {isGeneratingAudio && (
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <div className="text-white text-center">
-                                        <div className="mb-4">
-                                            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
-                                        </div>
-                                        <p className="text-lg">Generating audio...</p>
+                        {/* Loading State */}
+                        {isGeneratingAudio && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="text-white text-center">
+                                    <div className="mb-4">
+                                        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                    </div>
+                                    <p className="text-lg">Generating audio...</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Story Cut Content Display */}
+                        {!isGeneratingAudio && currentDisplayText && (
+                            <div className="absolute inset-0 flex items-center justify-center p-4">
+                                <div className="container mx-auto max-w-4xl">
+                                    <div className="text-center">
+                                        {/* Voice Tag */}
+                                        {currentVoiceTag && (
+                                            <div className="mb-4">
+                                                <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
+                                                    {currentVoiceTag}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Display Text */}
+                                        <p className="text-white text-xl leading-relaxed font-medium">
+                                            {currentDisplayText}
+                                        </p>
                                     </div>
                                 </div>
-                            )}
+                            </div>
+                        )}
 
-                            {/* Story Cut Content Display */}
-                            {!isGeneratingAudio && currentDisplayText && (
-                                <div className="absolute inset-0 flex items-center justify-center p-4">
-                                    <div className="container mx-auto max-w-4xl">
-                                        <div className="text-center">
-                                            {/* Voice Tag */}
-                                            {currentVoiceTag && (
-                                                <div className="mb-4">
-                                                    <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
-                                                        {currentVoiceTag}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            {/* Display Text */}
-                                            <p className="text-white text-xl leading-relaxed font-medium">
-                                                {currentDisplayText}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Controls */}
-                            <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
-                                {/* Play/Pause Button */}
+                        {/* Bottom right capsule: Main EmberDetail capsule in top section */}
+                        <div className="absolute right-4 bottom-4 z-20">
+                            <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
                                 <button
-                                    onClick={isPlaying ? handleExitPlay : handlePreviewStory}
-                                    className="p-3 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors backdrop-blur-sm"
-                                    disabled={isGeneratingAudio}
-                                >
-                                    {isPlaying ? <Pause size={24} /> : <Play size={24} />}
-                                </button>
-
-                                {/* Close Button */}
-                                <button
+                                    className="p-1 hover:bg-white/70 rounded-full transition-colors"
                                     onClick={handleExitPlay}
-                                    className="p-3 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors backdrop-blur-sm"
+                                    aria-label="Close player"
+                                    type="button"
                                 >
-                                    <X size={24} />
+                                    <X size={24} className="text-gray-700" />
                                 </button>
                             </div>
                         </div>
+                    </div>
 
-                        {/* Bottom Section - Story Info */}
-                        <div className="flex-1 bg-white p-6">
+                    {/* Bottom Section - Black - 35% height to match EmberDetail */}
+                    <div className="h-[35vh] bg-black relative">
+                        {/* End Hold Effect */}
+                        {showEndHold && (
+                            <div className="absolute inset-0 bg-black" />
+                        )}
+
+                        {/* Text Content Display */}
+                        <div className="absolute inset-0 flex items-center justify-center p-4">
                             <div className="container mx-auto max-w-4xl">
                                 <div className="text-center">
-                                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                                        {currentlyPlayingStoryCut?.title || storyCut?.title || 'Preview Story'}
-                                    </h2>
-                                    <p className="text-gray-600">
-                                        {ember?.title || 'Ember Story Preview'}
+                                    {/* Voice Tag */}
+                                    {currentVoiceTag && (
+                                        <div className="mb-4">
+                                            <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
+                                                {currentVoiceTag}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Display Text */}
+                                    <p className="text-white text-xl leading-relaxed font-medium">
+                                        {currentDisplayText}
                                     </p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </>
+                </div>
             )}
         </div>
     );

@@ -383,9 +383,83 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
 
       // Check per-message preference for this content
       let userPreference = 'recorded'; // default
+      let foundStudioPreference = false;
 
-      // Look for matching message preference - try multiple matching strategies
-      if (window.messageAudioPreferences) {
+      // First check StoryCutStudio contributor preferences (most specific to current context)
+      if (window.contributorAudioPreferences) {
+        console.log(`🎭 Checking StoryCutStudio contributor preferences for ${voiceTag}`);
+        console.log(`🎭 Current audio content: "${audioContent}"`);
+
+        // Try to find block-specific preference by matching content
+        const blockSpecificKeys = Object.keys(window.contributorAudioPreferences).filter(key =>
+          key.startsWith(voiceTag + '-')
+        );
+
+        console.log(`🎯 Found ${blockSpecificKeys.length} block-specific preferences for ${voiceTag}:`, blockSpecificKeys);
+
+        let studioPreference = null;
+        let selectedBlockKey = null;
+
+        // If we have block-specific preferences, try to match by content
+        if (blockSpecificKeys.length > 0) {
+          // Strategy: Match the content with the original story messages to determine which block this is
+          console.log(`🎯 Trying to match content "${audioContent}" with block preferences`);
+
+          // Check if this content matches "This was at the Home Depot!" (the text response)
+          const isHomeDepotContent = audioContent.toLowerCase().includes('home depot');
+          const isWhatItWasContent = audioContent.toLowerCase().includes('no idea what it was');
+
+          console.log(`🎯 Content analysis: isHomeDepot=${isHomeDepotContent}, isWhatItWas=${isWhatItWasContent}`);
+
+          // Find the right block based on content
+          for (const blockKey of blockSpecificKeys) {
+            const preference = window.contributorAudioPreferences[blockKey];
+            console.log(`🎯 Checking block preference: ${blockKey} → ${preference}`);
+
+            // If this is the Home Depot content, and there's a text/synth preference, use it
+            if (isHomeDepotContent && (preference === 'text' || preference === 'synth')) {
+              studioPreference = preference;
+              selectedBlockKey = blockKey;
+              console.log(`🎯 ✅ Matched Home Depot content with ${blockKey} → ${preference}`);
+              break;
+            }
+            // If this is the "no idea what it was" content, and there's a recorded preference, use it
+            else if (isWhatItWasContent && preference === 'recorded') {
+              studioPreference = preference;
+              selectedBlockKey = blockKey;
+              console.log(`🎯 ✅ Matched "what it was" content with ${blockKey} → ${preference}`);
+              break;
+            }
+          }
+
+          // If no content-based match, use the first block preference
+          if (!studioPreference && blockSpecificKeys.length > 0) {
+            selectedBlockKey = blockSpecificKeys[0];
+            studioPreference = window.contributorAudioPreferences[selectedBlockKey];
+            console.log(`🎯 📝 Using first block preference: ${selectedBlockKey} → ${studioPreference}`);
+          }
+        } else {
+          // Fallback to voice tag preference if no block-specific ones exist
+          studioPreference = window.contributorAudioPreferences[voiceTag];
+          console.log(`🎯 📝 Using voice tag preference: ${voiceTag} → ${studioPreference}`);
+        }
+
+        if (studioPreference) {
+          foundStudioPreference = true;
+          // Convert studio preference format to audio generation format
+          if (studioPreference === 'synth') {
+            userPreference = 'personal';
+          } else if (studioPreference === 'recorded') {
+            userPreference = 'recorded';
+          } else if (studioPreference === 'text') {
+            userPreference = 'text';
+          }
+          console.log(`🎯 ✅ Found StoryCutStudio preference for ${voiceTag} (${selectedBlockKey}): ${studioPreference} → ${userPreference}`);
+        }
+      }
+
+      // Fallback to detailed message preferences if no studio preference found
+      if (!foundStudioPreference && window.messageAudioPreferences) {
         // Strategy 1: Try to find exact content match
         const matchingKey = Object.keys(window.messageAudioPreferences).find(key => {
           const keyContent = key.split('-').slice(1).join('-'); // Remove messageIndex prefix
@@ -423,10 +497,20 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       // If not found in recorded audio, check story cut contributors
       if (!matchingUserId && storyCut.selected_contributors) {
         console.log(`🔍 No recorded audio match, checking story cut contributors for: ${voiceTag}`);
+        console.log(`🔍 DEBUG: Story cut selected_contributors structure:`, storyCut.selected_contributors);
+        console.log(`🔍 DEBUG: Looking for contributor with name: "${voiceTag}"`);
+
+        // Log each contributor for debugging
+        storyCut.selected_contributors.forEach((contributor, index) => {
+          console.log(`🔍 DEBUG: Contributor ${index}: name="${contributor.name}", id="${contributor.id}", role="${contributor.role}"`);
+        });
+
         const contributor = storyCut.selected_contributors.find(c => c.name === voiceTag);
         if (contributor) {
           console.log(`✅ Found contributor in story cut: ${contributor.name} (ID: ${contributor.id})`);
           matchingUserId = [contributor.id, { user_first_name: contributor.name }];
+        } else {
+          console.log(`❌ Could not find contributor with name "${voiceTag}" in story cut contributors`);
         }
       }
 
@@ -514,6 +598,31 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         console.log(`  - User preference: ${userPreference}`);
         console.log(`  - User ID: ${userId}`);
         console.log(`  - Voice model data:`, userVoiceModel);
+
+        // 🚨 DEBUG: Specific synth preference debugging
+        if (userPreference === 'personal') {
+          console.log(`🚨 DEBUG: User wants SYNTH voice for ${voiceTag}`);
+          console.log(`🚨 DEBUG: Found user ID: ${userId}`);
+          console.log(`🚨 DEBUG: Voice model lookup result:`, userVoiceModel);
+          console.log(`🚨 DEBUG: Voice model keys:`, Object.keys(userVoiceModel || {}));
+          console.log(`🚨 DEBUG: Has elevenlabs_voice_id?`, !!userVoiceModel?.elevenlabs_voice_id);
+          console.log(`🚨 DEBUG: Voice ID value:`, userVoiceModel?.elevenlabs_voice_id);
+          console.log(`🚨 DEBUG: Voice name value:`, userVoiceModel?.elevenlabs_voice_name);
+          console.log(`🚨 DEBUG: Story cut selected_contributors:`, storyCut.selected_contributors);
+
+          if (hasPersonalVoice) {
+            console.log(`🚨 DEBUG: ✅ Personal voice available - will use direct synthesis`);
+            console.log(`🚨 DEBUG: Voice ID: ${userVoiceModel.elevenlabs_voice_id}`);
+            console.log(`🚨 DEBUG: Voice Name: ${userVoiceModel.elevenlabs_voice_name}`);
+          } else {
+            console.log(`🚨 DEBUG: ❌ No personal voice - will fall back to attribution style`);
+            console.log(`🚨 DEBUG: Voice model result:`, userVoiceModel);
+            console.log(`🚨 DEBUG: Has voice ID? ${!!userVoiceModel?.elevenlabs_voice_id}`);
+            console.log(`🚨 DEBUG: typeof voice ID:`, typeof userVoiceModel?.elevenlabs_voice_id);
+            console.log(`🚨 DEBUG: Voice ID length:`, userVoiceModel?.elevenlabs_voice_id?.length);
+            console.log(`🚨 DEBUG: Voice ID matches expected format?`, /^[a-zA-Z0-9_-]+$/.test(userVoiceModel?.elevenlabs_voice_id || ''));
+          }
+        }
 
         // Decision logic for audio preference handling continues in next part...
         return await handleContributorAudioGeneration(userPreference, hasRecordedAudio, hasPersonalVoice, audioData, userVoiceModel, storyCut, voiceTag, audioContent, content);

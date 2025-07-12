@@ -1961,7 +1961,7 @@ export default function EmberDetail() {
                             {/* Metadata */}
                             <div className="mt-3 text-xs text-gray-500" style={{ textAlign: 'left' }}>
                               <div className="flex items-center gap-1 mb-1">
-                                <Avatar className="h-3 w-3">
+                                <Avatar className="h-5 w-5">
                                   <AvatarImage src={cut.creator?.avatar_url} alt={`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim()} />
                                   <AvatarFallback className="bg-blue-100 text-blue-800 text-xs">
                                     {cut.creator?.first_name?.[0] || cut.creator?.last_name?.[0] || 'U'}
@@ -1969,22 +1969,20 @@ export default function EmberDetail() {
                                 </Avatar>
                                 {`${cut.creator?.first_name || ''} ${cut.creator?.last_name || ''}`.trim() || 'Unknown Creator'}
                               </div>
-                              <div className="flex items-center gap-4">
-                                <span className="flex items-center gap-1">
-                                  <Clock size={12} />
-                                  {formatDuration(cut.duration)}
+
+                              {/* Style Badge with relative time */}
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {getStyleDisplayName(cut.style, availableStoryStyles)}
                                 </span>
-                                <span>{formatRelativeTime(cut.created_at)}</span>
+                                <span className="text-xs text-gray-500">
+                                  {formatRelativeTime(cut.created_at)}
+                                </span>
                               </div>
                             </div>
 
-                            {/* Style Badge with Actions */}
-                            <div className="mt-2 text-left flex items-center justify-between" style={{ textAlign: 'left' }}>
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {getStyleDisplayName(cut.style, availableStoryStyles)}
-                              </span>
-
-                              {/* Action buttons */}
+                            {/* Action buttons */}
+                            <div className="mt-3 flex items-center justify-end gap-3">
                               <div className="flex items-center gap-3">
                                 {/* Delete Button - Only show for creators */}
                                 {canDeleteStoryCut(cut) && (

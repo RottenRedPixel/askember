@@ -1,7 +1,7 @@
 import React from 'react';
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import { extractColorFromAction } from '@/lib/scriptParser';
-import OwnerMessageAudioControls from '@/components/OwnerMessageAudioControls';
+import MessageAudioControls from '@/components/OwnerMessageAudioControls';
 
 const StoryCutDetailContent = ({
     selectedStoryCut,
@@ -365,11 +365,29 @@ const StoryCutDetailContent = ({
                                     return (
                                         <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                                             <p className="text-blue-700">{line}</p>
-                                            <div className="flex items-center gap-2 mt-2">
-                                                <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-blue-500 animate-pulse' : 'bg-blue-400'}`}></div>
-                                                <span className="text-xs opacity-70">
-                                                    {messageType === 'audio' ? 'Audio message' : 'Text response'}
-                                                </span>
+                                            <div className="flex items-center justify-between mt-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-2 h-2 rounded-full ${messageType === 'audio' ? 'bg-blue-500 animate-pulse' : 'bg-blue-400'}`}></div>
+                                                    <span className="text-xs opacity-70">
+                                                        {messageType === 'audio' ? 'Audio message' : 'Text response'}
+                                                    </span>
+                                                </div>
+                                                <MessageAudioControls
+                                                    line={line}
+                                                    messageIndex={index}
+                                                    messageType={messageType}
+                                                    storyMessages={storyMessages}
+                                                    ember={ember}
+                                                    storyCutId={selectedStoryCut.id}
+                                                    userId={(() => {
+                                                        // Try to find the contributor's user ID from story messages
+                                                        const contributorMessages = storyMessages?.filter(msg => msg.user_id !== ember?.user_id) || [];
+                                                        if (contributorMessages[index]) {
+                                                            return contributorMessages[index].user_id;
+                                                        }
+                                                        return null;
+                                                    })()}
+                                                />
                                             </div>
                                         </div>
                                     );

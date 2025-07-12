@@ -326,9 +326,24 @@ export const estimateSentenceTimings = (sentences, totalDuration) => {
  * @returns {string} Voice type: 'ember', 'narrator', or 'contributor'
  */
 export const getVoiceType = (voiceTag) => {
-    if (voiceTag === 'EMBER VOICE') return 'ember';
-    if (voiceTag === 'NARRATOR') return 'narrator';
-    return 'contributor'; // Everything else is a contributor (user name)
+    // Use flexible matching to handle variations like "Ember Voice (voice_name)"
+    const lowerTag = voiceTag.toLowerCase().trim();
+
+    // More robust ember voice detection
+    if (lowerTag.includes('ember') || lowerTag === 'ember voice' || lowerTag.startsWith('ember ')) {
+        console.log(`✅ Detected EMBER voice: "${voiceTag}"`);
+        return 'ember';
+    }
+
+    // More robust narrator detection
+    if (lowerTag.includes('narrator') || lowerTag === 'narrator' || lowerTag.startsWith('narrator ')) {
+        console.log(`✅ Detected NARRATOR voice: "${voiceTag}"`);
+        return 'narrator';
+    }
+
+    // Everything else is a contributor (user name)
+    console.log(`✅ Detected CONTRIBUTOR voice: "${voiceTag}"`);
+    return 'contributor';
 };
 
 /**
