@@ -1685,13 +1685,11 @@ export default function EmberDetail() {
 
   return (
     <div className="md:min-h-screen bg-white">
-      {/* Mobile Layout */}
-      <div className="md:hidden -m-[0.67rem] -mt-[0.67rem] h-screen overflow-hidden">
-        <Card className="py-0 w-full h-full bg-gray-100 rounded-none">
-          <CardContent className="p-0 h-full">
-            {allCardsDefinitions[0].content}
-          </CardContent>
-        </Card>
+      {/* Mobile Layout - Consistent height with playback mode */}
+      <div className="md:hidden h-screen overflow-hidden">
+        <div className="h-full bg-gray-100">
+          {allCardsDefinitions[0].content}
+        </div>
       </div>
 
       {/* Desktop Layout */}
@@ -2266,12 +2264,14 @@ export default function EmberDetail() {
         </>
       )}
 
-      {/* Ember Player - Split Screen Layout */}
+      {/* Ember Player - Same wrapper structure as normal view */}
       {showFullscreenPlay && (
         <>
-          <div className={`fixed inset-0 z-50 flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
-            {/* Top Section - Clean background, no orange */}
-            <div className="h-[70vh] relative bg-black">
+          {/* Mobile Layout */}
+          <div className="md:hidden h-screen overflow-hidden">
+            <div className={`h-full bg-gray-100 flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
+              {/* Top Section - Clean background, no orange */}
+              <div className="h-[70vh] relative bg-black">
               {/* Background Image - blurred when playing without story cut */}
               {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
                 <img
@@ -2422,11 +2422,167 @@ export default function EmberDetail() {
             </div>
           </div>
 
+          {/* Desktop Layout */}
+          <div className="hidden md:block">
+            <div className="container mx-auto px-1.5 py-8">
+              <div className="max-w-4xl mx-auto">
+                <div className="rounded-xl bg-white shadow-sm">
+                  <Card className="py-0 w-full bg-gray-100">
+                    <CardContent className="p-0 h-full">
+                      <div className={`h-screen flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
+                        {/* Top Section - Clean background, no orange */}
+                        <div className="h-[70vh] relative bg-black">
+                          {/* Background Image - blurred when playing without story cut */}
+                          {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
+                            <img
+                              src={currentMediaImageUrl}
+                              alt={ember.title || 'Ember'}
+                              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                              id="ember-background-image"
+                            />
+                          )}
 
+                          {/* Show main ember image when no media image and playing without story cut */}
+                          {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
+                            <img
+                              src={ember.image_url}
+                              alt={ember.title || 'Ember'}
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
+                          )}
 
+                          {/* Media Color Screen - solid color background when color effect is active */}
+                          {!isGeneratingAudio && !showEndHold && currentMediaColor && (
+                            <div
+                              className="absolute inset-0"
+                              style={{
+                                backgroundColor: currentMediaColor
+                              }}
+                            />
+                          )}
 
+                          {/* Bottom right capsule: Main EmberDetail capsule in top section */}
+                          {!showEndHold && (
+                            <div className="absolute right-4 bottom-4 z-[60]">
+                              <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+                                {/* Owner Avatar - Always at the top of the stack */}
+                                {ember?.owner && (
+                                  <div
+                                    className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                    style={{
+                                      marginTop: '0px',
+                                      zIndex: 35 // Highest z-index to appear on top
+                                    }}
+                                    title={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
+                                  >
+                                    <Avatar className="h-6 w-6 ring-2 ring-amber-400">
+                                      <AvatarImage
+                                        src={ember.owner.avatar_url}
+                                        alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
+                                      />
+                                      <AvatarFallback className="text-xs bg-amber-100 text-amber-700">
+                                        {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || 'O'}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  </div>
+                                )}
 
+                                {/* Invited Users Avatars - Stacked with 16px overlap */}
+                                {sharedUsers.map((sharedUser, index) => (
+                                  <div
+                                    key={sharedUser.id || index}
+                                    className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                    style={{
+                                      marginTop: ember?.owner ? '-24px' : (index === 0 ? '-8px' : '-24px'),
+                                      zIndex: ember?.owner ? (34 - index) : (30 - index) // Adjust z-index if owner is present
+                                    }}
+                                    title={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
+                                  >
+                                    <Avatar className="h-6 w-6 ring-1 ring-white">
+                                      <AvatarImage
+                                        src={sharedUser.avatar_url}
+                                        alt={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
+                                      />
+                                      <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
+                                        {sharedUser.first_name?.[0] || sharedUser.last_name?.[0] || sharedUser.email?.[0]?.toUpperCase() || '?'}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  </div>
+                                ))}
 
+                                {/* Horizontal divider */}
+                                <div className="h-px w-6 bg-gray-300 my-1"></div>
+
+                                {/* Play/Stop Button - toggles between play and stop */}
+                                <button
+                                  className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                  onClick={isPlaying ? handleExitPlay : handlePlay}
+                                  aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Stop story" : "Play story")}
+                                  type="button"
+                                  disabled={isGeneratingAudio}
+                                >
+                                  {isGeneratingAudio ? (
+                                    <div className="w-6 h-6 flex items-center justify-center">
+                                      <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin" />
+                                    </div>
+                                  ) : isPlaying ? (
+                                    <div className="w-6 h-6 flex items-center justify-center">
+                                      <div className="w-4 h-4 border-2 border-gray-700 rounded-sm"></div>
+                                    </div>
+                                  ) : (
+                                    <PlayCircle size={24} className="text-gray-700" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Bottom Section - Black - 30% height to match EmberDetail */}
+                        <div className="h-[30vh] bg-black relative">
+                          {/* 🎯 Synchronized Text Display (Option 1B: Sentence-by-Sentence) */}
+                          {!isGeneratingAudio && !showEndHold && currentDisplayText && (
+                            <div className="w-full px-4 pt-3 pb-2 md:px-6 flex-shrink-0">
+                              <p className="text-lg font-bold text-white text-center">
+                                {currentDisplayText}
+                              </p>
+
+                              {/* Progress indicator for sentences */}
+                              {currentSegmentSentences.length > 1 && (
+                                <div className="flex justify-center mt-4">
+                                  <div className="flex gap-1">
+                                    {currentSegmentSentences.map((_, index) => (
+                                      <div
+                                        key={index}
+                                        className={`w-2 h-2 rounded-full ${index === currentSentenceIndex ? 'bg-white' : 'bg-white/30'
+                                          }`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Show ember content when not playing story cuts OR when playing without story cut */}
+                          {!isGeneratingAudio && !showEndHold && !currentDisplayText && !currentlyPlayingStoryCut && (
+                            <div className="w-full px-4 pt-3 pb-2 md:px-6 flex-shrink-0">
+                              <p className="text-lg font-bold text-white text-center">
+                                {isPlaying
+                                  ? (ember.content || "Let's build this story together! Add your voice, memories, and details to bring this ember to life.")
+                                  : (ember.content || 'No content available')
+                                }
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* End hold screen - pure black */}
           {showEndHold && (
