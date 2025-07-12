@@ -5,9 +5,9 @@ export default function AdminGuard({ children }) {
   const { user, userProfile, isLoading } = useStore();
   const location = useLocation();
 
-  console.log('AdminGuard state:', { 
-    user: user?.id, 
-    userProfile: userProfile?.role, 
+  console.log('AdminGuard state:', {
+    user: user?.id,
+    userProfile: userProfile?.role,
     isLoading,
     currentPath: location.pathname
   });
@@ -27,9 +27,20 @@ export default function AdminGuard({ children }) {
     return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />;
   }
 
+  // Show loading state if user exists but profile is still loading
+  // This prevents the redirect to home during page reload
+  if (user && !userProfile) {
+    console.log('AdminGuard: User exists but profile still loading');
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   // Check if user is super admin
   const isSuperAdmin = userProfile?.role === 'super_admin';
-  
+
   if (!isSuperAdmin) {
     console.log('AdminGuard: User is not super admin, role:', userProfile?.role);
     return (
