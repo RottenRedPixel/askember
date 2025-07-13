@@ -12,6 +12,7 @@ import { resolveMediaReference } from '@/lib/scriptParser';
 import { handlePlay as handleMediaPlay, handlePlaybackComplete as handleMediaPlaybackComplete, handleExitPlay as handleMediaExitPlay } from '@/lib/mediaHandlers';
 import useStore from '@/store';
 import { useUIState } from '@/lib/useUIState';
+import AddBlockModal from '@/components/AddBlockModal';
 
 export default function StoryCutStudio() {
     const { id } = useParams(); // This is the ember ID
@@ -41,6 +42,9 @@ export default function StoryCutStudio() {
     const [isEditingScript, setIsEditingScript] = useState(false);
     const [editedScript, setEditedScript] = useState('');
     const [isSavingScript, setIsSavingScript] = useState(false);
+
+    // Add Block modal state
+    const [showAddBlockModal, setShowAddBlockModal] = useState(false);
 
     // Load saved preferences from database on component mount
     useEffect(() => {
@@ -977,6 +981,75 @@ export default function StoryCutStudio() {
         }
     };
 
+    // Handle adding a new media block
+    const handleAddMediaBlock = async (selectedMedia) => {
+        if (!selectedMedia || !user || !storyCut) return;
+
+        try {
+            console.log('➕ Adding new media block:', selectedMedia.name);
+
+            // Generate a unique ID for the new block
+            const newBlockId = Math.max(...blocks.map(b => b.id), 0) + 1;
+
+            // Create the new media block
+            const newBlock = {
+                id: newBlockId,
+                type: 'media',
+                mediaName: selectedMedia.name,
+                mediaId: selectedMedia.id,
+                mediaUrl: selectedMedia.url,
+                effect: null,
+                duration: 0
+            };
+
+            // Add the new block to the blocks array (insert before the end block)
+            const newBlocks = [...blocks];
+            const endBlockIndex = newBlocks.findIndex(block => block.type === 'end');
+            if (endBlockIndex !== -1) {
+                newBlocks.splice(endBlockIndex, 0, newBlock);
+            } else {
+                newBlocks.push(newBlock);
+            }
+
+            setBlocks(newBlocks);
+            console.log('✅ Media block added successfully');
+
+            // Initialize effects state for the new block
+            setEffectDirections(prev => ({
+                ...prev,
+                [`fade-${newBlockId}`]: 'in',
+                [`pan-${newBlockId}`]: 'left',
+                [`zoom-${newBlockId}`]: 'in'
+            }));
+
+            setEffectDurations(prev => ({
+                ...prev,
+                [`fade-${newBlockId}`]: 3.0,
+                [`pan-${newBlockId}`]: 4.0,
+                [`zoom-${newBlockId}`]: 3.5
+            }));
+
+            console.log('✅ Effects state initialized for new block');
+
+            // Auto-save the updated script to database
+            try {
+                // Wait for state to update, then generate and save
+                setTimeout(async () => {
+                    const updatedScript = generateScript();
+                    await updateStoryCut(storyCut.id, {
+                        full_script: updatedScript
+                    }, user.id);
+                    console.log('✅ Script with new block auto-saved to database');
+                }, 100);
+            } catch (error) {
+                console.error('❌ Failed to auto-save script with new block:', error);
+            }
+
+        } catch (error) {
+            console.error('❌ Failed to add media block:', error);
+        }
+    };
+
     // Handle previewing the story cut
 
 
@@ -1135,7 +1208,10 @@ export default function StoryCutStudio() {
                                                 {storyCut.word_count} words
                                             </Badge>
                                         </div>
-                                        <button className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                                        <button
+                                            onClick={() => setShowAddBlockModal(true)}
+                                            className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                                        >
                                             <Plus className="w-4 h-4" />
                                             Add Block
                                         </button>
@@ -1275,7 +1351,12 @@ export default function StoryCutStudio() {
                                                             )}
 
                                                             <div className="flex items-center gap-2">
-                                                                <span className={`font-semibold ${textColor}`}>{block.mediaName}</span>
+                                                                                                                                <span 
+                                                                    className={`font-semibold ${textColor}`}
+                                                                    title={block.mediaName}
+                                                                >
+                                                                    {block.mediaName.length > 15 ? `${block.mediaName.substring(0, 15)}...` : block.mediaName}
+                                                                </span>
                                                                 {block.effect && (
                                                                     <span className={`text-xs ${bgColor.replace('50', '100')} ${textColor.replace('600', '800')} px-2 py-1 rounded`}>
                                                                         {block.effect} {block.duration > 0 ? `${block.duration} sec` : ''}
@@ -2227,6 +2308,14 @@ export default function StoryCutStudio() {
                     </div>
                 </>
             )}
+
+            {/* Add Block Modal */}
+            <AddBlockModal
+                isOpen={showAddBlockModal}
+                onClose={() => setShowAddBlockModal(false)}
+                emberId={id}
+                onAddBlock={handleAddMediaBlock}
+            />
         </div>
     );
 } 
