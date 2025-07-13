@@ -614,14 +614,14 @@ export default function StoryCutStudio() {
     // Auto-generate and save complete script when blocks are loaded (but not when manually edited)
     useEffect(() => {
         if (!blocks || blocks.length === 0 || !storyCut || !user) return;
-        
+
         // Don't auto-generate if the script appears to be manually edited
         const storedScript = storyCut.full_script?.trim() || '';
         const hasManualFormatting = storedScript.includes('\n\n\n') || // Extra spacing
-                                   storedScript.includes('  ') || // Extra spaces
-                                   /[a-z]\s*\[/.test(storedScript) || // Text before voice tags
-                                   storedScript.split('\n').some(line => line.trim() && !line.match(/^\[\[|^\[/)); // Non-standard lines
-        
+            storedScript.includes('  ') || // Extra spaces
+            /[a-z]\s*\[/.test(storedScript) || // Text before voice tags
+            storedScript.split('\n').some(line => line.trim() && !line.match(/^\[\[|^\[/)); // Non-standard lines
+
         if (hasManualFormatting) {
             console.log('📝 Script appears to be manually edited - skipping auto-generation');
             return;
@@ -631,28 +631,37 @@ export default function StoryCutStudio() {
         const timeout = setTimeout(async () => {
             try {
                 console.log('🔄 Auto-generating complete script with preferences...');
-                
+
                 const generatedScript = generateScript();
-                
+
                 // Compare with stored script to see if update is needed
                 const isScriptIncomplete = !storedScript.includes(':recorded') && !storedScript.includes(':text') && !storedScript.includes(':synth');
-                
+
                 if (isScriptIncomplete || generatedScript !== storedScript) {
                     console.log('💾 Database script needs updating - auto-saving complete script...');
                     console.log('📝 Stored script preview:', storedScript.substring(0, 200) + '...');
                     console.log('📝 Generated script preview:', generatedScript.substring(0, 200) + '...');
-                    
+
                     await updateStoryCut(storyCut.id, {
                         full_script: generatedScript
                     }, user.id);
-                    
+
                     // Update local state
                     setStoryCut(prev => ({
                         ...prev,
                         full_script: generatedScript
                     }));
-                    
+
                     console.log('✅ Auto-saved complete script to database for EmberPlay');
+
+                    // 🔄 Notify other components about the script update
+                    window.dispatchEvent(new CustomEvent('emberScriptUpdated', {
+                        detail: {
+                            emberId: id,
+                            storyCutId: storyCut.id,
+                            timestamp: Date.now()
+                        }
+                    }));
                 } else {
                     console.log('✅ Database script is already complete - no update needed');
                 }
@@ -749,6 +758,15 @@ export default function StoryCutStudio() {
                         full_script: updatedScript
                     }, user.id);
                     console.log('✅ Block reordering auto-saved to database');
+
+                    // 🔄 Notify other components about the script update
+                    window.dispatchEvent(new CustomEvent('emberScriptUpdated', {
+                        detail: {
+                            emberId: id,
+                            storyCutId: storyCut.id,
+                            timestamp: Date.now()
+                        }
+                    }));
                 }, 100);
             } catch (error) {
                 console.error('❌ Failed to auto-save reordered blocks:', error);
@@ -777,6 +795,15 @@ export default function StoryCutStudio() {
                         full_script: updatedScript
                     }, user.id);
                     console.log('✅ Block reordering auto-saved to database');
+
+                    // 🔄 Notify other components about the script update
+                    window.dispatchEvent(new CustomEvent('emberScriptUpdated', {
+                        detail: {
+                            emberId: id,
+                            storyCutId: storyCut.id,
+                            timestamp: Date.now()
+                        }
+                    }));
                 }, 100);
             } catch (error) {
                 console.error('❌ Failed to auto-save reordered blocks:', error);
@@ -954,6 +981,23 @@ export default function StoryCutStudio() {
             setIsEditingScript(false);
             setEditedScript('');
 
+            // 🔄 Notify EmberPlay and other components to refresh data
+            console.log('🔄 Broadcasting script update to other components...');
+
+            // Dispatch custom event to notify other components
+            window.dispatchEvent(new CustomEvent('emberScriptUpdated', {
+                detail: {
+                    emberId: id,
+                    storyCutId: storyCut.id,
+                    timestamp: Date.now()
+                }
+            }));
+
+            // Also trigger global refresh actions if available
+            if (window.EmberDetailActions?.refreshStoryCuts) {
+                window.EmberDetailActions.refreshStoryCuts();
+            }
+
         } catch (error) {
             console.error('❌ Error updating script:', error);
             setError('Failed to update script. Please try again.');
@@ -1010,6 +1054,12 @@ export default function StoryCutStudio() {
                 [`zoom-${newBlockId}`]: 3.5
             }));
 
+            // Initialize selectedEffects to enable checkboxes like initial blocks
+            setSelectedEffects(prev => ({
+                ...prev,
+                [`effect-${newBlockId}`]: ['fade'] // Start with fade effect enabled by default (like most media blocks)
+            }));
+
             console.log('✅ Effects state initialized for new block');
 
             // Auto-save the updated script to database
@@ -1021,6 +1071,15 @@ export default function StoryCutStudio() {
                         full_script: updatedScript
                     }, user.id);
                     console.log('✅ Script with new block auto-saved to database');
+
+                    // 🔄 Notify other components about the script update
+                    window.dispatchEvent(new CustomEvent('emberScriptUpdated', {
+                        detail: {
+                            emberId: id,
+                            storyCutId: storyCut.id,
+                            timestamp: Date.now()
+                        }
+                    }));
                 }, 100);
             } catch (error) {
                 console.error('❌ Failed to auto-save script with new block:', error);

@@ -386,6 +386,35 @@ export default function EmberDetail() {
     };
   }, []);
 
+  // Listen for script updates from StoryCutStudio
+  useEffect(() => {
+    const handleScriptUpdate = (event) => {
+      const { emberId, storyCutId, timestamp } = event.detail;
+
+      // Only refresh if this is for the current ember
+      if (emberId === id && fetchStoryCuts) {
+        console.log('🔄 EmberDetail: Received script update notification from StoryCutStudio');
+        console.log('🔄 Refreshing story cuts to get latest script changes...');
+
+        // Refresh story cuts data
+        fetchStoryCuts();
+
+        // Also refresh ember data if available
+        if (fetchEmber) {
+          fetchEmber();
+        }
+      }
+    };
+
+    // Add event listener for script updates
+    window.addEventListener('emberScriptUpdated', handleScriptUpdate);
+
+    // Cleanup event listener
+    return () => {
+      window.removeEventListener('emberScriptUpdated', handleScriptUpdate);
+    };
+  }, [id, fetchStoryCuts, fetchEmber]);
+
   // Auto-select owner's voice when story cut creator opens
   useEffect(() => {
     if (showStoryCutCreator && ember?.user_id && !selectedVoices.includes(ember.user_id)) {
@@ -755,33 +784,23 @@ export default function EmberDetail() {
       setSelectedVoices([]);
       clearMediaSelection();
 
+      // 🔄 Notify other components about the script update
+      window.dispatchEvent(new CustomEvent('emberScriptUpdated', {
+        detail: {
+          emberId: ember.id,
+          storyCutId: savedStoryCut.id,
+          timestamp: Date.now()
+        }
+      }));
+
     } catch (error) {
-      console.error('❌ Error generating story cut:', error);
-
-      // Provide more specific error messages for different failure types
-      let errorMessage = 'Failed to generate story cut. Please try again.';
-
-      if (error.message.includes('OpenAI API key')) {
-        errorMessage = 'OpenAI API key not configured. Please check your environment variables.';
-      } else if (error.message.includes('quota exceeded')) {
-        errorMessage = 'OpenAI API quota exceeded. Please check your billing or try again later.';
-      } else if (error.message.includes('not found')) {
-        errorMessage = 'Story generation prompts not properly configured. Please contact support.';
-      } else if (error.message.includes('JSON')) {
-        errorMessage = 'Failed to parse AI response. Please try again with a different configuration.';
-      } else if (error.message.includes('HTTP')) {
-        errorMessage = `API Error: ${error.message}`;
-      } else {
-        errorMessage = error.message;
-      }
-
+      console.error('❌ Story cut generation failed:', error);
       setMessage({
         type: 'error',
-        text: errorMessage
+        text: error.message || 'Failed to generate story cut. Please try again.'
       });
     } finally {
       setIsGeneratingStoryCut(false);
-      setTimeout(() => setMessage(null), 5000);
     }
   };
 
@@ -967,6 +986,15 @@ export default function EmberDetail() {
       console.log('🔄 Refreshing story cuts to get latest data...');
       await fetchStoryCuts();
       console.log('🔄 Story cuts refreshed');
+
+      // 🔄 Notify other components about the script update
+      window.dispatchEvent(new CustomEvent('emberScriptUpdated', {
+        detail: {
+          emberId: ember.id,
+          storyCutId: selectedStoryCut.id,
+          timestamp: Date.now()
+        }
+      }));
 
       // 🚨 FINAL DEBUG: Check what's actually in the selectedStoryCut after save
       console.log('🚨 FINAL SCRIPT AFTER SAVE:', selectedStoryCut.full_script);

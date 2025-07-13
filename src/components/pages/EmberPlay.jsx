@@ -55,6 +55,35 @@ export default function EmberPlay() {
         }
     }, [id]); // Only depend on ID to avoid infinite loops
 
+    // Listen for script updates from StoryCutStudio
+    useEffect(() => {
+        const handleScriptUpdate = (event) => {
+            const { emberId, storyCutId, timestamp } = event.detail;
+
+            // Only refresh if this is for the current ember
+            if (emberId === id && fetchStoryCuts) {
+                console.log('🔄 EmberPlay: Received script update notification from StoryCutStudio');
+                console.log('🔄 Refreshing story cuts to get latest script changes...');
+
+                // Refresh story cuts data
+                fetchStoryCuts();
+
+                // Also refresh ember data if available
+                if (fetchEmber) {
+                    fetchEmber();
+                }
+            }
+        };
+
+        // Add event listener for script updates
+        window.addEventListener('emberScriptUpdated', handleScriptUpdate);
+
+        // Cleanup event listener
+        return () => {
+            window.removeEventListener('emberScriptUpdated', handleScriptUpdate);
+        };
+    }, [id, fetchStoryCuts, fetchEmber]);
+
     // Use the same UI state hooks as EmberDetail
     const {
         showFullscreenPlay,
