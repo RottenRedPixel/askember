@@ -303,15 +303,7 @@ export default function EmberPlay() {
                                     </div>
                                 </div>
 
-                                {/* Exit Button - Top Right */}
-                                <button
-                                    className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors z-30 pointer-events-auto"
-                                    onClick={handleExitPlay}
-                                    aria-label="Exit EmberPlay"
-                                    type="button"
-                                >
-                                    <X size={20} className="text-white" />
-                                </button>
+
 
                                 {/* Background Image - with visual effects coordination */}
                                 {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
@@ -444,6 +436,19 @@ export default function EmberPlay() {
                                                     <PlayCircle size={24} className={`text-gray-700 ${isPlaying ? 'text-blue-600' : ''}`} />
                                                 )}
                                             </button>
+
+                                            {/* Horizontal Divider */}
+                                            <div className="w-4 h-px bg-gray-400 my-1"></div>
+
+                                            {/* Exit Button */}
+                                            <button
+                                                className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                                                onClick={handleExitPlay}
+                                                aria-label="Exit EmberPlay"
+                                                type="button"
+                                            >
+                                                <X size={20} className="text-gray-700" />
+                                            </button>
                                         </div>
                                     </div>
                                 )}
@@ -513,15 +518,7 @@ export default function EmberPlay() {
                                     </h1>
                                 </div>
 
-                                {/* Exit Button - Top Right */}
-                                <button
-                                    className="absolute top-6 right-6 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors z-30 pointer-events-auto"
-                                    onClick={handleExitPlay}
-                                    aria-label="Exit EmberPlay"
-                                    type="button"
-                                >
-                                    <X size={20} className="text-white" />
-                                </button>
+
 
                                 {/* Background Image - with visual effects coordination */}
                                 {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
@@ -653,6 +650,19 @@ export default function EmberPlay() {
                                                 ) : (
                                                     <PlayCircle size={24} className={`text-gray-700 ${isPlaying ? 'text-blue-600' : ''}`} />
                                                 )}
+                                            </button>
+
+                                            {/* Horizontal Divider */}
+                                            <div className="w-4 h-px bg-gray-400 my-1"></div>
+
+                                            {/* Exit Button */}
+                                            <button
+                                                className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                                                onClick={handleExitPlay}
+                                                aria-label="Exit EmberPlay"
+                                                type="button"
+                                            >
+                                                <X size={20} className="text-gray-700" />
                                             </button>
                                         </div>
                                     </div>

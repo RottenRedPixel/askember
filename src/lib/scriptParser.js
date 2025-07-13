@@ -497,7 +497,7 @@ export const extractFadeFromAction = (action) => {
         const duration = parseFloat(fadeInMatch[1]);
         return {
             type: 'in',
-            duration: Math.max(0.1, duration), // Minimum 0.1 second fade
+            duration: duration, // Use exact duration from slider
             startOpacity: 0,
             endOpacity: 1
         };
@@ -509,7 +509,7 @@ export const extractFadeFromAction = (action) => {
         const duration = parseFloat(fadeOutMatch[1]);
         return {
             type: 'out',
-            duration: Math.max(0.1, duration), // Minimum 0.1 second fade
+            duration: duration, // Use exact duration from slider
             startOpacity: 1,
             endOpacity: 0
         };
@@ -530,7 +530,7 @@ export const extractPanFromAction = (action) => {
         const duration = parseFloat(panLeftMatch[1]);
         return {
             type: 'left',
-            duration: Math.max(0.1, duration), // Minimum 0.1 second pan
+            duration: duration, // Use exact duration from slider
             direction: 'left'
         };
     }
@@ -541,7 +541,7 @@ export const extractPanFromAction = (action) => {
         const duration = parseFloat(panRightMatch[1]);
         return {
             type: 'right',
-            duration: Math.max(0.1, duration), // Minimum 0.1 second pan
+            duration: duration, // Use exact duration from slider
             direction: 'right'
         };
     }
@@ -561,7 +561,7 @@ export const extractZoomFromAction = (action) => {
         const duration = parseFloat(zoomInMatch[1]);
         return {
             type: 'in',
-            duration: Math.max(0.1, duration), // Minimum 0.1 second zoom
+            duration: duration, // Use exact duration from slider
             direction: 'in',
             startScale: 1,
             endScale: 1.5
@@ -574,7 +574,7 @@ export const extractZoomFromAction = (action) => {
         const duration = parseFloat(zoomOutMatch[1]);
         return {
             type: 'out',
-            duration: Math.max(0.1, duration), // Minimum 0.1 second zoom
+            duration: duration, // Use exact duration from slider
             direction: 'out',
             startScale: 1,
             endScale: 0.7

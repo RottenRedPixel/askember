@@ -1458,7 +1458,11 @@ export default function EmberDetail() {
                 {/* Story Cuts button - Show for all users */}
                 <button
                   className="rounded-full p-1 hover:bg-white/70 transition-colors relative"
-                  onClick={() => setShowEmberStoryCuts(true)}
+                  onClick={async () => {
+                    setShowEmberStoryCuts(true);
+                    // Refresh story cuts data to ensure primary status is loaded
+                    await fetchStoryCuts();
+                  }}
                   aria-label="Story Cuts"
                   type="button"
                 >

@@ -101,15 +101,7 @@ export default function EmberPlay({
                                     </div>
                                 </div>
 
-                                {/* Exit Button - Top Right */}
-                                <button
-                                    className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors z-30 pointer-events-auto"
-                                    onClick={onExitPlay}
-                                    aria-label="Exit EmberPlay"
-                                    type="button"
-                                >
-                                    <X size={20} className="text-white" />
-                                </button>
+
 
                                 {/* Background Image - with visual effects coordination */}
                                 {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
@@ -190,6 +182,19 @@ export default function EmberPlay({
                                 {!showEndHold && (
                                     <div className="absolute right-4 bottom-4 z-[60]">
                                         <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+                                            {/* Exit Button */}
+                                            <button
+                                                className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                                                onClick={onExitPlay}
+                                                aria-label="Exit EmberPlay"
+                                                type="button"
+                                            >
+                                                <X size={24} weight="bold" className="text-gray-700" />
+                                            </button>
+
+                                            {/* Horizontal Divider */}
+                                            <div className="w-4 h-px bg-gray-400 my-1"></div>
+
                                             {/* Owner Avatar - Always at the top of the stack */}
                                             {ember?.owner && (
                                                 <div
@@ -323,15 +328,7 @@ export default function EmberPlay({
                                                 </div>
                                             </div>
 
-                                            {/* Exit Button - Top Right */}
-                                            <button
-                                                className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors z-30 pointer-events-auto"
-                                                onClick={onExitPlay}
-                                                aria-label="Exit EmberPlay"
-                                                type="button"
-                                            >
-                                                <X size={20} className="text-white" />
-                                            </button>
+
 
                                             {/* Background Image - with visual effects coordination */}
                                             {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
@@ -412,6 +409,19 @@ export default function EmberPlay({
                                             {!showEndHold && (
                                                 <div className="absolute right-4 bottom-4 z-[60]">
                                                     <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+                                                        {/* Exit Button */}
+                                                        <button
+                                                            className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                                                            onClick={onExitPlay}
+                                                            aria-label="Exit EmberPlay"
+                                                            type="button"
+                                                        >
+                                                            <X size={24} weight="bold" className="text-gray-700" />
+                                                        </button>
+
+                                                        {/* Horizontal Divider */}
+                                                        <div className="w-4 h-px bg-gray-400 my-1"></div>
+
                                                         {/* Owner Avatar - Always at the top of the stack */}
                                                         {ember?.owner && (
                                                             <div
