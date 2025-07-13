@@ -406,8 +406,23 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       let userPreference = 'recorded'; // default
       let foundStudioPreference = false;
 
-      // First check StoryCutStudio contributor preferences (most specific to current context)
-      if (window.contributorAudioPreferences) {
+      // PRIORITY 1: Check if preference is embedded in script segment
+      if (segment.preference) {
+        console.log(`🎯 ✅ Found embedded preference in script: ${segment.preference}`);
+        // Convert script preference format to audio generation format
+        if (segment.preference === 'synth') {
+          userPreference = 'personal';
+        } else if (segment.preference === 'recorded') {
+          userPreference = 'recorded';
+        } else if (segment.preference === 'text') {
+          userPreference = 'text';
+        }
+        foundStudioPreference = true;
+        console.log(`🎯 ✅ Using embedded script preference: ${segment.preference} → ${userPreference}`);
+      }
+
+      // PRIORITY 2: Check StoryCutStudio contributor preferences (fallback if no embedded preference)
+      if (!foundStudioPreference && window.contributorAudioPreferences) {
         console.log(`🎭 Checking StoryCutStudio contributor preferences for ${voiceTag}`);
         console.log(`🎭 Current audio content: "${audioContent}"`);
 

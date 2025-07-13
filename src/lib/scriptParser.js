@@ -236,17 +236,19 @@ export const parseScriptSegments = (script) => {
                 });
             }
         } else {
-            // Match voice tags like [EMBER VOICE], [NARRATOR], [Amado], etc.
-            const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
+            // Match voice tags with optional preference: [voiceTag:preference] or [voiceTag]
+            const voiceMatch = trimmedLine.match(/^\[([^:\]]+)(?::([^:\]]+))?\]\s*(.+)$/);
 
             if (voiceMatch) {
                 console.log(`🔍 Voice match found:`, {
                     fullMatch: voiceMatch[0],
                     voiceTag: voiceMatch[1],
-                    content: voiceMatch[2]
+                    preference: voiceMatch[2] || 'text',
+                    content: voiceMatch[3]
                 });
                 const voiceTag = voiceMatch[1].trim();
-                let content = voiceMatch[2].trim();
+                const preference = voiceMatch[2]?.trim() || 'text'; // Default to 'text' if no preference
+                let content = voiceMatch[3].trim();
                 const voiceType = getVoiceType(voiceTag);
 
                 // Extract visual actions (but NOT media references like <name="file.jpg">, <id=abc123>, or <path="url">)
@@ -281,7 +283,9 @@ export const parseScriptSegments = (script) => {
                         visualActions: existingVisualActions,
                         hasAutoColorize: false, // No auto-colorization anymore
                         // Add voice configuration
-                        voiceConfiguration: voiceConfiguration
+                        voiceConfiguration: voiceConfiguration,
+                        // Add embedded preference from script
+                        preference: preference
                     });
                 }
             }

@@ -111,13 +111,14 @@ export default function StoryCutStudio() {
                     // Use unique key for each block (voiceTag + block content)
                     const blockKey = `${block.voiceTag}-${block.id}`;
 
-                    // Only set default if no preference exists yet
-                    if (!newPreferences[blockKey]) {
-                        // Set default based on message type
-                        const defaultPreference = block.messageType === 'Audio Message' ? 'recorded' : 'text';
-                        newPreferences[blockKey] = defaultPreference;
+                    // Use embedded preference if available, otherwise set default
+                    const preferenceToUse = block.preference || (block.messageType === 'Audio Message' ? 'recorded' : 'text');
+
+                    // Update preference if it's different from what we have
+                    if (newPreferences[blockKey] !== preferenceToUse) {
+                        newPreferences[blockKey] = preferenceToUse;
                         hasChanges = true;
-                        console.log(`🎯 Setting default preference for ${blockKey} (${block.messageType}): ${defaultPreference}`);
+                        console.log(`🎯 Setting preference for ${blockKey} from ${block.preference ? 'embedded script' : 'default'}: ${preferenceToUse}`);
                     }
                 });
 
@@ -538,11 +539,12 @@ export default function StoryCutStudio() {
                                 });
                             }
                         } else {
-                            // Match voice tags
-                            const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.+)$/);
+                            // Match voice tags with optional preference: [voiceTag:preference] or [voiceTag]
+                            const voiceMatch = trimmedLine.match(/^\[([^:\]]+)(?::([^:\]]+))?\]\s*(.+)$/);
                             if (voiceMatch) {
                                 const voiceTag = voiceMatch[1].trim();
-                                const content = voiceMatch[2].trim();
+                                const preference = voiceMatch[2]?.trim() || 'text'; // Default to 'text' if no preference
+                                const content = voiceMatch[3].trim();
 
                                 // Determine voice type and enhance display name
                                 let voiceType = 'contributor';
@@ -558,8 +560,8 @@ export default function StoryCutStudio() {
                                     enhancedVoiceTag = `Narrator (${narratorVoiceName})`;
                                 }
 
-                                // Determine the correct message type
-                                const messageType = determineMessageType(voiceTag, content, voiceType);
+                                // Determine the ORIGINAL message type (what contributor actually submitted)
+                                const originalMessageType = determineMessageType(voiceTag, content, voiceType);
 
                                 realBlocks.push({
                                     id: blockId++,
@@ -568,7 +570,8 @@ export default function StoryCutStudio() {
                                     content: content,
                                     voiceType: voiceType,
                                     avatarUrl: voiceType === 'contributor' ? 'https://i.pravatar.cc/40?img=1' : '/EMBERFAV.svg',
-                                    messageType: messageType
+                                    messageType: originalMessageType, // SACRED: Original message type - never changes
+                                    preference: preference // Current playback preference - can change
                                 });
                             }
                         }
@@ -869,7 +872,10 @@ export default function StoryCutStudio() {
 
                     return mediaLine;
                 case 'voice':
-                    return `[${block.voiceTag}] ${block.content}`;
+                    // Embed voice preference directly in the script
+                    const blockKey = `${block.voiceTag}-${block.id}`;
+                    const preference = contributorAudioPreferences[blockKey] || 'text';
+                    return `[${block.voiceTag}:${preference}] ${block.content}`;
                 case 'hold':
                     const holdEffects = selectedEffects[`hold-${block.id}`] || [];
                     const holdDuration = effectDurations[`hold-duration-${block.id}`] || block.duration || 4.0;
@@ -1351,7 +1357,7 @@ export default function StoryCutStudio() {
                                                             )}
 
                                                             <div className="flex items-center gap-2">
-                                                                                                                                <span 
+                                                                <span
                                                                     className={`font-semibold ${textColor}`}
                                                                     title={block.mediaName}
                                                                 >
