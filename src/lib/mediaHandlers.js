@@ -437,6 +437,10 @@ export const handlePlaybackComplete = (setters) => {
         setCurrentMediaColor,
         setCurrentZoomScale,
         setCurrentMediaImageUrl,
+        // Loading screen state setters
+        setCurrentLoadingState,
+        setCurrentLoadingMessage,
+        setCurrentLoadingIcon,
         setCurrentDisplayText,
         setCurrentVoiceTag,
         setCurrentSentenceIndex,
@@ -496,6 +500,10 @@ export const handleExitPlay = (setters) => {
         setCurrentMediaColor,
         setCurrentZoomScale,
         setCurrentMediaImageUrl,
+        // Loading screen state setters
+        setCurrentLoadingState,
+        setCurrentLoadingMessage,
+        setCurrentLoadingIcon,
         setCurrentDisplayText,
         setCurrentVoiceTag,
         setCurrentSentenceIndex,
