@@ -1857,14 +1857,6 @@ export default function StoryCutStudio() {
                                                             {block.duration}s
                                                         </span>
                                                     </div>
-                                                    <div className="ml-6">
-                                                        <p className={`${textColor.replace('600', '700')} text-sm`}>
-                                                            "{block.message}"
-                                                        </p>
-                                                        <p className={`text-xs text-gray-500 mt-1`}>
-                                                            Icon: {block.icon}
-                                                        </p>
-                                                    </div>
                                                 </>
                                             )}
 
