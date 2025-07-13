@@ -110,8 +110,8 @@ export default function Create() {
       setSelectedImage(null);
       setImagePreview(null);
 
-      // Redirect directly to the newly created ember detail page
-      navigate(`/embers/${newEmber.id}`);
+      // Redirect directly to the newly created ember management page
+      navigate(`/embers/${newEmber.id}/manage`);
 
     } catch (error) {
       console.error('Error creating ember:', error);

@@ -130,7 +130,7 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
 
   const copyShareLink = async () => {
     try {
-      const link = `${window.location.origin}/embers/${ember.id}`;
+      const link = `${window.location.origin}/share/${ember.id}`;
       await navigator.clipboard.writeText(link);
       setMessage({ type: 'success', text: 'Link copied to clipboard' });
       setTimeout(() => setMessage(null), 3000);
@@ -256,7 +256,7 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
           </h4>
           <div className="flex gap-2">
             <Input
-              value={`${window.location.origin}/embers/${ember.id}`}
+              value={`${window.location.origin}/share/${ember.id}`}
               readOnly
               className="text-xs"
             />

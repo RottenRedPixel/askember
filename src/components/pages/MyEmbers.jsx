@@ -47,13 +47,13 @@ const PlusIcon = () => (
 );
 
 // My Embers Toolbar component
-const MyEmbersToolbar = ({ 
-  sectionName, 
-  totalEmbers, 
-  viewMode, 
-  setViewMode, 
-  sortBy, 
-  setSortBy 
+const MyEmbersToolbar = ({
+  sectionName,
+  totalEmbers,
+  viewMode,
+  setViewMode,
+  sortBy,
+  setSortBy
 }) => {
   const sortOptions = [
     { value: 'newest', label: 'New' },
@@ -67,9 +67,9 @@ const MyEmbersToolbar = ({
       <div className="flex items-center justify-between">
         {/* Left side: Badge and Create new ember */}
         <div className="flex items-center gap-0">
-                      <div className="bg-white text-gray-700 text-sm px-3 py-1 rounded-full font-medium h-8 flex items-center border border-gray-300">
-              My Embers
-            </div>
+          <div className="bg-white text-gray-700 text-sm px-3 py-1 rounded-full font-medium h-8 flex items-center border border-gray-300">
+            My Embers
+          </div>
           <Link to="/create">
             <button
               className="p-1 text-blue-600 hover:text-blue-700 transition-colors rounded-md"
@@ -104,22 +104,20 @@ const MyEmbersToolbar = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setViewMode('scroll')}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === 'scroll' 
-                  ? 'text-blue-600' 
+              className={`p-2 rounded-md transition-colors ${viewMode === 'scroll'
+                  ? 'text-blue-600'
                   : 'text-gray-400 hover:text-gray-600'
-              }`}
+                }`}
               title="Scroll View"
             >
               <ScrollIcon />
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === 'grid' 
-                  ? 'text-blue-600' 
+              className={`p-2 rounded-md transition-colors ${viewMode === 'grid'
+                  ? 'text-blue-600'
                   : 'text-gray-400 hover:text-gray-600'
-              }`}
+                }`}
               title="Grid View"
             >
               <GridIcon />
@@ -132,13 +130,13 @@ const MyEmbersToolbar = ({
 };
 
 // Shared Embers Toolbar component
-const SharedEmbersToolbar = ({ 
-  sectionName, 
-  totalEmbers, 
-  viewMode, 
-  setViewMode, 
-  sortBy, 
-  setSortBy 
+const SharedEmbersToolbar = ({
+  sectionName,
+  totalEmbers,
+  viewMode,
+  setViewMode,
+  sortBy,
+  setSortBy
 }) => {
   const sortOptions = [
     { value: 'newest', label: 'New' },
@@ -181,22 +179,20 @@ const SharedEmbersToolbar = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setViewMode('scroll')}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === 'scroll' 
-                  ? 'text-blue-600' 
+              className={`p-2 rounded-md transition-colors ${viewMode === 'scroll'
+                  ? 'text-blue-600'
                   : 'text-gray-400 hover:text-gray-600'
-              }`}
+                }`}
               title="Scroll View"
             >
               <ScrollIcon />
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === 'grid' 
-                  ? 'text-blue-600' 
+              className={`p-2 rounded-md transition-colors ${viewMode === 'grid'
+                  ? 'text-blue-600'
                   : 'text-gray-400 hover:text-gray-600'
-              }`}
+                }`}
               title="Grid View"
             >
               <GridIcon />
@@ -213,7 +209,7 @@ const EmberCarousel = ({ ember }) => {
   const navigate = useNavigate();
 
   const handleEmberClick = () => {
-    navigate(`/embers/${ember.id}`);
+    navigate(`/embers/${ember.id}/manage`);
   };
   const cards = [
     {
@@ -275,7 +271,7 @@ const EmberCarousel = ({ ember }) => {
   ];
 
   return (
-    <div 
+    <div
       className="rounded-xl bg-white shadow-sm cursor-pointer hover:shadow-md transition-shadow"
       onClick={handleEmberClick}
     >
@@ -301,11 +297,11 @@ const EmberGrid = ({ ember }) => {
   const navigate = useNavigate();
 
   const handleEmberClick = () => {
-    navigate(`/embers/${ember.id}`);
+    navigate(`/embers/${ember.id}/manage`);
   };
 
   return (
-    <div 
+    <div
       className="rounded-xl bg-white shadow-sm cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
       onClick={handleEmberClick}
     >
@@ -347,7 +343,7 @@ export default function MyEmbers() {
 
   useEffect(() => {
     console.log('MyEmbers useEffect triggered - user:', user ? user.id : 'null');
-    
+
     const fetchEmbers = async () => {
       if (!user) {
         console.log('No user, setting loading to false');
@@ -360,13 +356,13 @@ export default function MyEmbers() {
         console.log('Starting to fetch embers for user:', user.id);
         setLoading(true);
         setSharedLoading(true);
-        
+
         // Fetch user's own embers
         const userEmbers = await getUserEmbers(user.id);
         console.log('Embers fetched successfully:', userEmbers.length, 'embers');
         setEmbers(userEmbers);
         setLoading(false);
-        
+
         // Fetch shared embers
         try {
           const shared = await getSharedEmbers();
@@ -378,7 +374,7 @@ export default function MyEmbers() {
         } finally {
           setSharedLoading(false);
         }
-        
+
       } catch (err) {
         console.error('Error fetching embers:', err);
         setError('Failed to load embers');
@@ -507,12 +503,12 @@ export default function MyEmbers() {
               ))}
             </div>
           ) : (
-                         <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
+            <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
               {sortedEmbers.map((ember) => (
                 <EmberGrid key={ember.id} ember={ember} />
               ))}
-                         </div>
-           )}
+            </div>
+          )}
         </div>
       )}
 

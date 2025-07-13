@@ -6,7 +6,9 @@ import About from './components/pages/About';
 import Create from './components/pages/Create';
 import MyEmbers from './components/pages/MyEmbers';
 import EmberDetail from './components/pages/EmberDetail';
+import EmberPlay from './components/pages/EmberPlay';
 import StoryCutStudio from './components/pages/StoryCutStudio';
+import EmberRedirect from './components/EmberRedirect';
 import Settings from './components/pages/Settings';
 import AuthGuard from './components/auth/AuthGuard';
 import AdminGuard from './components/auth/AdminGuard';
@@ -19,7 +21,7 @@ import AdminLayout from './components/admin/layout/AdminLayout';
 import AdminDashboard from './components/admin/dashboard/AdminDashboard';
 import UserManagement from './components/admin/users/UserManagement';
 import PromptManagement from './components/admin/prompts/PromptManagement';
-import { addPrimaryStoryCutColumn } from './lib/database';
+import { addPrimaryStoryCutColumn, runPublicEmberAccessMigration } from './lib/database';
 import './App.css'
 
 
@@ -42,6 +44,8 @@ export default function App() {
       try {
         // Add primary_story_cut_id column if it doesn't exist
         await addPrimaryStoryCutColumn();
+        // Create public ember access function for sharing
+        await runPublicEmberAccessMigration();
       } catch (error) {
         console.error('Error running migrations:', error);
       }
@@ -61,8 +65,14 @@ export default function App() {
 
   return (
     <Routes>
-      {/* Ember detail route without layout (no header, light pink background) */}
-      <Route path="/embers/:id" element={<EmberDetail />} />
+      {/* Public share route without layout (shareable playback view) */}
+      <Route path="/share/:id" element={<EmberPlay />} />
+
+      {/* Ember management route without layout (editing/management view) */}
+      <Route path="/embers/:id/manage" element={<EmberDetail />} />
+
+      {/* Legacy ember play route - redirect to management for authenticated users */}
+      <Route path="/embers/:id" element={<EmberRedirect />} />
 
       {/* StoryCut Studio route without layout (full-screen editor) */}
       <Route path="/embers/:id/studio" element={<StoryCutStudio />} />

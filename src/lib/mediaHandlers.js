@@ -277,6 +277,12 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
         console.log('🎬 Visual effects will be driven by audio segments');
 
         // Check if we have story cuts available
+        console.log('🎬 Checking story cuts availability:', {
+            storyCuts: storyCuts,
+            storyCutsLength: storyCuts?.length,
+            primaryStoryCut: primaryStoryCut
+        });
+
         if (storyCuts && storyCuts.length > 0) {
             // Prioritize "The One" primary story cut, fallback to most recent
             let selectedStoryCut;
@@ -396,6 +402,12 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
             // Fallback to basic wiki content if no story cuts exist
             console.log('📖 No story cuts found, using basic wiki content');
             console.log('💡 Tip: Create a story cut for richer, AI-generated narration!');
+            console.log('🎬 Story cuts debug:', {
+                storyCuts: storyCuts,
+                storyCutsIsArray: Array.isArray(storyCuts),
+                storyCutsLength: storyCuts?.length,
+                storyCutsType: typeof storyCuts
+            });
 
             setCurrentLoadingMessage('Preparing basic content...');
 

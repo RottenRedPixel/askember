@@ -1070,7 +1070,7 @@ export default function StoryCutStudio() {
                         <div className="flex items-center gap-3">
                             {/* Back Arrow */}
                             <button
-                                onClick={() => navigate(`/embers/${id}?view=story-cuts`)}
+                                onClick={() => navigate(`/embers/${id}/manage?view=story-cuts`)}
                                 className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Back to Story Cuts"
                             >
@@ -1151,7 +1151,7 @@ export default function StoryCutStudio() {
                             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                                 <div className="text-red-700">{error}</div>
                                 <button
-                                    onClick={() => navigate(`/embers/${id}?view=story-cuts`)}
+                                    onClick={() => navigate(`/embers/${id}/manage?view=story-cuts`)}
                                     className="text-red-600 hover:text-red-800 text-sm mt-2 underline"
                                 >
                                     ← Go back to story cuts
@@ -1882,7 +1882,7 @@ export default function StoryCutStudio() {
                         {!loading && !error && (
                             <div className="mt-6 flex gap-3 max-w-md mx-auto">
                                 <Button
-                                    onClick={() => navigate(`/embers/${id}?view=story-cuts`)}
+                                    onClick={() => navigate(`/embers/${id}/manage?view=story-cuts`)}
                                     variant="outline"
                                     size="lg"
                                     className="px-6 py-3 h-auto flex-1"

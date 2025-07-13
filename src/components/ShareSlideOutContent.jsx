@@ -14,7 +14,7 @@ const ShareSlideOutContent = ({ ember }) => {
 
     const copyShareLink = async () => {
         try {
-            const link = `${window.location.origin}/embers/${ember.id}`;
+            const link = `${window.location.origin}/share/${ember.id}`;
             await navigator.clipboard.writeText(link);
             setMessage({ type: 'success', text: 'Link copied to clipboard' });
             setTimeout(() => setMessage(null), 3000);
@@ -26,7 +26,7 @@ const ShareSlideOutContent = ({ ember }) => {
 
     const handleNativeShare = async () => {
         try {
-            const link = `${window.location.origin}/embers/${ember.id}`;
+            const link = `${window.location.origin}/share/${ember.id}`;
             const title = ember.title || 'Check out this ember';
             const description = ember.message || 'Shared from ember.ai';
 
@@ -68,7 +68,7 @@ const ShareSlideOutContent = ({ ember }) => {
                 </h4>
                 <div className="flex gap-2">
                     <Input
-                        value={`${window.location.origin}/embers/${ember.id}`}
+                        value={`${window.location.origin}/share/${ember.id}`}
                         readOnly
                         className="text-xs min-w-0 flex-1 h-10"
                     />
@@ -100,7 +100,7 @@ const ShareSlideOutContent = ({ ember }) => {
                     {showQRCode && (
                         <div className="mt-4">
                             <QRCodeGenerator
-                                url={`${window.location.origin}/embers/${ember.id}`}
+                                url={`${window.location.origin}/share/${ember.id}`}
                                 title="Ember QR Code"
                                 size={180}
                             />

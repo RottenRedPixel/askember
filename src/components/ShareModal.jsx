@@ -18,9 +18,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Share, 
-  Copy, 
+import {
+  Share,
+  Copy,
   Link as LinkIcon,
   QrCode
 } from 'lucide-react';
@@ -64,7 +64,7 @@ const ModalContent = ({
     <div className="bg-green-50 border border-green-200 rounded-xl p-4">
       <h4 className="font-medium text-green-900 mb-2">View-Only Sharing</h4>
       <p className="text-sm text-green-800">
-        Anyone with this link can view the ember but cannot edit or contribute to it. 
+        Anyone with this link can view the ember but cannot edit or contribute to it.
         To invite collaborators with edit access, use the "Invite Contributors" feature.
       </p>
     </div>
@@ -77,7 +77,7 @@ const ModalContent = ({
       </h4>
       <div className="flex gap-2">
         <Input
-          value={`${window.location.origin}/embers/${ember.id}`}
+          value={`${window.location.origin}/share/${ember.id}`}
           readOnly
           className="text-xs min-w-0 flex-1 h-10"
         />
@@ -103,13 +103,13 @@ const ModalContent = ({
           {showQRCode ? 'Hide' : 'Generate'}
         </Button>
       </div>
-      
+
       {/* Fixed height container to prevent jumping */}
       <div className={`transition-all duration-200 overflow-hidden ${showQRCode ? 'h-[240px]' : 'h-0'}`}>
         {showQRCode && (
           <div className="mt-4">
-            <QRCodeGenerator 
-              url={`${window.location.origin}/embers/${ember.id}`}
+                        <QRCodeGenerator 
+              url={`${window.location.origin}/share/${ember.id}`}
               title="Ember QR Code"
               size={180}
             />
@@ -121,9 +121,9 @@ const ModalContent = ({
     {/* Native Share Button - Bottom */}
     {typeof navigator !== 'undefined' && navigator.share && (
       <div className="mt-6 pt-4 border-t">
-        <Button 
-          onClick={handleNativeShare} 
-          variant="blue" 
+        <Button
+          onClick={handleNativeShare}
+          variant="blue"
           size="lg"
           className="w-full flex items-center gap-2"
         >
@@ -142,7 +142,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
 
   const copyShareLink = async () => {
     try {
-      const link = `${window.location.origin}/embers/${ember.id}`;
+      const link = `${window.location.origin}/share/${ember.id}`;
       await navigator.clipboard.writeText(link);
       setMessage({ type: 'success', text: 'Link copied to clipboard' });
       setTimeout(() => setMessage(null), 3000);
@@ -154,10 +154,10 @@ export default function ShareModal({ ember, isOpen, onClose }) {
 
   const handleNativeShare = async () => {
     try {
-      const link = `${window.location.origin}/embers/${ember.id}`;
+      const link = `${window.location.origin}/share/${ember.id}`;
       const title = ember.title || 'Check out this ember';
       const description = ember.message || 'Shared from ember.ai';
-      
+
       if (navigator.share) {
         await navigator.share({
           title: title,
@@ -187,7 +187,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
-            <ModalContent 
+            <ModalContent
               message={message}
               ember={ember}
               copyShareLink={copyShareLink}
@@ -204,7 +204,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
   // Desktop Dialog
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-              <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
             <Share className="w-5 h-5 text-blue-600" />
@@ -214,7 +214,7 @@ export default function ShareModal({ ember, isOpen, onClose }) {
             Share this ember for viewing only - no editing access
           </DialogDescription>
         </DialogHeader>
-        <ModalContent 
+        <ModalContent
           message={message}
           ember={ember}
           copyShareLink={copyShareLink}

@@ -216,15 +216,45 @@ export const getUserEmbers = async (userId) => {
  */
 export const getEmber = async (emberId) => {
   try {
-    // First get the ember
-    const { data: ember, error: emberError } = await supabase
-      .from('embers')
-      .select('*')
-      .eq('id', emberId)
-      .single();
+    // Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (emberError) {
-      throw new Error(emberError.message);
+    let ember;
+
+    if (user) {
+      // User is authenticated - use normal query with RLS
+      const { data, error } = await supabase
+        .from('embers')
+        .select('*')
+        .eq('id', emberId)
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      ember = data;
+    } else {
+      // User is not authenticated - use public RPC function to bypass RLS
+      console.log('🌍 Public access: fetching ember via RPC function');
+      const { data, error } = await supabase.rpc('get_public_ember', {
+        ember_uuid: emberId
+      });
+
+      if (error) {
+        console.error('RPC error details:', error);
+        console.error('RPC error message:', error.message);
+        console.error('RPC error code:', error.code);
+        throw new Error(error.message);
+      }
+
+      console.log('🌍 Public RPC response data:', data);
+
+      if (!data || data.length === 0) {
+        throw new Error('Ember not found');
+      }
+
+      ember = data[0] || data;
+      console.log('🌍 Public ember data extracted:', ember);
     }
 
     // Then get the owner's profile information
@@ -914,19 +944,43 @@ export const saveStoryCut = async (storyCutData) => {
  */
 export const getStoryCutsForEmber = async (emberId) => {
   try {
-    const { data, error } = await supabase
-      .from('ember_story_cuts')
-      .select(`
-        *,
-        creator:user_profiles!creator_user_id(
-          user_id,
-          first_name,
-          last_name,
-          avatar_url
-        )
-      `)
-      .eq('ember_id', emberId)
-      .order('created_at', { ascending: false });
+    // Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
+
+    let data, error;
+
+    if (user) {
+      // User is authenticated - use normal query with RLS
+      const result = await supabase
+        .from('ember_story_cuts')
+        .select(`
+          *,
+          creator:user_profiles!creator_user_id(
+            user_id,
+            first_name,
+            last_name,
+            avatar_url
+          )
+        `)
+        .eq('ember_id', emberId)
+        .order('created_at', { ascending: false });
+
+      data = result.data;
+      error = result.error;
+        } else {
+      // User is not authenticated - use public RPC function to bypass RLS
+      console.log('🌍 Public access: fetching story cuts via RPC function');
+      const result = await supabase.rpc('get_public_story_cuts', {
+        ember_uuid: emberId
+      });
+      
+      console.log('🌍 Public RPC result:', result);
+      console.log('🌍 Public RPC data:', result.data);
+      console.log('🌍 Public RPC error:', result.error);
+      
+      data = result.data;
+      error = result.error;
+    }
 
     if (error) {
       throw new Error(error.message);
@@ -1449,35 +1503,49 @@ export const setPrimaryStoryCut = async (storyCutId, emberId, userId) => {
  */
 export const getPrimaryStoryCut = async (emberId) => {
   try {
-    // First get the ember to find the primary_story_cut_id
-    const { data: ember, error: emberError } = await supabase
-      .from('embers')
-      .select('primary_story_cut_id')
-      .eq('id', emberId)
-      .single();
+    // Use the updated getEmber function which handles public access
+    const ember = await getEmber(emberId);
 
-    if (emberError) {
-      throw new Error(emberError.message);
-    }
-
-    // If no primary story cut is set, return null
-    if (!ember.primary_story_cut_id) {
+    if (!ember || !ember.primary_story_cut_id) {
       return null;
     }
 
-    // Get the primary story cut details
-    const { data: storyCut, error: storyCutError } = await supabase
-      .from('ember_story_cuts')
-      .select('*')
-      .eq('id', ember.primary_story_cut_id)
-      .single();
+    // Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (storyCutError) {
-      console.warn('Primary story cut not found:', storyCutError.message);
-      return null;
+    let storyCut;
+
+    if (user) {
+      // User is authenticated - use normal query with RLS
+      const { data, error } = await supabase
+        .from('ember_story_cuts')
+        .select('*')
+        .eq('id', ember.primary_story_cut_id)
+        .single();
+
+      if (error) {
+        console.warn('Primary story cut not found:', error.message);
+        return null;
+      }
+
+      storyCut = data;
+    } else {
+      // User is not authenticated - get from public story cuts
+      console.log('🌍 Public access: fetching primary story cut via RPC function');
+      const { data, error } = await supabase.rpc('get_public_story_cuts', {
+        ember_uuid: emberId
+      });
+
+      if (error) {
+        console.warn('Error fetching public story cuts:', error.message);
+        return null;
+      }
+
+      // Find the primary story cut from the results
+      storyCut = data?.find(cut => cut.id === ember.primary_story_cut_id);
     }
 
-    return storyCut;
+    return storyCut || null;
   } catch (error) {
     console.error('Error getting primary story cut:', error);
     return null;
@@ -2405,4 +2473,132 @@ export const deleteContributorAudioPreferences = async (emberId) => {
     console.error('❌ Error deleting contributor audio preferences:', error);
     throw error;
   }
-}; 
+};
+
+/**
+ * Run the public ember access migration
+ */
+export const runPublicEmberAccessMigration = async () => {
+  try {
+    console.log('🔓 Creating public ember access function...');
+
+    const migrationSQL = `
+-- Migration: Create public ember access function
+-- This allows unauthenticated users to access embers for sharing
+
+-- Create or replace the function to get public ember data
+CREATE OR REPLACE FUNCTION get_public_ember(ember_uuid UUID)
+RETURNS TABLE (
+  id UUID,
+  user_id UUID,
+  image_url TEXT,
+  title TEXT,
+  location_name TEXT,
+  location_latitude DOUBLE PRECISION,
+  location_longitude DOUBLE PRECISION,
+  taken_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE,
+  updated_at TIMESTAMP WITH TIME ZONE,
+  image_analysis TEXT,
+  is_public BOOLEAN,
+  primary_story_cut_id UUID
+)
+LANGUAGE plpgsql
+SECURITY DEFINER -- This allows the function to bypass RLS
+AS $$
+BEGIN
+  -- Return ember data without any authentication checks
+  RETURN QUERY
+  SELECT 
+    e.id,
+    e.user_id,
+    e.image_url,
+    e.title,
+    e.location_name,
+    e.location_latitude,
+    e.location_longitude,
+    e.taken_at,
+    e.created_at,
+    e.updated_at,
+    e.image_analysis,
+    e.is_public,
+    e.primary_story_cut_id
+  FROM embers e
+  WHERE e.id = ember_uuid;
+END;
+$$;
+
+-- Grant execute permission to anonymous users (public access)
+GRANT EXECUTE ON FUNCTION get_public_ember(UUID) TO anon;
+GRANT EXECUTE ON FUNCTION get_public_ember(UUID) TO authenticated;
+
+-- Create or replace the function to get public story cuts
+CREATE OR REPLACE FUNCTION get_public_story_cuts(ember_uuid UUID)
+RETURNS TABLE (
+  id UUID,
+  ember_id UUID,
+  title TEXT,
+  style TEXT,
+  full_script TEXT,
+  duration INTEGER,
+  word_count INTEGER,
+  ember_voice_id TEXT,
+  ember_voice_name TEXT,
+  narrator_voice_id TEXT,
+  narrator_voice_name TEXT,
+  story_focus TEXT,
+  metadata JSONB,
+  creator_user_id UUID,
+  created_at TIMESTAMP WITH TIME ZONE,
+  updated_at TIMESTAMP WITH TIME ZONE,
+  ember_voice_lines TEXT,
+  narrator_voice_lines TEXT,
+  selected_contributors JSONB,
+  audio_preferences JSONB
+)
+LANGUAGE plpgsql
+SECURITY DEFINER -- This allows the function to bypass RLS
+AS $$
+BEGIN
+  -- Return story cuts data without any authentication checks
+  RETURN QUERY
+  SELECT 
+    sc.id,
+    sc.ember_id,
+    sc.title,
+    sc.style,
+    sc.full_script,
+    sc.duration,
+    sc.word_count,
+    sc.ember_voice_id,
+    sc.ember_voice_name,
+    sc.narrator_voice_id,
+    sc.narrator_voice_name,
+    sc.story_focus,
+    sc.metadata,
+    sc.creator_user_id,
+    sc.created_at,
+    sc.updated_at,
+    sc.ember_voice_lines,
+    sc.narrator_voice_lines,
+    sc.selected_contributors,
+    sc.audio_preferences
+  FROM ember_story_cuts sc
+  WHERE sc.ember_id = ember_uuid
+  ORDER BY sc.created_at DESC;
+END;
+$$;
+
+-- Grant execute permission to anonymous users (public access)
+GRANT EXECUTE ON FUNCTION get_public_story_cuts(UUID) TO anon;
+GRANT EXECUTE ON FUNCTION get_public_story_cuts(UUID) TO authenticated;
+    `;
+
+    const result = await executeSQL(migrationSQL);
+    console.log('✅ Successfully created public ember access function');
+    return result;
+  } catch (error) {
+    console.error('❌ Error creating public ember access function:', error);
+    throw error;
+  }
+};

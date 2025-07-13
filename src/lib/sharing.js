@@ -134,7 +134,7 @@ export async function updateSharePermission(shareId, permissionLevel) {
 
 // Get sharing link for ember
 export function getEmberSharingLink(emberId) {
-  return `${window.location.origin}/embers/${emberId}`;
+  return `${window.location.origin}/share/${emberId}`;
 }
 
 // Get embers shared with the current user

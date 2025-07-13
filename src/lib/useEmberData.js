@@ -117,7 +117,7 @@ export const useStoryStyles = () => {
 };
 
 // Hook for fetching ember data and sharing information
-export const useEmber = (id) => {
+export const useEmber = (id, userProfile = null) => {
     const [ember, setEmber] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -148,39 +148,46 @@ export const useEmber = (id) => {
 
             setEmber(data);
 
-            // Also fetch sharing information to get invited users and permission level
-            try {
-                const sharingData = await getEmberWithSharing(id);
-                console.log('Sharing data:', sharingData);
+            // Only fetch sharing information for authenticated users
+            if (userProfile && userProfile.user_id) {
+                try {
+                    const sharingData = await getEmberWithSharing(id);
+                    console.log('Sharing data:', sharingData);
 
-                // Set user's permission level
-                setUserPermission(sharingData.userPermission || 'none');
-                console.log('User permission:', sharingData.userPermission);
+                    // Set user's permission level
+                    setUserPermission(sharingData.userPermission || 'none');
+                    console.log('User permission:', sharingData.userPermission);
 
-                if (sharingData.shares && sharingData.shares.length > 0) {
-                    // Extract shared users with their profile information
-                    // Only include users who have actually created accounts (have user_id)
-                    const invitedUsers = sharingData.shares
-                        .filter(share => share.shared_user && share.shared_user.user_id) // Must have actual user account
-                        .map(share => ({
-                            id: share.shared_user.id,
-                            user_id: share.shared_user.user_id,
-                            first_name: share.shared_user.first_name,
-                            last_name: share.shared_user.last_name,
-                            avatar_url: share.shared_user.avatar_url,
-                            email: share.shared_with_email,
-                            permission_level: share.permission_level
-                        }));
-                    setSharedUsers(invitedUsers);
-                    console.log('Invited users:', invitedUsers);
-                } else {
+                    if (sharingData.shares && sharingData.shares.length > 0) {
+                        // Extract shared users with their profile information
+                        // Only include users who have actually created accounts (have user_id)
+                        const invitedUsers = sharingData.shares
+                            .filter(share => share.shared_user && share.shared_user.user_id) // Must have actual user account
+                            .map(share => ({
+                                id: share.shared_user.id,
+                                user_id: share.shared_user.user_id,
+                                first_name: share.shared_user.first_name,
+                                last_name: share.shared_user.last_name,
+                                avatar_url: share.shared_user.avatar_url,
+                                email: share.shared_with_email,
+                                permission_level: share.permission_level
+                            }));
+                        setSharedUsers(invitedUsers);
+                        console.log('Invited users:', invitedUsers);
+                    } else {
+                        setSharedUsers([]);
+                    }
+                } catch (sharingError) {
+                    console.error('Error fetching sharing data:', sharingError);
+                    // Don't fail the whole component if sharing data fails
                     setSharedUsers([]);
+                    setUserPermission('none');
                 }
-            } catch (sharingError) {
-                console.error('Error fetching sharing data:', sharingError);
-                // Don't fail the whole component if sharing data fails
+            } else {
+                // For public/unauthenticated users, set default values
+                console.log('🌍 Public user - skipping sharing data fetch');
                 setSharedUsers([]);
-                setUserPermission('none');
+                setUserPermission('public');
             }
         } catch (err) {
             console.error('Error fetching ember:', err);
@@ -242,10 +249,17 @@ export const useStoryCuts = (emberId, userProfile) => {
         try {
             setStoryCutsLoading(true);
             const cuts = await getStoryCutsForEmber(emberId);
+            console.log('📚 Story cuts fetched:', {
+                cutsLength: cuts?.length,
+                cutsType: typeof cuts,
+                cutsIsArray: Array.isArray(cuts),
+                cuts: cuts
+            });
             setStoryCuts(cuts);
 
             // Also fetch the primary story cut
             const primary = await getPrimaryStoryCut(emberId);
+            console.log('🎬 Primary story cut fetched:', primary);
             setPrimaryStoryCutState(primary);
 
             // Auto-set single story cut as "The One" if no primary exists
@@ -502,7 +516,7 @@ export const useMediaForStory = (emberId) => {
 
 // Composite hook that combines all ember-related data fetching
 export const useEmberData = (id, userProfile) => {
-    const emberData = useEmber(id);
+    const emberData = useEmber(id, userProfile);
     const storyCutsData = useStoryCuts(emberData.ember?.id, userProfile);
     const storyMessagesData = useStoryMessages(emberData.ember?.id);
     const taggedPeopleData = useTaggedPeople(emberData.ember?.id);
