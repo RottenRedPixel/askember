@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { FilmSlate, PencilSimple } from 'phosphor-react';
-import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber, saveContributorAudioPreferences, loadContributorAudioPreferences } from '@/lib/database';
+import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber } from '@/lib/database';
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import { formatDuration } from '@/lib/dateUtils';
 import { resolveMediaReference } from '@/lib/scriptParser';
@@ -46,57 +46,7 @@ export default function StoryCutStudio() {
     // Add Block modal state
     const [showAddBlockModal, setShowAddBlockModal] = useState(false);
 
-    // Load saved preferences from database on component mount
-    useEffect(() => {
-        if (id && user) {
-            const loadPreferences = async () => {
-                try {
-                    console.log('🔄 Loading contributor preferences from database...');
-                    const databasePreferences = await loadContributorAudioPreferences(id);
 
-                    // Migration: Check for existing localStorage data
-                    const localStorageKey = `contributorAudioPreferences_${id}`;
-                    const localStoragePreferences = localStorage.getItem(localStorageKey);
-
-                    if (localStoragePreferences && Object.keys(databasePreferences).length === 0) {
-                        // Migrate localStorage data to database
-                        try {
-                            const parsed = JSON.parse(localStoragePreferences);
-                            console.log('🔄 Migrating localStorage preferences to database:', parsed);
-                            await saveContributorAudioPreferences(id, parsed);
-                            setContributorAudioPreferences(parsed);
-
-                            // Clean up localStorage after successful migration
-                            localStorage.removeItem(localStorageKey);
-                            console.log('✅ Migration complete, localStorage cleaned up');
-                        } catch (migrationError) {
-                            console.warn('⚠️ Failed to migrate localStorage data:', migrationError);
-                            setContributorAudioPreferences(databasePreferences);
-                        }
-                    } else {
-                        // Use database preferences
-                        setContributorAudioPreferences(databasePreferences);
-                        console.log('✅ Loaded contributor preferences from database:', databasePreferences);
-                    }
-                } catch (error) {
-                    console.warn('⚠️ Failed to load preferences from database:', error);
-                    // Fallback to localStorage if database fails
-                    try {
-                        const savedPreferences = localStorage.getItem(`contributorAudioPreferences_${id}`);
-                        if (savedPreferences) {
-                            const parsed = JSON.parse(savedPreferences);
-                            setContributorAudioPreferences(parsed);
-                            console.log('🔄 Fallback: Loaded preferences from localStorage:', parsed);
-                        }
-                    } catch (fallbackError) {
-                        console.warn('⚠️ Fallback to localStorage also failed:', fallbackError);
-                    }
-                }
-            };
-
-            loadPreferences();
-        }
-    }, [id, user]);
 
     // Initialize contributor preferences when blocks are loaded
     useEffect(() => {
@@ -128,41 +78,10 @@ export default function StoryCutStudio() {
         }
     }, [blocks]);
 
-    // Save preferences to database whenever they change
-    useEffect(() => {
-        if (id && user && Object.keys(contributorAudioPreferences).length > 0) {
-            const savePreferences = async () => {
-                try {
-                    await saveContributorAudioPreferences(id, contributorAudioPreferences);
-                    console.log('💾 Saved contributor preferences to database:', contributorAudioPreferences);
-                } catch (error) {
-                    console.warn('⚠️ Failed to save preferences to database:', error);
-                    // Fallback to localStorage if database fails
-                    try {
-                        localStorage.setItem(`contributorAudioPreferences_${id}`, JSON.stringify(contributorAudioPreferences));
-                        console.log('💾 Fallback: Saved preferences to localStorage');
-                    } catch (fallbackError) {
-                        console.warn('⚠️ Fallback to localStorage also failed:', fallbackError);
-                    }
-                }
-            };
 
-            // Debounce saving to avoid too many database calls
-            const timeoutId = setTimeout(savePreferences, 500);
-            return () => clearTimeout(timeoutId);
-        }
-    }, [contributorAudioPreferences, id, user]);
 
     // Expose contributor preferences globally for audio generation
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            // For multiple blocks per contributor, use block-specific preferences
-            // The audio player will match blocks individually rather than consolidating
-            window.contributorAudioPreferences = contributorAudioPreferences;
-            console.log('🎭 Updated contributor audio preferences for audio player:', contributorAudioPreferences);
-            console.log('🎭 Raw block preferences:', contributorAudioPreferences);
-        }
-    }, [contributorAudioPreferences]);
+
 
     // Use the same UI state management as EmberDetail
     const uiState = useUIState();

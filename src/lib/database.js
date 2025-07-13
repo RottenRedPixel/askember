@@ -967,17 +967,17 @@ export const getStoryCutsForEmber = async (emberId) => {
 
       data = result.data;
       error = result.error;
-        } else {
+    } else {
       // User is not authenticated - use public RPC function to bypass RLS
       console.log('🌍 Public access: fetching story cuts via RPC function');
       const result = await supabase.rpc('get_public_story_cuts', {
         ember_uuid: emberId
       });
-      
+
       console.log('🌍 Public RPC result:', result);
       console.log('🌍 Public RPC data:', result.data);
       console.log('🌍 Public RPC error:', result.error);
-      
+
       data = result.data;
       error = result.error;
     }
@@ -2357,123 +2357,7 @@ export const updateMessageAudioPreference = async (storyCutId, messageKey, prefe
   }
 };
 
-// =============================================================================
-// CONTRIBUTOR AUDIO PREFERENCES FUNCTIONS
-// =============================================================================
 
-/**
- * Save contributor audio preferences to database
- */
-export const saveContributorAudioPreferences = async (emberId, preferences) => {
-  try {
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      throw new Error('User not authenticated');
-    }
-
-    console.log('💾 Saving contributor audio preferences to database:', preferences);
-
-    // Prepare upsert data
-    const upsertData = Object.entries(preferences).map(([blockKey, preference]) => ({
-      user_id: user.id,
-      ember_id: emberId,
-      block_key: blockKey,
-      preference: preference,
-      updated_at: new Date().toISOString()
-    }));
-
-    if (upsertData.length === 0) {
-      console.log('📝 No preferences to save');
-      return;
-    }
-
-    // Upsert preferences (insert or update if exists)
-    const { data, error } = await supabase
-      .from('contributor_audio_preferences')
-      .upsert(upsertData, {
-        onConflict: 'user_id,ember_id,block_key'
-      })
-      .select();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    console.log('✅ Successfully saved contributor audio preferences:', data);
-    return data;
-  } catch (error) {
-    console.error('❌ Error saving contributor audio preferences:', error);
-    throw error;
-  }
-};
-
-/**
- * Load contributor audio preferences from database
- */
-export const loadContributorAudioPreferences = async (emberId) => {
-  try {
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      throw new Error('User not authenticated');
-    }
-
-    console.log('🔄 Loading contributor audio preferences from database for ember:', emberId);
-
-    const { data, error } = await supabase
-      .from('contributor_audio_preferences')
-      .select('block_key, preference')
-      .eq('user_id', user.id)
-      .eq('ember_id', emberId);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    // Convert array to object format
-    const preferences = {};
-    if (data && data.length > 0) {
-      data.forEach(row => {
-        preferences[row.block_key] = row.preference;
-      });
-    }
-
-    console.log('✅ Loaded contributor audio preferences:', preferences);
-    return preferences;
-  } catch (error) {
-    console.error('❌ Error loading contributor audio preferences:', error);
-    return {}; // Return empty object on error to avoid breaking the UI
-  }
-};
-
-/**
- * Delete contributor audio preferences for an ember
- */
-export const deleteContributorAudioPreferences = async (emberId) => {
-  try {
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      throw new Error('User not authenticated');
-    }
-
-    const { error } = await supabase
-      .from('contributor_audio_preferences')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('ember_id', emberId);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    console.log('🗑️ Deleted contributor audio preferences for ember:', emberId);
-  } catch (error) {
-    console.error('❌ Error deleting contributor audio preferences:', error);
-    throw error;
-  }
-};
 
 /**
  * Run the public ember access migration

@@ -421,78 +421,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         console.log(`🎯 ✅ Using embedded script preference: ${segment.preference} → ${userPreference}`);
       }
 
-      // PRIORITY 2: Check StoryCutStudio contributor preferences (fallback if no embedded preference)
-      if (!foundStudioPreference && window.contributorAudioPreferences) {
-        console.log(`🎭 Checking StoryCutStudio contributor preferences for ${voiceTag}`);
-        console.log(`🎭 Current audio content: "${audioContent}"`);
 
-        // Try to find block-specific preference by matching content
-        const blockSpecificKeys = Object.keys(window.contributorAudioPreferences).filter(key =>
-          key.startsWith(voiceTag + '-')
-        );
-
-        console.log(`🎯 Found ${blockSpecificKeys.length} block-specific preferences for ${voiceTag}:`, blockSpecificKeys);
-
-        let studioPreference = null;
-        let selectedBlockKey = null;
-
-        // If we have block-specific preferences, try to match by content
-        if (blockSpecificKeys.length > 0) {
-          // Strategy: Match the content with the original story messages to determine which block this is
-          console.log(`🎯 Trying to match content "${audioContent}" with block preferences`);
-
-          // Check if this content matches "This was at the Home Depot!" (the text response)
-          const isHomeDepotContent = audioContent.toLowerCase().includes('home depot');
-          const isWhatItWasContent = audioContent.toLowerCase().includes('no idea what it was');
-
-          console.log(`🎯 Content analysis: isHomeDepot=${isHomeDepotContent}, isWhatItWas=${isWhatItWasContent}`);
-
-          // Find the right block based on content
-          for (const blockKey of blockSpecificKeys) {
-            const preference = window.contributorAudioPreferences[blockKey];
-            console.log(`🎯 Checking block preference: ${blockKey} → ${preference}`);
-
-            // If this is the Home Depot content, and there's a text/synth preference, use it
-            if (isHomeDepotContent && (preference === 'text' || preference === 'synth')) {
-              studioPreference = preference;
-              selectedBlockKey = blockKey;
-              console.log(`🎯 ✅ Matched Home Depot content with ${blockKey} → ${preference}`);
-              break;
-            }
-            // If this is the "no idea what it was" content, and there's a recorded preference, use it
-            else if (isWhatItWasContent && preference === 'recorded') {
-              studioPreference = preference;
-              selectedBlockKey = blockKey;
-              console.log(`🎯 ✅ Matched "what it was" content with ${blockKey} → ${preference}`);
-              break;
-            }
-          }
-
-          // If no content-based match, use the first block preference
-          if (!studioPreference && blockSpecificKeys.length > 0) {
-            selectedBlockKey = blockSpecificKeys[0];
-            studioPreference = window.contributorAudioPreferences[selectedBlockKey];
-            console.log(`🎯 📝 Using first block preference: ${selectedBlockKey} → ${studioPreference}`);
-          }
-        } else {
-          // Fallback to voice tag preference if no block-specific ones exist
-          studioPreference = window.contributorAudioPreferences[voiceTag];
-          console.log(`🎯 📝 Using voice tag preference: ${voiceTag} → ${studioPreference}`);
-        }
-
-        if (studioPreference) {
-          foundStudioPreference = true;
-          // Convert studio preference format to audio generation format
-          if (studioPreference === 'synth') {
-            userPreference = 'personal';
-          } else if (studioPreference === 'recorded') {
-            userPreference = 'recorded';
-          } else if (studioPreference === 'text') {
-            userPreference = 'text';
-          }
-          console.log(`🎯 ✅ Found StoryCutStudio preference for ${voiceTag} (${selectedBlockKey}): ${studioPreference} → ${userPreference}`);
-        }
-      }
 
       // Fallback to detailed message preferences if no studio preference found
       if (!foundStudioPreference && window.messageAudioPreferences) {
