@@ -65,13 +65,13 @@ export default function App() {
 
   return (
     <Routes>
-      {/* Public share route without layout (shareable playback view) */}
+      {/* Public share route - identical to ember route */}
       <Route path="/share/:id" element={<EmberPlay />} />
 
       {/* Ember management route without layout (editing/management view) */}
       <Route path="/embers/:id/manage" element={<EmberDetail />} />
 
-      {/* Legacy ember play route - redirect to management for authenticated users */}
+      {/* Ember play route - identical to share route */}
       <Route path="/embers/:id" element={<EmberRedirect />} />
 
       {/* StoryCut Studio route without layout (full-screen editor) */}

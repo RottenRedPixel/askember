@@ -108,7 +108,7 @@ const ModalContent = ({
       <div className={`transition-all duration-200 overflow-hidden ${showQRCode ? 'h-[240px]' : 'h-0'}`}>
         {showQRCode && (
           <div className="mt-4">
-                        <QRCodeGenerator 
+            <QRCodeGenerator
               url={`${window.location.origin}/share/${ember.id}`}
               title="Ember QR Code"
               size={180}

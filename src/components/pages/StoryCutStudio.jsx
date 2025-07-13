@@ -1070,7 +1070,12 @@ export default function StoryCutStudio() {
                         <div className="flex items-center gap-3">
                             {/* Back Arrow */}
                             <button
-                                onClick={() => navigate(`/embers/${id}/manage?view=story-cuts`)}
+                                onClick={() => {
+                                    const url = `/embers/${id}/manage?view=story-cuts`;
+                                    console.log('🔙 StoryCut Studio: Navigating to:', url);
+                                    console.log('🔙 StoryCut Studio: Ember ID:', id);
+                                    navigate(url);
+                                }}
                                 className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
                                 title="Back to Story Cuts"
                             >

@@ -271,7 +271,7 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
         setIsGeneratingAudio(true); // Show loading state
 
         // Set initial loading message
-        setCurrentLoadingMessage('Preparing your story...');
+        setCurrentLoadingMessage('Preparing Story...');
         setCurrentLoadingState(true);
 
         console.log('🎬 Visual effects will be driven by audio segments');

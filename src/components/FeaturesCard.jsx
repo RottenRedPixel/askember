@@ -16,22 +16,22 @@ import {
 } from '@/components/ui/dialog';
 
 import useStore from '@/store';
-import { 
-  getEmberWithSharing, 
-  shareEmber, 
-  removeShare, 
-  updateEmberPublicSettings, 
+import {
+  getEmberWithSharing,
+  shareEmber,
+  removeShare,
+  updateEmberPublicSettings,
   updateSharePermission,
-  getEmberSharingLink 
+  getEmberSharingLink
 } from '@/lib/sharing';
 
-import { 
-  Share, 
-  Globe, 
-  Lock, 
-  Mail, 
-  Copy, 
-  Trash2, 
+import {
+  Share,
+  Globe,
+  Lock,
+  Mail,
+  Copy,
+  Trash2,
   Settings,
   Eye,
   Edit3,
@@ -102,9 +102,9 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
     setIsLoading(true);
     try {
       const updated = await updateEmberPublicSettings(ember.id, isPublic, allowEdit);
-      setMessage({ 
-        type: 'success', 
-        text: isPublic ? 'Made public' : 'Made private' 
+      setMessage({
+        type: 'success',
+        text: isPublic ? 'Made public' : 'Made private'
       });
       await loadEmberWithSharing();
       if (onEmberUpdate) onEmberUpdate(updated);
@@ -178,9 +178,9 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
                   className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
                   title="Refresh sharing data"
                 >
-                  <ArrowClockwise 
-                    size={16} 
-                    className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
+                  <ArrowClockwise
+                    size={16}
+                    className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`}
                   />
                 </button>
               )}
@@ -230,7 +230,7 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
                   {emberData?.is_public ? 'Make Private' : 'Make Public'}
                 </Button>
               </div>
-              
+
               {emberData?.is_public && (
                 <div className="flex items-center justify-between p-3 border rounded-xl bg-blue-50">
                   <span className="text-sm">Allow public editing</span>
@@ -260,7 +260,7 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
               readOnly
               className="text-xs"
             />
-                          <Button size="lg" onClick={copyShareLink} variant="blue">
+            <Button size="lg" onClick={copyShareLink} variant="blue">
               Copy
             </Button>
           </div>
@@ -314,9 +314,9 @@ export default function FeaturesCard({ ember, onEmberUpdate, onRefresh, isRefres
                   <Button type="submit" size="sm" disabled={isLoading}>
                     Share
                   </Button>
-                  <Button 
-                    type="button" 
-                    size="sm" 
+                  <Button
+                    type="button"
+                    size="sm"
                     variant="outline"
                     onClick={() => setShowShareForm(false)}
                   >

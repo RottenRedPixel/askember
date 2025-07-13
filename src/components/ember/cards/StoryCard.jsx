@@ -20,10 +20,10 @@ export default function StoryCard({
     };
 
     const getStatusText = () => {
-        if (isComplete) {
-            return 'Done';
-        }
         const storyProgress = getStoryProgress();
+        if (isComplete) {
+            return `Done ${storyProgress.current}/${storyProgress.required}`;
+        }
         return `${storyProgress.current} of ${storyProgress.required}`;
     };
 

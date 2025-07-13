@@ -11,9 +11,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from '@/lib/utils';
 import { uploadToBlob } from '../lib/storage';
 import useStore from '../store';
-import { 
-  getOrCreateStoryConversation, 
-  addStoryMessage, 
+import {
+  getOrCreateStoryConversation,
+  addStoryMessage,
   getStoryConversationWithMessages,
   completeStoryConversation,
   getAllStoryMessagesForEmber,
@@ -26,7 +26,7 @@ import { generateEmberAIQuestion } from '@/lib/emberAI';
 // Media query hook
 function useMediaQuery(query) {
   const [matches, setMatches] = useState(false);
-  
+
   useEffect(() => {
     const media = window.matchMedia(query);
     if (media.matches !== matches) {
@@ -36,7 +36,7 @@ function useMediaQuery(query) {
     media.addListener(listener);
     return () => media.removeListener(listener);
   }, [matches, query]);
-  
+
   return matches;
 }
 
@@ -59,16 +59,16 @@ const MicrophoneCombobox = ({ microphones, selectedMicrophone, onSelectMicrophon
           )}
           title="Select microphone"
         >
-          <Settings 
-            size={16} 
+          <Settings
+            size={16}
             className={cn(
               "transition-colors",
               selectedMicrophone ? "text-blue-600" : "text-gray-500"
-            )} 
+            )}
           />
         </Button>
       </PopoverTrigger>
-                    <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg rounded-md focus:outline-none" align="start">
+      <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg rounded-md focus:outline-none" align="start">
         <Command>
           <CommandInput placeholder="Search microphones..." className="h-9" />
           <CommandList>
@@ -100,7 +100,7 @@ const MicrophoneCombobox = ({ microphones, selectedMicrophone, onSelectMicrophon
   );
 };
 
-const ModalContent = ({ 
+const ModalContent = ({
   messages,
   currentAnswer,
   setCurrentAnswer,
@@ -167,9 +167,8 @@ const ModalContent = ({
             return (
               <div
                 key={index}
-                className={`flex w-full gap-3 ${
-                  message.sender === 'ember' ? 'justify-start' : 'justify-end'
-                }`}
+                className={`flex w-full gap-3 ${message.sender === 'ember' ? 'justify-start' : 'justify-end'
+                  }`}
               >
                 {/* Avatar - only show on left side for ember messages */}
                 {message.sender === 'ember' && (
@@ -182,21 +181,18 @@ const ModalContent = ({
                 )}
 
                 <div
-                  className={`max-w-[75%] ${
-                    message.sender === 'ember' ? 'order-2' : 'order-1'
-                  }`}
+                  className={`max-w-[75%] ${message.sender === 'ember' ? 'order-2' : 'order-1'
+                    }`}
                 >
                   {/* Sender name and controls */}
-                  <div className={`flex items-center gap-2 mb-1 group ${
-                    message.sender === 'ember' ? 'justify-start' : 'justify-end'
-                  }`}>
-                    <span className={`text-xs font-medium ${
-                      message.sender === 'ember' 
-                        ? 'text-purple-700' 
-                        : message.isCurrentUser 
-                          ? 'text-green-700' 
-                          : 'text-blue-700'
+                  <div className={`flex items-center gap-2 mb-1 group ${message.sender === 'ember' ? 'justify-start' : 'justify-end'
                     }`}>
+                    <span className={`text-xs font-medium ${message.sender === 'ember'
+                      ? 'text-purple-700'
+                      : message.isCurrentUser
+                        ? 'text-green-700'
+                        : 'text-blue-700'
+                      }`}>
                       {getUserDisplayName(message)}
                     </span>
                     <span className="text-xs text-gray-400">
@@ -216,13 +212,12 @@ const ModalContent = ({
 
                   {/* Message bubble */}
                   <div
-                    className={`p-3 rounded-lg ${
-                      message.sender === 'ember'
-                        ? 'bg-purple-50 text-purple-900 rounded-tl-none'
-                        : message.isCurrentUser
-                          ? 'bg-green-50 text-green-900 rounded-tr-none'
-                          : 'bg-blue-50 text-blue-900 rounded-tr-none'
-                    }`}
+                    className={`p-3 rounded-lg ${message.sender === 'ember'
+                      ? 'bg-purple-50 text-purple-900 rounded-tl-none'
+                      : message.isCurrentUser
+                        ? 'bg-green-50 text-green-900 rounded-tr-none'
+                        : 'bg-blue-50 text-blue-900 rounded-tr-none'
+                      }`}
                   >
                     <p className={`text-sm ${message.isThinking ? 'italic text-purple-600' : ''}`}>
                       {message.content}
@@ -242,9 +237,8 @@ const ModalContent = ({
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 mt-2">
-                        <div className={`w-2 h-2 rounded-full ${
-                          message.isCurrentUser ? 'bg-green-500' : 'bg-blue-500'
-                        }`}></div>
+                        <div className={`w-2 h-2 rounded-full ${message.isCurrentUser ? 'bg-green-500' : 'bg-blue-500'
+                          }`}></div>
                         <span className="text-xs opacity-70">Text response</span>
                       </div>
                     )}
@@ -254,13 +248,12 @@ const ModalContent = ({
                 {/* Avatar - only show on right side for user messages */}
                 {message.sender === 'user' && (
                   <Avatar className="h-8 w-8 flex-shrink-0">
-                    <AvatarImage 
-                      src={getUserAvatar(message)} 
-                      alt={getUserDisplayName(message)} 
+                    <AvatarImage
+                      src={getUserAvatar(message)}
+                      alt={getUserDisplayName(message)}
                     />
-                    <AvatarFallback className={`text-white ${
-                      message.isCurrentUser ? 'bg-green-500' : 'bg-blue-500'
-                    }`}>
+                    <AvatarFallback className={`text-white ${message.isCurrentUser ? 'bg-green-500' : 'bg-blue-500'
+                      }`}>
                       <User size={16} />
                     </AvatarFallback>
                   </Avatar>
@@ -280,7 +273,7 @@ const ModalContent = ({
                 <Sparkles size={16} />
               </AvatarFallback>
             </Avatar>
-            
+
             <div className="max-w-[75%]">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs font-medium text-purple-700">
@@ -290,7 +283,7 @@ const ModalContent = ({
                   now
                 </span>
               </div>
-              
+
               <div className="bg-purple-50 border border-purple-200 rounded-lg rounded-tl-none p-3">
                 <p className="text-sm text-purple-900 font-medium">
                   {currentQuestion}
@@ -357,7 +350,7 @@ const ModalContent = ({
 
               {/* Microphone Selection Combobox */}
               {availableMicrophones.length > 1 && (
-                <MicrophoneCombobox 
+                <MicrophoneCombobox
                   microphones={availableMicrophones}
                   selectedMicrophone={selectedMicrophone}
                   onSelectMicrophone={setSelectedMicrophone}
@@ -386,7 +379,7 @@ const ModalContent = ({
                 )}
               </Button>
             </div>
-            
+
             {/* Submit Response Button - Full Width */}
             <Button
               onClick={handleSubmit}
@@ -406,14 +399,14 @@ const ModalContent = ({
 export default function StoryModal({ isOpen, onClose, ember, question, onSubmit, onRefresh, isRefreshing }) {
   const { user, userProfile } = useStore();
   const isMobile = useMediaQuery('(max-width: 768px)');
-  
+
   // State
   const [messages, setMessages] = useState([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [conversation, setConversation] = useState(null);
   const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false);
-  
+
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -424,14 +417,14 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   const [availableMicrophones, setAvailableMicrophones] = useState([]);
   const [selectedMicrophone, setSelectedMicrophone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Clear stories state
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  
+
   // Individual message delete state
   const [isDeletingMessage, setIsDeletingMessage] = useState(false);
-  
+
   const mediaRecorderRef = useRef(null);
   const audioRef = useRef(null);
   const recordingIntervalRef = useRef(null);
@@ -439,7 +432,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
 
   // Check if current user is ember owner
   const isEmberOwner = ember?.user_id === user?.id;
-  
+
 
 
   // Cleanup on unmount
@@ -459,12 +452,12 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       // Filter out microphones with empty deviceId (iOS issue)
-      const audioInputs = devices.filter(device => 
-        device.kind === 'audioinput' && 
-        device.deviceId && 
+      const audioInputs = devices.filter(device =>
+        device.kind === 'audioinput' &&
+        device.deviceId &&
         device.deviceId.trim() !== ''
       );
-      
+
       // If no valid microphones found, add a default entry
       if (audioInputs.length === 0) {
         const defaultMic = {
@@ -475,9 +468,9 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         audioInputs.push(defaultMic);
         console.log('No specific microphones found, using default');
       }
-      
+
       setAvailableMicrophones(audioInputs);
-      
+
       // Set default microphone if none selected
       if (audioInputs.length > 0 && !selectedMicrophone) {
         setSelectedMicrophone(audioInputs[0].deviceId);
@@ -494,14 +487,14 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
     }
   }, [messages]);
 
-    // Load conversation when modal opens
+  // Load conversation when modal opens
   useEffect(() => {
     if (isOpen && ember?.id && user?.id) {
       // Small delay to ensure user profile is loaded
       const timer = setTimeout(() => {
         loadConversation();
       }, 100);
-      
+
       return () => clearTimeout(timer);
     }
   }, [isOpen, ember?.id, user?.id]);
@@ -518,7 +511,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       setHasRecording(false);
       setIsPlaying(false);
       setAudioBlob(null);
-      
+
       // Get available microphones
       getAvailableMicrophones();
     }
@@ -544,17 +537,17 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
 
       // Load ALL story messages for this ember (from all users)
       console.log('📥 [UI] Loading all story messages for ember...');
-      
+
       // Explicitly clear messages state first
       setMessages([]);
-      
+
       const allMessages = await getAllStoryMessagesForEmber(ember.id);
       console.log('📨 [UI] getAllStoryMessagesForEmber returned:', allMessages);
       console.log('📊 [UI] Total messages received:', allMessages.messages?.length || 0);
-      
+
       if (allMessages.messages && allMessages.messages.length > 0) {
         console.log('🔄 [UI] Processing', allMessages.messages.length, 'messages for display...');
-        
+
         // Log raw message data analysis
         const messageAnalysis = allMessages.messages.map((msg, index) => ({
           index,
@@ -567,7 +560,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           is_current_user: msg.user_id === user.id
         }));
         console.log('📋 [UI] Message analysis:', messageAnalysis);
-        
+
         // Convert database messages to UI format, including user info
         const uiMessages = allMessages.messages.map((msg, index) => {
           const uiMessage = {
@@ -584,7 +577,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
             userAvatarUrl: msg.user_avatar_url,
             isCurrentUser: msg.user_id === user.id
           };
-          
+
           console.log(`📝 [UI] Message ${index}:`, {
             messageId: uiMessage.messageId,
             sender: uiMessage.sender,
@@ -593,10 +586,10 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
             isCurrentUser: uiMessage.isCurrentUser,
             userIdComparison: `${msg.user_id} === ${user.id} = ${msg.user_id === user.id}`
           });
-          
+
           return uiMessage;
         });
-        
+
         // Summary of users in messages
         const uniqueUsers = [...new Set(uiMessages.map(msg => msg.userId))];
         const userSummary = uniqueUsers.map(userId => ({
@@ -606,9 +599,9 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           isCurrentUser: userId === user.id
         }));
         console.log('👥 [UI] Users in conversation:', userSummary);
-        
+
         setMessages(uiMessages);
-        
+
         // Force a re-render to ensure UI updates with correct names
         setTimeout(() => {
           console.log('🔄 [UI] Force re-render with messages:', uiMessages.length);
@@ -617,13 +610,13 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
 
         // Set next question based on current user's conversation progress
         // Get current user's answers only
-        const currentUserAnswers = uiMessages.filter(msg => 
+        const currentUserAnswers = uiMessages.filter(msg =>
           msg.type === 'answer' && msg.userId === user.id
         ).length;
-        
+
         console.log('❓ [UI] Current user has answered', currentUserAnswers, 'questions');
-        
-        if (currentUserAnswers < 10) { // Still have questions to ask
+
+        if (currentUserAnswers < 3) { // Still have questions to ask
           setIsGeneratingQuestion(true);
           try {
             const nextQuestion = await generateFollowUpQuestion(uiMessages.filter(msg => msg.userId === user.id));
@@ -650,12 +643,12 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
     } catch (error) {
       console.error('🚨 [UI] Error loading conversation:', error);
       console.error('🚨 [UI] Error details:', error.message, error.stack);
-      
+
       // Check if it's a database table error
       if (error.message.includes('relation') && error.message.includes('does not exist')) {
         alert('Database tables not found. Please run the database migration first.');
       }
-      
+
       // Fallback to new conversation
       console.log('🔄 [UI] Falling back to new conversation');
       setMessages([]);
@@ -688,7 +681,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         return type;
       }
     }
-    
+
     console.warn('⚠️ No supported audio MIME types found, using default');
     return 'audio/webm'; // Fallback
   };
@@ -698,7 +691,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       console.log('🎤 Starting recording...');
       console.log('📱 Mobile device:', isMobileDevice());
       console.log('🎛️ Selected microphone:', selectedMicrophone);
-      
+
       // Mobile-optimized audio constraints
       const baseConstraints = {
         echoCancellation: true,
@@ -716,32 +709,32 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       }
 
       const audioConstraints = { ...baseConstraints };
-      
+
       // Only specify deviceId if it's not the default fallback
       if (selectedMicrophone && selectedMicrophone !== 'default') {
         audioConstraints.deviceId = { exact: selectedMicrophone };
       }
-      
+
       console.log('📋 Audio constraints:', audioConstraints);
-        
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
       console.log('✅ Microphone stream obtained');
       console.log('📊 Stream settings:', stream.getAudioTracks()[0]?.getSettings());
-      
+
       // Get the best supported MIME type for this device
       const mimeType = getSupportedMimeType();
-      
+
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: mimeType
       });
       console.log('🎬 MediaRecorder created');
       console.log('📝 MIME type:', mediaRecorder.mimeType);
       console.log('📈 State:', mediaRecorder.state);
-      
+
       mediaRecorderRef.current = mediaRecorder;
 
       const audioChunks = [];
-      
+
       mediaRecorder.ondataavailable = (event) => {
         console.log('📦 Data available:', event.data.size, 'bytes');
         if (event.data.size > 0) {
@@ -752,7 +745,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       mediaRecorder.onstop = () => {
         console.log('⏹️ Recording stopped');
         console.log('📊 Total chunks:', audioChunks.length);
-        
+
         // Use the same MIME type that was used for recording
         const audioBlob = new Blob(audioChunks, { type: mimeType });
         console.log('🎵 Audio blob created:', {
@@ -760,21 +753,21 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           type: audioBlob.type,
           sizeMB: (audioBlob.size / 1024 / 1024).toFixed(2)
         });
-        
+
         // Check file size for mobile optimization
         if (isMobileDevice() && audioBlob.size > 5 * 1024 * 1024) { // 5MB limit for mobile
           console.warn('⚠️ Large audio file detected on mobile:', audioBlob.size, 'bytes');
         }
-        
+
         setAudioBlob(audioBlob);
         setHasRecording(true);
-        
+
         console.log('📋 Setting audio blob state:', {
           blobSet: true,
           hasRecordingSet: true,
           blobSize: audioBlob.size
         });
-        
+
         // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
         console.log('✅ Recording processing complete');
@@ -786,7 +779,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
 
       mediaRecorder.start();
       console.log('🔴 Recording started');
-      
+
       setIsRecording(true);
       setRecordingDuration(0);
 
@@ -798,10 +791,10 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
     } catch (error) {
       console.error('❌ Error starting recording:', error);
       console.error('❌ Error details:', error.message);
-      
+
       // Mobile-specific error handling
       if (error.name === 'NotAllowedError') {
-        const message = isMobileDevice() 
+        const message = isMobileDevice()
           ? 'Microphone access denied. On mobile, please:\n1. Refresh the page\n2. Allow microphone when prompted\n3. Check your browser settings'
           : 'Microphone access denied. Please allow microphone permissions and try again.';
         alert(message);
@@ -825,7 +818,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      
+
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
         recordingIntervalRef.current = null;
@@ -841,7 +834,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       isPlaying,
       hasRecording
     });
-    
+
     if (audioBlob && audioRef.current) {
       try {
         if (isPlaying) {
@@ -850,38 +843,38 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           setIsPlaying(false);
         } else {
           console.log('▶️ Starting audio playback');
-          
+
           // Clean up any existing object URL
           if (audioRef.current.src && audioRef.current.src.startsWith('blob:')) {
             URL.revokeObjectURL(audioRef.current.src);
           }
-          
+
           // Set up new audio source
           audioRef.current.src = URL.createObjectURL(audioBlob);
           console.log('🎵 Audio source set:', audioRef.current.src);
-          
+
           // Set up event handlers before playing
           audioRef.current.onended = () => {
             console.log('🏁 Audio playback ended');
             setIsPlaying(false);
           };
-          
+
           audioRef.current.onerror = (e) => {
             console.error('Audio playback error:', e);
             setIsPlaying(false);
             alert('Could not play audio recording. Please try recording again.');
           };
-          
+
           // Play audio (returns a Promise)
           await audioRef.current.play();
           setIsPlaying(true);
-          
+
           console.log('🔊 Playing recorded audio successfully');
         }
       } catch (error) {
         console.error('❌ Error playing audio:', error);
         setIsPlaying(false);
-        
+
         // Handle specific play() errors
         if (error.name === 'NotSupportedError') {
           alert('Audio format not supported for playback on this device.');
@@ -904,27 +897,27 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
 
   const handleSubmit = async () => {
     if (!currentAnswer.trim() && !hasRecording) return;
-    
+
     // Debug logging
     console.log('StoryModal handleSubmit called');
     console.log('currentAnswer:', currentAnswer);
     console.log('conversation:', conversation);
     console.log('user:', user);
     console.log('ember:', ember);
-    
+
     if (!conversation?.id) {
       console.error('No conversation ID found - conversation may not have been created');
       alert('Could not save response: conversation not initialized. Please try again.');
       return;
     }
-    
+
     try {
       setIsProcessing(true);
-      
+
       // Add current question to database and messages if it's not already there
       const updatedMessages = [...messages];
       let currentQuestionMessage = null;
-      
+
       // Add the current question if it exists and hasn't been added yet
       if (currentQuestion && !messages.some(msg => msg.content === currentQuestion && msg.sender === 'ember')) {
         // Save question to database
@@ -944,7 +937,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           hasVoiceRecording: false,
           messageId: currentQuestionMessage.id
         };
-        
+
         updatedMessages.push(uiQuestionMessage);
       }
 
@@ -968,26 +961,26 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
               console.error('💡 Add VITE_ELEVENLABS_API_KEY=your_api_key to your .env file');
               throw new Error('ElevenLabs API key not configured');
             }
-            
+
             console.log('🎤 Running speech-to-text via ElevenLabs...');
             console.log('📄 Audio blob details:', {
               size: audioBlob.size,
               type: audioBlob.type,
               mobile: isMobileDevice()
             });
-            
+
             // Note about mobile format compatibility with ElevenLabs
             if (isMobileDevice() && !audioBlob.type.includes('webm')) {
               console.warn('⚠️ Mobile audio format detected:', audioBlob.type, '- ElevenLabs prefers WebM but should handle this format');
             }
-            
+
             sttTranscription = await speechToText(audioBlob);
             sttConfidence = 1.0; // ElevenLabs doesn't return confidence, assume high
-            
+
             console.log('✅ Speech-to-text completed successfully!');
             console.log(`📝 Transcribed text: "${sttTranscription}"`);
             console.log(`📊 Text length: ${sttTranscription.length} characters`);
-            
+
             // Store for voice training data
             if (sttTranscription && user?.id) {
               console.log('💾 Storing voice training data...');
@@ -1014,10 +1007,10 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           };
 
           const extension = getFileExtension(audioBlob.type);
-          const audioFile = new File([audioBlob], `story-${Date.now()}.${extension}`, { 
-            type: audioBlob.type 
+          const audioFile = new File([audioBlob], `story-${Date.now()}.${extension}`, {
+            type: audioBlob.type
           });
-          
+
           console.log('📁 Audio file created:', {
             name: audioFile.name,
             type: audioFile.type,
@@ -1081,22 +1074,22 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         userAvatarUrl: userProfile?.avatar_url,
         isCurrentUser: true
       };
-      
+
       updatedMessages.push(uiUserResponse);
       setMessages(updatedMessages);
-      
+
       // Reset current answer and recording
       setCurrentAnswer('');
       setHasRecording(false);
       setAudioBlob(null);
       setRecordingDuration(0);
-      
+
       // Generate next question based on the conversation
       const answerCount = updatedMessages.filter(msg => msg.type === 'answer').length;
-      if (answerCount < 10) { // Limit to 10 questions
+      if (answerCount < 3) { // Limit to 3 questions
         setIsGeneratingQuestion(true);
         setCurrentQuestion(''); // Clear current question while generating
-        
+
         // Add a "thinking" message to show AI is working
         const thinkingMessage = {
           sender: 'ember',
@@ -1106,13 +1099,13 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
           hasVoiceRecording: false,
           isThinking: true
         };
-        
+
         setMessages([...updatedMessages, thinkingMessage]);
-        
+
         try {
           const nextQuestion = await generateFollowUpQuestion(updatedMessages);
           setCurrentQuestion(nextQuestion);
-          
+
           // Remove thinking message and add real question
           setMessages(updatedMessages); // Remove thinking message
         } catch (error) {
@@ -1124,23 +1117,23 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         }
       } else {
         setCurrentQuestion(''); // No more questions - conversation complete
-        
+
         // Mark conversation as completed
         await completeStoryConversation(conversation.id, user.id);
       }
-      
+
       // Prepare submission data for parent component
       const submissionData = {
         conversationId: conversation.id,
         messages: updatedMessages,
         currentResponse: uiUserResponse
       };
-      
+
       // Call parent submit handler (optional - could be used for additional processing)
       if (onSubmit) {
         await onSubmit(submissionData);
       }
-      
+
     } catch (error) {
       console.error('Error submitting response:', error);
       alert('Could not submit response. Please try again.');
@@ -1153,17 +1146,17 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   const generateFollowUpQuestion = async (conversationHistory, lastUserMessage = null) => {
     try {
       console.log('🤖 Generating AI-powered follow-up question...');
-      
+
       // Use the last user message as the "new comment" for analysis
-      const newComment = lastUserMessage?.content || lastUserMessage?.message || 
-                        (conversationHistory.length > 0 ? 
-                         conversationHistory[conversationHistory.length - 1]?.content || 
-                         conversationHistory[conversationHistory.length - 1]?.message || 
-                         'User shared their story' : 
-                         'User started sharing their story');
-      
+      const newComment = lastUserMessage?.content || lastUserMessage?.message ||
+        (conversationHistory.length > 0 ?
+          conversationHistory[conversationHistory.length - 1]?.content ||
+          conversationHistory[conversationHistory.length - 1]?.message ||
+          'User shared their story' :
+          'User started sharing their story');
+
       const commentAuthor = user?.name || user?.user_name || 'User';
-      
+
       // Convert conversation history to the format expected by AI
       const aiFormattedHistory = conversationHistory.map(msg => ({
         content: msg.content || msg.message || '',
@@ -1172,21 +1165,21 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         created_at: msg.created_at || new Date().toISOString(),
         sender: msg.sender || 'user'
       }));
-      
-      console.log('📝 Calling AI with:', { 
-        emberId: ember.id, 
-        newComment: newComment.substring(0, 100) + '...', 
+
+      console.log('📝 Calling AI with:', {
+        emberId: ember.id,
+        newComment: newComment.substring(0, 100) + '...',
         commentAuthor,
-        historyLength: aiFormattedHistory.length 
+        historyLength: aiFormattedHistory.length
       });
-      
+
       const aiResult = await generateEmberAIQuestion(
-        ember.id, 
-        newComment, 
-        commentAuthor, 
+        ember.id,
+        newComment,
+        commentAuthor,
         aiFormattedHistory
       );
-      
+
       if (aiResult.success) {
         console.log('✅ AI generated question:', aiResult.question);
         return aiResult.question;
@@ -1195,7 +1188,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         // Fallback to a generic question if AI fails
         return "What else would you like to share about this moment?";
       }
-      
+
     } catch (error) {
       console.error('❌ Error generating AI question:', error);
       // Fallback to a generic question if there's an error
@@ -1238,14 +1231,14 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
     try {
       setIsDeletingMessage(true);
       console.log('🗑️ Deleting individual message:', messageId);
-      
+
       const result = await deleteStoryMessage(messageId, ember.id, user.id);
-      
+
       console.log('✅ Message deleted successfully:', result);
-      
+
       // Refresh the conversation to reflect the deletion
       await loadConversation();
-      
+
     } catch (error) {
       console.error('❌ Error deleting message:', error);
       alert(`Failed to delete message: ${error.message}`);
@@ -1264,22 +1257,22 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
     try {
       setIsClearing(true);
       console.log('🗑️ Clearing all stories for ember:', ember.id);
-      
+
       const result = await clearAllStoriesForEmber(ember.id, user.id);
-      
+
       console.log('✅ Stories cleared successfully:', result);
-      
+
       // Refresh the conversation to show empty state
       await loadConversation();
-      
+
       // Close confirmation dialog
       setShowClearConfirm(false);
-      
+
       // Show success message (optional)
       if (result.deletedConversations > 0 || result.deletedMessages > 0) {
         console.log(`Cleared ${result.deletedMessages} messages from ${result.deletedConversations} conversations`);
       }
-      
+
     } catch (error) {
       console.error('❌ Error clearing stories:', error);
       alert(`Failed to clear stories: ${error.message}`);
@@ -1295,29 +1288,29 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         <Drawer open={isOpen} onOpenChange={onClose}>
           <DrawerContent className="bg-white focus:outline-none">
             <DrawerHeader className="bg-white">
-                          <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-              <BookOpen size={20} className="text-blue-600" />
-              Story Circle
-              {onRefresh && (
-                <button
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-                  title="Refresh story data"
-                >
-                  <ArrowClockwise 
-                    size={16} 
-                    className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
-                  />
-                </button>
-              )}
-            </DrawerTitle>
+              <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+                <BookOpen size={20} className="text-blue-600" />
+                Story Circle
+                {onRefresh && (
+                  <button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                    title="Refresh story data"
+                  >
+                    <ArrowClockwise
+                      size={16}
+                      className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`}
+                    />
+                  </button>
+                )}
+              </DrawerTitle>
               <DrawerDescription className="text-left text-gray-600">
                 Share the story behind this moment
               </DrawerDescription>
             </DrawerHeader>
             <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
-              <ModalContent 
+              <ModalContent
                 messages={messages}
                 currentAnswer={currentAnswer}
                 setCurrentAnswer={setCurrentAnswer}
@@ -1358,7 +1351,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-                      <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
+        <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
               <BookOpen size={20} className="text-blue-600" />
@@ -1370,9 +1363,9 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
                   className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
                   title="Refresh story data"
                 >
-                  <ArrowClockwise 
-                    size={16} 
-                    className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} 
+                  <ArrowClockwise
+                    size={16}
+                    className={`text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`}
                   />
                 </button>
               )}
@@ -1381,7 +1374,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
               Share the story behind this moment
             </DialogDescription>
           </DialogHeader>
-          <ModalContent 
+          <ModalContent
             messages={messages}
             currentAnswer={currentAnswer}
             setCurrentAnswer={setCurrentAnswer}

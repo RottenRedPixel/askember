@@ -178,10 +178,7 @@ export default function EmberPlay({
                                             {/* Loading Message */}
                                             <p className="text-white text-lg font-medium text-center">
                                                 {isGeneratingAudio ?
-                                                    (currentlyPlayingStoryCut ?
-                                                        `Preparing "${currentlyPlayingStoryCut.title}"...` :
-                                                        `Preparing ${ember?.title || 'your story'}...`
-                                                    ) :
+                                                    "Preparing Story..." :
                                                     currentLoadingMessage
                                                 }
                                             </p>
@@ -403,10 +400,7 @@ export default function EmberPlay({
                                                         {/* Loading Message */}
                                                         <p className="text-white text-lg font-medium text-center">
                                                             {isGeneratingAudio ?
-                                                                (currentlyPlayingStoryCut ?
-                                                                    `Preparing "${currentlyPlayingStoryCut.title}"...` :
-                                                                    `Preparing ${ember?.title || 'your story'}...`
-                                                                ) :
+                                                                "Preparing Story..." :
                                                                 currentLoadingMessage
                                                             }
                                                         </p>

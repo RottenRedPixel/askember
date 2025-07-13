@@ -25,6 +25,10 @@ export default function EmberPlay() {
     const navigate = useNavigate();
     const { user, userProfile } = useStore();
 
+    console.log('🎬 EmberPlay: Rendering');
+    console.log('🎬 EmberPlay: Current URL:', window.location.href);
+    console.log('🎬 EmberPlay: Ember ID:', id);
+
     // Use the same data fetching hooks as EmberDetail
     const {
         ember,
@@ -96,7 +100,7 @@ export default function EmberPlay() {
     const playbackStoppedRef = useRef(false);
     const mediaTimeoutsRef = useRef([]);
 
-        // Auto-trigger background processing when ember loads (removed for shared users)
+    // Auto-trigger background processing when ember loads (removed for shared users)
     // These functions are not needed for public sharing
     /*
     useEffect(() => {
@@ -226,7 +230,7 @@ export default function EmberPlay() {
         setCurrentPanEffect(null);
         setCurrentZoomEffect(null);
         setShowEndHold(true);
-        
+
         // Clear timeouts
         sentenceTimeouts.forEach(timeout => clearTimeout(timeout));
         setSentenceTimeouts([]);
@@ -298,18 +302,6 @@ export default function EmberPlay() {
                                         </h1>
                                     </div>
                                 </div>
-
-                                {/* Management Button - Top Right (only for authenticated users) */}
-                                {user && (
-                                    <button
-                                        className="absolute top-4 right-16 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors z-30 pointer-events-auto"
-                                        onClick={() => navigate(`/embers/${id}/manage`)}
-                                        aria-label="Manage Ember"
-                                        type="button"
-                                    >
-                                        <Gear size={20} className="text-white" />
-                                    </button>
-                                )}
 
                                 {/* Exit Button - Top Right */}
                                 <button
@@ -397,10 +389,7 @@ export default function EmberPlay() {
                                             {/* Loading Message */}
                                             <p className="text-white text-lg font-medium text-center">
                                                 {isGeneratingAudio ?
-                                                    (currentlyPlayingStoryCut ?
-                                                        `Preparing "${currentlyPlayingStoryCut.title}"...` :
-                                                        `Preparing ${ember?.title || 'your story'}...`
-                                                    ) :
+                                                    "Preparing Story..." :
                                                     currentLoadingMessage
                                                 }
                                             </p>
@@ -483,10 +472,7 @@ export default function EmberPlay() {
 
                                         {!isPlaying && !isGeneratingAudio && !currentDisplayText && (
                                             <div className="text-center">
-                                                <p className="text-white text-lg mb-4">
-                                                    {ember?.title || 'Untitled Ember'}
-                                                </p>
-                                                <p className="text-gray-400 text-sm">
+                                                <p className="text-white text-xl leading-relaxed">
                                                     Press play to experience this ember's story
                                                 </p>
                                             </div>
@@ -526,18 +512,6 @@ export default function EmberPlay() {
                                         {ember?.title || 'Untitled Ember'}
                                     </h1>
                                 </div>
-
-                                {/* Management Button - Top Right (only for authenticated users) */}
-                                {user && (
-                                    <button
-                                        className="absolute top-6 right-16 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors z-30 pointer-events-auto"
-                                        onClick={() => navigate(`/embers/${id}/manage`)}
-                                        aria-label="Manage Ember"
-                                        type="button"
-                                    >
-                                        <Gear size={20} className="text-white" />
-                                    </button>
-                                )}
 
                                 {/* Exit Button - Top Right */}
                                 <button
@@ -625,10 +599,7 @@ export default function EmberPlay() {
                                             {/* Loading Message */}
                                             <p className="text-white text-lg font-medium text-center">
                                                 {isGeneratingAudio ?
-                                                    (currentlyPlayingStoryCut ?
-                                                        `Preparing "${currentlyPlayingStoryCut.title}"...` :
-                                                        `Preparing ${ember?.title || 'your story'}...`
-                                                    ) :
+                                                    "Preparing Story..." :
                                                     currentLoadingMessage
                                                 }
                                             </p>
@@ -711,10 +682,7 @@ export default function EmberPlay() {
 
                                         {!isPlaying && !isGeneratingAudio && !currentDisplayText && (
                                             <div className="text-center">
-                                                <p className="text-white text-xl mb-4">
-                                                    {ember?.title || 'Untitled Ember'}
-                                                </p>
-                                                <p className="text-gray-400 text-sm">
+                                                <p className="text-white text-lg leading-relaxed">
                                                     Press play to experience this ember's story
                                                 </p>
                                             </div>

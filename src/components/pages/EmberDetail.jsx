@@ -221,10 +221,15 @@ export default function EmberDetail() {
     const urlParams = new URLSearchParams(window.location.search);
     const view = urlParams.get('view');
 
+    console.log('🔍 EmberDetail: URL params:', window.location.search);
+    console.log('🔍 EmberDetail: View param:', view);
+    console.log('🔍 EmberDetail: Current URL:', window.location.href);
+
     if (view === 'story-cuts') {
+      console.log('🔍 EmberDetail: Opening story cuts side panel');
       setShowEmberStoryCuts(true);
       // Clean up the URL parameter
-      navigate(`/embers/${id}`, { replace: true });
+      navigate(`/embers/${id}/manage`, { replace: true });
     }
   }, [id, navigate, setShowEmberStoryCuts]);
 
@@ -1225,7 +1230,7 @@ export default function EmberDetail() {
   // Helper function to get story progress info
   const getStoryProgress = () => {
     const current = storyMessages.length;
-    const required = 6;
+    const required = 3;
     const isComplete = current >= required;
     return { current, required, isComplete };
   };
@@ -1246,7 +1251,7 @@ export default function EmberDetail() {
       case 'people':
         return taggedPeopleCount > 0;
       case 'story':
-        return storyMessages.length >= 6;
+        return storyMessages.length >= 3;
       case 'supporting-media':
         return supportingMedia.length > 0;
       case 'media-management':
@@ -1491,7 +1496,7 @@ export default function EmberDetail() {
           <div className="w-full px-4 pt-3 pb-2 md:px-6">
             <p className="text-lg font-bold text-gray-800 text-center">
               {wikiProgress.percentage === 100
-                ? `Congrats ${userProfile?.first_name || 'User'}! We did it! Now let's try Story Cuts!`
+                ? `Congrats ${userProfile?.first_name || 'User'}! Now try Story Cuts!`
                 : `${userProfile?.first_name || 'User'}, lets complete these cards...`
               }
             </p>

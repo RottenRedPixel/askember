@@ -12,13 +12,14 @@ const ShareSlideOutContent = ({ ember }) => {
     const [message, setMessage] = useState(null);
     const [showQRCode, setShowQRCode] = useState(false);
 
-    const copyShareLink = async () => {
+    const handleCopyLink = async () => {
         try {
             const link = `${window.location.origin}/share/${ember.id}`;
             await navigator.clipboard.writeText(link);
-            setMessage({ type: 'success', text: 'Link copied to clipboard' });
+            setMessage({ type: 'success', text: 'Link copied to clipboard!' });
             setTimeout(() => setMessage(null), 3000);
-        } catch (error) {
+        } catch (err) {
+            console.error('Failed to copy link: ', err);
             setMessage({ type: 'error', text: 'Failed to copy link' });
             setTimeout(() => setMessage(null), 3000);
         }
@@ -72,7 +73,7 @@ const ShareSlideOutContent = ({ ember }) => {
                         readOnly
                         className="text-xs min-w-0 flex-1 h-10"
                     />
-                    <Button size="lg" onClick={copyShareLink} variant="blue" className="flex-shrink-0">
+                    <Button size="lg" onClick={handleCopyLink} variant="blue" className="flex-shrink-0">
                         <Copy className="w-4 h-4" />
                     </Button>
                 </div>
