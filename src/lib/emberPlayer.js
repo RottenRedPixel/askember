@@ -1002,24 +1002,46 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
           console.log(`🔍 Resolved media URL for "${segment.mediaPath || segment.mediaName || segment.mediaId}":`, resolvedMediaUrl);
 
           if (resolvedMediaUrl) {
-            // Extract all effects first
-            const hasFadeEffects = segment.content.includes('FADE-');
-            const hasPanEffects = segment.content.includes('PAN-');
-            const hasZoomEffects = segment.content.includes('ZOOM-');
-            const hasLegacyZoomEffects = segment.content.includes('Z-OUT:');
-
+            // Extract all effects from the visual actions array
             let fadeEffect = null;
             let panEffect = null;
             let zoomEffect = null;
+            let hasLegacyZoomEffects = false;
 
-            if (hasFadeEffects) {
-              fadeEffect = extractFadeFromAction(segment.content);
-            }
-            if (hasPanEffects) {
-              panEffect = extractPanFromAction(segment.content);
-            }
-            if (hasZoomEffects) {
-              zoomEffect = extractZoomFromAction(segment.content);
+            // Process each visual action to extract effects
+            if (segment.visualActions && segment.visualActions.length > 0) {
+              for (const action of segment.visualActions) {
+                console.log(`🔍 Processing visual action: "${action}"`);
+
+                // Extract fade effects
+                if (action.includes('FADE-') && !fadeEffect) {
+                  fadeEffect = extractFadeFromAction(action);
+                  if (fadeEffect) {
+                    console.log(`🎬 Fade effect extracted: ${fadeEffect.type} - ${fadeEffect.duration}s`);
+                  }
+                }
+
+                // Extract pan effects
+                if (action.includes('PAN-') && !panEffect) {
+                  panEffect = extractPanFromAction(action);
+                  if (panEffect) {
+                    console.log(`🎬 Pan effect extracted: ${panEffect.direction} - ${panEffect.duration}s`);
+                  }
+                }
+
+                // Extract zoom effects
+                if (action.includes('ZOOM-') && !zoomEffect) {
+                  zoomEffect = extractZoomFromAction(action);
+                  if (zoomEffect) {
+                    console.log(`🎬 Zoom effect extracted: ${zoomEffect.type} - ${zoomEffect.duration}s`);
+                  }
+                }
+
+                // Check for legacy zoom effects
+                if (action.includes('Z-OUT:')) {
+                  hasLegacyZoomEffects = true;
+                }
+              }
             }
 
             // Apply legacy zoom effects (Z-OUT: system)
@@ -1048,7 +1070,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
               console.log(`🎬 Pan effect set in React state: ${panEffect.direction} - ${panEffect.duration}s`);
             }
             if (zoomEffect) {
-              console.log(`🎬 Zoom effect set in React state: ${zoomEffect.direction} - ${zoomEffect.duration}s`);
+              console.log(`🎬 Zoom effect set in React state: ${zoomEffect.type} - ${zoomEffect.duration}s`);
             }
 
             // Clear any color overlays when switching to image
