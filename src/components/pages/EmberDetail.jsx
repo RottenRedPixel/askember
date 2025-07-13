@@ -1068,6 +1068,10 @@ export default function EmberDetail() {
         setCurrentMediaColor,
         setCurrentZoomScale,
         setCurrentMediaImageUrl,
+        // Loading screen state setters
+        setCurrentLoadingState,
+        setCurrentLoadingMessage,
+        setCurrentLoadingIcon,
         setCurrentDisplayText,
         setCurrentVoiceTag,
         setCurrentSentenceIndex,
@@ -1084,29 +1088,33 @@ export default function EmberDetail() {
 
   const handleStop = () => {
     // Stop playback but stay in EmberPlay view
-    handleMediaExitPlay({
-      currentAudio,
-      setIsPlaying,
-      setShowFullscreenPlay: () => { }, // Don't exit fullscreen, just stop playback
-      setCurrentlyPlayingStoryCut,
-      activeAudioSegments,
-      setActiveAudioSegments,
-      setCurrentVoiceType,
-      setCurrentVoiceTransparency,
-      setCurrentMediaColor,
-      setCurrentZoomScale,
-      setCurrentMediaImageUrl,
-      setCurrentDisplayText,
-      setCurrentVoiceTag,
-      setCurrentSentenceIndex,
-      setCurrentSegmentSentences,
-      setSentenceTimeouts,
-      setMediaTimeouts,
-      sentenceTimeouts,
-      mediaTimeouts,
-      mediaTimeoutsRef,
-      playbackStoppedRef
-    });
+          handleMediaExitPlay({
+        currentAudio,
+        setIsPlaying,
+        setShowFullscreenPlay: () => { }, // Don't exit fullscreen, just stop playback
+        setCurrentlyPlayingStoryCut,
+        activeAudioSegments,
+        setActiveAudioSegments,
+        setCurrentVoiceType,
+        setCurrentVoiceTransparency,
+        setCurrentMediaColor,
+        setCurrentZoomScale,
+        setCurrentMediaImageUrl,
+        // Loading screen state setters
+        setCurrentLoadingState,
+        setCurrentLoadingMessage,
+        setCurrentLoadingIcon,
+        setCurrentDisplayText,
+        setCurrentVoiceTag,
+        setCurrentSentenceIndex,
+        setCurrentSegmentSentences,
+        setSentenceTimeouts,
+        setMediaTimeouts,
+        sentenceTimeouts,
+        mediaTimeouts,
+        mediaTimeoutsRef,
+        playbackStoppedRef
+      });
   };
 
   const handleExitPlay = () => {
@@ -1127,6 +1135,10 @@ export default function EmberDetail() {
         setCurrentMediaColor,
         setCurrentZoomScale,
         setCurrentMediaImageUrl,
+        // Loading screen state setters
+        setCurrentLoadingState,
+        setCurrentLoadingMessage,
+        setCurrentLoadingIcon,
         setCurrentDisplayText,
         setCurrentVoiceTag,
         setCurrentSentenceIndex,
@@ -1161,6 +1173,10 @@ export default function EmberDetail() {
       setCurrentMediaColor,
       setCurrentZoomScale,
       setCurrentMediaImageUrl,
+      // Loading screen state setters
+      setCurrentLoadingState,
+      setCurrentLoadingMessage,
+      setCurrentLoadingIcon,
       setCurrentDisplayText,
       setCurrentVoiceTag,
       setCurrentSentenceIndex,
@@ -2072,6 +2088,10 @@ export default function EmberDetail() {
                                       setCurrentMediaColor,
                                       setCurrentZoomScale,
                                       setCurrentMediaImageUrl,
+                                      // Loading screen state setters
+                                      setCurrentLoadingState,
+                                      setCurrentLoadingMessage,
+                                      setCurrentLoadingIcon,
                                       setCurrentDisplayText,
                                       setCurrentVoiceTag,
                                       setCurrentSentenceIndex,
