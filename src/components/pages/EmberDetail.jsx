@@ -163,6 +163,10 @@ export default function EmberDetail() {
     currentZoomScale, setCurrentZoomScale,
     currentMediaImageUrl, setCurrentMediaImageUrl,
     currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut,
+    // Loading screen state
+    currentLoadingState, setCurrentLoadingState,
+    currentLoadingMessage, setCurrentLoadingMessage,
+    currentLoadingIcon, setCurrentLoadingIcon,
     currentDisplayText, setCurrentDisplayText,
     currentVoiceTag, setCurrentVoiceTag,
     currentSentenceIndex, setCurrentSentenceIndex,
