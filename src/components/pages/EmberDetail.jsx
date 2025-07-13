@@ -368,7 +368,8 @@ export default function EmberDetail() {
     try {
       await setPrimaryStoryCut(storyCutId, ember.id, userProfile.user_id);
 
-      // Refresh the story cuts and primary status
+      // Refresh both ember data and story cuts to get updated primary status
+      await fetchEmber();
       await fetchStoryCuts();
 
       setMessage({
@@ -1460,7 +1461,8 @@ export default function EmberDetail() {
                   className="rounded-full p-1 hover:bg-white/70 transition-colors relative"
                   onClick={async () => {
                     setShowEmberStoryCuts(true);
-                    // Refresh story cuts data to ensure primary status is loaded
+                    // Refresh both ember data and story cuts to ensure primary status is loaded
+                    await fetchEmber();
                     await fetchStoryCuts();
                   }}
                   aria-label="Story Cuts"
