@@ -181,6 +181,10 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       console.log('✅ API: Starting script with voice declaration');
     }
 
+    // Add loading screen for voice preparation
+    scriptParts.push('[[LOAD SCREEN]] <message="Preparing voices...",duration=2.0,icon="voice">');
+    console.log('✅ API: Adding voice loading screen');
+
     // Add ember image immediately (no black opening)
     if (emberImage) {
       scriptParts.push(emberImage);
@@ -335,6 +339,10 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
       scriptParts.push(voiceDeclaration);
       console.log('✅ API: Basic processing - starting script with voice declaration');
     }
+
+    // Add loading screen for voice preparation
+    scriptParts.push('[[LOAD SCREEN]] <message="Preparing voices...",duration=2.0,icon="voice">');
+    console.log('✅ API: Basic processing - adding voice loading screen');
 
     // Add ember image immediately (no black opening)
     if (emberImage) {
