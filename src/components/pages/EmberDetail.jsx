@@ -163,6 +163,10 @@ export default function EmberDetail() {
     currentZoomScale, setCurrentZoomScale,
     currentMediaImageUrl, setCurrentMediaImageUrl,
     currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut,
+    // Visual effects state
+    currentFadeEffect, setCurrentFadeEffect,
+    currentPanEffect, setCurrentPanEffect,
+    currentZoomEffect, setCurrentZoomEffect,
     // Loading screen state
     currentLoadingState, setCurrentLoadingState,
     currentLoadingMessage, setCurrentLoadingMessage,
@@ -1092,33 +1096,33 @@ export default function EmberDetail() {
 
   const handleStop = () => {
     // Stop playback but stay in EmberPlay view
-          handleMediaExitPlay({
-        currentAudio,
-        setIsPlaying,
-        setShowFullscreenPlay: () => { }, // Don't exit fullscreen, just stop playback
-        setCurrentlyPlayingStoryCut,
-        activeAudioSegments,
-        setActiveAudioSegments,
-        setCurrentVoiceType,
-        setCurrentVoiceTransparency,
-        setCurrentMediaColor,
-        setCurrentZoomScale,
-        setCurrentMediaImageUrl,
-        // Loading screen state setters
-        setCurrentLoadingState,
-        setCurrentLoadingMessage,
-        setCurrentLoadingIcon,
-        setCurrentDisplayText,
-        setCurrentVoiceTag,
-        setCurrentSentenceIndex,
-        setCurrentSegmentSentences,
-        setSentenceTimeouts,
-        setMediaTimeouts,
-        sentenceTimeouts,
-        mediaTimeouts,
-        mediaTimeoutsRef,
-        playbackStoppedRef
-      });
+    handleMediaExitPlay({
+      currentAudio,
+      setIsPlaying,
+      setShowFullscreenPlay: () => { }, // Don't exit fullscreen, just stop playback
+      setCurrentlyPlayingStoryCut,
+      activeAudioSegments,
+      setActiveAudioSegments,
+      setCurrentVoiceType,
+      setCurrentVoiceTransparency,
+      setCurrentMediaColor,
+      setCurrentZoomScale,
+      setCurrentMediaImageUrl,
+      // Loading screen state setters
+      setCurrentLoadingState,
+      setCurrentLoadingMessage,
+      setCurrentLoadingIcon,
+      setCurrentDisplayText,
+      setCurrentVoiceTag,
+      setCurrentSentenceIndex,
+      setCurrentSegmentSentences,
+      setSentenceTimeouts,
+      setMediaTimeouts,
+      sentenceTimeouts,
+      mediaTimeouts,
+      mediaTimeoutsRef,
+      playbackStoppedRef
+    });
   };
 
   const handleExitPlay = () => {
@@ -1190,7 +1194,11 @@ export default function EmberDetail() {
       setMediaTimeouts,
       mediaTimeouts,
       mediaTimeoutsRef,
-      setMessage
+      setMessage,
+      // Visual effects state setters
+      setCurrentFadeEffect,
+      setCurrentPanEffect,
+      setCurrentZoomEffect
     });
   };
 
@@ -2105,7 +2113,11 @@ export default function EmberDetail() {
                                       setMediaTimeouts,
                                       mediaTimeouts,
                                       mediaTimeoutsRef,
-                                      setMessage
+                                      setMessage,
+                                      // Visual effects state setters
+                                      setCurrentFadeEffect,
+                                      setCurrentPanEffect,
+                                      setCurrentZoomEffect
                                     });
                                   }}
                                   className="p-1 bg-green-100 hover:bg-green-200 text-green-600 rounded-full transition-colors duration-200"
@@ -2323,11 +2335,20 @@ export default function EmberDetail() {
           // Visual state
           isPlayerFadingOut={isPlayerFadingOut}
           currentDisplayText={currentDisplayText}
+          currentVoiceTag={currentVoiceTag}
           currentMediaImageUrl={currentMediaImageUrl}
           currentMediaColor={currentMediaColor}
-          currentSegmentSentences={currentSegmentSentences}
-          currentSentenceIndex={currentSentenceIndex}
           currentlyPlayingStoryCut={currentlyPlayingStoryCut}
+
+          // Visual effects state
+          currentFadeEffect={currentFadeEffect}
+          currentPanEffect={currentPanEffect}
+          currentZoomEffect={currentZoomEffect}
+
+          // Loading screen state
+          currentLoadingState={currentLoadingState}
+          currentLoadingMessage={currentLoadingMessage}
+          currentLoadingIcon={currentLoadingIcon}
 
           // Audio state
           isPlaying={isPlaying}

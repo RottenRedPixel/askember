@@ -1016,7 +1016,7 @@ export const deleteStoryCut = async (storyCutId, userId) => {
 
 /**
  * Process AI-generated script into Ember script format
- * Takes raw AI script (pure voice content) and transforms it into complete ember playback format
+ * Takes raw AI script (pure voice content) and transforms it into complete ember playbook format
  * @param {string} aiScript - Raw AI script with just voice lines
  * @param {Object} ember - Ember object containing image and metadata
  * @param {string} emberId - Ember ID for media reference
@@ -1031,10 +1031,13 @@ export const processAIScriptToEmberScript = async (aiScript, ember, emberId) => 
       throw new Error('AI script and ember data are required');
     }
 
-    // 1. Ember photo as MEDIA element (start immediately with ember image)
+    // 1. Remove loading screen generation - loading controlled by actual preparation time
+    // The system already handles loading via isGeneratingAudio state
+
+    // 2. Ember photo as MEDIA element (start immediately with ember image)
     const emberPhotoMedia = `[[MEDIA]] <name="${ember.original_filename || 'ember_photo.jpg'}">`;
 
-    // 2. Process voice lines from AI script - add auto-colorization
+    // 3. Process voice lines from AI script - clean format
     const processedVoiceLines = aiScript
       .split('\n\n')
       .filter(line => line.trim())
@@ -1060,12 +1063,12 @@ export const processAIScriptToEmberScript = async (aiScript, ember, emberId) => 
       })
       .join('\n\n');
 
-    // 3. Closing HOLD segment (4-second black fade-out)
+    // 4. Closing HOLD segment (4-second black fade-out)
     const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
 
-    // 4. Combine all elements into complete ember script - START WITH EMBER IMAGE
+    // 5. Combine all elements into complete ember script - START WITH LOADING SCREEN
     const emberScript = [
-      emberPhotoMedia,  // Start with ember image immediately (no black opening)
+      emberPhotoMedia,   // Then ember image
       processedVoiceLines,
       closingHold
     ].join('\n\n');
@@ -1081,8 +1084,8 @@ export const processAIScriptToEmberScript = async (aiScript, ember, emberId) => 
     ).length;
 
     console.log('📊 Ember script composition:', {
-      holdSegments,
       mediaSegments,
+      holdSegments,
       voiceSegments,
       totalLength: emberScript.length
     });

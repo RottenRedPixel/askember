@@ -84,6 +84,9 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
     let emberImage = '';
     let additionalMediaElements = '';
 
+    // Remove the loading screen generation - loading should be controlled by actual preparation time
+    // The system already handles loading via isGeneratingAudio state
+
     if (selectedMedia && selectedMedia.length > 0) {
       console.log('📸 API: Adding selected media to script:', selectedMedia.map(m => m.name));
 
@@ -181,10 +184,6 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       console.log('✅ API: Starting script with voice declaration');
     }
 
-    // Add loading screen for voice preparation
-    scriptParts.push('[[LOAD SCREEN]] <message="Preparing voices...",duration=2.0,icon="voice">');
-    console.log('✅ API: Adding voice loading screen');
-
     // Add ember image immediately (no black opening)
     if (emberImage) {
       scriptParts.push(emberImage);
@@ -251,7 +250,10 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
       }
     }
 
-    // 2. Basic processing with minimal ember format
+    // 2. Remove loading screen generation - loading controlled by actual preparation time
+    // The system already handles loading via isGeneratingAudio state
+
+    // 3. Basic processing with minimal ember format
     const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
 
     // Build media elements from selected media or none - prioritize ember photo first
@@ -339,10 +341,6 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
       scriptParts.push(voiceDeclaration);
       console.log('✅ API: Basic processing - starting script with voice declaration');
     }
-
-    // Add loading screen for voice preparation
-    scriptParts.push('[[LOAD SCREEN]] <message="Preparing voices...",duration=2.0,icon="voice">');
-    console.log('✅ API: Basic processing - adding voice loading screen');
 
     // Add ember image immediately (no black opening)
     if (emberImage) {

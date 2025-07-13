@@ -1,8 +1,6 @@
 import { getUserVoiceModel } from '@/lib/database';
 import { textToSpeech } from '@/lib/elevenlabs';
 import {
-  parseSentences,
-  estimateSentenceTimings,
   estimateSegmentDuration,
   extractZoomScaleFromAction,
   extractFadeFromAction,
@@ -731,6 +729,14 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
     setCurrentMediaColor,
     setCurrentZoomScale,
     setCurrentMediaImageUrl,
+    // 🎯 Loading screen state setters
+    setCurrentLoadingState,
+    setCurrentLoadingMessage,
+    setCurrentLoadingIcon,
+    // 🎯 Visual effects state setters
+    setCurrentFadeEffect,
+    setCurrentPanEffect,
+    setCurrentZoomEffect,
     // 🎯 Sentence-by-sentence display state setters
     setCurrentDisplayText,
     setCurrentVoiceTag,
@@ -753,10 +759,10 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
   playbackStoppedRef.current = false;
 
   try {
-    // Separate media/hold and voice segments for different processing
-    const mediaSegments = segments.filter(segment => segment.type === 'media' || segment.type === 'hold');
-    const voiceSegments = segments.filter(segment => segment.type !== 'media' && segment.type !== 'hold');
-    console.log(`🎭 Segment breakdown: ${segments.length} total → ${mediaSegments.length} media/hold + ${voiceSegments.length} voice`);
+    // Separate media/hold/loadscreen and voice segments for different processing
+    const mediaSegments = segments.filter(segment => segment.type === 'media' || segment.type === 'hold' || segment.type === 'loadscreen');
+    const voiceSegments = segments.filter(segment => segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor');
+    console.log(`🎭 Segment breakdown: ${segments.length} total → ${mediaSegments.length} media/hold/loadscreen + ${voiceSegments.length} voice`);
 
     // Generate audio for voice segments only
     console.log('⏳ Generating audio for voice segments...');
@@ -814,7 +820,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
           index
         });
         console.log(`📺 Timeline ${index + 1}: MEDIA switch - ${segment.content.substring(0, 50)}...`);
-      } else {
+      } else if (segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor') {
         // Voice segment - use generated audio
         if (audioIndex < audioSegments.length) {
           const audioSegment = audioSegments[audioIndex];
@@ -831,6 +837,8 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
           }
           audioIndex++;
         }
+      } else {
+        console.warn(`⚠️ Unknown segment type: ${segment.type} - [${segment.voiceTag}]`);
       }
     });
 
@@ -841,9 +849,14 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
     // Store audio segments in state for cleanup
     setActiveAudioSegments(audioSegments);
 
-    // Switch from generating to playing state
+    // Switch from generating to playing state - clear all loading states
     setIsGeneratingAudio(false);
+    setCurrentLoadingState(false);
+    setCurrentLoadingMessage('');
+    setCurrentLoadingIcon('default');
     setIsPlaying(true);
+
+    console.log('✅ Audio generation complete - starting playback');
 
     // No background media processing - MEDIA elements are now in timeline
 
@@ -919,65 +932,13 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
           console.log(`🎬 Visual effect: Color overlay - ${colorValue}`);
           setCurrentVoiceType(null); // Clear any voice overlay
 
-          // Apply fade effects to color overlay if present
+          // 🎯 NEW APPROACH: Set color through React state, effects handled by EmberPlay
+          setCurrentMediaColor(colorValue);
+
+          // Log fade effect for debugging if present
           if (fadeEffect) {
-            // For HOLD blocks with fade, we need to find/create the color overlay element
-            setTimeout(() => {
-              // Look for the color overlay element in EmberPlay
-              const colorElements = document.querySelectorAll('[style*="backgroundColor"]');
-              let colorElement = null;
-
-              // Find the element with matching background color
-              colorElements.forEach(el => {
-                if (el.style.backgroundColor === colorValue ||
-                  el.style.backgroundColor === colorValue.replace('#', 'rgb(')) {
-                  colorElement = el;
-                }
-              });
-
-              // If no direct match, try to find elements with absolute positioning (likely overlays)
-              if (!colorElement) {
-                const overlayElements = document.querySelectorAll('.absolute');
-                overlayElements.forEach(el => {
-                  const bgColor = window.getComputedStyle(el).backgroundColor;
-                  if (bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
-                    colorElement = el;
-                  }
-                });
-              }
-
-              if (colorElement) {
-                console.log(`🎯 Applying HOLD fade-${fadeEffect.type} animation: ${fadeEffect.duration}s to color overlay`);
-
-                // Handle fade-in special case
-                if (fadeEffect.type === 'in') {
-                  // Remove existing FADE animation classes and set to transparent
-                  colorElement.className = colorElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
-                  colorElement.classList.add('opacity-0');
-
-                  // Apply fade-in animation
-                  setTimeout(() => {
-                    colorElement.classList.remove('opacity-0');
-                    const durationClass = `ember-fade-in-${Math.round(fadeEffect.duration)}s`;
-                    colorElement.classList.add(durationClass);
-                    console.log(`🎬 Applied CSS class to HOLD color: ${durationClass}`);
-                  }, 50);
-                } else if (fadeEffect.type === 'out') {
-                  // Apply fade-out animation
-                  colorElement.className = colorElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
-                  colorElement.classList.remove('opacity-0');
-
-                  const durationClass = `ember-fade-out-${Math.round(fadeEffect.duration)}s`;
-                  colorElement.classList.add(durationClass);
-                  console.log(`🎬 Applied CSS class to HOLD color: ${durationClass}`);
-                }
-              } else {
-                console.warn(`⚠️ Could not find color overlay element for HOLD fade effect`);
-              }
-            }, 100); // Wait for React to create the color overlay
+            console.log(`🎬 HOLD fade effect will be handled by React: ${fadeEffect.type} - ${fadeEffect.duration}s`);
           }
-
-          setCurrentMediaColor(colorValue); // Set the extracted color
         } else {
           // Clear any existing color overlays if no explicit color command
           setCurrentVoiceType(null);
@@ -1020,7 +981,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
             setCurrentLoadingState(false);
             setCurrentLoadingMessage('');
             setCurrentLoadingIcon('default');
-            
+
             currentTimelineIndex++;
             playNextTimelineStep();
           }
@@ -1061,111 +1022,39 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
               zoomEffect = extractZoomFromAction(segment.content);
             }
 
-            // Handle fade-in special case (need to set opacity-0 before image change)
-            if (fadeEffect && fadeEffect.type === 'in') {
-              console.log(`🎬 Setting up CSS fade-in effect: ${fadeEffect.duration}s`);
-
-              const imageElement = document.getElementById('ember-background-image');
-              if (imageElement) {
-                // Remove existing FADE animation classes and set to transparent
-                imageElement.className = imageElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
-                imageElement.classList.add('opacity-0');
-              }
+            // Apply legacy zoom effects (Z-OUT: system)
+            if (hasLegacyZoomEffects) {
+              const zoomScale = extractZoomScaleFromAction(segment.content);
+              console.log(`🎬 Applying legacy zoom effect: from ${zoomScale.start} to ${zoomScale.end}`);
+              setCurrentZoomScale(zoomScale);
             }
 
-            // Update the image URL
-            console.log(`🎬 Switching background image to: ${resolvedMediaUrl}`);
+            // 🎯 NEW APPROACH: Coordinate image and effects through React state coordination
+            console.log(`🎬 Setting image URL and effects through React state coordination`);
+
+            // Set effects state first, then image URL - this allows EmberPlay to coordinate properly
+            setCurrentFadeEffect(fadeEffect);
+            setCurrentPanEffect(panEffect);
+            setCurrentZoomEffect(zoomEffect);
+
+            // Set image URL - EmberPlay will now handle the coordination with effects
             setCurrentMediaImageUrl(resolvedMediaUrl);
 
-            // Apply all effects together after image loads
-            setTimeout(() => {
-              const imageElement = document.getElementById('ember-background-image');
-              if (imageElement) {
-                console.log(`🎯 Applying all effects together`);
+            // Log effects for debugging
+            if (fadeEffect) {
+              console.log(`🎬 Fade effect set in React state: ${fadeEffect.type} - ${fadeEffect.duration}s`);
+            }
+            if (panEffect) {
+              console.log(`🎬 Pan effect set in React state: ${panEffect.direction} - ${panEffect.duration}s`);
+            }
+            if (zoomEffect) {
+              console.log(`🎬 Zoom effect set in React state: ${zoomEffect.direction} - ${zoomEffect.duration}s`);
+            }
 
-                // Apply fade effects
-                if (fadeEffect) {
-                  if (fadeEffect.type === 'in') {
-                    console.log(`🎯 Starting CSS fade-in animation: ${fadeEffect.duration}s`);
-
-                    // Remove opacity-0 and add fade animation class
-                    imageElement.classList.remove('opacity-0');
-                    imageElement.className = imageElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
-
-                    const durationClass = `ember-fade-in-${Math.round(fadeEffect.duration)}s`;
-                    imageElement.classList.add(durationClass);
-                    console.log(`🎬 Applied CSS class: ${durationClass}`);
-
-                    setTimeout(() => {
-                      console.log(`🎬 Fade ${fadeEffect.type} completed`);
-                    }, fadeEffect.duration * 1000);
-                  } else if (fadeEffect.type === 'out') {
-                    console.log(`🎯 Starting CSS fade-out animation: ${fadeEffect.duration}s`);
-
-                    imageElement.className = imageElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
-                    imageElement.classList.remove('opacity-0');
-
-                    const durationClass = `ember-fade-out-${Math.round(fadeEffect.duration)}s`;
-                    imageElement.classList.add(durationClass);
-                    console.log(`🎬 Applied CSS class: ${durationClass}`);
-
-                    setTimeout(() => {
-                      console.log(`🎬 Fade ${fadeEffect.type} completed`);
-                    }, fadeEffect.duration * 1000);
-                  }
-                }
-
-                // Apply pan effects
-                if (panEffect) {
-                  console.log(`🎯 Starting CSS pan-${panEffect.direction} animation: ${panEffect.duration}s`);
-
-                  // Remove existing PAN animation classes
-                  imageElement.className = imageElement.className.replace(/ember-pan-(left|right)-\d+s/g, '');
-
-                  const durationClass = `ember-pan-${panEffect.direction}-${Math.round(panEffect.duration)}s`;
-                  imageElement.classList.add(durationClass);
-                  console.log(`🎬 Applied CSS class: ${durationClass}`);
-
-                  setTimeout(() => {
-                    console.log(`🎬 Pan ${panEffect.direction} completed`);
-                  }, panEffect.duration * 1000);
-                }
-
-                // Apply zoom effects
-                if (zoomEffect) {
-                  console.log(`🎯 Starting CSS zoom-${zoomEffect.direction} animation: ${zoomEffect.duration}s`);
-
-                  // Remove existing ZOOM animation classes
-                  imageElement.className = imageElement.className.replace(/ember-zoom-(in|out)-\d+s/g, '');
-
-                  const durationClass = `ember-zoom-${zoomEffect.direction}-${Math.round(zoomEffect.duration)}s`;
-                  imageElement.classList.add(durationClass);
-                  console.log(`🎬 Applied CSS class: ${durationClass}`);
-
-                  setTimeout(() => {
-                    console.log(`🎬 Zoom ${zoomEffect.direction} completed`);
-                  }, zoomEffect.duration * 1000);
-                }
-
-                // Clear animation classes only when NO effects are specified
-                if (!hasFadeEffects && !hasPanEffects && !hasZoomEffects && !hasLegacyZoomEffects) {
-                  console.log(`🧹 Clearing animation classes (no effects specified)`);
-                  imageElement.className = imageElement.className.replace(/ember-(fade|pan|zoom)-(in|out|left|right)-\d+s/g, '');
-                }
-              } else {
-                console.warn(`⚠️ Could not find image element for effects`);
-              }
-            }, 150); // Wait for React to update the image source
+            // Clear any color overlays when switching to image
+            setCurrentMediaColor(null);
           } else {
             console.warn(`⚠️ Could not resolve media reference: ${segment.mediaPath || segment.mediaName || segment.mediaId}`);
-          }
-
-          // Apply legacy zoom effects (Z-OUT: system)
-          if (segment.content.includes('Z-OUT:')) {
-            // Extract zoom scale values from Z-OUT command
-            const zoomScale = extractZoomScaleFromAction(segment.content);
-            console.log(`🎬 Applying legacy zoom effect: from ${zoomScale.start} to ${zoomScale.end}`);
-            setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
           }
 
           // Continue immediately to next timeline step (media changes are instant)
@@ -1196,56 +1085,23 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
         setCurrentVoiceType(null);
         setCurrentMediaColor(null);
 
-        // 🎯 Option 1B: Sentence-by-Sentence Text Display
-        const currentSegmentData = segment;
-        const sentences = parseSentences(currentSegmentData.originalContent || currentSegmentData.content);
-        const voiceTag = currentSegmentData.voiceTag;
+        // 🎯 Simplified Text Display: Show full segment text when voice starts
+        const displayText = segment.originalContent || segment.content;
+        const voiceTag = segment.voiceTag;
 
-        console.log(`📝 Segment ${currentTimelineIndex + 1} sentences (clean):`, sentences);
+        console.log(`📝 Displaying full segment text: "${displayText}"`);
 
-        // Set up sentence display
+        // Set text display immediately when voice starts
+        setCurrentDisplayText(displayText);
         setCurrentVoiceTag(voiceTag);
-        setCurrentSegmentSentences(sentences);
-        setCurrentSentenceIndex(0);
 
-        // Clear any existing sentence timeouts
+        // Clear any existing sentence timeouts (cleanup from old system)
         sentenceTimeouts.forEach(timeout => clearTimeout(timeout));
         setSentenceTimeouts([]);
 
-        if (sentences.length > 0) {
-          // Show first sentence immediately
-          setCurrentDisplayText(sentences[0]);
-          console.log(`📖 Showing sentence 1/${sentences.length}: "${sentences[0]}"`);
-
-          // Set up timers for remaining sentences if there are multiple
-          if (sentences.length > 1) {
-            // Estimate audio duration (rough estimate based on text length)
-            const cleanContent = currentSegmentData.originalContent || currentSegmentData.content;
-            const estimatedDuration = Math.max(3, cleanContent.length * 0.08); // ~80ms per character
-            const timings = estimateSentenceTimings(sentences, estimatedDuration);
-
-            console.log(`⏱️ Estimated segment duration: ${estimatedDuration}s`);
-            console.log(`⏱️ Sentence timings:`, timings);
-
-            const newTimeouts = [];
-
-            // Schedule remaining sentences
-            for (let i = 1; i < sentences.length; i++) {
-              const timing = timings[i];
-              const timeout = setTimeout(() => {
-                if (!playbackStoppedRef.current) {
-                  console.log(`📖 Showing sentence ${i + 1}/${sentences.length}: "${sentences[i]}"`);
-                  setCurrentDisplayText(sentences[i]);
-                  setCurrentSentenceIndex(i);
-                }
-              }, timing.startTime * 1000);
-
-              newTimeouts.push(timeout);
-            }
-
-            setSentenceTimeouts(newTimeouts);
-          }
-        }
+        // Reset sentence-related states (no longer needed)
+        setCurrentSentenceIndex(0);
+        setCurrentSegmentSentences([]);
 
         // Handle audio completion
         audio.onended = () => {
@@ -1292,6 +1148,9 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
 
     // Reset states on error
     setIsGeneratingAudio(false);
+    setCurrentLoadingState(false);
+    setCurrentLoadingMessage('');
+    setCurrentLoadingIcon('default');
     setIsPlaying(false);
     setActiveAudioSegments([]);
 

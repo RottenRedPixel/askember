@@ -165,7 +165,7 @@ export const parseScriptSegments = (script) => {
                 }
 
                 segments.push({
-                    voiceTag: 'LOAD SCREEN',
+                    voiceTag: 'System',
                     content: finalContent,
                     originalContent: content,
                     type: 'loadscreen',

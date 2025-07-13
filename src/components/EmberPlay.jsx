@@ -3,6 +3,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { PlayCircle, X } from 'phosphor-react';
 
+// CSS keyframes for fade-in animation
+const fadeInKeyframes = `
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+`;
+
 export default function EmberPlay({
     // Ember data
     ember,
@@ -15,11 +27,15 @@ export default function EmberPlay({
 
     // Visual state
     currentDisplayText = '',
-    currentSegmentSentences = [],
-    currentSentenceIndex = 0,
+    currentVoiceTag = '',
     currentMediaColor = null,
     currentMediaImageUrl = null,
     currentlyPlayingStoryCut = null,
+
+    // Visual effects state
+    currentFadeEffect = null,
+    currentPanEffect = null,
+    currentZoomEffect = null,
 
     // Loading screen state
     currentLoadingState = false,
@@ -43,6 +59,29 @@ export default function EmberPlay({
             timestamp: new Date().toISOString()
         });
     }, []); // Only log once when component mounts
+
+    // Inject CSS keyframes for fade-in animation
+    useEffect(() => {
+        const style = document.createElement('style');
+        style.textContent = fadeInKeyframes;
+        document.head.appendChild(style);
+        return () => document.head.removeChild(style);
+    }, []);
+
+    // Helper function to get the correct CSS class for pan/zoom effects
+    const getEffectClass = (effect, effectType) => {
+        if (!effect) return '';
+
+        if (effectType === 'pan') {
+            const duration = Math.round(effect.duration || 1);
+            return `ember-pan-${effect.direction}-${duration}s`;
+        } else if (effectType === 'zoom') {
+            const duration = Math.round(effect.duration || 1);
+            return `ember-zoom-${effect.type}-${duration}s`;
+        }
+
+        return '';
+    };
 
     return (
         <div className={`fixed inset-0 z-50 ${className}`} data-component="EmberPlay-standalone">
@@ -72,22 +111,39 @@ export default function EmberPlay({
                                     <X size={20} className="text-white" />
                                 </button>
 
-                                {/* Background Image - blurred when playing without story cut */}
+                                {/* Background Image - with visual effects coordination */}
                                 {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
                                     <img
                                         src={currentMediaImageUrl}
                                         alt={ember?.title || 'Ember'}
-                                        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-                                        id="ember-background-image"
+                                        className={`absolute inset-0 w-full h-full object-cover ${currentFadeEffect
+                                            ? currentFadeEffect.type === 'in'
+                                                ? 'opacity-0 transition-opacity duration-1000 animate-fade-in'
+                                                : 'opacity-100 transition-opacity duration-1000'
+                                            : 'opacity-100 transition-opacity duration-1000'
+                                            } ${getEffectClass(currentPanEffect, 'pan')} ${getEffectClass(currentZoomEffect, 'zoom')}`}
+                                        style={{
+                                            opacity: currentFadeEffect?.type === 'in' ? 0 : 1,
+                                            animation: currentFadeEffect?.type === 'in' ? 'fadeIn 1s ease-in-out forwards' : 'none'
+                                        }}
                                     />
                                 )}
 
-                                {/* Show main ember image when no media image and playing without story cut */}
+                                {/* Show main ember image when no media image and playing without story cut - with visual effects coordination */}
                                 {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
                                     <img
                                         src={ember.image_url}
                                         alt={ember?.title || 'Ember'}
-                                        className="absolute inset-0 w-full h-full object-cover"
+                                        className={`absolute inset-0 w-full h-full object-cover ${currentFadeEffect
+                                            ? currentFadeEffect.type === 'in'
+                                                ? 'opacity-0 transition-opacity duration-1000 animate-fade-in'
+                                                : 'opacity-100 transition-opacity duration-1000'
+                                            : 'opacity-100'
+                                            } ${getEffectClass(currentPanEffect, 'pan')} ${getEffectClass(currentZoomEffect, 'zoom')}`}
+                                        style={{
+                                            opacity: currentFadeEffect?.type === 'in' ? 0 : 1,
+                                            animation: currentFadeEffect?.type === 'in' ? 'fadeIn 1s ease-in-out forwards' : 'none'
+                                        }}
                                     />
                                 )}
 
@@ -101,15 +157,21 @@ export default function EmberPlay({
                                     />
                                 )}
 
-                                {/* Loading Screen - shows when currentLoadingState is true */}
-                                {currentLoadingState && (
-                                    <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center">
+                                {/* Loading Screen - shows when generating audio OR when currentLoadingState is true */}
+                                {(isGeneratingAudio || currentLoadingState) && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ backgroundColor: 'black' }}>
                                         <div className="flex flex-col items-center space-y-4">
                                             {/* Loading Spinner */}
                                             <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
                                             {/* Loading Message */}
                                             <p className="text-white text-lg font-medium text-center">
-                                                {currentLoadingMessage}
+                                                {isGeneratingAudio ?
+                                                    (currentlyPlayingStoryCut ?
+                                                        `Preparing "${currentlyPlayingStoryCut.title}"...` :
+                                                        `Preparing ${ember?.title || 'your story'}...`
+                                                    ) :
+                                                    currentLoadingMessage
+                                                }
                                             </p>
                                         </div>
                                     </div>
@@ -194,26 +256,13 @@ export default function EmberPlay({
 
                             {/* Progress Message */}
                             <div className="w-full px-4 pt-3 pb-2 md:px-6 bg-black">
-                                {/* 🎯 Synchronized Text Display */}
-                                {!isGeneratingAudio && !showEndHold && currentDisplayText && (
-                                    <div className="text-center p-6">
-                                        <p className="text-lg font-bold text-white text-center">
+                                {/* Voice tag and text display */}
+                                {currentDisplayText && (
+                                    <div className="text-center">
+                                        {/* Text content */}
+                                        <p className="text-white text-lg font-medium leading-relaxed">
                                             {currentDisplayText}
                                         </p>
-
-                                        {/* Progress indicator for sentences */}
-                                        {currentSegmentSentences.length > 1 && (
-                                            <div className="flex justify-center mt-2">
-                                                <div className="flex gap-1">
-                                                    {currentSegmentSentences.map((_, index) => (
-                                                        <div
-                                                            key={index}
-                                                            className={`w-2 h-2 rounded-full ${index === currentSentenceIndex ? 'bg-white' : 'bg-gray-500'}`}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 )}
 
@@ -226,7 +275,7 @@ export default function EmberPlay({
                                                 {ember?.content || "Let's build this story together! Add your voice, memories, and details to bring this ember to life."}
                                             </p>
                                         )}
-                                        
+
                                         {/* When stopped, only show content if it exists */}
                                         {!isPlaying && ember?.content && (
                                             <p className="text-lg font-bold text-white text-center">
@@ -275,22 +324,39 @@ export default function EmberPlay({
                                                 <X size={20} className="text-white" />
                                             </button>
 
-                                            {/* Background Image - blurred when playing without story cut */}
+                                            {/* Background Image - with visual effects coordination */}
                                             {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
                                                 <img
                                                     src={currentMediaImageUrl}
                                                     alt={ember?.title || 'Ember'}
-                                                    className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-                                                    id="ember-background-image"
+                                                    className={`absolute inset-0 w-full h-full object-cover ${currentFadeEffect
+                                                            ? currentFadeEffect.type === 'in'
+                                                                ? 'opacity-0 transition-opacity duration-1000 animate-fade-in'
+                                                                : 'opacity-100 transition-opacity duration-1000'
+                                                            : 'opacity-100 transition-opacity duration-1000'
+                                                        } ${getEffectClass(currentPanEffect, 'pan')} ${getEffectClass(currentZoomEffect, 'zoom')}`}
+                                                    style={{
+                                                        opacity: currentFadeEffect?.type === 'in' ? 0 : 1,
+                                                        animation: currentFadeEffect?.type === 'in' ? 'fadeIn 1s ease-in-out forwards' : 'none'
+                                                    }}
                                                 />
                                             )}
 
-                                            {/* Show main ember image when no media image and playing without story cut */}
+                                            {/* Show main ember image when no media image and playing without story cut - with visual effects coordination */}
                                             {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
                                                 <img
                                                     src={ember.image_url}
                                                     alt={ember?.title || 'Ember'}
-                                                    className="absolute inset-0 w-full h-full object-cover"
+                                                    className={`absolute inset-0 w-full h-full object-cover ${currentFadeEffect
+                                                            ? currentFadeEffect.type === 'in'
+                                                                ? 'opacity-0 transition-opacity duration-1000 animate-fade-in'
+                                                                : 'opacity-100 transition-opacity duration-1000'
+                                                            : 'opacity-100'
+                                                        } ${getEffectClass(currentPanEffect, 'pan')} ${getEffectClass(currentZoomEffect, 'zoom')}`}
+                                                    style={{
+                                                        opacity: currentFadeEffect?.type === 'in' ? 0 : 1,
+                                                        animation: currentFadeEffect?.type === 'in' ? 'fadeIn 1s ease-in-out forwards' : 'none'
+                                                    }}
                                                 />
                                             )}
 
@@ -304,15 +370,21 @@ export default function EmberPlay({
                                                 />
                                             )}
 
-                                            {/* Loading Screen - shows when currentLoadingState is true */}
-                                            {currentLoadingState && (
-                                                <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center">
+                                            {/* Loading Screen - shows when generating audio OR when currentLoadingState is true */}
+                                            {(isGeneratingAudio || currentLoadingState) && (
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ backgroundColor: 'black' }}>
                                                     <div className="flex flex-col items-center space-y-4">
                                                         {/* Loading Spinner */}
                                                         <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
                                                         {/* Loading Message */}
                                                         <p className="text-white text-lg font-medium text-center">
-                                                            {currentLoadingMessage}
+                                                            {isGeneratingAudio ?
+                                                                (currentlyPlayingStoryCut ?
+                                                                    `Preparing "${currentlyPlayingStoryCut.title}"...` :
+                                                                    `Preparing ${ember?.title || 'your story'}...`
+                                                                ) :
+                                                                currentLoadingMessage
+                                                            }
                                                         </p>
                                                     </div>
                                                 </div>
@@ -397,26 +469,13 @@ export default function EmberPlay({
 
                                         {/* Progress Message */}
                                         <div className="w-full px-4 pt-3 pb-2 md:px-6 bg-black">
-                                            {/* 🎯 Synchronized Text Display */}
-                                            {!isGeneratingAudio && !showEndHold && currentDisplayText && (
-                                                <div className="text-center p-6">
-                                                    <p className="text-lg font-bold text-white text-center">
+                                            {/* Voice tag and text display */}
+                                            {currentDisplayText && (
+                                                <div className="text-center">
+                                                    {/* Text content */}
+                                                    <p className="text-white text-lg font-medium leading-relaxed">
                                                         {currentDisplayText}
                                                     </p>
-
-                                                    {/* Progress indicator for sentences */}
-                                                    {currentSegmentSentences.length > 1 && (
-                                                        <div className="flex justify-center mt-2">
-                                                            <div className="flex gap-1">
-                                                                {currentSegmentSentences.map((_, index) => (
-                                                                    <div
-                                                                        key={index}
-                                                                        className={`w-2 h-2 rounded-full ${index === currentSentenceIndex ? 'bg-white' : 'bg-gray-500'}`}
-                                                                    />
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             )}
 
@@ -429,7 +488,7 @@ export default function EmberPlay({
                                                             {ember?.content || "Let's build this story together! Add your voice, memories, and details to bring this ember to life."}
                                                         </p>
                                                     )}
-                                                    
+
                                                     {/* When stopped, only show content if it exists */}
                                                     {!isPlaying && ember?.content && (
                                                         <p className="text-lg font-bold text-white text-center">
@@ -450,14 +509,14 @@ export default function EmberPlay({
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* End hold screen - pure black */}
-            {showEndHold && (
-                <div className="absolute inset-0 bg-black z-30">
-                    {/* Completely black screen */}
-                </div>
-            )}
+                {/* End hold screen - pure black */}
+                {showEndHold && (
+                    <div className="absolute inset-0 bg-black z-30">
+                        {/* Completely black screen */}
+                    </div>
+                )}
+            </div>
         </div>
     );
 } 

@@ -79,6 +79,11 @@ export const useAudioState = () => {
     const [currentLoadingMessage, setCurrentLoadingMessage] = useState('');
     const [currentLoadingIcon, setCurrentLoadingIcon] = useState('default');
 
+    // Visual effects state
+    const [currentFadeEffect, setCurrentFadeEffect] = useState(null);
+    const [currentPanEffect, setCurrentPanEffect] = useState(null);
+    const [currentZoomEffect, setCurrentZoomEffect] = useState(null);
+
     // Sentence-by-sentence display state
     const [currentDisplayText, setCurrentDisplayText] = useState('');
     const [currentVoiceTag, setCurrentVoiceTag] = useState('');
@@ -138,6 +143,11 @@ export const useAudioState = () => {
         currentLoadingState, setCurrentLoadingState,
         currentLoadingMessage, setCurrentLoadingMessage,
         currentLoadingIcon, setCurrentLoadingIcon,
+
+        // Visual effects state
+        currentFadeEffect, setCurrentFadeEffect,
+        currentPanEffect, setCurrentPanEffect,
+        currentZoomEffect, setCurrentZoomEffect,
 
         // Sentence display state
         currentDisplayText, setCurrentDisplayText,

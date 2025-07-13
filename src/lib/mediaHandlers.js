@@ -239,6 +239,11 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
         setCurrentMediaColor,
         setCurrentZoomScale,
         setCurrentMediaImageUrl,
+        // Loading screen state setters
+        setCurrentLoadingState,
+        setCurrentLoadingMessage,
+        setCurrentLoadingIcon,
+        // Sentence-by-sentence display state setters
         setCurrentDisplayText,
         setCurrentVoiceTag,
         setCurrentSentenceIndex,
@@ -248,7 +253,11 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
         setMediaTimeouts,
         mediaTimeouts,
         mediaTimeoutsRef,
-        setMessage
+        setMessage,
+        // Visual effects state setters
+        setCurrentFadeEffect,
+        setCurrentPanEffect,
+        setCurrentZoomEffect
     } = setters;
 
     if (isPlaying) {
@@ -261,6 +270,10 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
         setShowFullscreenPlay(true);
         setIsGeneratingAudio(true); // Show loading state
 
+        // Set initial loading message
+        setCurrentLoadingMessage('Preparing your story...');
+        setCurrentLoadingState(true);
+
         console.log('🎬 Visual effects will be driven by audio segments');
 
         // Check if we have story cuts available
@@ -270,9 +283,11 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
             if (primaryStoryCut) {
                 selectedStoryCut = primaryStoryCut;
                 console.log('🎬 Playing "The One" primary story cut:', selectedStoryCut.title, '(' + selectedStoryCut.style + ')');
+                setCurrentLoadingMessage(`Loading "${selectedStoryCut.title}"...`);
             } else {
                 selectedStoryCut = storyCuts[0]; // They're ordered by created_at DESC
                 console.log('🎬 Playing most recent story cut:', selectedStoryCut.title, '(' + selectedStoryCut.style + ')');
+                setCurrentLoadingMessage(`Loading "${selectedStoryCut.title}"...`);
             }
 
             setCurrentlyPlayingStoryCut(selectedStoryCut);
@@ -282,6 +297,14 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
             // Check if we have recorded audio URLs in the story cut
             const recordedAudio = selectedStoryCut.metadata?.recordedAudio || {};
             console.log('🎙️ Recorded audio available:', Object.keys(recordedAudio));
+
+            // Update loading message for voice preparation
+            const voiceCount = [selectedStoryCut.ember_voice_id, selectedStoryCut.narrator_voice_id].filter(Boolean).length;
+            if (voiceCount > 1) {
+                setCurrentLoadingMessage('Preparing multiple voices...');
+            } else {
+                setCurrentLoadingMessage('Preparing story voice...');
+            }
 
             // Always use multi-voice playback system (recorded audio is optional)
             console.log('🎵 Using multi-voice playback system');
@@ -298,9 +321,12 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
             const { playMultiVoiceAudio } = await import('@/lib/emberPlayer');
             const { textToSpeech } = await import('@/lib/elevenlabs');
 
+            setCurrentLoadingMessage('Processing story script...');
             const segments = parseScriptSegments(selectedStoryCut.full_script);
 
             if (segments.length > 0) {
+                setCurrentLoadingMessage('Generating audio segments...');
+
                 // Use multi-voice playback system (works with or without recorded audio)
                 await playMultiVoiceAudio(segments, selectedStoryCut, recordedAudio, {
                     setIsGeneratingAudio,
@@ -318,6 +344,10 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
                     setCurrentLoadingState,
                     setCurrentLoadingMessage,
                     setCurrentLoadingIcon,
+                    // 🎯 Add visual effects state setters
+                    setCurrentFadeEffect,
+                    setCurrentPanEffect,
+                    setCurrentZoomEffect,
                     // 🎯 Add sentence-by-sentence display state setters
                     setCurrentDisplayText,
                     setCurrentVoiceTag,
@@ -333,7 +363,10 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
             } else {
                 // Fallback if no segments could be parsed
                 console.log('⚠️ No segments could be parsed, falling back to single voice');
+                setCurrentLoadingMessage('Preparing fallback audio...');
+
                 setIsGeneratingAudio(false);
+                setCurrentLoadingState(false);
                 setIsPlaying(true);
 
                 const content = selectedStoryCut.full_script;
@@ -364,7 +397,10 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
             console.log('📖 No story cuts found, using basic wiki content');
             console.log('💡 Tip: Create a story cut for richer, AI-generated narration!');
 
+            setCurrentLoadingMessage('Preparing basic content...');
+
             setIsGeneratingAudio(false);
+            setCurrentLoadingState(false);
             setIsPlaying(true);
 
             // Simple fallback content
@@ -410,8 +446,13 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
         console.error('🔊 Play error:', error);
         console.error('🔊 Error details:', error.message);
         console.error('🔊 Error stack:', error.stack);
+
+        // Clear all loading and playing states on error
         setIsPlaying(false);
         setIsGeneratingAudio(false);
+        setCurrentLoadingState(false);
+        setCurrentLoadingMessage('');
+        setCurrentLoadingIcon('default');
         setShowFullscreenPlay(false);
 
         // More specific error messages

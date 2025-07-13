@@ -1854,7 +1854,7 @@ export default function StoryCutStudio() {
                                                             </div>
                                                         </div>
                                                         <span className={`text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-800`}>
-                                                            {block.duration}s
+                                                            System
                                                         </span>
                                                     </div>
                                                 </>
@@ -2009,7 +2009,7 @@ export default function StoryCutStudio() {
 
                                 {/* Load Screen - shows when currentLoadingState is true */}
                                 {currentLoadingState && (
-                                    <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center">
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ backgroundColor: 'black' }}>
                                         <div className="flex flex-col items-center space-y-4">
                                             {/* Loading Spinner */}
                                             <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -2139,7 +2139,7 @@ export default function StoryCutStudio() {
 
                                                     {/* Load Screen - shows when currentLoadingState is true */}
                                                     {currentLoadingState && (
-                                                        <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center">
+                                                        <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ backgroundColor: 'black' }}>
                                                             <div className="flex flex-col items-center space-y-4">
                                                                 {/* Loading Spinner */}
                                                                 <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
