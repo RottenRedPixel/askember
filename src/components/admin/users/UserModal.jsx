@@ -2,25 +2,24 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription 
+import {
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
 } from '@/components/ui/dialog';
-import { 
-  User, 
-  Mail, 
-  Shield, 
+import {
+  User,
+  Mail,
+  Shield,
   Calendar,
   Save,
   X
@@ -29,27 +28,27 @@ import { cn } from '@/lib/utils';
 import useStore from '@/store';
 
 const roleOptions = [
-  { 
-    value: 'user', 
-    label: 'User', 
+  {
+    value: 'user',
+    label: 'User',
     description: 'Regular user with basic permissions',
     color: 'bg-gray-100 text-gray-800'
   },
-  { 
-    value: 'moderator', 
-    label: 'Moderator', 
+  {
+    value: 'moderator',
+    label: 'Moderator',
     description: 'Can moderate content and assist users',
     color: 'bg-yellow-100 text-yellow-800'
   },
-  { 
-    value: 'admin', 
-    label: 'Admin', 
+  {
+    value: 'admin',
+    label: 'Admin',
     description: 'Can manage users and system settings',
     color: 'bg-blue-100 text-blue-800'
   },
-  { 
-    value: 'super_admin', 
-    label: 'Super Admin', 
+  {
+    value: 'super_admin',
+    label: 'Super Admin',
     description: 'Full system access and control',
     color: 'bg-red-100 text-red-800'
   },
@@ -67,11 +66,11 @@ function getUserInitials(email, firstName, lastName) {
   return email.substring(0, 2).toUpperCase();
 }
 
-export default function UserModal({ 
-  user, 
-  onClose, 
-  isCreate = false, 
-  isMobile = false 
+export default function UserModal({
+  user,
+  onClose,
+  isCreate = false,
+  isMobile = false
 }) {
   const { updateUserRole, updateUserProfile, createUser } = useStore();
   const [loading, setLoading] = useState(false);
@@ -80,9 +79,7 @@ export default function UserModal({
     email: '',
     first_name: '',
     last_name: '',
-    role: 'user',
-    bio: '',
-    avatar_url: ''
+    role: 'user'
   });
 
   // Initialize form data
@@ -95,14 +92,12 @@ export default function UserModal({
         avatar_url: user.avatar_url,
         allFields: Object.keys(user)
       });
-      
+
       setFormData({
         email: user.email || '',
         first_name: user.first_name || '',
         last_name: user.last_name || '',
-        role: user.role || 'user',
-        bio: user.bio || '',
-        avatar_url: user.avatar_url || ''
+        role: user.role || 'user'
       });
     }
   }, [user, isCreate]);
@@ -120,26 +115,32 @@ export default function UserModal({
 
     try {
       if (isCreate) {
-        // TODO: Implement user creation in store
         console.log('Creating user:', formData);
-        // await createUser(formData);
+        const result = await createUser(formData);
+
+        if (!result.success) {
+          console.error('User creation failed:', result.error);
+          alert(`Failed to create user: ${result.error}`);
+          return;
+        }
+
+        console.log('User created successfully:', result.data);
       } else {
         // Update existing user profile
         const updateData = {
           first_name: formData.first_name,
           last_name: formData.last_name,
-          role: formData.role,
-          bio: formData.bio,
-          avatar_url: formData.avatar_url
+          role: formData.role
         };
-        
+
         await updateUserProfile(user.user_id, updateData);
         console.log('Updated user profile:', user.user_id, updateData);
       }
-      
+
       onClose();
     } catch (error) {
       console.error('Error saving user:', error);
+      alert(`Error saving user: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -157,7 +158,7 @@ export default function UserModal({
               {isCreate ? 'Add New User' : 'Edit User'}
             </h2>
             <p className="text-sm text-gray-600">
-              {isCreate 
+              {isCreate
                 ? 'Create a new user account with specific permissions'
                 : 'Update user information and permissions'
               }
@@ -173,7 +174,7 @@ export default function UserModal({
             {isCreate ? 'Add New User' : 'Edit User'}
           </DialogTitle>
           <DialogDescription>
-            {isCreate 
+            {isCreate
               ? 'Create a new user account with specific permissions'
               : 'Update user information and permissions'
             }
@@ -185,11 +186,11 @@ export default function UserModal({
       {!isCreate && (
         <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
           <Avatar className="h-12 w-12">
-            <AvatarImage 
-              src={formData.avatar_url || user?.avatar_url} 
+            <AvatarImage
+              src={user?.avatar_url}
               alt={user?.email}
               onError={(e) => {
-                console.log('Avatar failed to load for user:', user?.email, 'URL:', formData.avatar_url || user?.avatar_url);
+                console.log('Avatar failed to load for user:', user?.email, 'URL:', user?.avatar_url);
                 e.target.style.display = 'none';
               }}
             />
@@ -277,7 +278,7 @@ export default function UserModal({
             <SelectTrigger>
               <SelectValue placeholder="Select a role" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white">
               {roleOptions.map((role) => (
                 <SelectItem key={role.value} value={role.value}>
                   <div className="flex items-center justify-between w-full">
@@ -302,52 +303,9 @@ export default function UserModal({
           )}
         </div>
 
-        {/* Bio */}
-        <div className="space-y-2">
-          <Label htmlFor="bio">Bio (Optional)</Label>
-          <Textarea
-            id="bio"
-            value={formData.bio}
-            onChange={(e) => handleInputChange('bio', e.target.value)}
-            placeholder="Tell us about this user..."
-            rows={3}
-          />
-        </div>
 
-        {/* Avatar URL */}
-        <div className="space-y-2">
-          <Label htmlFor="avatar_url">Avatar URL (Optional)</Label>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <Input
-                id="avatar_url"
-                type="url"
-                value={formData.avatar_url}
-                onChange={(e) => handleInputChange('avatar_url', e.target.value)}
-                placeholder="https://example.com/avatar.jpg"
-              />
-            </div>
-            {formData.avatar_url && (
-              <Avatar className="h-10 w-10">
-                <AvatarImage 
-                  src={formData.avatar_url} 
-                  alt="Avatar preview"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                  }}
-                />
-                <AvatarFallback className="bg-gray-100 text-gray-400 text-xs">
-                  Preview
-                </AvatarFallback>
-              </Avatar>
-            )}
-          </div>
-          {formData.avatar_url && (
-            <p className="text-xs text-gray-500">
-              Preview of the avatar image above
-            </p>
-          )}
-        </div>
+
+
 
         {/* Action Buttons */}
         <div className={cn(

@@ -462,7 +462,6 @@ export default function StoryCutStudio() {
                             const voiceMatch = trimmedLine.match(/^\[([^:\]]+)(?::([^:\]]+))?\]\s*(.+)$/);
                             if (voiceMatch) {
                                 const voiceTag = voiceMatch[1].trim();
-                                const preference = voiceMatch[2]?.trim() || 'text'; // Default to 'text' if no preference
                                 const content = voiceMatch[3].trim();
 
                                 // Determine voice type and enhance display name
@@ -481,6 +480,10 @@ export default function StoryCutStudio() {
 
                                 // Determine the ORIGINAL message type (what contributor actually submitted)
                                 const originalMessageType = determineMessageType(voiceTag, content, voiceType);
+
+                                // Set preference: use explicit preference if provided, otherwise default based on message type
+                                const explicitPreference = voiceMatch[2]?.trim();
+                                const preference = explicitPreference || (originalMessageType === 'Audio Message' ? 'recorded' : 'text');
 
                                 realBlocks.push({
                                     id: blockId++,
@@ -607,6 +610,59 @@ export default function StoryCutStudio() {
 
         loadStoryCut();
     }, [id]);
+
+    // Auto-generate and save complete script when blocks are loaded (but not when manually edited)
+    useEffect(() => {
+        if (!blocks || blocks.length === 0 || !storyCut || !user) return;
+        
+        // Don't auto-generate if the script appears to be manually edited
+        const storedScript = storyCut.full_script?.trim() || '';
+        const hasManualFormatting = storedScript.includes('\n\n\n') || // Extra spacing
+                                   storedScript.includes('  ') || // Extra spaces
+                                   /[a-z]\s*\[/.test(storedScript) || // Text before voice tags
+                                   storedScript.split('\n').some(line => line.trim() && !line.match(/^\[\[|^\[/)); // Non-standard lines
+        
+        if (hasManualFormatting) {
+            console.log('📝 Script appears to be manually edited - skipping auto-generation');
+            return;
+        }
+
+        // Wait for all state to settle, then auto-generate complete script
+        const timeout = setTimeout(async () => {
+            try {
+                console.log('🔄 Auto-generating complete script with preferences...');
+                
+                const generatedScript = generateScript();
+                
+                // Compare with stored script to see if update is needed
+                const isScriptIncomplete = !storedScript.includes(':recorded') && !storedScript.includes(':text') && !storedScript.includes(':synth');
+                
+                if (isScriptIncomplete || generatedScript !== storedScript) {
+                    console.log('💾 Database script needs updating - auto-saving complete script...');
+                    console.log('📝 Stored script preview:', storedScript.substring(0, 200) + '...');
+                    console.log('📝 Generated script preview:', generatedScript.substring(0, 200) + '...');
+                    
+                    await updateStoryCut(storyCut.id, {
+                        full_script: generatedScript
+                    }, user.id);
+                    
+                    // Update local state
+                    setStoryCut(prev => ({
+                        ...prev,
+                        full_script: generatedScript
+                    }));
+                    
+                    console.log('✅ Auto-saved complete script to database for EmberPlay');
+                } else {
+                    console.log('✅ Database script is already complete - no update needed');
+                }
+            } catch (error) {
+                console.error('❌ Failed to auto-generate complete script:', error);
+            }
+        }, 1000); // Wait for all state to settle
+
+        return () => clearTimeout(timeout);
+    }, [blocks, user, contributorAudioPreferences]); // Removed storyCut from dependencies to avoid triggering on manual edits
 
     // Cleanup all audio when component unmounts
     useEffect(() => {

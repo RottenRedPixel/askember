@@ -6,6 +6,7 @@ import { PlayCircle, X, Gear } from 'phosphor-react';
 import { useEmberData } from '@/lib/useEmberData';
 import { useUIState } from '@/lib/useUIState';
 import { autoTriggerImageAnalysis, autoTriggerExifProcessing, autoTriggerLocationProcessing, handlePlay as handleMediaPlay, handlePlaybackComplete as handleMediaPlaybackComplete, handleExitPlay as handleMediaExitPlay } from '@/lib/mediaHandlers';
+import { debugRecordedAudio, generateSegmentAudio, playMultiVoiceAudio } from '@/lib/emberPlayer';
 import useStore from '@/store';
 
 // CSS keyframes for fade-in animation
@@ -41,6 +42,18 @@ export default function EmberPlay() {
         fetchEmber,
         fetchStoryCuts
     } = useEmberData(id, userProfile);
+
+    // Force refresh story cuts when component mounts to ensure latest script
+    useEffect(() => {
+        if (fetchStoryCuts && id) {
+            console.log('🔄 EmberPlay: Force refreshing story cuts to get latest script...');
+            // Add a small delay to avoid race conditions with initial data loading
+            const timer = setTimeout(() => {
+                fetchStoryCuts();
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [id]); // Only depend on ID to avoid infinite loops
 
     // Use the same UI state hooks as EmberDetail
     const {
@@ -118,6 +131,40 @@ export default function EmberPlay() {
         setShowFullscreenPlay(true);
     }, [setShowFullscreenPlay]);
 
+
+
+    // Debug recorded audio data when primaryStoryCut is available
+    useEffect(() => {
+        if (primaryStoryCut) {
+            console.log('🔍 EMBERPLAY DEBUG - Primary Story Cut:', primaryStoryCut.title);
+            console.log('🎙️ EMBERPLAY DEBUG - Recorded Audio in Metadata:', primaryStoryCut.metadata?.recordedAudio);
+            console.log('📊 EMBERPLAY DEBUG - Full Metadata:', primaryStoryCut.metadata);
+        }
+    }, [primaryStoryCut]);
+
+    // 🐛 DEBUG: Expose debug helpers globally for EmberPlay
+    useEffect(() => {
+        window.EmberPlayActions = {
+            debugRecordedAudio: (recordedAudio, scriptSegments) => {
+                debugRecordedAudio(recordedAudio, scriptSegments);
+            },
+            inspectStoryCut: () => {
+                if (primaryStoryCut) {
+                    console.log('🔍 EMBERPLAY STORY CUT INSPECTION:');
+                    console.log('📝 Title:', primaryStoryCut.title);
+                    console.log('🎭 Contributors:', primaryStoryCut.selected_contributors);
+                    console.log('🎙️ Recorded Audio in Metadata:', primaryStoryCut.metadata?.recordedAudio);
+                    console.log('📊 Full Metadata:', primaryStoryCut.metadata);
+                    console.log('🔍 Full Story Cut Object:', primaryStoryCut);
+                }
+            }
+        };
+
+        return () => {
+            delete window.EmberPlayActions;
+        };
+    }, [primaryStoryCut]);
+
     // Inject CSS keyframes for fade-in animation
     useEffect(() => {
         const style = document.createElement('style');
@@ -162,23 +209,48 @@ export default function EmberPlay() {
     };
 
     const handleStop = () => {
+        console.log('🛑 Stop button pressed - immediately stopping all audio...');
+
+        // CRITICAL: Set stop flag FIRST to prevent any new audio from starting
+        playbackStoppedRef.current = true;
+
+        // Stop the main current audio if it exists
         if (currentAudio) {
+            console.log('🛑 Stopping current audio...');
             currentAudio.pause();
             currentAudio.currentTime = 0;
         }
+
+        // Stop ALL active audio segments (multi-voice system)
+        if (activeAudioSegments && activeAudioSegments.length > 0) {
+            console.log(`🛑 Stopping ${activeAudioSegments.length} active audio segments...`);
+            activeAudioSegments.forEach((audioSegment, index) => {
+                if (audioSegment && audioSegment.audio) {
+                    try {
+                        audioSegment.audio.pause();
+                        audioSegment.audio.currentTime = 0;
+                        console.log(`✅ Stopped audio segment ${index + 1}: [${audioSegment.voiceTag}]`);
+                    } catch (error) {
+                        console.warn(`⚠️ Error stopping audio segment ${index + 1}:`, error);
+                    }
+                }
+            });
+        }
+
+        // Update state immediately
         setIsPlaying(false);
         setCurrentlyPlayingStoryCut(null);
         setCurrentAudio(null);
-        playbackStoppedRef.current = true;
 
-        // Clear all timeouts
+        // Clear all timeouts immediately
         sentenceTimeouts.forEach(timeout => clearTimeout(timeout));
         setSentenceTimeouts([]);
         mediaTimeouts.forEach(timeout => clearTimeout(timeout));
         setMediaTimeouts([]);
+        mediaTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
         mediaTimeoutsRef.current = [];
 
-        // Reset visual states
+        // Reset visual states immediately
         setCurrentDisplayText('');
         setCurrentVoiceTag('');
         setCurrentMediaColor(null);
@@ -196,6 +268,8 @@ export default function EmberPlay() {
         setCurrentPanEffect(null);
         setCurrentZoomEffect(null);
         setShowEndHold(false);
+
+        console.log('✅ All audio stopped immediately');
     };
 
     const handleExitPlay = () => {
@@ -390,68 +464,91 @@ export default function EmberPlay() {
                                 )}
 
                                 {/* Bottom right capsule: Main EmberPlay capsule in top section */}
-                                {!showEndHold && (
-                                    <div className="absolute right-4 bottom-4 z-[60]">
-                                        <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
-                                            {/* Owner Avatar - Always at the top of the stack */}
-                                            {ember?.owner && (
-                                                <div className="p-1 hover:bg-white/70 rounded-full transition-colors">
-                                                    <Avatar className="w-8 h-8 border-2 border-white/80">
-                                                        <AvatarImage src={ember.owner.avatar_url} alt={`${ember.owner.first_name} ${ember.owner.last_name}`} />
-                                                        <AvatarFallback className="text-xs bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-                                                            {ember.owner.first_name?.[0]}{ember.owner.last_name?.[0]}
-                                                        </AvatarFallback>
-                                                    </Avatar>
+                                <div className="absolute right-4 bottom-4 z-[60]">
+                                    <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+                                        {/* Exit Button */}
+                                        <button
+                                            className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                                            onClick={handleExitPlay}
+                                            aria-label="Exit EmberPlay"
+                                            type="button"
+                                        >
+                                            <X size={24} weight="bold" className="text-gray-700" />
+                                        </button>
+
+                                        {/* Horizontal Divider */}
+                                        <div className="w-4 h-px bg-gray-400 my-1"></div>
+
+                                        {/* Owner Avatar - Always at the top of the stack */}
+                                        {ember?.owner && (
+                                            <div
+                                                className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                                style={{
+                                                    marginTop: '0px',
+                                                    zIndex: 35 // Highest z-index to appear on top
+                                                }}
+                                                title={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
+                                            >
+                                                <Avatar className="h-6 w-6 ring-2 ring-amber-400">
+                                                    <AvatarImage
+                                                        src={ember.owner.avatar_url}
+                                                        alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
+                                                    />
+                                                    <AvatarFallback className="text-xs bg-amber-100 text-amber-700">
+                                                        {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || 'O'}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </div>
+                                        )}
+
+                                        {/* Invited Users Avatars - Stacked with 16px overlap */}
+                                        {sharedUsers.map((sharedUser, index) => (
+                                            <div
+                                                key={sharedUser.id || index}
+                                                className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                                style={{
+                                                    marginTop: ember?.owner ? '-24px' : (index === 0 ? '-8px' : '-24px'),
+                                                    zIndex: ember?.owner ? (34 - index) : (30 - index) // Adjust z-index if owner is present
+                                                }}
+                                                title={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
+                                            >
+                                                <Avatar className="h-6 w-6 ring-1 ring-white">
+                                                    <AvatarImage
+                                                        src={sharedUser.avatar_url}
+                                                        alt={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
+                                                    />
+                                                    <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
+                                                        {sharedUser.first_name?.[0] || sharedUser.last_name?.[0] || sharedUser.email?.[0]?.toUpperCase() || '?'}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </div>
+                                        ))}
+
+                                        {/* Horizontal divider */}
+                                        <div className="h-px w-6 bg-gray-300 my-1"></div>
+
+                                        {/* Play/Stop Button - toggles between play and stop */}
+                                        <button
+                                            className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                            onClick={isPlaying ? handleStop : handlePlay}
+                                            aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Stop story" : "Play story")}
+                                            type="button"
+                                            disabled={isGeneratingAudio}
+                                        >
+                                            {isGeneratingAudio ? (
+                                                <div className="w-6 h-6 flex items-center justify-center">
+                                                    <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin" />
                                                 </div>
+                                            ) : isPlaying ? (
+                                                <div className="w-6 h-6 flex items-center justify-center">
+                                                    <div className="w-4 h-4 border-2 border-gray-700 rounded-sm"></div>
+                                                </div>
+                                            ) : (
+                                                <PlayCircle size={24} className="text-gray-700" />
                                             )}
-
-                                            {/* Contributor Avatars - Show shared users */}
-                                            {sharedUsers && sharedUsers.slice(0, 3).map((contributor, index) => (
-                                                <div
-                                                    key={contributor.id}
-                                                    className="p-1 hover:bg-white/70 rounded-full transition-colors"
-                                                >
-                                                    <Avatar className="w-8 h-8 border-2 border-white/80">
-                                                        <AvatarImage src={contributor.avatar_url} alt={`${contributor.first_name} ${contributor.last_name}`} />
-                                                        <AvatarFallback className="text-xs bg-gradient-to-r from-green-500 to-blue-600 text-white">
-                                                            {contributor.first_name?.[0]}{contributor.last_name?.[0]}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                </div>
-                                            ))}
-
-                                            {/* Play Button */}
-                                            <button
-                                                className="p-1 hover:bg-white/50 rounded-full transition-colors"
-                                                onClick={isPlaying ? handleStop : handlePlay}
-                                                aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Stop playing" : "Play ember story")}
-                                                type="button"
-                                                disabled={isGeneratingAudio}
-                                            >
-                                                {isGeneratingAudio ? (
-                                                    <div className="w-6 h-6 flex items-center justify-center">
-                                                        <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin" />
-                                                    </div>
-                                                ) : (
-                                                    <PlayCircle size={24} className={`text-gray-700 ${isPlaying ? 'text-blue-600' : ''}`} />
-                                                )}
-                                            </button>
-
-                                            {/* Horizontal Divider */}
-                                            <div className="w-4 h-px bg-gray-400 my-1"></div>
-
-                                            {/* Exit Button */}
-                                            <button
-                                                className="p-1 hover:bg-white/50 rounded-full transition-colors"
-                                                onClick={handleExitPlay}
-                                                aria-label="Exit EmberPlay"
-                                                type="button"
-                                            >
-                                                <X size={20} className="text-gray-700" />
-                                            </button>
-                                        </div>
+                                        </button>
                                     </div>
-                                )}
+                                </div>
                             </div>
 
                             {/* Bottom Section - Text Display Area - 35vh */}
@@ -461,24 +558,19 @@ export default function EmberPlay() {
 
                                 {/* Text Display */}
                                 <div className="absolute inset-0 flex items-center justify-center p-6">
-                                    <div className="text-center max-w-4xl">
+                                    <div className="text-center max-w-md">
                                         {currentDisplayText && (
                                             <div className="mb-4">
-                                                <p className="text-white text-lg leading-relaxed">
+                                                <p className="text-white text-xl font-bold leading-relaxed">
                                                     {currentDisplayText}
                                                 </p>
-                                                {currentVoiceTag && (
-                                                    <p className="text-gray-400 text-sm mt-2">
-                                                        {currentVoiceTag}
-                                                    </p>
-                                                )}
                                             </div>
                                         )}
 
                                         {!isPlaying && !isGeneratingAudio && !currentDisplayText && (
                                             <div className="text-center">
-                                                <p className="text-white text-xl leading-relaxed">
-                                                    Press play to experience this ember's story
+                                                <p className="text-white text-lg leading-relaxed">
+                                                    Press play to start this Ember
                                                 </p>
                                             </div>
                                         )}
@@ -605,68 +697,91 @@ export default function EmberPlay() {
                                 )}
 
                                 {/* Bottom right capsule: Main EmberPlay capsule in left section */}
-                                {!showEndHold && (
-                                    <div className="absolute right-6 bottom-6 z-[60]">
-                                        <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
-                                            {/* Owner Avatar - Always at the top of the stack */}
-                                            {ember?.owner && (
-                                                <div className="p-1 hover:bg-white/70 rounded-full transition-colors">
-                                                    <Avatar className="w-8 h-8 border-2 border-white/80">
-                                                        <AvatarImage src={ember.owner.avatar_url} alt={`${ember.owner.first_name} ${ember.owner.last_name}`} />
-                                                        <AvatarFallback className="text-xs bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-                                                            {ember.owner.first_name?.[0]}{ember.owner.last_name?.[0]}
-                                                        </AvatarFallback>
-                                                    </Avatar>
+                                <div className="absolute right-6 bottom-6 z-[60]">
+                                    <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
+                                        {/* Exit Button */}
+                                        <button
+                                            className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                                            onClick={handleExitPlay}
+                                            aria-label="Exit EmberPlay"
+                                            type="button"
+                                        >
+                                            <X size={24} weight="bold" className="text-gray-700" />
+                                        </button>
+
+                                        {/* Horizontal Divider */}
+                                        <div className="w-4 h-px bg-gray-400 my-1"></div>
+
+                                        {/* Owner Avatar - Always at the top of the stack */}
+                                        {ember?.owner && (
+                                            <div
+                                                className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                                style={{
+                                                    marginTop: '0px',
+                                                    zIndex: 35 // Highest z-index to appear on top
+                                                }}
+                                                title={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
+                                            >
+                                                <Avatar className="h-6 w-6 ring-2 ring-amber-400">
+                                                    <AvatarImage
+                                                        src={ember.owner.avatar_url}
+                                                        alt={`${ember.owner.first_name || ''} ${ember.owner.last_name || ''}`.trim() || 'Owner'}
+                                                    />
+                                                    <AvatarFallback className="text-xs bg-amber-100 text-amber-700">
+                                                        {ember.owner.first_name?.[0] || ember.owner.last_name?.[0] || 'O'}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </div>
+                                        )}
+
+                                        {/* Invited Users Avatars - Stacked with 16px overlap */}
+                                        {sharedUsers.map((sharedUser, index) => (
+                                            <div
+                                                key={sharedUser.id || index}
+                                                className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                                style={{
+                                                    marginTop: ember?.owner ? '-24px' : (index === 0 ? '-8px' : '-24px'),
+                                                    zIndex: ember?.owner ? (34 - index) : (30 - index) // Adjust z-index if owner is present
+                                                }}
+                                                title={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
+                                            >
+                                                <Avatar className="h-6 w-6 ring-1 ring-white">
+                                                    <AvatarImage
+                                                        src={sharedUser.avatar_url}
+                                                        alt={`${sharedUser.first_name || ''} ${sharedUser.last_name || ''}`.trim() || sharedUser.email}
+                                                    />
+                                                    <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
+                                                        {sharedUser.first_name?.[0] || sharedUser.last_name?.[0] || sharedUser.email?.[0]?.toUpperCase() || '?'}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </div>
+                                        ))}
+
+                                        {/* Horizontal divider */}
+                                        <div className="h-px w-6 bg-gray-300 my-1"></div>
+
+                                        {/* Play/Stop Button - toggles between play and stop */}
+                                        <button
+                                            className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                            onClick={isPlaying ? handleStop : handlePlay}
+                                            aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Stop story" : "Play story")}
+                                            type="button"
+                                            disabled={isGeneratingAudio}
+                                        >
+                                            {isGeneratingAudio ? (
+                                                <div className="w-6 h-6 flex items-center justify-center">
+                                                    <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin" />
                                                 </div>
+                                            ) : isPlaying ? (
+                                                <div className="w-6 h-6 flex items-center justify-center">
+                                                    <div className="w-4 h-4 border-2 border-gray-700 rounded-sm"></div>
+                                                </div>
+                                            ) : (
+                                                <PlayCircle size={24} className="text-gray-700" />
                                             )}
-
-                                            {/* Contributor Avatars - Show shared users */}
-                                            {sharedUsers && sharedUsers.slice(0, 3).map((contributor, index) => (
-                                                <div
-                                                    key={contributor.id}
-                                                    className="p-1 hover:bg-white/70 rounded-full transition-colors"
-                                                >
-                                                    <Avatar className="w-8 h-8 border-2 border-white/80">
-                                                        <AvatarImage src={contributor.avatar_url} alt={`${contributor.first_name} ${contributor.last_name}`} />
-                                                        <AvatarFallback className="text-xs bg-gradient-to-r from-green-500 to-blue-600 text-white">
-                                                            {contributor.first_name?.[0]}{contributor.last_name?.[0]}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                </div>
-                                            ))}
-
-                                            {/* Play Button */}
-                                            <button
-                                                className="p-1 hover:bg-white/50 rounded-full transition-colors"
-                                                onClick={isPlaying ? handleStop : handlePlay}
-                                                aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Stop playing" : "Play ember story")}
-                                                type="button"
-                                                disabled={isGeneratingAudio}
-                                            >
-                                                {isGeneratingAudio ? (
-                                                    <div className="w-6 h-6 flex items-center justify-center">
-                                                        <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin" />
-                                                    </div>
-                                                ) : (
-                                                    <PlayCircle size={24} className={`text-gray-700 ${isPlaying ? 'text-blue-600' : ''}`} />
-                                                )}
-                                            </button>
-
-                                            {/* Horizontal Divider */}
-                                            <div className="w-4 h-px bg-gray-400 my-1"></div>
-
-                                            {/* Exit Button */}
-                                            <button
-                                                className="p-1 hover:bg-white/50 rounded-full transition-colors"
-                                                onClick={handleExitPlay}
-                                                aria-label="Exit EmberPlay"
-                                                type="button"
-                                            >
-                                                <X size={20} className="text-gray-700" />
-                                            </button>
-                                        </div>
+                                        </button>
                                     </div>
-                                )}
+                                </div>
                             </div>
 
                             {/* Right side - Text Display Area */}
@@ -679,21 +794,16 @@ export default function EmberPlay() {
                                     <div className="text-center max-w-md">
                                         {currentDisplayText && (
                                             <div className="mb-4">
-                                                <p className="text-white text-xl leading-relaxed">
+                                                <p className="text-white text-xl font-bold leading-relaxed">
                                                     {currentDisplayText}
                                                 </p>
-                                                {currentVoiceTag && (
-                                                    <p className="text-gray-400 text-sm mt-2">
-                                                        {currentVoiceTag}
-                                                    </p>
-                                                )}
                                             </div>
                                         )}
 
                                         {!isPlaying && !isGeneratingAudio && !currentDisplayText && (
                                             <div className="text-center">
                                                 <p className="text-white text-lg leading-relaxed">
-                                                    Press play to experience this ember's story
+                                                    Press play to start this Ember
                                                 </p>
                                             </div>
                                         )}

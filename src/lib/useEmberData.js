@@ -202,7 +202,7 @@ export const useEmber = (id, userProfile = null) => {
         if (id) {
             fetchEmber();
         }
-    }, [id]);
+    }, [id, userProfile]);
 
     const updateImageAnalysis = async () => {
         // Refresh the image analysis data when it's updated

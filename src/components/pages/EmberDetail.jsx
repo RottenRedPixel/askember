@@ -59,17 +59,13 @@ import {
   autoTriggerImageAnalysis,
   autoTriggerExifProcessing,
   autoTriggerLocationProcessing,
-  determineFrameType,
-  handlePlay as handleMediaPlay,
-  handlePlaybackComplete as handleMediaPlaybackComplete,
-  handleExitPlay as handleMediaExitPlay
+  determineFrameType
 } from '@/lib/mediaHandlers';
 import { useUIState } from '@/lib/useUIState';
 
 import StoryCutDetailContent from '@/components/StoryCutDetailContent';
 import StoryModalContent from '@/components/StoryModalContent';
 import EmberCarousel from '@/components/ember/EmberCarousel';
-import EmberPlay from '@/components/EmberPlay';
 
 
 export default function EmberDetail() {
@@ -149,34 +145,8 @@ export default function EmberDetail() {
     showStoryCutDetail, setShowStoryCutDetail,
     showDeleteConfirm, setShowDeleteConfirm,
 
-    // Audio states
-    isPlaying, setIsPlaying,
-    isGeneratingAudio, setIsGeneratingAudio,
-    showFullscreenPlay, setShowFullscreenPlay,
-    isPlayerFadingOut, setIsPlayerFadingOut,
+    // Audio states - minimal for cleanup only
     currentAudio, setCurrentAudio,
-    activeAudioSegments, setActiveAudioSegments,
-    showEndHold, setShowEndHold,
-    currentVoiceType, setCurrentVoiceType,
-    currentVoiceTransparency, setCurrentVoiceTransparency,
-    currentMediaColor, setCurrentMediaColor,
-    currentZoomScale, setCurrentZoomScale,
-    currentMediaImageUrl, setCurrentMediaImageUrl,
-    currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut,
-    // Visual effects state
-    currentFadeEffect, setCurrentFadeEffect,
-    currentPanEffect, setCurrentPanEffect,
-    currentZoomEffect, setCurrentZoomEffect,
-    // Loading screen state
-    currentLoadingState, setCurrentLoadingState,
-    currentLoadingMessage, setCurrentLoadingMessage,
-    currentLoadingIcon, setCurrentLoadingIcon,
-    currentDisplayText, setCurrentDisplayText,
-    currentVoiceTag, setCurrentVoiceTag,
-    currentSentenceIndex, setCurrentSentenceIndex,
-    currentSegmentSentences, setCurrentSegmentSentences,
-    sentenceTimeouts, setSentenceTimeouts,
-    mediaTimeouts, setMediaTimeouts,
     playbackStoppedRef,
     mediaTimeoutsRef,
 
@@ -1065,148 +1035,13 @@ export default function EmberDetail() {
 
 
 
-  // Handle completion of playback
-  const handlePlaybackComplete = () => {
-    // Start fade-out animation
-    setIsPlayerFadingOut(true);
-
-    // After fade-out completes, handle the actual completion
-    setTimeout(() => {
-      handleMediaPlaybackComplete({
-        setIsPlaying,
-        setShowFullscreenPlay,
-        setCurrentlyPlayingStoryCut,
-        setActiveAudioSegments,
-        setCurrentVoiceType,
-        setCurrentVoiceTransparency,
-        setCurrentMediaColor,
-        setCurrentZoomScale,
-        setCurrentMediaImageUrl,
-        // Loading screen state setters
-        setCurrentLoadingState,
-        setCurrentLoadingMessage,
-        setCurrentLoadingIcon,
-        setCurrentDisplayText,
-        setCurrentVoiceTag,
-        setCurrentSentenceIndex,
-        setCurrentSegmentSentences,
-        setSentenceTimeouts,
-        setMediaTimeouts,
-        sentenceTimeouts,
-        mediaTimeouts,
-        mediaTimeoutsRef
-      });
-      setIsPlayerFadingOut(false);
-    }, 600); // Match fade-out duration
-  };
-
-  const handleStop = () => {
-    // Stop playback but stay in EmberPlay view
-    handleMediaExitPlay({
-      currentAudio,
-      setIsPlaying,
-      setShowFullscreenPlay: () => { }, // Don't exit fullscreen, just stop playback
-      setCurrentlyPlayingStoryCut,
-      activeAudioSegments,
-      setActiveAudioSegments,
-      setCurrentVoiceType,
-      setCurrentVoiceTransparency,
-      setCurrentMediaColor,
-      setCurrentZoomScale,
-      setCurrentMediaImageUrl,
-      // Loading screen state setters
-      setCurrentLoadingState,
-      setCurrentLoadingMessage,
-      setCurrentLoadingIcon,
-      setCurrentDisplayText,
-      setCurrentVoiceTag,
-      setCurrentSentenceIndex,
-      setCurrentSegmentSentences,
-      setSentenceTimeouts,
-      setMediaTimeouts,
-      sentenceTimeouts,
-      mediaTimeouts,
-      mediaTimeoutsRef,
-      playbackStoppedRef
-    });
-  };
-
-  const handleExitPlay = () => {
-    // Start fade-out animation
-    setIsPlayerFadingOut(true);
-
-    // After fade-out completes, handle the actual exit
-    setTimeout(() => {
-      handleMediaExitPlay({
-        currentAudio,
-        setIsPlaying,
-        setShowFullscreenPlay,
-        setCurrentlyPlayingStoryCut,
-        activeAudioSegments,
-        setActiveAudioSegments,
-        setCurrentVoiceType,
-        setCurrentVoiceTransparency,
-        setCurrentMediaColor,
-        setCurrentZoomScale,
-        setCurrentMediaImageUrl,
-        // Loading screen state setters
-        setCurrentLoadingState,
-        setCurrentLoadingMessage,
-        setCurrentLoadingIcon,
-        setCurrentDisplayText,
-        setCurrentVoiceTag,
-        setCurrentSentenceIndex,
-        setCurrentSegmentSentences,
-        setSentenceTimeouts,
-        setMediaTimeouts,
-        sentenceTimeouts,
-        mediaTimeouts,
-        mediaTimeoutsRef,
-        playbackStoppedRef
-      });
-      setIsPlayerFadingOut(false);
-    }, 600); // Match fade-out duration
-  };
-
-  // Handle play button click - now uses story cuts if available
 
 
-  const handlePlay = async () => {
-    await handleMediaPlay(ember, storyCuts, primaryStoryCut, selectedEmberVoice, { isPlaying }, {
-      setShowFullscreenPlay,
-      setIsGeneratingAudio,
-      setCurrentlyPlayingStoryCut,
-      setIsPlaying,
-      setCurrentAudio,
-      handleExitPlay,
-      handlePlaybackComplete,
-      setActiveAudioSegments,
-      playbackStoppedRef,
-      setCurrentVoiceType,
-      setCurrentVoiceTransparency,
-      setCurrentMediaColor,
-      setCurrentZoomScale,
-      setCurrentMediaImageUrl,
-      // Loading screen state setters
-      setCurrentLoadingState,
-      setCurrentLoadingMessage,
-      setCurrentLoadingIcon,
-      setCurrentDisplayText,
-      setCurrentVoiceTag,
-      setCurrentSentenceIndex,
-      setCurrentSegmentSentences,
-      setSentenceTimeouts,
-      sentenceTimeouts,
-      setMediaTimeouts,
-      mediaTimeouts,
-      mediaTimeoutsRef,
-      setMessage,
-      // Visual effects state setters
-      setCurrentFadeEffect,
-      setCurrentPanEffect,
-      setCurrentZoomEffect
-    });
-  };
+
+
+
+
+
 
   const handleTitleDelete = async () => {
     try {
@@ -1310,7 +1145,7 @@ export default function EmberDetail() {
       id: 'photo',
       title: 'Photo',
       content: (
-        <div className={`h-full flex flex-col ${currentDisplayText ? 'bg-black' : 'bg-gray-100'} md:rounded-xl overflow-hidden`}>
+        <div className="h-full flex flex-col bg-gray-100 md:rounded-xl overflow-hidden">
           {/* Photo area (with toggle, blurred bg, main image, icon bar) */}
           <div className="relative w-screen left-1/2 right-1/2 -translate-x-1/2 flex-shrink-0 h-[65vh] md:w-full md:left-0 md:right-0 md:translate-x-0 md:h-auto overflow-hidden">
             {/* Top right vertical capsule: Home and Image Controls */}
@@ -1481,18 +1316,11 @@ export default function EmberDetail() {
                 {/* Play button */}
                 <button
                   className="p-1 hover:bg-white/50 rounded-full transition-colors"
-                  onClick={handlePlay}
-                  aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Stop playing" : "Play ember story")}
+                  onClick={() => navigate(`/embers/${id}`)}
+                  aria-label="Play ember story"
                   type="button"
-                  disabled={isGeneratingAudio}
                 >
-                  {isGeneratingAudio ? (
-                    <div className="w-6 h-6 flex items-center justify-center">
-                      <div className="w-4 h-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  ) : (
-                    <PlayCircle size={24} className={`text-gray-700 ${isPlaying ? 'text-blue-600' : ''}`} />
-                  )}
+                  <PlayCircle size={24} className="text-gray-700" />
                 </button>
               </div>
             </div>
@@ -1749,7 +1577,7 @@ export default function EmberDetail() {
     <div className="md:min-h-screen bg-white">
       {/* Mobile Layout */}
       <div className="md:hidden -m-[0.67rem] -mt-[0.67rem] h-screen overflow-hidden">
-        <Card className={`py-0 w-full h-full ${currentDisplayText ? 'bg-black' : 'bg-gray-100'} rounded-none`}>
+        <Card className="py-0 w-full h-full bg-gray-100 rounded-none">
           <CardContent className="p-0 h-full">
             {allCardsDefinitions[0].content}
           </CardContent>
@@ -1761,7 +1589,7 @@ export default function EmberDetail() {
         <div className="container mx-auto px-1.5 py-8">
           <div className="max-w-4xl mx-auto">
             <div className="rounded-xl bg-white shadow-sm">
-              <Card className={`py-0 w-full ${currentDisplayText ? 'bg-black' : 'bg-gray-100'}`}>
+              <Card className="py-0 w-full bg-gray-100">
                 <CardContent className="p-0 h-full">
                   {allCardsDefinitions[0].content}
                 </CardContent>
@@ -2096,40 +1924,7 @@ export default function EmberDetail() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleMediaPlay(ember, storyCuts, cut, selectedEmberVoice, { isPlaying }, {
-                                      setShowFullscreenPlay,
-                                      setIsGeneratingAudio,
-                                      setCurrentlyPlayingStoryCut,
-                                      setIsPlaying,
-                                      setCurrentAudio,
-                                      handleExitPlay,
-                                      handlePlaybackComplete,
-                                      setActiveAudioSegments,
-                                      playbackStoppedRef,
-                                      setCurrentVoiceType,
-                                      setCurrentVoiceTransparency,
-                                      setCurrentMediaColor,
-                                      setCurrentZoomScale,
-                                      setCurrentMediaImageUrl,
-                                      // Loading screen state setters
-                                      setCurrentLoadingState,
-                                      setCurrentLoadingMessage,
-                                      setCurrentLoadingIcon,
-                                      setCurrentDisplayText,
-                                      setCurrentVoiceTag,
-                                      setCurrentSentenceIndex,
-                                      setCurrentSegmentSentences,
-                                      setSentenceTimeouts,
-                                      sentenceTimeouts,
-                                      setMediaTimeouts,
-                                      mediaTimeouts,
-                                      mediaTimeoutsRef,
-                                      setMessage,
-                                      // Visual effects state setters
-                                      setCurrentFadeEffect,
-                                      setCurrentPanEffect,
-                                      setCurrentZoomEffect
-                                    });
+                                    navigate(`/embers/${id}?cut=${cut.id}`);
                                   }}
                                   className="p-1 bg-green-100 hover:bg-green-200 text-green-600 rounded-full transition-colors duration-200"
                                   title="Play This Story Cut"
@@ -2336,42 +2131,7 @@ export default function EmberDetail() {
         </>
       )}
 
-      {/* Ember Player - Now using standalone component */}
-      {showFullscreenPlay && (
-        <EmberPlay
-          // Ember data
-          ember={ember}
-          sharedUsers={sharedUsers}
 
-          // Visual state
-          isPlayerFadingOut={isPlayerFadingOut}
-          currentDisplayText={currentDisplayText}
-          currentVoiceTag={currentVoiceTag}
-          currentMediaImageUrl={currentMediaImageUrl}
-          currentMediaColor={currentMediaColor}
-          currentlyPlayingStoryCut={currentlyPlayingStoryCut}
-
-          // Visual effects state
-          currentFadeEffect={currentFadeEffect}
-          currentPanEffect={currentPanEffect}
-          currentZoomEffect={currentZoomEffect}
-
-          // Loading screen state
-          currentLoadingState={currentLoadingState}
-          currentLoadingMessage={currentLoadingMessage}
-          currentLoadingIcon={currentLoadingIcon}
-
-          // Audio state
-          isPlaying={isPlaying}
-          isGeneratingAudio={isGeneratingAudio}
-          showEndHold={showEndHold}
-
-          // Handler functions
-          onPlay={handlePlay}
-          onStop={handleStop}
-          onExitPlay={handleExitPlay}
-        />
-      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

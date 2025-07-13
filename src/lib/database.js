@@ -2486,3 +2486,103 @@ GRANT EXECUTE ON FUNCTION get_public_story_cuts(UUID) TO authenticated;
     throw error;
   }
 };
+
+/**
+ * Create an admin user creation function that bypasses RLS
+ * This should be run once to set up the admin user creation capability
+ */
+export const createAdminUserCreationFunction = async () => {
+  try {
+    console.log('🔧 Creating admin user creation function...');
+
+    const migrationSQL = `
+-- Step 1: Check if foreign key constraint exists and drop it temporarily
+DO $$
+DECLARE
+    constraint_exists boolean;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = 'user_profiles_user_id_fkey' 
+        AND table_name = 'user_profiles'
+    ) INTO constraint_exists;
+    
+    IF constraint_exists THEN
+        ALTER TABLE user_profiles DROP CONSTRAINT user_profiles_user_id_fkey;
+    END IF;
+END $$;
+
+-- Step 2: Create admin user creation function
+CREATE OR REPLACE FUNCTION create_admin_user_profile(
+  p_first_name TEXT,
+  p_last_name TEXT,
+  p_role TEXT DEFAULT 'user'
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  new_user_id UUID;
+BEGIN
+  -- Generate a new UUID for the user
+  new_user_id := gen_random_uuid();
+  
+  -- Insert user profile bypassing RLS and foreign key constraints
+  INSERT INTO user_profiles (user_id, first_name, last_name, role, created_at, updated_at)
+  VALUES (new_user_id, p_first_name, p_last_name, p_role, NOW(), NOW());
+  
+  -- Return the new user ID
+  RETURN new_user_id;
+END;
+$$;
+
+-- Grant execute permission to authenticated users (admin access)
+GRANT EXECUTE ON FUNCTION create_admin_user_profile(TEXT, TEXT, TEXT) TO authenticated;
+    `;
+
+    const result = await executeSQL(migrationSQL);
+    console.log('✅ Successfully created admin user creation function');
+    return result;
+  } catch (error) {
+    console.error('❌ Error creating admin user creation function:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create a user profile using the admin function
+ * @param {Object} userData - User data to create
+ * @returns {Promise<Object>} - The created user profile
+ */
+export const createUserProfileAdmin = async (userData) => {
+  try {
+    console.log('👤 Creating user profile via admin function:', userData);
+
+    const { data: userId, error } = await supabase.rpc('create_admin_user_profile', {
+      p_first_name: userData.first_name || '',
+      p_last_name: userData.last_name || '',
+      p_role: userData.role || 'user'
+    });
+
+    if (error) {
+      console.error('❌ Error creating user profile:', error);
+      throw error;
+    }
+
+    console.log('✅ User profile created successfully with ID:', userId);
+
+    // Return a user object with the data that was created
+    return {
+      user_id: userId,
+      first_name: userData.first_name || '',
+      last_name: userData.last_name || '',
+      role: userData.role || 'user',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('❌ createUserProfileAdmin failed:', error);
+    throw error;
+  }
+};

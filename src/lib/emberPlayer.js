@@ -125,7 +125,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       audio,
       url: audioData.audio_url,
       voiceTag,
-      content
+      content: audioData.message_content || content // Use recorded content if available, fallback to script content
     };
   } else if (userPreference === 'recorded' && !hasRecordedAudio) {
     // User wants "recorded" but no recorded audio exists - fallback to text response
@@ -147,7 +147,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       }
     }
 
-    const narratedContent = `${voiceTag} said, "${content}"`;
+    const narratedContent = `${voiceTag} said, "${audioData.message_content || content}"`;
     const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
@@ -242,7 +242,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
         audio,
         url: audioData.audio_url,
         voiceTag,
-        content
+        content: audioData.message_content || content // Use recorded content if available, fallback to script content
       };
     } else if (userPreference === 'personal' && hasPersonalVoice) {
       console.log(`🎤 ✅ Using personal voice model (final fallback)`);
@@ -286,7 +286,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
         throw new Error(`No voice available for ultimate fallback from ${voiceTag}`);
       }
 
-      const narratedContent = `${voiceTag} said, "${content}"`;
+      const narratedContent = `${voiceTag} said, "${audioData.message_content || content}"`;
       const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
@@ -409,6 +409,13 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       // PRIORITY 1: Check if preference is embedded in script segment
       if (segment.preference) {
         console.log(`🎯 ✅ Found embedded preference in script: ${segment.preference}`);
+        console.log(`🎯 ✅ Full segment data:`, {
+          voiceTag: segment.voiceTag,
+          content: segment.content.substring(0, 50) + '...',
+          originalContent: segment.originalContent?.substring(0, 50) + '...',
+          type: segment.type,
+          preference: segment.preference
+        });
         // Convert script preference format to audio generation format
         if (segment.preference === 'synth') {
           userPreference = 'personal';
@@ -419,9 +426,16 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         }
         foundStudioPreference = true;
         console.log(`🎯 ✅ Using embedded script preference: ${segment.preference} → ${userPreference}`);
+      } else {
+        console.log(`🎯 ❌ No embedded preference found in segment`);
+        console.log(`🎯 ❌ Full segment data:`, {
+          voiceTag: segment.voiceTag,
+          content: segment.content.substring(0, 50) + '...',
+          originalContent: segment.originalContent?.substring(0, 50) + '...',
+          type: segment.type,
+          preference: segment.preference
+        });
       }
-
-
 
       // Fallback to detailed message preferences if no studio preference found
       if (!foundStudioPreference && window.messageAudioPreferences) {
@@ -459,28 +473,26 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         return audioData.user_first_name === voiceTag;
       });
 
-      // If not found in recorded audio, check story cut contributors
-      if (!matchingUserId && storyCut.selected_contributors) {
-        console.log(`🔍 No recorded audio match, checking story cut contributors for: ${voiceTag}`);
-        console.log(`🔍 DEBUG: Story cut selected_contributors structure:`, storyCut.selected_contributors);
-        console.log(`🔍 DEBUG: Looking for contributor with name: "${voiceTag}"`);
-
-        // Log each contributor for debugging
-        storyCut.selected_contributors.forEach((contributor, index) => {
-          console.log(`🔍 DEBUG: Contributor ${index}: name="${contributor.name}", id="${contributor.id}", role="${contributor.role}"`);
-        });
-
-        const contributor = storyCut.selected_contributors.find(c => c.name === voiceTag);
-        if (contributor) {
-          console.log(`✅ Found contributor in story cut: ${contributor.name} (ID: ${contributor.id})`);
-          matchingUserId = [contributor.id, { user_first_name: contributor.name }];
-        } else {
-          console.log(`❌ Could not find contributor with name "${voiceTag}" in story cut contributors`);
+      if (!matchingUserId) {
+        // Fallback: match by story cut contributors
+        if (storyCut.selected_contributors && storyCut.selected_contributors.length > 0) {
+          const matchingContributor = storyCut.selected_contributors.find(c => c.first_name === voiceTag);
+          if (matchingContributor) {
+            console.log(`🔍 Found contributor by name: ${matchingContributor.first_name} (${matchingContributor.id})`);
+            matchingUserId = [matchingContributor.id, {
+              user_first_name: matchingContributor.first_name,
+              message_content: null, // No recorded audio for story cut contributors
+              audio_url: null
+            }];
+          }
         }
       }
 
       if (!matchingUserId) {
-        console.log(`🔍 Could not find user ID for voice tag: ${voiceTag}`);
+        console.log(`❌ No matching user found for voice tag: ${voiceTag}`);
+        console.log(`❌ Available users:`, Object.values(recordedAudio).map(a => a.user_first_name));
+        console.log(`❌ Story cut contributors:`, storyCut.selected_contributors?.map(c => c.first_name) || []);
+
         console.log(`🔄 Using narrator/ember voice fallback for unmatched contributor: ${voiceTag}`);
 
         // Final fallback: Use narrator or ember voice with attribution
@@ -525,22 +537,65 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
             return false;
           }
 
+          // 🚨 CRITICAL FIX: If user explicitly wants recorded audio, use it regardless of content matching
+          if (userPreference === 'recorded' && audioData.audio_url) {
+            console.log(`  - 🎯 EXPLICIT RECORDED PREFERENCE: Using recorded audio regardless of content match`);
+            console.log(`  - 🎯 Available recorded content: "${audioData.message_content}"`);
+            console.log(`  - 🎯 Script content: "${audioContent}"`);
+            console.log(`  - 🎯 Audio URL: ${audioData.audio_url ? 'EXISTS' : 'MISSING'}`);
+            return true;
+          }
+
+          // For other preferences, do content matching
           const recordedContent = audioData.message_content?.toLowerCase() || '';
           const segmentContent = audioContent.toLowerCase();
 
           console.log(`  - Recorded content: "${recordedContent}"`);
           console.log(`  - Segment content: "${segmentContent}"`);
 
+          // Normalize both strings for better matching
+          const normalizeText = (text) => {
+            return text
+              .toLowerCase()
+              .replace(/[^\w\s]/g, '') // Remove punctuation
+              .replace(/\s+/g, ' ') // Normalize whitespace
+              .trim();
+          };
+
+          const normalizedRecorded = normalizeText(recordedContent);
+          const normalizedSegment = normalizeText(segmentContent);
+
+          console.log(`  - Normalized recorded: "${normalizedRecorded}"`);
+          console.log(`  - Normalized segment: "${normalizedSegment}"`);
+
           const exactMatch = recordedContent === segmentContent;
           const recordedContainsSegment = recordedContent.includes(segmentContent);
           const segmentContainsRecorded = segmentContent.includes(recordedContent);
 
+          // Enhanced matching with normalization
+          const normalizedExactMatch = normalizedRecorded === normalizedSegment;
+          const normalizedRecordedContainsSegment = normalizedRecorded.includes(normalizedSegment);
+          const normalizedSegmentContainsRecorded = normalizedSegment.includes(normalizedRecorded);
+
           console.log(`  - Exact match: ${exactMatch}`);
           console.log(`  - Recorded contains segment: ${recordedContainsSegment}`);
           console.log(`  - Segment contains recorded: ${segmentContainsRecorded}`);
+          console.log(`  - Normalized exact match: ${normalizedExactMatch}`);
+          console.log(`  - Normalized recorded contains segment: ${normalizedRecordedContainsSegment}`);
+          console.log(`  - Normalized segment contains recorded: ${normalizedSegmentContainsRecorded}`);
 
-          const contentMatches = exactMatch || recordedContainsSegment || segmentContainsRecorded;
+          const contentMatches = exactMatch || recordedContainsSegment || segmentContainsRecorded ||
+            normalizedExactMatch || normalizedRecordedContainsSegment || normalizedSegmentContainsRecorded;
           console.log(`  - Content match result: ${contentMatches}`);
+
+          // Also check if we have a valid audio URL
+          if (contentMatches && audioData.audio_url) {
+            console.log(`  - ✅ RECORDED AUDIO MATCH FOUND: ${audioData.audio_url}`);
+          } else if (contentMatches && !audioData.audio_url) {
+            console.log(`  - ❌ Content matches but no audio URL available`);
+          } else {
+            console.log(`  - ❌ No content match found`);
+          }
 
           return contentMatches && audioData.audio_url;
         })();
@@ -606,7 +661,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       const audio = new Audio(audioUrl);
 
       return {
-        type: 'ember_voice',
+        type: 'ember',
         audio,
         url: audioUrl,
         blob: audioBlob,
@@ -615,7 +670,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       };
     } else if (type === 'narrator') {
       // NARRATOR VOICE
-      console.log(`🎤 Generating NARRATOR audio: "${audioContent}"`);
+      console.log(`🗣️ Generating NARRATOR voice audio: "${audioContent}"`);
 
       const voiceId = getVoiceId(segment, storyCut, 'narrator');
       if (!voiceId) {
@@ -627,7 +682,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       const audio = new Audio(audioUrl);
 
       return {
-        type: 'narrator_voice',
+        type: 'narrator',
         audio,
         url: audioUrl,
         blob: audioBlob,
@@ -635,18 +690,10 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         content: audioContent
       };
     } else {
-      console.log(`⚠️ Unknown segment type: ${type}`);
-      throw new Error(`Unknown segment type: ${type}`);
+      throw new Error(`Unsupported voice type: ${type}`);
     }
   } catch (error) {
     console.error(`❌ Error generating audio for [${voiceTag}]:`, error);
-    console.error(`❌ Segment data:`, {
-      voiceTag,
-      content,
-      originalContent,
-      type,
-      audioContent
-    });
     throw error;
   }
 };
@@ -1052,10 +1099,13 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
         setCurrentMediaColor(null);
 
         // 🎯 Simplified Text Display: Show full segment text when voice starts
-        const displayText = segment.originalContent || segment.content;
+        // Use the generated audio content (which contains recorded content if available) instead of script content
+        const displayText = currentStep.audio.content || segment.originalContent || segment.content;
         const voiceTag = segment.voiceTag;
 
-        console.log(`📝 Displaying full segment text: "${displayText}"`);
+        console.log(`📝 Displaying text for [${voiceTag}]: "${displayText}"`);
+        console.log(`📝 Audio content: "${currentStep.audio.content}"`);
+        console.log(`📝 Original script content: "${segment.originalContent || segment.content}"`);
 
         // Set text display immediately when voice starts
         setCurrentDisplayText(displayText);

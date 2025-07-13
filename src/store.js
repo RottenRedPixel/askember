@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from './lib/supabase';
-import { getAllUsersWithEmails } from './lib/database';
+import { getAllUsersWithEmails, createAdminUserCreationFunction, createUserProfileAdmin } from './lib/database';
 
 let authListener = null;
 
@@ -15,19 +15,19 @@ const useStore = create((set, get) => ({
   userProfile: null,
   isLoading: true,
   isAdmin: false,
-  
+
   // Admin state
   allUsers: [],
   adminLoading: false,
-  
+
   // Auth actions
   setUser: (user) => set({ user }),
-  setUserProfile: (profile) => set({ 
+  setUserProfile: (profile) => set({
     userProfile: profile,
-    isAdmin: profile?.role === 'super_admin' 
+    isAdmin: profile?.role === 'super_admin'
   }),
   setLoading: (isLoading) => set({ isLoading }),
-  
+
   logout: async () => {
     try {
       await supabase.auth.signOut();
@@ -154,17 +154,74 @@ const useStore = create((set, get) => ({
     }
   },
 
+  createUser: async (userData) => {
+    const { isAdmin } = get();
+    if (!isAdmin) return { success: false, error: 'Not authorized' };
+
+    try {
+      console.log('Creating user with data:', userData);
+
+      // Try to create user using admin function
+      const data = await createUserProfileAdmin(userData);
+
+      console.log('User profile created successfully:', data);
+
+      // Refresh users list
+      await get().fetchAllUsers();
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error in createUser:', error);
+
+            // If the admin function doesn't exist, try to create it
+      if (error.message.includes('function') && (error.message.includes('does not exist') || error.message.includes('not found') || error.message.includes('schema cache'))) {
+        console.log('Admin function not found, trying to create it...');
+        try {
+          await createAdminUserCreationFunction();
+          console.log('Admin function created, retrying user creation...');
+          
+          const data = await createUserProfileAdmin(userData);
+          console.log('User profile created successfully after function creation:', data);
+          
+          // Refresh users list
+          await get().fetchAllUsers();
+          
+          return { success: true, data };
+        } catch (setupError) {
+          console.error('Error setting up admin function:', setupError);
+          return { success: false, error: `Setup failed: ${setupError.message}` };
+        }
+      }
+
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Setup admin user creation capability
+  setupAdminUserCreation: async () => {
+    const { isAdmin } = get();
+    if (!isAdmin) return { success: false, error: 'Not authorized' };
+
+    try {
+      await createAdminUserCreationFunction();
+      return { success: true, message: 'Admin user creation function created successfully' };
+    } catch (error) {
+      console.error('Error setting up admin user creation:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
   // Initialize auth state
   initializeAuth: async () => {
     console.log('🔐 initializeAuth called');
     try {
       // Add a small delay to ensure Supabase is fully initialized
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user ?? null;
       console.log('🔐 Initial session check:', { user: user?.id, session: !!session });
-      
+
       set({ user, isLoading: false });
 
       if (user) {
