@@ -371,7 +371,7 @@ export default function StoryCutStudio() {
                         }
 
                         // Match media tags
-                        const mediaMatch = trimmedLine.match(/^\[\[(MEDIA|HOLD)\]\]\s*(.*)$/);
+                        const mediaMatch = trimmedLine.match(/^\[\[(MEDIA|HOLD|LOAD SCREEN)\]\]\s*(.*)$/);
                         if (mediaMatch) {
                             const mediaType = mediaMatch[1];
                             const content = mediaMatch[2].trim();
@@ -513,6 +513,24 @@ export default function StoryCutStudio() {
                                     effect: `COLOR:${color}`,
                                     duration: duration,
                                     color: color
+                                });
+                            } else if (mediaType === 'LOAD SCREEN') {
+                                // Parse LOAD SCREEN attributes: message, duration, icon
+                                const messageMatch = content.match(/message="([^"]+)"/);
+                                const durationMatch = content.match(/duration=([0-9.]+)/);
+                                const iconMatch = content.match(/icon="([^"]+)"/);
+
+                                const message = messageMatch ? messageMatch[1] : 'Loading...';
+                                const duration = durationMatch ? parseFloat(durationMatch[1]) : 2.0;
+                                const icon = iconMatch ? iconMatch[1] : 'default';
+
+                                realBlocks.push({
+                                    id: blockId++,
+                                    type: 'loadscreen',
+                                    message: message,
+                                    duration: duration,
+                                    icon: icon,
+                                    effect: `LOADING:${duration}s`
                                 });
                             }
                         } else {
@@ -712,6 +730,12 @@ export default function StoryCutStudio() {
                 active: 'bg-gray-100 hover:bg-gray-200 text-gray-600',
                 disabled: 'bg-gray-50 text-gray-300 cursor-not-allowed'
             };
+        } else if (block.type === 'loadscreen') {
+            // Use same styling as HOLD blocks
+            return {
+                active: 'bg-gray-100 hover:bg-gray-200 text-gray-600',
+                disabled: 'bg-gray-50 text-gray-300 cursor-not-allowed'
+            };
         }
 
         // Default fallback
@@ -853,6 +877,8 @@ export default function StoryCutStudio() {
                     } else {
                         return `[[HOLD]] <COLOR:${block.color}>`;
                     }
+                case 'loadscreen':
+                    return `[[LOAD SCREEN]] <message="${block.message}",duration=${block.duration},icon="${block.icon}">`;
                 case 'start':
                     return ''; // Start blocks don't generate script content
                 case 'end':
@@ -1167,6 +1193,13 @@ export default function StoryCutStudio() {
                                             hoverColor = 'hover:bg-green-100';
                                         }
                                     } else if (block.type === 'hold') {
+                                        bgColor = 'bg-gray-50';
+                                        borderColor = 'border-gray-200';
+                                        textColor = 'text-gray-600';
+                                        ringColor = 'ring-gray-500';
+                                        hoverColor = 'hover:bg-gray-100';
+                                    } else if (block.type === 'loadscreen') {
+                                        // Use same styling as HOLD blocks
                                         bgColor = 'bg-gray-50';
                                         borderColor = 'border-gray-200';
                                         textColor = 'text-gray-600';
@@ -1775,6 +1808,63 @@ export default function StoryCutStudio() {
                                                     )}
 
 
+                                                </>
+                                            )}
+
+                                            {block.type === 'loadscreen' && (
+                                                <>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <div className="flex items-center gap-3">
+                                                            {/* Reorder Controls */}
+                                                            <div className="flex flex-col gap-1">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        moveBlockUp(index);
+                                                                    }}
+                                                                    disabled={index === 0}
+                                                                    className={`p-1 rounded-full transition-colors duration-200 ${index === 0
+                                                                        ? getArrowButtonColors(block).disabled
+                                                                        : getArrowButtonColors(block).active
+                                                                        }`}
+                                                                    title="Move up"
+                                                                >
+                                                                    <ArrowUp className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        moveBlockDown(index);
+                                                                    }}
+                                                                    disabled={index === blocks.length - 1}
+                                                                    className={`p-1 rounded-full transition-colors duration-200 ${index === blocks.length - 1
+                                                                        ? getArrowButtonColors(block).disabled
+                                                                        : getArrowButtonColors(block).active
+                                                                        }`}
+                                                                    title="Move down"
+                                                                >
+                                                                    <ArrowDown className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-8 h-8 rounded border border-gray-300 flex items-center justify-center bg-gray-100">
+                                                                    <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+                                                                </div>
+                                                                <span className={`font-semibold ${textColor}`}>Load Screen</span>
+                                                            </div>
+                                                        </div>
+                                                        <span className={`text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-800`}>
+                                                            {block.duration}s
+                                                        </span>
+                                                    </div>
+                                                    <div className="ml-6">
+                                                        <p className={`${textColor.replace('600', '700')} text-sm`}>
+                                                            "{block.message}"
+                                                        </p>
+                                                        <p className={`text-xs text-gray-500 mt-1`}>
+                                                            Icon: {block.icon}
+                                                        </p>
+                                                    </div>
                                                 </>
                                             )}
 
