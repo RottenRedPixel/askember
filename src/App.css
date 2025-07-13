@@ -99,6 +99,207 @@
   animation: fade-out 5s ease-in forwards;
 }
 
+/* Extended duration fade classes (6s-30s) */
+.ember-fade-in-6s {
+  animation: fade-in 6s ease-out forwards;
+}
+
+.ember-fade-in-7s {
+  animation: fade-in 7s ease-out forwards;
+}
+
+.ember-fade-in-8s {
+  animation: fade-in 8s ease-out forwards;
+}
+
+.ember-fade-in-9s {
+  animation: fade-in 9s ease-out forwards;
+}
+
+.ember-fade-in-10s {
+  animation: fade-in 10s ease-out forwards;
+}
+
+.ember-fade-in-11s {
+  animation: fade-in 11s ease-out forwards;
+}
+
+.ember-fade-in-12s {
+  animation: fade-in 12s ease-out forwards;
+}
+
+.ember-fade-in-13s {
+  animation: fade-in 13s ease-out forwards;
+}
+
+.ember-fade-in-14s {
+  animation: fade-in 14s ease-out forwards;
+}
+
+.ember-fade-in-15s {
+  animation: fade-in 15s ease-out forwards;
+}
+
+.ember-fade-in-16s {
+  animation: fade-in 16s ease-out forwards;
+}
+
+.ember-fade-in-17s {
+  animation: fade-in 17s ease-out forwards;
+}
+
+.ember-fade-in-18s {
+  animation: fade-in 18s ease-out forwards;
+}
+
+.ember-fade-in-19s {
+  animation: fade-in 19s ease-out forwards;
+}
+
+.ember-fade-in-20s {
+  animation: fade-in 20s ease-out forwards;
+}
+
+.ember-fade-in-21s {
+  animation: fade-in 21s ease-out forwards;
+}
+
+.ember-fade-in-22s {
+  animation: fade-in 22s ease-out forwards;
+}
+
+.ember-fade-in-23s {
+  animation: fade-in 23s ease-out forwards;
+}
+
+.ember-fade-in-24s {
+  animation: fade-in 24s ease-out forwards;
+}
+
+.ember-fade-in-25s {
+  animation: fade-in 25s ease-out forwards;
+}
+
+.ember-fade-in-26s {
+  animation: fade-in 26s ease-out forwards;
+}
+
+.ember-fade-in-27s {
+  animation: fade-in 27s ease-out forwards;
+}
+
+.ember-fade-in-28s {
+  animation: fade-in 28s ease-out forwards;
+}
+
+.ember-fade-in-29s {
+  animation: fade-in 29s ease-out forwards;
+}
+
+.ember-fade-in-30s {
+  animation: fade-in 30s ease-out forwards;
+}
+
+.ember-fade-out-6s {
+  animation: fade-out 6s ease-in forwards;
+}
+
+.ember-fade-out-7s {
+  animation: fade-out 7s ease-in forwards;
+}
+
+.ember-fade-out-8s {
+  animation: fade-out 8s ease-in forwards;
+}
+
+.ember-fade-out-9s {
+  animation: fade-out 9s ease-in forwards;
+}
+
+.ember-fade-out-10s {
+  animation: fade-out 10s ease-in forwards;
+}
+
+.ember-fade-out-11s {
+  animation: fade-out 11s ease-in forwards;
+}
+
+.ember-fade-out-12s {
+  animation: fade-out 12s ease-in forwards;
+}
+
+.ember-fade-out-13s {
+  animation: fade-out 13s ease-in forwards;
+}
+
+.ember-fade-out-14s {
+  animation: fade-out 14s ease-in forwards;
+}
+
+.ember-fade-out-15s {
+  animation: fade-out 15s ease-in forwards;
+}
+
+.ember-fade-out-16s {
+  animation: fade-out 16s ease-in forwards;
+}
+
+.ember-fade-out-17s {
+  animation: fade-out 17s ease-in forwards;
+}
+
+.ember-fade-out-18s {
+  animation: fade-out 18s ease-in forwards;
+}
+
+.ember-fade-out-19s {
+  animation: fade-out 19s ease-in forwards;
+}
+
+.ember-fade-out-20s {
+  animation: fade-out 20s ease-in forwards;
+}
+
+.ember-fade-out-21s {
+  animation: fade-out 21s ease-in forwards;
+}
+
+.ember-fade-out-22s {
+  animation: fade-out 22s ease-in forwards;
+}
+
+.ember-fade-out-23s {
+  animation: fade-out 23s ease-in forwards;
+}
+
+.ember-fade-out-24s {
+  animation: fade-out 24s ease-in forwards;
+}
+
+.ember-fade-out-25s {
+  animation: fade-out 25s ease-in forwards;
+}
+
+.ember-fade-out-26s {
+  animation: fade-out 26s ease-in forwards;
+}
+
+.ember-fade-out-27s {
+  animation: fade-out 27s ease-in forwards;
+}
+
+.ember-fade-out-28s {
+  animation: fade-out 28s ease-in forwards;
+}
+
+.ember-fade-out-29s {
+  animation: fade-out 29s ease-in forwards;
+}
+
+.ember-fade-out-30s {
+  animation: fade-out 30s ease-in forwards;
+}
+
 /* Pan animations - with proper off-screen starting positions */
 @keyframes pan-left {
   from {
@@ -182,6 +383,207 @@
   animation: pan-right 5s ease-out forwards;
 }
 
+/* Extended duration pan classes (6s-30s) */
+.ember-pan-left-6s {
+  animation: pan-left 6s ease-out forwards;
+}
+
+.ember-pan-left-7s {
+  animation: pan-left 7s ease-out forwards;
+}
+
+.ember-pan-left-8s {
+  animation: pan-left 8s ease-out forwards;
+}
+
+.ember-pan-left-9s {
+  animation: pan-left 9s ease-out forwards;
+}
+
+.ember-pan-left-10s {
+  animation: pan-left 10s ease-out forwards;
+}
+
+.ember-pan-left-11s {
+  animation: pan-left 11s ease-out forwards;
+}
+
+.ember-pan-left-12s {
+  animation: pan-left 12s ease-out forwards;
+}
+
+.ember-pan-left-13s {
+  animation: pan-left 13s ease-out forwards;
+}
+
+.ember-pan-left-14s {
+  animation: pan-left 14s ease-out forwards;
+}
+
+.ember-pan-left-15s {
+  animation: pan-left 15s ease-out forwards;
+}
+
+.ember-pan-left-16s {
+  animation: pan-left 16s ease-out forwards;
+}
+
+.ember-pan-left-17s {
+  animation: pan-left 17s ease-out forwards;
+}
+
+.ember-pan-left-18s {
+  animation: pan-left 18s ease-out forwards;
+}
+
+.ember-pan-left-19s {
+  animation: pan-left 19s ease-out forwards;
+}
+
+.ember-pan-left-20s {
+  animation: pan-left 20s ease-out forwards;
+}
+
+.ember-pan-left-21s {
+  animation: pan-left 21s ease-out forwards;
+}
+
+.ember-pan-left-22s {
+  animation: pan-left 22s ease-out forwards;
+}
+
+.ember-pan-left-23s {
+  animation: pan-left 23s ease-out forwards;
+}
+
+.ember-pan-left-24s {
+  animation: pan-left 24s ease-out forwards;
+}
+
+.ember-pan-left-25s {
+  animation: pan-left 25s ease-out forwards;
+}
+
+.ember-pan-left-26s {
+  animation: pan-left 26s ease-out forwards;
+}
+
+.ember-pan-left-27s {
+  animation: pan-left 27s ease-out forwards;
+}
+
+.ember-pan-left-28s {
+  animation: pan-left 28s ease-out forwards;
+}
+
+.ember-pan-left-29s {
+  animation: pan-left 29s ease-out forwards;
+}
+
+.ember-pan-left-30s {
+  animation: pan-left 30s ease-out forwards;
+}
+
+.ember-pan-right-6s {
+  animation: pan-right 6s ease-out forwards;
+}
+
+.ember-pan-right-7s {
+  animation: pan-right 7s ease-out forwards;
+}
+
+.ember-pan-right-8s {
+  animation: pan-right 8s ease-out forwards;
+}
+
+.ember-pan-right-9s {
+  animation: pan-right 9s ease-out forwards;
+}
+
+.ember-pan-right-10s {
+  animation: pan-right 10s ease-out forwards;
+}
+
+.ember-pan-right-11s {
+  animation: pan-right 11s ease-out forwards;
+}
+
+.ember-pan-right-12s {
+  animation: pan-right 12s ease-out forwards;
+}
+
+.ember-pan-right-13s {
+  animation: pan-right 13s ease-out forwards;
+}
+
+.ember-pan-right-14s {
+  animation: pan-right 14s ease-out forwards;
+}
+
+.ember-pan-right-15s {
+  animation: pan-right 15s ease-out forwards;
+}
+
+.ember-pan-right-16s {
+  animation: pan-right 16s ease-out forwards;
+}
+
+.ember-pan-right-17s {
+  animation: pan-right 17s ease-out forwards;
+}
+
+.ember-pan-right-18s {
+  animation: pan-right 18s ease-out forwards;
+}
+
+.ember-pan-right-19s {
+  animation: pan-right 19s ease-out forwards;
+}
+
+.ember-pan-right-20s {
+  animation: pan-right 20s ease-out forwards;
+}
+
+.ember-pan-right-21s {
+  animation: pan-right 21s ease-out forwards;
+}
+
+.ember-pan-right-22s {
+  animation: pan-right 22s ease-out forwards;
+}
+
+.ember-pan-right-23s {
+  animation: pan-right 23s ease-out forwards;
+}
+
+.ember-pan-right-24s {
+  animation: pan-right 24s ease-out forwards;
+}
+
+.ember-pan-right-25s {
+  animation: pan-right 25s ease-out forwards;
+}
+
+.ember-pan-right-26s {
+  animation: pan-right 26s ease-out forwards;
+}
+
+.ember-pan-right-27s {
+  animation: pan-right 27s ease-out forwards;
+}
+
+.ember-pan-right-28s {
+  animation: pan-right 28s ease-out forwards;
+}
+
+.ember-pan-right-29s {
+  animation: pan-right 29s ease-out forwards;
+}
+
+.ember-pan-right-30s {
+  animation: pan-right 30s ease-out forwards;
+}
+
 /* Zoom effect classes */
 .ember-zoom-in-1s {
   animation: zoom-in 1s ease-out forwards;
@@ -223,6 +625,206 @@
   animation: zoom-out 5s ease-out forwards;
 }
 
+/* Extended duration zoom classes (6s-30s) */
+.ember-zoom-in-6s {
+  animation: zoom-in 6s ease-out forwards;
+}
+
+.ember-zoom-in-7s {
+  animation: zoom-in 7s ease-out forwards;
+}
+
+.ember-zoom-in-8s {
+  animation: zoom-in 8s ease-out forwards;
+}
+
+.ember-zoom-in-9s {
+  animation: zoom-in 9s ease-out forwards;
+}
+
+.ember-zoom-in-10s {
+  animation: zoom-in 10s ease-out forwards;
+}
+
+.ember-zoom-in-11s {
+  animation: zoom-in 11s ease-out forwards;
+}
+
+.ember-zoom-in-12s {
+  animation: zoom-in 12s ease-out forwards;
+}
+
+.ember-zoom-in-13s {
+  animation: zoom-in 13s ease-out forwards;
+}
+
+.ember-zoom-in-14s {
+  animation: zoom-in 14s ease-out forwards;
+}
+
+.ember-zoom-in-15s {
+  animation: zoom-in 15s ease-out forwards;
+}
+
+.ember-zoom-in-16s {
+  animation: zoom-in 16s ease-out forwards;
+}
+
+.ember-zoom-in-17s {
+  animation: zoom-in 17s ease-out forwards;
+}
+
+.ember-zoom-in-18s {
+  animation: zoom-in 18s ease-out forwards;
+}
+
+.ember-zoom-in-19s {
+  animation: zoom-in 19s ease-out forwards;
+}
+
+.ember-zoom-in-20s {
+  animation: zoom-in 20s ease-out forwards;
+}
+
+.ember-zoom-in-21s {
+  animation: zoom-in 21s ease-out forwards;
+}
+
+.ember-zoom-in-22s {
+  animation: zoom-in 22s ease-out forwards;
+}
+
+.ember-zoom-in-23s {
+  animation: zoom-in 23s ease-out forwards;
+}
+
+.ember-zoom-in-24s {
+  animation: zoom-in 24s ease-out forwards;
+}
+
+.ember-zoom-in-25s {
+  animation: zoom-in 25s ease-out forwards;
+}
+
+.ember-zoom-in-26s {
+  animation: zoom-in 26s ease-out forwards;
+}
+
+.ember-zoom-in-27s {
+  animation: zoom-in 27s ease-out forwards;
+}
+
+.ember-zoom-in-28s {
+  animation: zoom-in 28s ease-out forwards;
+}
+
+.ember-zoom-in-29s {
+  animation: zoom-in 29s ease-out forwards;
+}
+
+.ember-zoom-in-30s {
+  animation: zoom-in 30s ease-out forwards;
+}
+
+.ember-zoom-out-6s {
+  animation: zoom-out 6s ease-out forwards;
+}
+
+.ember-zoom-out-7s {
+  animation: zoom-out 7s ease-out forwards;
+}
+
+.ember-zoom-out-8s {
+  animation: zoom-out 8s ease-out forwards;
+}
+
+.ember-zoom-out-9s {
+  animation: zoom-out 9s ease-out forwards;
+}
+
+.ember-zoom-out-10s {
+  animation: zoom-out 10s ease-out forwards;
+}
+
+.ember-zoom-out-11s {
+  animation: zoom-out 11s ease-out forwards;
+}
+
+.ember-zoom-out-12s {
+  animation: zoom-out 12s ease-out forwards;
+}
+
+.ember-zoom-out-13s {
+  animation: zoom-out 13s ease-out forwards;
+}
+
+.ember-zoom-out-14s {
+  animation: zoom-out 14s ease-out forwards;
+}
+
+.ember-zoom-out-15s {
+  animation: zoom-out 15s ease-out forwards;
+}
+
+.ember-zoom-out-16s {
+  animation: zoom-out 16s ease-out forwards;
+}
+
+.ember-zoom-out-17s {
+  animation: zoom-out 17s ease-out forwards;
+}
+
+.ember-zoom-out-18s {
+  animation: zoom-out 18s ease-out forwards;
+}
+
+.ember-zoom-out-19s {
+  animation: zoom-out 19s ease-out forwards;
+}
+
+.ember-zoom-out-20s {
+  animation: zoom-out 20s ease-out forwards;
+}
+
+.ember-zoom-out-21s {
+  animation: zoom-out 21s ease-out forwards;
+}
+
+.ember-zoom-out-22s {
+  animation: zoom-out 22s ease-out forwards;
+}
+
+.ember-zoom-out-23s {
+  animation: zoom-out 23s ease-out forwards;
+}
+
+.ember-zoom-out-24s {
+  animation: zoom-out 24s ease-out forwards;
+}
+
+.ember-zoom-out-25s {
+  animation: zoom-out 25s ease-out forwards;
+}
+
+.ember-zoom-out-26s {
+  animation: zoom-out 26s ease-out forwards;
+}
+
+.ember-zoom-out-27s {
+  animation: zoom-out 27s ease-out forwards;
+}
+
+.ember-zoom-out-28s {
+  animation: zoom-out 28s ease-out forwards;
+}
+
+.ember-zoom-out-29s {
+  animation: zoom-out 29s ease-out forwards;
+}
+
+.ember-zoom-out-30s {
+  animation: zoom-out 30s ease-out forwards;
+}
 
 
 @media (prefers-reduced-motion: no-preference) {

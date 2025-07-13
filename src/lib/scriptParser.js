@@ -16,6 +16,7 @@ export const parseScriptSegments = (script) => {
 
     const segments = [];
     const lines = script.split('\n');
+    let voiceConfiguration = null;
 
     console.log('🔍 parseScriptSegments: Processing', lines.length, 'lines');
     console.log('🔍 FULL SCRIPT CONTENT:', script);
@@ -29,6 +30,27 @@ export const parseScriptSegments = (script) => {
 
         console.log(`🔍 Processing line: "${trimmedLine.substring(0, 100)}..."`);
 
+        // Parse voice configuration [[VOICE]] <EMBER:id,NARRATOR:id>
+        const voiceMatch = trimmedLine.match(/^\[\[VOICE\]\]\s*<([^>]+)>$/);
+        if (voiceMatch) {
+            const voiceContent = voiceMatch[1];
+            console.log(`🎤 Found voice configuration: ${voiceContent}`);
+
+            voiceConfiguration = {};
+            const voicePairs = voiceContent.split(',');
+
+            voicePairs.forEach(pair => {
+                const [type, id] = pair.trim().split(':');
+                if (type && id) {
+                    voiceConfiguration[type.toLowerCase()] = id;
+                    console.log(`🎤 Parsed voice: ${type} → ${id}`);
+                }
+            });
+
+            console.log('🎤 Voice configuration:', voiceConfiguration);
+            continue; // Don't add voice declarations as segments
+        }
+
         // Skip malformed lines (common parsing artifacts)
         if ((trimmedLine.includes('[[MEDIA]') && !trimmedLine.includes('[[MEDIA]]')) ||
             (trimmedLine.includes('[[HOLD]') && !trimmedLine.includes('[[HOLD]]'))) {
@@ -36,11 +58,11 @@ export const parseScriptSegments = (script) => {
             continue;
         }
 
-        // Match media tags like [[MEDIA]] or [[HOLD]] with content
-        const mediaMatch = trimmedLine.match(/^\[\[(MEDIA|HOLD)\]\]\s*(.*)$/);
+        // Match media tags like [[MEDIA]], [[HOLD]], or [[LOAD SCREEN]] with content
+        const mediaMatch = trimmedLine.match(/^\[\[(MEDIA|HOLD|LOAD SCREEN)\]\]\s*(.*)$/);
 
         if (mediaMatch) {
-            const mediaType = mediaMatch[1]; // MEDIA or HOLD
+            const mediaType = mediaMatch[1]; // MEDIA, HOLD, or LOAD SCREEN
             const content = mediaMatch[2].trim();
 
             console.log(`🔍 ${mediaType} match found:`, {
@@ -55,11 +77,11 @@ export const parseScriptSegments = (script) => {
                 continue;
             }
 
-            // Extract visual actions (but NOT media references like <name="file.jpg"> or <id=abc123>)
+            // Extract visual actions (but NOT media references like <name="file.jpg">, <id=abc123>, or <path="url">)
             const existingVisualActions = [];
             let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
                 // Don't treat media references as visual actions
-                if (action.startsWith('name=') || action.startsWith('id=')) {
+                if (action.startsWith('name=') || action.startsWith('id=') || action.startsWith('path=')) {
                     return match; // Keep media references in the content
                 }
                 // Extract all visual actions for HOLD/MEDIA segments (including COLOR:)
@@ -70,33 +92,45 @@ export const parseScriptSegments = (script) => {
             // For media lines, the content after removing actions should be the media reference
             const mediaReference = cleanContent;
 
-            // Parse media reference to extract ID or name
+            // Parse media reference to extract path, ID, or name
             let mediaId = null;
             let mediaName = null;
+            let mediaPath = null;
+            let fallbackName = null;
             let resolvedMediaReference = mediaReference;
 
             console.log(`🔍 Parsing media reference: "${mediaReference}"`);
 
             if (mediaReference) {
-                // Check for id=abc123 format
-                const idMatch = mediaReference.match(/id=([a-zA-Z0-9\-_]+)/);
-                console.log(`🔍 ID regex test result:`, idMatch);
-                if (idMatch) {
-                    mediaId = idMatch[1];
+                // Check for path="URL",fallback="name" format (new format)
+                const pathMatch = mediaReference.match(/path="([^"]+)"(?:,fallback="([^"]+)")?/);
+                console.log(`🔍 Path regex test result:`, pathMatch);
+                if (pathMatch) {
+                    mediaPath = pathMatch[1];
+                    fallbackName = pathMatch[2] || 'ember_image';
                     resolvedMediaReference = mediaReference; // Keep original for display
-                    console.log(`✅ Extracted media ID: ${mediaId}`);
+                    console.log(`✅ Extracted media path: ${mediaPath}, fallback: ${fallbackName}`);
                 } else {
-                    // Check for name="Display Name" format
-                    const nameMatch = mediaReference.match(/name="([^"]+)"/);
-                    console.log(`🔍 Name regex test result:`, nameMatch);
-                    if (nameMatch) {
-                        mediaName = nameMatch[1];
+                    // Check for id=abc123 format (legacy)
+                    const idMatch = mediaReference.match(/id=([a-zA-Z0-9\-_]+)/);
+                    console.log(`🔍 ID regex test result:`, idMatch);
+                    if (idMatch) {
+                        mediaId = idMatch[1];
                         resolvedMediaReference = mediaReference; // Keep original for display
-                        console.log(`✅ Extracted media name: ${mediaName}`);
+                        console.log(`✅ Extracted media ID: ${mediaId}`);
                     } else {
-                        // If no id= or name= format, treat as legacy media reference
-                        mediaId = mediaReference;
-                        console.log(`🔄 Using legacy media reference: ${mediaId}`);
+                        // Check for name="Display Name" format (legacy)
+                        const nameMatch = mediaReference.match(/name="([^"]+)"/);
+                        console.log(`🔍 Name regex test result:`, nameMatch);
+                        if (nameMatch) {
+                            mediaName = nameMatch[1];
+                            resolvedMediaReference = mediaReference; // Keep original for display
+                            console.log(`✅ Extracted media name: ${mediaName}`);
+                        } else {
+                            // If no path=, id=, or name= format, treat as legacy media reference
+                            mediaId = mediaReference;
+                            console.log(`🔄 Using legacy media reference: ${mediaId}`);
+                        }
                     }
                 }
             }
@@ -105,8 +139,55 @@ export const parseScriptSegments = (script) => {
             const allVisualActions = existingVisualActions.map(action => `<${action}>`).join('');
             const finalContent = mediaReference ? `${mediaReference} ${allVisualActions}`.trim() : allVisualActions;
 
-            // Only add if we have actual content or visual actions
-            if (finalContent || existingVisualActions.length > 0) {
+            // Handle LOAD SCREEN segments differently
+            if (mediaType === 'LOAD SCREEN') {
+                // Parse LOAD SCREEN attributes: message, duration, icon
+                let loadMessage = 'Loading...';
+                let loadDuration = 2.0;
+                let loadIcon = 'default';
+
+                // Extract message
+                const messageMatch = content.match(/message="([^"]+)"/);
+                if (messageMatch) {
+                    loadMessage = messageMatch[1];
+                }
+
+                // Extract duration
+                const durationMatch = content.match(/duration=([0-9.]+)/);
+                if (durationMatch) {
+                    loadDuration = parseFloat(durationMatch[1]);
+                }
+
+                // Extract icon
+                const iconMatch = content.match(/icon="([^"]+)"/);
+                if (iconMatch) {
+                    loadIcon = iconMatch[1];
+                }
+
+                segments.push({
+                    voiceTag: 'LOAD SCREEN',
+                    content: finalContent,
+                    originalContent: content,
+                    type: 'loadscreen',
+                    visualActions: existingVisualActions,
+                    hasAutoColorize: false,
+                    // LOAD SCREEN specific properties
+                    loadMessage: loadMessage,
+                    loadDuration: loadDuration,
+                    loadIcon: loadIcon,
+                    // Add voice configuration
+                    voiceConfiguration: voiceConfiguration
+                });
+
+                console.log(`🎬 Parsed LOAD SCREEN segment:`, {
+                    line: trimmedLine,
+                    message: loadMessage,
+                    duration: loadDuration,
+                    icon: loadIcon,
+                    type: 'loadscreen'
+                });
+            } else if (finalContent || existingVisualActions.length > 0) {
+                // Handle MEDIA and HOLD segments
                 const segmentType = mediaType.toLowerCase(); // 'media' or 'hold'
                 segments.push({
                     voiceTag: mediaType,
@@ -118,7 +199,11 @@ export const parseScriptSegments = (script) => {
                     // Add media reference resolution data
                     mediaId: mediaId,
                     mediaName: mediaName,
-                    resolvedMediaReference: resolvedMediaReference
+                    mediaPath: mediaPath,
+                    fallbackName: fallbackName,
+                    resolvedMediaReference: resolvedMediaReference,
+                    // Add voice configuration
+                    voiceConfiguration: voiceConfiguration
                 });
                 console.log(`🎬 Parsed ${mediaType} segment:`, {
                     line: trimmedLine,
@@ -164,12 +249,12 @@ export const parseScriptSegments = (script) => {
                 let content = voiceMatch[2].trim();
                 const voiceType = getVoiceType(voiceTag);
 
-                // Extract visual actions (but NOT media references like <name="file.jpg"> or <id=abc123>)
+                // Extract visual actions (but NOT media references like <name="file.jpg">, <id=abc123>, or <path="url">)
                 // Also ignore color overlay commands for voice segments
                 const existingVisualActions = [];
                 let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
                     // Don't treat media references as visual actions
-                    if (action.startsWith('name=') || action.startsWith('id=')) {
+                    if (action.startsWith('name=') || action.startsWith('id=') || action.startsWith('path=')) {
                         return match; // Keep media references in the content
                     }
                     // Skip color overlay commands for voice segments (COLOR:, TRAN:)
@@ -194,7 +279,9 @@ export const parseScriptSegments = (script) => {
                         originalContent: cleanContent, // For audio synthesis (clean text only)
                         type: voiceType,
                         visualActions: existingVisualActions,
-                        hasAutoColorize: false // No auto-colorization anymore
+                        hasAutoColorize: false, // No auto-colorization anymore
+                        // Add voice configuration
+                        voiceConfiguration: voiceConfiguration
                     });
                 }
             }
@@ -504,17 +591,19 @@ export const extractZoomFromAction = (action) => {
  * @returns {string} Estimated duration as string
  */
 export const estimateSegmentDuration = (content, segmentType) => {
-    // For media and hold segments, prioritize explicit duration from visual actions
-    if (segmentType === 'media' || segmentType === 'hold') {
+    // For media, hold, and loadscreen segments, prioritize explicit duration from visual actions
+    if (segmentType === 'media' || segmentType === 'hold' || segmentType === 'loadscreen') {
         // Extract duration from any visual action that has it
         const durationMatch = content.match(/duration=([0-9.]+)/);
         if (durationMatch) {
             return parseFloat(durationMatch[1]).toFixed(2);
         }
 
-        // Different defaults for media vs hold
+        // Different defaults for each type
         if (segmentType === 'hold') {
             return "3.00"; // Hold segments default to 3 seconds
+        } else if (segmentType === 'loadscreen') {
+            return "2.00"; // Load screen segments default to 2 seconds
         } else {
             return "2.00"; // Media segments default to 2 seconds
         }
@@ -533,13 +622,19 @@ export const estimateSegmentDuration = (content, segmentType) => {
  * @returns {Promise<string|null>} - Resolved media URL or null if not found
  */
 export const resolveMediaReference = async (segment, emberId) => {
-    if (!segment || (!segment.mediaId && !segment.mediaName)) {
+    if (!segment || (!segment.mediaId && !segment.mediaName && !segment.mediaPath)) {
         console.log('⚠️ No media reference to resolve');
         return null;
     }
 
     try {
-        // Get all available media for this ember
+        // If we have a direct path, return it immediately (new format)
+        if (segment.mediaPath) {
+            console.log(`✅ Using direct media path: ${segment.mediaPath}`);
+            return segment.mediaPath;
+        }
+
+        // Get all available media for this ember (legacy format)
         const [emberPhotos, supportingMedia] = await Promise.all([
             getEmberPhotos(emberId),
             getEmberSupportingMedia(emberId)

@@ -12,6 +12,28 @@ import {
 } from '@/lib/scriptParser';
 
 /**
+ * Get voice ID with script configuration priority over story cut
+ * @param {Object} segment - Segment with voice configuration
+ * @param {Object} storyCut - Story cut with fallback voice IDs
+ * @param {string} voiceType - 'ember' or 'narrator'
+ * @returns {string|null} Voice ID or null if not found
+ */
+const getVoiceId = (segment, storyCut, voiceType) => {
+  if (segment.voiceConfiguration && segment.voiceConfiguration[voiceType]) {
+    console.log(`🎤 Using ${voiceType} voice ID from script: ${segment.voiceConfiguration[voiceType]}`);
+    return segment.voiceConfiguration[voiceType];
+  }
+
+  const storyCutKey = `${voiceType}_voice_id`;
+  if (storyCut[storyCutKey]) {
+    console.log(`🎤 Using ${voiceType} voice ID from story cut: ${storyCut[storyCutKey]}`);
+    return storyCut[storyCutKey];
+  }
+
+  return null;
+};
+
+/**
  * Audio engine for ember playback
  * Extracted from EmberDetail.jsx to improve maintainability
  */
@@ -29,7 +51,7 @@ import {
  * @param {string} content - Full content with visual actions
  * @returns {Promise<Object>} Generated audio segment
  */
-const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio, hasPersonalVoice, audioData, userVoiceModel, storyCut, voiceTag, audioContent, content) => {
+const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio, hasPersonalVoice, audioData, userVoiceModel, storyCut, voiceTag, audioContent, content, segment) => {
   // Decide which audio to use based on availability and preference
   if (userPreference === 'text') {
     // User wants basic text response - use narrator or ember voice for basic TTS
@@ -38,16 +60,17 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
     let fallbackVoiceId = null;
     let fallbackVoiceName = null;
 
-    if (storyCut.narrator_voice_id) {
-      fallbackVoiceId = storyCut.narrator_voice_id;
+    // Try script configuration first, then fallback to story cut
+    fallbackVoiceId = getVoiceId(segment, storyCut, 'narrator');
+    if (fallbackVoiceId) {
       fallbackVoiceName = 'narrator';
-      console.log(`🎤 Using narrator voice for text response`);
-    } else if (storyCut.ember_voice_id) {
-      fallbackVoiceId = storyCut.ember_voice_id;
-      fallbackVoiceName = 'ember';
-      console.log(`🎤 Using ember voice for text response`);
     } else {
-      throw new Error(`No voice available for text response from ${voiceTag}`);
+      fallbackVoiceId = getVoiceId(segment, storyCut, 'ember');
+      if (fallbackVoiceId) {
+        fallbackVoiceName = 'ember';
+      } else {
+        throw new Error(`No voice available for text response from ${voiceTag}`);
+      }
     }
 
     // Use attribution style with fallback voice
@@ -114,16 +137,16 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
     let fallbackVoiceName = null;
 
     // For TEXT RESPONSE fallback, ALWAYS use narrator/ember voice, never contributor's personal voice
-    if (storyCut.narrator_voice_id) {
-      fallbackVoiceId = storyCut.narrator_voice_id;
+    fallbackVoiceId = getVoiceId(segment, storyCut, 'narrator');
+    if (fallbackVoiceId) {
       fallbackVoiceName = 'narrator';
-      console.log(`🎤 Using narrator voice for attribution fallback`);
-    } else if (storyCut.ember_voice_id) {
-      fallbackVoiceId = storyCut.ember_voice_id;
-      fallbackVoiceName = 'ember';
-      console.log(`🎤 Using ember voice for attribution fallback`);
     } else {
-      throw new Error(`No voice available for fallback attribution from ${voiceTag}`);
+      fallbackVoiceId = getVoiceId(segment, storyCut, 'ember');
+      if (fallbackVoiceId) {
+        fallbackVoiceName = 'ember';
+      } else {
+        throw new Error(`No voice available for fallback attribution from ${voiceTag}`);
+      }
     }
 
     const narratedContent = `${voiceTag} said, "${content}"`;
@@ -625,13 +648,13 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         }
 
         // Decision logic for audio preference handling continues in next part...
-        return await handleContributorAudioGeneration(userPreference, hasRecordedAudio, hasPersonalVoice, audioData, userVoiceModel, storyCut, voiceTag, audioContent, content);
+        return await handleContributorAudioGeneration(userPreference, hasRecordedAudio, hasPersonalVoice, audioData, userVoiceModel, storyCut, voiceTag, audioContent, content, segment);
       }
     } else if (type === 'ember') {
       // EMBER VOICE
       console.log(`🔥 Generating EMBER voice audio: "${audioContent}"`);
 
-      const voiceId = storyCut.ember_voice_id;
+      const voiceId = getVoiceId(segment, storyCut, 'ember');
       if (!voiceId) {
         throw new Error('No ember voice ID configured for this story cut');
       }
@@ -652,7 +675,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       // NARRATOR VOICE
       console.log(`🎤 Generating NARRATOR audio: "${audioContent}"`);
 
-      const voiceId = storyCut.narrator_voice_id;
+      const voiceId = getVoiceId(segment, storyCut, 'narrator');
       if (!voiceId) {
         throw new Error('No narrator voice ID configured for this story cut');
       }
@@ -773,6 +796,16 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
           index
         });
         console.log(`⏸️ Timeline ${index + 1}: HOLD effect for ${duration}s - ${segment.content.substring(0, 50)}...`);
+      } else if (segment.type === 'loadscreen') {
+        // Load screen segment - blocks timeline for set duration with loading UI
+        const duration = segment.loadDuration || parseFloat(estimateSegmentDuration(segment.content, segment.type));
+        timeline.push({
+          type: 'loadscreen',
+          segment,
+          duration,
+          index
+        });
+        console.log(`⏳ Timeline ${index + 1}: LOAD SCREEN for ${duration}s - "${segment.loadMessage}"`);
       } else if (segment.type === 'media') {
         // Media segment - add to timeline for sequential processing
         timeline.push({
@@ -856,27 +889,95 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
 
         console.log(`⏸️ Applying hold effect for ${duration}s: ${segment.content}`);
 
+        // Extract fade effects first (same as MEDIA blocks)
+        const hasFadeEffects = segment.content.includes('FADE-');
+        let fadeEffect = null;
+
+        if (hasFadeEffects) {
+          fadeEffect = extractFadeFromAction(segment.content);
+          console.log(`🎬 HOLD fade effect detected: ${fadeEffect?.type} - ${fadeEffect?.duration}s`);
+        }
+
+        // Extract color from COLOR:#RRGGBB format
+        let colorValue = null;
+        if (segment.content.includes('COLOR:#')) {
+          const colorMatch = segment.content.match(/COLOR:#([0-9A-Fa-f]{6})/);
+          if (colorMatch) {
+            colorValue = '#' + colorMatch[1];
+          }
+        }
+
         // Apply visual effects based on content
-        if (segment.content.includes('COLOR:#000000')) {
-          console.log('🎬 Visual effect: Black screen');
-          setCurrentVoiceType(null); // Clear any voice overlay
-          setCurrentMediaColor('#000000'); // Set black color
-        } else if (segment.content.includes('Z-OUT:')) {
+        if (segment.content.includes('Z-OUT:')) {
           // Extract zoom scale values from Z-OUT command
           const zoomScale = extractZoomScaleFromAction(segment.content);
           console.log(`🎬 Visual effect: Image zoom out - from ${zoomScale.start} to ${zoomScale.end}`);
           setCurrentVoiceType(null); // Image display, no voice overlay
           setCurrentMediaColor(null); // Clear any color overlay
           setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
-        } else if (segment.content.includes('COLOR:#')) {
-          // Extract color from COLOR:#RRGGBB format - only for explicit HOLD effects
-          const colorMatch = segment.content.match(/COLOR:#([0-9A-Fa-f]{6})/);
-          if (colorMatch) {
-            const colorValue = '#' + colorMatch[1];
-            console.log(`🎬 Visual effect: Color overlay - ${colorValue}`);
-            setCurrentVoiceType(null); // Clear any voice overlay
-            setCurrentMediaColor(colorValue); // Set the extracted color
+        } else if (colorValue) {
+          console.log(`🎬 Visual effect: Color overlay - ${colorValue}`);
+          setCurrentVoiceType(null); // Clear any voice overlay
+
+          // Apply fade effects to color overlay if present
+          if (fadeEffect) {
+            // For HOLD blocks with fade, we need to find/create the color overlay element
+            setTimeout(() => {
+              // Look for the color overlay element in EmberPlay
+              const colorElements = document.querySelectorAll('[style*="backgroundColor"]');
+              let colorElement = null;
+
+              // Find the element with matching background color
+              colorElements.forEach(el => {
+                if (el.style.backgroundColor === colorValue ||
+                  el.style.backgroundColor === colorValue.replace('#', 'rgb(')) {
+                  colorElement = el;
+                }
+              });
+
+              // If no direct match, try to find elements with absolute positioning (likely overlays)
+              if (!colorElement) {
+                const overlayElements = document.querySelectorAll('.absolute');
+                overlayElements.forEach(el => {
+                  const bgColor = window.getComputedStyle(el).backgroundColor;
+                  if (bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+                    colorElement = el;
+                  }
+                });
+              }
+
+              if (colorElement) {
+                console.log(`🎯 Applying HOLD fade-${fadeEffect.type} animation: ${fadeEffect.duration}s to color overlay`);
+
+                // Handle fade-in special case
+                if (fadeEffect.type === 'in') {
+                  // Remove existing FADE animation classes and set to transparent
+                  colorElement.className = colorElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
+                  colorElement.classList.add('opacity-0');
+
+                  // Apply fade-in animation
+                  setTimeout(() => {
+                    colorElement.classList.remove('opacity-0');
+                    const durationClass = `ember-fade-in-${Math.round(fadeEffect.duration)}s`;
+                    colorElement.classList.add(durationClass);
+                    console.log(`🎬 Applied CSS class to HOLD color: ${durationClass}`);
+                  }, 50);
+                } else if (fadeEffect.type === 'out') {
+                  // Apply fade-out animation
+                  colorElement.className = colorElement.className.replace(/ember-fade-(in|out)-\d+s/g, '');
+                  colorElement.classList.remove('opacity-0');
+
+                  const durationClass = `ember-fade-out-${Math.round(fadeEffect.duration)}s`;
+                  colorElement.classList.add(durationClass);
+                  console.log(`🎬 Applied CSS class to HOLD color: ${durationClass}`);
+                }
+              } else {
+                console.warn(`⚠️ Could not find color overlay element for HOLD fade effect`);
+              }
+            }, 100); // Wait for React to create the color overlay
           }
+
+          setCurrentMediaColor(colorValue); // Set the extracted color
         } else {
           // Clear any existing color overlays if no explicit color command
           setCurrentVoiceType(null);
@@ -895,6 +996,40 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
         setMediaTimeouts(prev => [...prev, timeoutId]);
         mediaTimeoutsRef.current.push(timeoutId);
 
+      } else if (currentStep.type === 'loadscreen') {
+        // Load screen step - display loading UI for specified duration
+        const segment = currentStep.segment;
+        const duration = currentStep.duration;
+
+        console.log(`⏳ Load screen step: ${duration}s - "${segment.loadMessage}"`);
+
+        // Set loading state with message and icon
+        setCurrentLoadingMessage(segment.loadMessage);
+        setCurrentLoadingIcon(segment.loadIcon);
+        setCurrentLoadingState(true);
+
+        // Clear any background image/color and voice
+        setCurrentMediaImageUrl(null);
+        setCurrentMediaColor(null);
+        setCurrentVoiceType(null);
+
+        // Wait for the specified duration, then continue to next step
+        const timeoutId = setTimeout(() => {
+          if (!playbackStoppedRef.current) {
+            // Clear loading state
+            setCurrentLoadingState(false);
+            setCurrentLoadingMessage('');
+            setCurrentLoadingIcon('default');
+            
+            currentTimelineIndex++;
+            playNextTimelineStep();
+          }
+        }, duration * 1000);
+
+        // Track timeout for cleanup
+        setMediaTimeouts(prev => [...prev, timeoutId]);
+        mediaTimeoutsRef.current.push(timeoutId);
+
       } else if (currentStep.type === 'media') {
         // Media step - switch background image and continue immediately
         const segment = currentStep.segment;
@@ -903,7 +1038,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
 
         // Resolve the media reference to get the actual image URL
         resolveMediaReference(segment, ember.id).then(resolvedMediaUrl => {
-          console.log(`🔍 Resolved media URL for "${segment.mediaName || segment.mediaId}":`, resolvedMediaUrl);
+          console.log(`🔍 Resolved media URL for "${segment.mediaPath || segment.mediaName || segment.mediaId}":`, resolvedMediaUrl);
 
           if (resolvedMediaUrl) {
             // Extract all effects first
@@ -1022,7 +1157,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
               }
             }, 150); // Wait for React to update the image source
           } else {
-            console.warn(`⚠️ Could not resolve media reference: ${segment.mediaName || segment.mediaId}`);
+            console.warn(`⚠️ Could not resolve media reference: ${segment.mediaPath || segment.mediaName || segment.mediaId}`);
           }
 
           // Apply legacy zoom effects (Z-OUT: system)

@@ -74,6 +74,11 @@ export const useAudioState = () => {
     const [currentMediaImageUrl, setCurrentMediaImageUrl] = useState(null);
     const [currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut] = useState(null);
 
+    // Loading screen state
+    const [currentLoadingState, setCurrentLoadingState] = useState(false);
+    const [currentLoadingMessage, setCurrentLoadingMessage] = useState('');
+    const [currentLoadingIcon, setCurrentLoadingIcon] = useState('default');
+
     // Sentence-by-sentence display state
     const [currentDisplayText, setCurrentDisplayText] = useState('');
     const [currentVoiceTag, setCurrentVoiceTag] = useState('');
@@ -100,6 +105,9 @@ export const useAudioState = () => {
         setCurrentZoomScale({ start: 1.0, end: 1.0 });
         setCurrentMediaImageUrl(null);
         setCurrentlyPlayingStoryCut(null);
+        setCurrentLoadingState(false);
+        setCurrentLoadingMessage('');
+        setCurrentLoadingIcon('default');
         setCurrentDisplayText('');
         setCurrentVoiceTag('');
         setCurrentSentenceIndex(0);
@@ -125,6 +133,11 @@ export const useAudioState = () => {
         currentZoomScale, setCurrentZoomScale,
         currentMediaImageUrl, setCurrentMediaImageUrl,
         currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut,
+
+        // Loading screen state
+        currentLoadingState, setCurrentLoadingState,
+        currentLoadingMessage, setCurrentLoadingMessage,
+        currentLoadingIcon, setCurrentLoadingIcon,
 
         // Sentence display state
         currentDisplayText, setCurrentDisplayText,

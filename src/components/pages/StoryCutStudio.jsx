@@ -176,6 +176,9 @@ export default function StoryCutStudio() {
         currentZoomScale, setCurrentZoomScale,
         currentMediaImageUrl, setCurrentMediaImageUrl,
         currentlyPlayingStoryCut, setCurrentlyPlayingStoryCut,
+        currentLoadingState, setCurrentLoadingState,
+        currentLoadingMessage, setCurrentLoadingMessage,
+        currentLoadingIcon, setCurrentLoadingIcon,
         currentDisplayText, setCurrentDisplayText,
         currentVoiceTag, setCurrentVoiceTag,
         currentSentenceIndex, setCurrentSentenceIndex,
@@ -317,13 +320,55 @@ export default function StoryCutStudio() {
                 const initialEffects = {};
                 const initialDirections = {};
                 const initialDurations = {};
+
+                // Parse voice declarations and override story cut voice names
+                let embedVoiceNames = {
+                    ember: primaryStoryCut.ember_voice_name || 'Unknown Voice',
+                    narrator: primaryStoryCut.narrator_voice_name || 'Unknown Voice'
+                };
+
                 if (primaryStoryCut.full_script) {
                     const lines = primaryStoryCut.full_script.split('\n');
                     let blockId = 2;
 
+                    // First pass: Look for voice declarations
                     for (const line of lines) {
                         const trimmedLine = line.trim();
                         if (!trimmedLine) continue;
+
+                        // Parse voice declarations: [[VOICE]] <EMBER:id,NARRATOR:id>
+                        const voiceDeclarationMatch = trimmedLine.match(/^\[\[VOICE\]\]\s*<([^>]+)>$/);
+                        if (voiceDeclarationMatch) {
+                            const voiceContent = voiceDeclarationMatch[1];
+                            console.log('🎤 Found voice declaration:', voiceContent);
+
+                            // Parse individual voice assignments
+                            const voiceAssignments = voiceContent.split(',');
+                            for (const assignment of voiceAssignments) {
+                                const trimmedAssignment = assignment.trim();
+                                const [voiceType, voiceId] = trimmedAssignment.split(':');
+
+                                if (voiceType === 'EMBER' && voiceId) {
+                                    // Store the voice ID and keep the existing name for now
+                                    embedVoiceNames.ember = primaryStoryCut.ember_voice_name || `Voice ${voiceId}`;
+                                    console.log('🎤 Parsed EMBER voice:', voiceId);
+                                } else if (voiceType === 'NARRATOR' && voiceId) {
+                                    // Store the voice ID and keep the existing name for now
+                                    embedVoiceNames.narrator = primaryStoryCut.narrator_voice_name || `Voice ${voiceId}`;
+                                    console.log('🎤 Parsed NARRATOR voice:', voiceId);
+                                }
+                            }
+                        }
+                    }
+
+                    for (const line of lines) {
+                        const trimmedLine = line.trim();
+                        if (!trimmedLine) continue;
+
+                        // Skip voice declarations - they're already processed
+                        if (trimmedLine.match(/^\[\[VOICE\]\]/)) {
+                            continue;
+                        }
 
                         // Match media tags
                         const mediaMatch = trimmedLine.match(/^\[\[(MEDIA|HOLD)\]\]\s*(.*)$/);
@@ -332,18 +377,25 @@ export default function StoryCutStudio() {
                             const content = mediaMatch[2].trim();
 
                             if (mediaType === 'MEDIA') {
-                                // Extract media name or ID
+                                // Extract media name, ID, or path
                                 console.log('🔍 Parsing MEDIA content:', content);
 
-                                // Check for ID format first
+                                // Check for new path format first: <path="url",fallback="name">
+                                const pathMatch = content.match(/path="([^"]+)"(?:,fallback="([^"]+)")?/);
+                                // Check for ID format: <id=abc123>
                                 const idMatch = content.match(/id=([a-zA-Z0-9\-_]+)/);
-                                // Check for name format
+                                // Check for name format: <name="filename">
                                 const nameMatch = content.match(/name="([^"]+)"/);
 
                                 let mediaName = 'Unknown Media';
                                 let mediaId = null;
+                                let mediaUrl = null;
 
-                                if (idMatch) {
+                                if (pathMatch) {
+                                    mediaUrl = pathMatch[1];
+                                    mediaName = pathMatch[2] || 'Media';
+                                    console.log('🔍 Extracted media path:', mediaUrl, 'fallback:', mediaName);
+                                } else if (idMatch) {
                                     mediaId = idMatch[1];
                                     mediaName = 'Loading...'; // Will be replaced with actual display name
                                     console.log('🔍 Extracted media ID:', mediaId);
@@ -417,7 +469,7 @@ export default function StoryCutStudio() {
                                     type: 'media',
                                     mediaName: mediaName,
                                     mediaId: mediaId,
-                                    mediaUrl: 'https://picsum.photos/400/300?random=1', // Will be resolved
+                                    mediaUrl: mediaUrl || 'https://picsum.photos/400/300?random=1', // Use parsed URL or fallback
                                     effect: null,
                                     duration: 0
                                 });
@@ -428,14 +480,31 @@ export default function StoryCutStudio() {
                                 const color = colorMatch ? colorMatch[1] : '#000000';
                                 const duration = durationMatch ? parseFloat(durationMatch[1]) : 4.0;
 
-                                // Parse HOLD fade (if duration is present, fade is enabled)
+                                // Parse HOLD fade direction and duration
                                 const currentBlockId = blockId;
-                                if (durationMatch) {
-                                    // HOLD has fade enabled if duration is specified
+                                const fadeInMatch = content.match(/FADE-IN:duration=([\d.]+)/);
+                                const fadeOutMatch = content.match(/FADE-OUT:duration=([\d.]+)/);
+
+                                if (fadeInMatch || fadeOutMatch || durationMatch) {
+                                    // HOLD has fade enabled
                                     const blockKey = `hold-${currentBlockId}`;
                                     initialEffects[blockKey] = ['fade'];
-                                    initialDurations[`hold-duration-${currentBlockId}`] = duration;
-                                    console.log(`🎬 Parsed HOLD fade: ${duration}s for block ${currentBlockId}`);
+
+                                    // Set fade direction based on parsed content
+                                    if (fadeInMatch) {
+                                        initialDirections[`hold-fade-${currentBlockId}`] = 'in';
+                                        initialDurations[`hold-duration-${currentBlockId}`] = parseFloat(fadeInMatch[1]);
+                                        console.log(`🎬 Parsed HOLD fade-in: ${fadeInMatch[1]}s for block ${currentBlockId}`);
+                                    } else if (fadeOutMatch) {
+                                        initialDirections[`hold-fade-${currentBlockId}`] = 'out';
+                                        initialDurations[`hold-duration-${currentBlockId}`] = parseFloat(fadeOutMatch[1]);
+                                        console.log(`🎬 Parsed HOLD fade-out: ${fadeOutMatch[1]}s for block ${currentBlockId}`);
+                                    } else {
+                                        // Legacy format with just duration= (default to fade-in)
+                                        initialDirections[`hold-fade-${currentBlockId}`] = 'in';
+                                        initialDurations[`hold-duration-${currentBlockId}`] = duration;
+                                        console.log(`🎬 Parsed HOLD fade (legacy): ${duration}s for block ${currentBlockId}`);
+                                    }
                                 }
 
                                 realBlocks.push({
@@ -459,11 +528,11 @@ export default function StoryCutStudio() {
 
                                 if (voiceTag.toLowerCase().includes('ember')) {
                                     voiceType = 'ember';
-                                    const emberVoiceName = primaryStoryCut.ember_voice_name || 'Unknown Voice';
+                                    const emberVoiceName = embedVoiceNames.ember;
                                     enhancedVoiceTag = `Ember Voice (${emberVoiceName})`;
                                 } else if (voiceTag.toLowerCase().includes('narrator')) {
                                     voiceType = 'narrator';
-                                    const narratorVoiceName = primaryStoryCut.narrator_voice_name || 'Unknown Voice';
+                                    const narratorVoiceName = embedVoiceNames.narrator;
                                     enhancedVoiceTag = `Narrator (${narratorVoiceName})`;
                                 }
 
@@ -563,6 +632,10 @@ export default function StoryCutStudio() {
                     }
                     if (!initialDirections[`zoom-${block.id}`]) {
                         initialDirections[`zoom-${block.id}`] = 'in';
+                    }
+                    // Set default direction for HOLD fade effects
+                    if (!initialDirections[`hold-fade-${block.id}`]) {
+                        initialDirections[`hold-fade-${block.id}`] = 'in';
                     }
 
                     // Set default durations for all effects (only if not already set)
@@ -706,13 +779,40 @@ export default function StoryCutStudio() {
     };
 
     const generateScript = () => {
-        return blocks.map(block => {
+        // Generate voice configuration at the beginning of the script
+        let voiceDeclaration = '';
+        if (storyCut) {
+            const voiceParts = [];
+
+            // Add ember voice if available
+            if (storyCut.ember_voice_id) {
+                voiceParts.push(`EMBER:${storyCut.ember_voice_id}`);
+            }
+
+            // Add narrator voice if available
+            if (storyCut.narrator_voice_id) {
+                voiceParts.push(`NARRATOR:${storyCut.narrator_voice_id}`);
+            }
+
+            // Create voice declaration line if we have any voices
+            if (voiceParts.length > 0) {
+                voiceDeclaration = `[[VOICE]] <${voiceParts.join(',')}>`;
+                console.log('🎤 Generated voice declaration:', voiceDeclaration);
+            }
+        }
+
+        const scriptLines = blocks.map(block => {
             switch (block.type) {
                 case 'media':
-                    // Use ID format if available, otherwise fallback to name format
-                    let mediaLine = block.mediaId ?
-                        `[[MEDIA]] <id=${block.mediaId}>` :
-                        `[[MEDIA]] <name="${block.mediaName}">`;
+                    // Use full media path if available, otherwise fallback to ID/name format
+                    let mediaLine;
+                    if (block.mediaUrl) {
+                        mediaLine = `[[MEDIA]] <path="${block.mediaUrl}",fallback="${block.mediaName || 'ember_image'}">`;
+                    } else if (block.mediaId) {
+                        mediaLine = `[[MEDIA]] <id=${block.mediaId}>`;
+                    } else {
+                        mediaLine = `[[MEDIA]] <name="${block.mediaName}">`;
+                    }
 
                     // Build effects from current state
                     const blockEffects = selectedEffects[`effect-${block.id}`] || [];
@@ -745,9 +845,11 @@ export default function StoryCutStudio() {
                 case 'hold':
                     const holdEffects = selectedEffects[`hold-${block.id}`] || [];
                     const holdDuration = effectDurations[`hold-duration-${block.id}`] || block.duration || 4.0;
+                    const holdFadeDirection = effectDirections[`hold-fade-${block.id}`] || 'in';
 
                     if (holdEffects.includes('fade')) {
-                        return `[[HOLD]] <COLOR:${block.color},duration=${holdDuration}>`;
+                        // Include fade direction in the script: FADE-IN or FADE-OUT
+                        return `[[HOLD]] <COLOR:${block.color},FADE-${holdFadeDirection.toUpperCase()}:duration=${holdDuration}>`;
                     } else {
                         return `[[HOLD]] <COLOR:${block.color}>`;
                     }
@@ -758,7 +860,16 @@ export default function StoryCutStudio() {
                 default:
                     return '';
             }
-        }).filter(line => line.trim() !== '').join('\n\n');
+        }).filter(line => line.trim() !== '');
+
+        // Combine voice declaration with script lines
+        const allLines = [];
+        if (voiceDeclaration) {
+            allLines.push(voiceDeclaration);
+        }
+        allLines.push(...scriptLines);
+
+        return allLines.join('\n\n');
     };
 
     // Handle updating the story cut
@@ -1239,7 +1350,7 @@ export default function StoryCutStudio() {
                                                                         <input
                                                                             type="range"
                                                                             min="0"
-                                                                            max="5"
+                                                                            max="30"
                                                                             step="0.1"
                                                                             value={effectDurations[`fade-${block.id}`] || 3.0}
                                                                             onChange={(e) => {
@@ -1282,7 +1393,7 @@ export default function StoryCutStudio() {
                                                                         <input
                                                                             type="range"
                                                                             min="0"
-                                                                            max="5"
+                                                                            max="30"
                                                                             step="0.1"
                                                                             value={effectDurations[`pan-${block.id}`] || 4.0}
                                                                             onChange={(e) => {
@@ -1325,7 +1436,7 @@ export default function StoryCutStudio() {
                                                                         <input
                                                                             type="range"
                                                                             min="0"
-                                                                            max="5"
+                                                                            max="30"
                                                                             step="0.1"
                                                                             value={effectDurations[`zoom-${block.id}`] || 3.5}
                                                                             onChange={(e) => {
@@ -1618,26 +1729,47 @@ export default function StoryCutStudio() {
 
                                                     {/* Hold Duration Slider - only show when fade is selected */}
                                                     {selectedEffects[`hold-${block.id}`] && selectedEffects[`hold-${block.id}`].includes('fade') && (
-                                                        <div className="mt-3" style={{ marginLeft: '24px', marginRight: '24px' }}>
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center justify-between">
-                                                                    <span className="text-sm text-gray-700">Fade Duration</span>
-                                                                    <span className="text-sm text-gray-700">{effectDurations[`hold-duration-${block.id}`] || 4.0} sec</span>
+                                                        <div className="mt-3" style={{ marginLeft: '24px' }}>
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="flex-1 space-y-2">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-sm text-gray-700">Fade Duration</span>
+                                                                        <span className="text-sm text-gray-700">{effectDurations[`hold-duration-${block.id}`] || 4.0} sec</span>
+                                                                    </div>
+                                                                    <input
+                                                                        type="range"
+                                                                        min="0"
+                                                                        max="30"
+                                                                        step="0.1"
+                                                                        value={effectDurations[`hold-duration-${block.id}`] || 4.0}
+                                                                        onChange={(e) => {
+                                                                            setEffectDurations(prev => ({
+                                                                                ...prev,
+                                                                                [`hold-duration-${block.id}`]: parseFloat(e.target.value)
+                                                                            }));
+                                                                        }}
+                                                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                                                    />
                                                                 </div>
-                                                                <input
-                                                                    type="range"
-                                                                    min="0"
-                                                                    max="10"
-                                                                    step="0.1"
-                                                                    value={effectDurations[`hold-duration-${block.id}`] || 4.0}
-                                                                    onChange={(e) => {
-                                                                        setEffectDurations(prev => ({
-                                                                            ...prev,
-                                                                            [`hold-duration-${block.id}`]: parseFloat(e.target.value)
-                                                                        }));
-                                                                    }}
-                                                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                                                />
+                                                                <div className="flex-shrink-0 flex flex-col items-end">
+                                                                    <div className="text-xs text-gray-700 mb-1">
+                                                                        {effectDirections[`hold-fade-${block.id}`] === 'out' ? 'OUT' : 'IN'}
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setEffectDirections(prev => ({
+                                                                                ...prev,
+                                                                                [`hold-fade-${block.id}`]: prev[`hold-fade-${block.id}`] === 'out' ? 'in' : 'out'
+                                                                            }));
+                                                                        }}
+                                                                        className="w-12 h-6 rounded-full transition-colors duration-200 relative bg-gray-600"
+                                                                    >
+                                                                        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 ${effectDirections[`hold-fade-${block.id}`] === 'out'
+                                                                            ? 'translate-x-6'
+                                                                            : 'translate-x-0.5'
+                                                                            }`} />
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     )}
@@ -1734,9 +1866,9 @@ export default function StoryCutStudio() {
                             </div>
                         ) : (
                             /* View Mode */
-                            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <div className="text-gray-700 leading-relaxed font-mono text-sm">
-                                    <pre className="whitespace-pre-wrap">{storyCut?.full_script || 'Loading script...'}</pre>
+                            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                                <div className="text-gray-700 leading-relaxed font-mono text-sm overflow-auto">
+                                    <pre className="whitespace-pre-wrap break-words max-w-full" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{storyCut?.full_script || 'Loading script...'}</pre>
                                 </div>
                             </div>
                         )}
@@ -1789,6 +1921,20 @@ export default function StoryCutStudio() {
                                                 <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
                                             </div>
                                             <p className="text-lg">Generating audio...</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Load Screen - shows when currentLoadingState is true */}
+                                {currentLoadingState && (
+                                    <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center">
+                                        <div className="flex flex-col items-center space-y-4">
+                                            {/* Loading Spinner */}
+                                            <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            {/* Loading Message */}
+                                            <p className="text-white text-lg font-medium text-center">
+                                                {currentLoadingMessage}
+                                            </p>
                                         </div>
                                     </div>
                                 )}
@@ -1905,6 +2051,20 @@ export default function StoryCutStudio() {
                                                                     <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
                                                                 </div>
                                                                 <p className="text-lg">Generating audio...</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Load Screen - shows when currentLoadingState is true */}
+                                                    {currentLoadingState && (
+                                                        <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center">
+                                                            <div className="flex flex-col items-center space-y-4">
+                                                                {/* Loading Spinner */}
+                                                                <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                                {/* Loading Message */}
+                                                                <p className="text-white text-lg font-medium text-center">
+                                                                    {currentLoadingMessage}
+                                                                </p>
                                                             </div>
                                                         </div>
                                                     )}

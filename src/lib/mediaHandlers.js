@@ -314,6 +314,10 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
                     setCurrentMediaColor,
                     setCurrentZoomScale,
                     setCurrentMediaImageUrl,
+                    // 🎯 Add loading screen state setters
+                    setCurrentLoadingState,
+                    setCurrentLoadingMessage,
+                    setCurrentLoadingIcon,
                     // 🎯 Add sentence-by-sentence display state setters
                     setCurrentDisplayText,
                     setCurrentVoiceTag,
@@ -456,6 +460,9 @@ export const handlePlaybackComplete = (setters) => {
     setCurrentMediaColor(null);
     setCurrentZoomScale({ start: 1.0, end: 1.0 });
     setCurrentMediaImageUrl(null);
+    setCurrentLoadingState(false);
+    setCurrentLoadingMessage('');
+    setCurrentLoadingIcon('default');
 
     // Clear sentence-by-sentence display state
     setCurrentDisplayText('');
@@ -539,6 +546,9 @@ export const handleExitPlay = (setters) => {
     setCurrentMediaColor(null);
     setCurrentZoomScale({ start: 1.0, end: 1.0 });
     setCurrentMediaImageUrl(null);
+    setCurrentLoadingState(false);
+    setCurrentLoadingMessage('');
+    setCurrentLoadingIcon('default');
 
     // Clear sentence-by-sentence display state
     setCurrentDisplayText('');

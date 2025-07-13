@@ -21,6 +21,11 @@ export default function EmberPlay({
     currentMediaImageUrl = null,
     currentlyPlayingStoryCut = null,
 
+    // Loading screen state
+    currentLoadingState = false,
+    currentLoadingMessage = '',
+    currentLoadingIcon = 'default',
+
     // Handlers
     onPlay = () => { },
     onStop = () => { },
@@ -94,6 +99,20 @@ export default function EmberPlay({
                                             backgroundColor: currentMediaColor
                                         }}
                                     />
+                                )}
+
+                                {/* Loading Screen - shows when currentLoadingState is true */}
+                                {currentLoadingState && (
+                                    <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center">
+                                        <div className="flex flex-col items-center space-y-4">
+                                            {/* Loading Spinner */}
+                                            <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            {/* Loading Message */}
+                                            <p className="text-white text-lg font-medium text-center">
+                                                {currentLoadingMessage}
+                                            </p>
+                                        </div>
+                                    </div>
                                 )}
 
                                 {/* Bottom right capsule: Main EmberPlay capsule in top section */}
@@ -283,6 +302,20 @@ export default function EmberPlay({
                                                         backgroundColor: currentMediaColor
                                                     }}
                                                 />
+                                            )}
+
+                                            {/* Loading Screen - shows when currentLoadingState is true */}
+                                            {currentLoadingState && (
+                                                <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center">
+                                                    <div className="flex flex-col items-center space-y-4">
+                                                        {/* Loading Spinner */}
+                                                        <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                        {/* Loading Message */}
+                                                        <p className="text-white text-lg font-medium text-center">
+                                                            {currentLoadingMessage}
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             )}
 
                                             {/* Bottom right capsule: Main EmberPlay capsule in top section */}

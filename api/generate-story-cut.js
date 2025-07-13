@@ -45,19 +45,42 @@ function replaceVariables(text, variables) {
   return result;
 }
 
-// Self-contained AI script to Ember script processing (API version)
-function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []) {
+// Self-contained AI script to Ember script processing (API version) - NEW FORMAT
+function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = [], voiceCasting = {}) {
   try {
-    console.log('🔄 API: Processing AI script to Ember script format');
+    console.log('🔄 API: Processing AI script to Ember script format (NEW FORMAT)');
     console.log('📝 API: Input ai_script:', aiScript?.substring(0, 100) + '...');
     console.log('📸 API: Selected media:', selectedMedia?.length || 0, 'files');
+    console.log('🎤 API: Voice casting:', voiceCasting);
 
     if (!aiScript || aiScript.trim() === '') {
       console.error('❌ API: AI script is empty or null');
       throw new Error('AI script is required');
     }
 
-    // 1. Build MEDIA elements from selected media - prioritize ember photo first
+    // 1. Build VOICE declaration with embedded voice IDs
+    let voiceDeclaration = '';
+    if (voiceCasting) {
+      const voiceParts = [];
+
+      // Add ember voice if available
+      if (voiceCasting.ember?.voice_id) {
+        voiceParts.push(`EMBER:${voiceCasting.ember.voice_id}`);
+      }
+
+      // Add narrator voice if available
+      if (voiceCasting.narrator?.voice_id) {
+        voiceParts.push(`NARRATOR:${voiceCasting.narrator.voice_id}`);
+      }
+
+      // Create voice declaration line if we have any voices
+      if (voiceParts.length > 0) {
+        voiceDeclaration = `[[VOICE]] <${voiceParts.join(',')}>`;
+        console.log('🎤 API: Generated voice declaration:', voiceDeclaration);
+      }
+    }
+
+    // 2. Build MEDIA elements from selected media - prioritize ember photo first
     let emberImage = '';
     let additionalMediaElements = '';
 
@@ -80,13 +103,28 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       // Separate ember image (first) from additional media
       if (sortedMedia.length > 0) {
         const firstMedia = sortedMedia[0];
-        emberImage = firstMedia.id ? `[[MEDIA]] <id=${firstMedia.id}>` : `[[MEDIA]] <name="${firstMedia.filename || firstMedia.name}">`;
+
+        // Use new format with full URL if available
+        if (firstMedia.file_url || firstMedia.storage_url) {
+          const mediaUrl = firstMedia.file_url || firstMedia.storage_url;
+          const fallbackName = firstMedia.display_name || firstMedia.filename || firstMedia.name || 'media';
+          emberImage = `[[MEDIA]] <path="${mediaUrl}",fallback="${fallbackName}">`;
+        } else if (firstMedia.id) {
+          emberImage = `[[MEDIA]] <id=${firstMedia.id}>`;
+        } else {
+          emberImage = `[[MEDIA]] <name="${firstMedia.filename || firstMedia.name}">`;
+        }
 
         // Additional media (if any)
         if (sortedMedia.length > 1) {
           additionalMediaElements = sortedMedia.slice(1)
             .map(media => {
-              if (media.id) {
+              // Use new format with full URL if available
+              if (media.file_url || media.storage_url) {
+                const mediaUrl = media.file_url || media.storage_url;
+                const fallbackName = media.display_name || media.filename || media.name || 'media';
+                return `[[MEDIA]] <path="${mediaUrl}",fallback="${fallbackName}">`;
+              } else if (media.id) {
                 return `[[MEDIA]] <id=${media.id}>`;
               } else {
                 return `[[MEDIA]] <name="${media.filename || media.name}">`;
@@ -104,7 +142,7 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       }
     }
 
-    // 2. Process voice lines from AI script - add auto-colorization
+    // 3. Process voice lines from AI script - add auto-colorization
     const processedVoiceLines = aiScript
       .split('\n\n')
       .filter(line => line.trim())
@@ -131,16 +169,22 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       })
       .join('\n\n');
 
-    // 3. Closing HOLD segment (4-second black fade-out)
+    // 4. Closing HOLD segment (4-second black fade-out)
     const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
 
-    // 4. Combine all elements into complete ember script - START WITH EMBER IMAGE
+    // 5. Combine all elements into complete ember script - START WITH VOICE DECLARATION
     const scriptParts = [];
 
-    // Start with ember image immediately (no black opening)
+    // Start with voice declaration if available
+    if (voiceDeclaration) {
+      scriptParts.push(voiceDeclaration);
+      console.log('✅ API: Starting script with voice declaration');
+    }
+
+    // Add ember image immediately (no black opening)
     if (emberImage) {
       scriptParts.push(emberImage);
-      console.log('✅ API: Starting script with ember image');
+      console.log('✅ API: Adding ember image to script');
     }
 
     // Add voice content
@@ -164,23 +208,46 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
   } catch (error) {
     console.error('❌ API: Error processing AI script to Ember script:', error);
     console.log('🔄 API: Falling back to basic processing...');
-    return processAIScriptToEmberScriptBasic(aiScript, selectedMedia);
+    return processAIScriptToEmberScriptBasic(aiScript, selectedMedia, voiceCasting);
   }
 }
 
-// Fallback basic processing without ember data
-function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = []) {
+// Fallback basic processing without ember data - NEW FORMAT
+function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCasting = {}) {
   try {
-    console.log('🔄 API: Using basic processing fallback');
+    console.log('🔄 API: Using basic processing fallback (NEW FORMAT)');
     console.log('📝 API: Basic processing input:', aiScript?.substring(0, 100) + '...');
     console.log('📸 API: Basic processing with selected media:', selectedMedia?.length || 0, 'files');
+    console.log('🎤 API: Basic processing voice casting:', voiceCasting);
 
     if (!aiScript || aiScript.trim() === '') {
       console.error('❌ API: Basic processing - no script content available');
       return '[EMBER VOICE] No script content available';
     }
 
-    // Basic processing with minimal ember format
+    // 1. Build VOICE declaration with embedded voice IDs
+    let voiceDeclaration = '';
+    if (voiceCasting) {
+      const voiceParts = [];
+
+      // Add ember voice if available
+      if (voiceCasting.ember?.voice_id) {
+        voiceParts.push(`EMBER:${voiceCasting.ember.voice_id}`);
+      }
+
+      // Add narrator voice if available
+      if (voiceCasting.narrator?.voice_id) {
+        voiceParts.push(`NARRATOR:${voiceCasting.narrator.voice_id}`);
+      }
+
+      // Create voice declaration line if we have any voices
+      if (voiceParts.length > 0) {
+        voiceDeclaration = `[[VOICE]] <${voiceParts.join(',')}>`;
+        console.log('🎤 API: Basic processing - generated voice declaration:', voiceDeclaration);
+      }
+    }
+
+    // 2. Basic processing with minimal ember format
     const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
 
     // Build media elements from selected media or none - prioritize ember photo first
@@ -206,13 +273,28 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = []) {
       // Separate ember image (first) from additional media
       if (sortedMedia.length > 0) {
         const firstMedia = sortedMedia[0];
-        emberImage = firstMedia.id ? `[[MEDIA]] <id=${firstMedia.id}>` : `[[MEDIA]] <name="${firstMedia.filename || firstMedia.name}">`;
+
+        // Use new format with full URL if available
+        if (firstMedia.file_url || firstMedia.storage_url) {
+          const mediaUrl = firstMedia.file_url || firstMedia.storage_url;
+          const fallbackName = firstMedia.display_name || firstMedia.filename || firstMedia.name || 'media';
+          emberImage = `[[MEDIA]] <path="${mediaUrl}",fallback="${fallbackName}">`;
+        } else if (firstMedia.id) {
+          emberImage = `[[MEDIA]] <id=${firstMedia.id}>`;
+        } else {
+          emberImage = `[[MEDIA]] <name="${firstMedia.filename || firstMedia.name}">`;
+        }
 
         // Additional media (if any)
         if (sortedMedia.length > 1) {
           additionalMediaElements = sortedMedia.slice(1)
             .map(media => {
-              if (media.id) {
+              // Use new format with full URL if available
+              if (media.file_url || media.storage_url) {
+                const mediaUrl = media.file_url || media.storage_url;
+                const fallbackName = media.display_name || media.filename || media.name || 'media';
+                return `[[MEDIA]] <path="${mediaUrl}",fallback="${fallbackName}">`;
+              } else if (media.id) {
                 return `[[MEDIA]] <id=${media.id}>`;
               } else {
                 return `[[MEDIA]] <name="${media.filename || media.name}">`;
@@ -248,10 +330,16 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = []) {
 
     const scriptParts = [];
 
-    // Start with ember image immediately (no black opening)
+    // Start with voice declaration if available
+    if (voiceDeclaration) {
+      scriptParts.push(voiceDeclaration);
+      console.log('✅ API: Basic processing - starting script with voice declaration');
+    }
+
+    // Add ember image immediately (no black opening)
     if (emberImage) {
       scriptParts.push(emberImage);
-      console.log('✅ API: Basic processing - starting script with ember image');
+      console.log('✅ API: Basic processing - adding ember image to script');
     }
 
     // Add voice content
@@ -542,11 +630,11 @@ export default async function handler(req, res) {
             console.warn('⚠️ Could not load ember data for script processing:', emberError);
             // Fallback: use basic ember format without ember data
             console.log('🔄 Using basic processing fallback...');
-            generatedStoryCut.full_script = processAIScriptToEmberScriptBasic(generatedStoryCut.ai_script, selectedMedia);
+            generatedStoryCut.full_script = processAIScriptToEmberScriptBasic(generatedStoryCut.ai_script, selectedMedia, voiceCasting);
           } else {
             // Use full processing with ember data
             console.log('🔄 Using full processing with ember data...');
-            generatedStoryCut.full_script = processAIScriptToEmberScriptAPI(generatedStoryCut.ai_script, emberData, selectedMedia);
+            generatedStoryCut.full_script = processAIScriptToEmberScriptAPI(generatedStoryCut.ai_script, emberData, selectedMedia, voiceCasting);
           }
 
           // Ensure we always have a full_script
