@@ -468,27 +468,85 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       console.log(`🎤 User preference for "${audioContent.substring(0, 30)}...": ${userPreference}`);
       console.log(`🔍 All available preferences:`, window.messageAudioPreferences);
 
-      // Find the user ID by matching the voice tag (first name) with recorded audio data OR story cut contributors
-      let matchingUserId = Object.entries(recordedAudio).find(([userId, audioData]) => {
-        return audioData.user_first_name === voiceTag;
-      });
+      // 🚨 CRITICAL FIX: Content-first matching (script is sacred)
+      // Instead of finding user first, find the exact content first across ALL recorded audio
+      console.log(`🎯 CONTENT-FIRST MATCHING: Looking for "${audioContent}"`);
 
-      if (!matchingUserId) {
-        // Fallback: match by story cut contributors
-        if (storyCut.selected_contributors && storyCut.selected_contributors.length > 0) {
-          const matchingContributor = storyCut.selected_contributors.find(c => c.first_name === voiceTag);
-          if (matchingContributor) {
-            console.log(`🔍 Found contributor by name: ${matchingContributor.first_name} (${matchingContributor.id})`);
-            matchingUserId = [matchingContributor.id, {
-              user_first_name: matchingContributor.first_name,
-              message_content: null, // No recorded audio for story cut contributors
-              audio_url: null
-            }];
+      // Helper function to normalize text for better matching
+      const normalizeText = (text) => {
+        return text
+          .toLowerCase()
+          .replace(/[^\w\s]/g, '') // Remove punctuation
+          .replace(/\s+/g, ' ') // Normalize whitespace
+          .trim();
+      };
+
+      // Search ALL recorded audio for content match (content-first, not user-first)
+      let matchingAudioEntry = null;
+      const normalizedScriptContent = normalizeText(audioContent);
+
+      for (const [userId, audioData] of Object.entries(recordedAudio)) {
+        if (!audioData.message_content || !audioData.audio_url) continue;
+
+        const recordedContent = audioData.message_content;
+        const normalizedRecorded = normalizeText(recordedContent);
+
+        // Check for content match
+        const exactMatch = recordedContent.toLowerCase() === audioContent.toLowerCase();
+        const recordedContainsSegment = recordedContent.toLowerCase().includes(audioContent.toLowerCase());
+        const segmentContainsRecorded = audioContent.toLowerCase().includes(recordedContent.toLowerCase());
+        const normalizedExactMatch = normalizedRecorded === normalizedScriptContent;
+        const normalizedRecordedContainsSegment = normalizedRecorded.includes(normalizedScriptContent);
+        const normalizedSegmentContainsRecorded = normalizedScriptContent.includes(normalizedRecorded);
+
+        const contentMatches = exactMatch || recordedContainsSegment || segmentContainsRecorded ||
+          normalizedExactMatch || normalizedRecordedContainsSegment || normalizedSegmentContainsRecorded;
+
+        if (contentMatches) {
+          console.log(`🎯 CONTENT MATCH FOUND: "${recordedContent}" by ${audioData.user_first_name}`);
+          console.log(`  - Exact match: ${exactMatch}`);
+          console.log(`  - Recorded contains segment: ${recordedContainsSegment}`);
+          console.log(`  - Segment contains recorded: ${segmentContainsRecorded}`);
+          console.log(`  - Normalized exact match: ${normalizedExactMatch}`);
+          console.log(`  - Audio URL: ${audioData.audio_url}`);
+
+          matchingAudioEntry = [userId, audioData];
+          break; // Use first matching content found
+        }
+      }
+
+      // If no content match found, fall back to user-name matching for synth voices
+      if (!matchingAudioEntry) {
+        console.log(`❌ No content match found for "${audioContent}"`);
+        console.log(`🔄 Falling back to user-name matching for synth voice generation`);
+
+        // Find user by name for synth voice generation
+        const userByName = Object.entries(recordedAudio).find(([userId, audioData]) => {
+          return audioData.user_first_name === voiceTag;
+        });
+
+        if (userByName) {
+          const [userId, audioData] = userByName;
+          console.log(`🔍 Found user ${voiceTag} for synth voice generation`);
+          matchingAudioEntry = [userId, { ...audioData, message_content: null, audio_url: null }];
+        } else {
+          // Check story cut contributors
+          if (storyCut.selected_contributors && storyCut.selected_contributors.length > 0) {
+            const matchingContributor = storyCut.selected_contributors.find(c => c.first_name === voiceTag);
+            if (matchingContributor) {
+              console.log(`🔍 Found contributor by name: ${matchingContributor.first_name} (${matchingContributor.id})`);
+              matchingAudioEntry = [matchingContributor.id, {
+                user_first_name: matchingContributor.first_name,
+                message_content: null,
+                audio_url: null
+              }];
+            }
           }
         }
       }
 
-      if (!matchingUserId) {
+      // If still no match, use narrator/ember voice fallback
+      if (!matchingAudioEntry) {
         console.log(`❌ No matching user found for voice tag: ${voiceTag}`);
         console.log(`❌ Available users:`, Object.values(recordedAudio).map(a => a.user_first_name));
         console.log(`❌ Story cut contributors:`, storyCut.selected_contributors?.map(c => c.first_name) || []);
@@ -525,128 +583,53 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
           content: narratedContent,
           fallbackVoice: fallbackVoiceName
         };
-      } else {
-        const [userId, audioData] = matchingUserId;
-        console.log(`🔍 Found user ID for ${voiceTag}: ${userId}`);
-
-        // Check for recorded audio match (only if we have actual recorded audio data)
-        const hasRecordedAudio = (() => {
-          // If audioData doesn't have message_content, it's from story cut contributors (no recorded audio)
-          if (!audioData.message_content) {
-            console.log(`  - No message content - this is from story cut contributors (synth voice only)`);
-            return false;
-          }
-
-          // 🚨 CRITICAL FIX: If user explicitly wants recorded audio, use it regardless of content matching
-          if (userPreference === 'recorded' && audioData.audio_url) {
-            console.log(`  - 🎯 EXPLICIT RECORDED PREFERENCE: Using recorded audio regardless of content match`);
-            console.log(`  - 🎯 Available recorded content: "${audioData.message_content}"`);
-            console.log(`  - 🎯 Script content: "${audioContent}"`);
-            console.log(`  - 🎯 Audio URL: ${audioData.audio_url ? 'EXISTS' : 'MISSING'}`);
-            return true;
-          }
-
-          // For other preferences, do content matching
-          const recordedContent = audioData.message_content?.toLowerCase() || '';
-          const segmentContent = audioContent.toLowerCase();
-
-          console.log(`  - Recorded content: "${recordedContent}"`);
-          console.log(`  - Segment content: "${segmentContent}"`);
-
-          // Normalize both strings for better matching
-          const normalizeText = (text) => {
-            return text
-              .toLowerCase()
-              .replace(/[^\w\s]/g, '') // Remove punctuation
-              .replace(/\s+/g, ' ') // Normalize whitespace
-              .trim();
-          };
-
-          const normalizedRecorded = normalizeText(recordedContent);
-          const normalizedSegment = normalizeText(segmentContent);
-
-          console.log(`  - Normalized recorded: "${normalizedRecorded}"`);
-          console.log(`  - Normalized segment: "${normalizedSegment}"`);
-
-          const exactMatch = recordedContent === segmentContent;
-          const recordedContainsSegment = recordedContent.includes(segmentContent);
-          const segmentContainsRecorded = segmentContent.includes(recordedContent);
-
-          // Enhanced matching with normalization
-          const normalizedExactMatch = normalizedRecorded === normalizedSegment;
-          const normalizedRecordedContainsSegment = normalizedRecorded.includes(normalizedSegment);
-          const normalizedSegmentContainsRecorded = normalizedSegment.includes(normalizedRecorded);
-
-          console.log(`  - Exact match: ${exactMatch}`);
-          console.log(`  - Recorded contains segment: ${recordedContainsSegment}`);
-          console.log(`  - Segment contains recorded: ${segmentContainsRecorded}`);
-          console.log(`  - Normalized exact match: ${normalizedExactMatch}`);
-          console.log(`  - Normalized recorded contains segment: ${normalizedRecordedContainsSegment}`);
-          console.log(`  - Normalized segment contains recorded: ${normalizedSegmentContainsRecorded}`);
-
-          const contentMatches = exactMatch || recordedContainsSegment || segmentContainsRecorded ||
-            normalizedExactMatch || normalizedRecordedContainsSegment || normalizedSegmentContainsRecorded;
-          console.log(`  - Content match result: ${contentMatches}`);
-
-          // Also check if we have a valid audio URL
-          if (contentMatches && audioData.audio_url) {
-            console.log(`  - ✅ RECORDED AUDIO MATCH FOUND: ${audioData.audio_url}`);
-          } else if (contentMatches && !audioData.audio_url) {
-            console.log(`  - ❌ Content matches but no audio URL available`);
-          } else {
-            console.log(`  - ❌ No content match found`);
-          }
-
-          return contentMatches && audioData.audio_url;
-        })();
-
-        // Check for personal voice model
-        let userVoiceModel = null;
-        try {
-          console.log(`🔍 Fetching voice model for ${voiceTag} (userId: ${userId})...`);
-          userVoiceModel = await getUserVoiceModel(userId);
-          console.log(`✅ Voice model result for ${voiceTag}:`, userVoiceModel);
-        } catch (error) {
-          console.log(`⚠️ Error fetching voice model for ${voiceTag}:`, error.message);
-        }
-
-        const hasPersonalVoice = userVoiceModel && userVoiceModel.elevenlabs_voice_id;
-
-        console.log(`🎤 ${voiceTag} audio options:`);
-        console.log(`  - Recorded audio: ${hasRecordedAudio ? '✅' : '❌'}`);
-        console.log(`  - Personal voice: ${hasPersonalVoice ? '✅' : '❌'} ${hasPersonalVoice ? `(${userVoiceModel.elevenlabs_voice_name})` : ''}`);
-        console.log(`  - User preference: ${userPreference}`);
-        console.log(`  - User ID: ${userId}`);
-        console.log(`  - Voice model data:`, userVoiceModel);
-
-        // 🚨 DEBUG: Specific synth preference debugging
-        if (userPreference === 'personal') {
-          console.log(`🚨 DEBUG: User wants SYNTH voice for ${voiceTag}`);
-          console.log(`🚨 DEBUG: Found user ID: ${userId}`);
-          console.log(`🚨 DEBUG: Voice model lookup result:`, userVoiceModel);
-          console.log(`🚨 DEBUG: Voice model keys:`, Object.keys(userVoiceModel || {}));
-          console.log(`🚨 DEBUG: Has elevenlabs_voice_id?`, !!userVoiceModel?.elevenlabs_voice_id);
-          console.log(`🚨 DEBUG: Voice ID value:`, userVoiceModel?.elevenlabs_voice_id);
-          console.log(`🚨 DEBUG: Voice name value:`, userVoiceModel?.elevenlabs_voice_name);
-          console.log(`🚨 DEBUG: Story cut selected_contributors:`, storyCut.selected_contributors);
-
-          if (hasPersonalVoice) {
-            console.log(`🚨 DEBUG: ✅ Personal voice available - will use direct synthesis`);
-            console.log(`🚨 DEBUG: Voice ID: ${userVoiceModel.elevenlabs_voice_id}`);
-            console.log(`🚨 DEBUG: Voice Name: ${userVoiceModel.elevenlabs_voice_name}`);
-          } else {
-            console.log(`🚨 DEBUG: ❌ No personal voice - will fall back to attribution style`);
-            console.log(`🚨 DEBUG: Voice model result:`, userVoiceModel);
-            console.log(`🚨 DEBUG: Has voice ID? ${!!userVoiceModel?.elevenlabs_voice_id}`);
-            console.log(`🚨 DEBUG: typeof voice ID:`, typeof userVoiceModel?.elevenlabs_voice_id);
-            console.log(`🚨 DEBUG: Voice ID length:`, userVoiceModel?.elevenlabs_voice_id?.length);
-            console.log(`🚨 DEBUG: Voice ID matches expected format?`, /^[a-zA-Z0-9_-]+$/.test(userVoiceModel?.elevenlabs_voice_id || ''));
-          }
-        }
-
-        // Decision logic for audio preference handling continues in next part...
-        return await handleContributorAudioGeneration(userPreference, hasRecordedAudio, hasPersonalVoice, audioData, userVoiceModel, storyCut, voiceTag, audioContent, content, segment);
       }
+
+      // Process the matching audio entry
+      const [userId, audioData] = matchingAudioEntry;
+      console.log(`🔍 Processing audio for ${voiceTag} (userId: ${userId})`);
+
+      // Check if we have recorded audio that matches the content
+      const hasRecordedAudio = !!(audioData.message_content && audioData.audio_url);
+
+      // 🚨 CRITICAL: If user explicitly wants recorded audio and we found content match, use it
+      if (userPreference === 'recorded' && hasRecordedAudio) {
+        console.log(`🎯 EXPLICIT RECORDED PREFERENCE: Using matched recorded audio`);
+        console.log(`🎯 Matched content: "${audioData.message_content}"`);
+        console.log(`🎯 Script content: "${audioContent}"`);
+        console.log(`🎯 Audio URL: ${audioData.audio_url}`);
+
+        const audio = new Audio(audioData.audio_url);
+        return {
+          type: 'contributor_recorded',
+          audio,
+          url: audioData.audio_url,
+          voiceTag,
+          content: audioData.message_content,
+          userId: userId
+        };
+      }
+
+      // Check for personal voice model
+      let userVoiceModel = null;
+      try {
+        console.log(`🔍 Fetching voice model for ${voiceTag} (userId: ${userId})...`);
+        userVoiceModel = await getUserVoiceModel(userId);
+        console.log(`✅ Voice model result for ${voiceTag}:`, userVoiceModel);
+      } catch (error) {
+        console.log(`⚠️ Error fetching voice model for ${voiceTag}:`, error.message);
+      }
+
+      const hasPersonalVoice = userVoiceModel && userVoiceModel.elevenlabs_voice_id;
+
+      console.log(`🎤 ${voiceTag} audio options:`);
+      console.log(`  - Recorded audio: ${hasRecordedAudio ? '✅' : '❌'}`);
+      console.log(`  - Personal voice: ${hasPersonalVoice ? '✅' : '❌'} ${hasPersonalVoice ? `(${userVoiceModel.elevenlabs_voice_name})` : ''}`);
+      console.log(`  - User preference: ${userPreference}`);
+      console.log(`  - User ID: ${userId}`);
+
+      // Decision logic for audio preference handling continues in next part...
+      return await handleContributorAudioGeneration(userPreference, hasRecordedAudio, hasPersonalVoice, audioData, userVoiceModel, storyCut, voiceTag, audioContent, content, segment);
     } else if (type === 'ember') {
       // EMBER VOICE
       console.log(`🔥 Generating EMBER voice audio: "${audioContent}"`);
