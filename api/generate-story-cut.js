@@ -364,6 +364,11 @@ export default async function handler(req, res) {
     selectedMedia
   } = req.body;
 
+  console.log('🔍 API DEBUG - Received voiceCasting:', JSON.stringify(voiceCasting, null, 2));
+  console.log('🔍 API DEBUG - formData:', JSON.stringify(formData, null, 2));
+  console.log('🔍 API DEBUG - selectedStyle:', selectedStyle);
+  console.log('🔍 API DEBUG - emberId:', emberId);
+
   console.log('📸 API: Received selected media:', selectedMedia?.length || 0, 'files');
   if (selectedMedia && selectedMedia.length > 0) {
     console.log('📸 API: Media details:', selectedMedia.map(m => ({
