@@ -695,6 +695,15 @@ export default function StoryCutStudio() {
         loadStoryCut();
     }, [id]);
 
+    // Sync editedScript with storyCut when entering edit mode
+    useEffect(() => {
+        if (isEditingScript && storyCut?.full_script) {
+            console.log('🔍 DEBUG - useEffect sync: storyCut.full_script changed while editing');
+            console.log('🔍 DEBUG - New script content:', storyCut.full_script);
+            setEditedScript(storyCut.full_script);
+        }
+    }, [isEditingScript, storyCut?.full_script]);
+
     // Auto-generate and save complete script when blocks are loaded (but not when manually edited)
     useEffect(() => {
         if (!blocks || blocks.length === 0 || !storyCut || !user) return;
@@ -1032,11 +1041,26 @@ export default function StoryCutStudio() {
 
     // Script editing handlers
     const handleEditScript = () => {
-        setEditedScript(storyCut?.full_script || '');
+        console.log('🔍 DEBUG - handleEditScript called');
+        console.log('🔍 DEBUG - storyCut:', storyCut);
+        console.log('🔍 DEBUG - storyCut?.full_script:', storyCut?.full_script);
+        console.log('🔍 DEBUG - typeof storyCut?.full_script:', typeof storyCut?.full_script);
+
+        const scriptContent = storyCut?.full_script || '';
+        console.log('🔍 DEBUG - scriptContent to set:', scriptContent);
+        console.log('🔍 DEBUG - scriptContent length:', scriptContent.length);
+
+        setEditedScript(scriptContent);
         setIsEditingScript(true);
+
+        // Double-check the state after setting
+        setTimeout(() => {
+            console.log('🔍 DEBUG - editedScript after setState:', editedScript);
+        }, 100);
     };
 
     const handleCancelScriptEdit = () => {
+        console.log('🔍 DEBUG - handleCancelScriptEdit called');
         setIsEditingScript(false);
         setEditedScript('');
     };
@@ -2144,7 +2168,13 @@ export default function StoryCutStudio() {
                             /* View Mode */
                             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                                 <div className="text-gray-700 leading-relaxed font-mono text-sm overflow-auto">
-                                    <pre className="whitespace-pre-wrap break-words max-w-full" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{storyCut?.full_script || 'Loading script...'}</pre>
+                                    <pre className="whitespace-pre-wrap break-words max-w-full" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                                        {(() => {
+                                            console.log('🔍 DEBUG - View mode rendering, storyCut?.full_script:', storyCut?.full_script);
+                                            console.log('🔍 DEBUG - View mode script length:', storyCut?.full_script?.length);
+                                            return storyCut?.full_script || 'Loading script...';
+                                        })()}
+                                    </pre>
                                 </div>
                             </div>
                         )}
