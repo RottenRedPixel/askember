@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -7,6 +7,7 @@ import { useEmberData } from '@/lib/useEmberData';
 import { useUIState } from '@/lib/useUIState';
 import { autoTriggerImageAnalysis, autoTriggerExifProcessing, autoTriggerLocationProcessing, handlePlay as handleMediaPlay, handlePlaybackComplete as handleMediaPlaybackComplete, handleExitPlay as handleMediaExitPlay } from '@/lib/mediaHandlers';
 import { debugRecordedAudio, generateSegmentAudio, playMultiVoiceAudio } from '@/lib/emberPlayer';
+import { parseScriptSegments } from '@/lib/scriptParser';
 import useStore from '@/store';
 
 // CSS keyframes for fade-in animation
@@ -17,6 +18,39 @@ const fadeInKeyframes = `
     }
     to {
       opacity: 1;
+    }
+  }
+  
+  @keyframes textFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes logoFadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  @keyframes endTextFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 `;
@@ -138,9 +172,151 @@ export default function EmberPlay() {
         setMessage
     } = useUIState();
 
+    // Progress tracking state for timeline
+    const [currentProgress, setCurrentProgress] = useState(0);
+    const [totalDuration, setTotalDuration] = useState(0);
+    const [currentTimelineStep, setCurrentTimelineStep] = useState(0);
+    const [totalTimelineSteps, setTotalTimelineSteps] = useState(0);
+    const [currentSegmentStartTime, setCurrentSegmentStartTime] = useState(0);
+    const [currentAudioElement, setCurrentAudioElement] = useState(null);
+    const [textKey, setTextKey] = useState(0); // For triggering text animation
+    const [showEndLogo, setShowEndLogo] = useState(false);
+    const [showEndText, setShowEndText] = useState(false);
+
     // Playback control refs
     const playbackStoppedRef = useRef(false);
+    const progressIntervalRef = useRef(null);
     const mediaTimeoutsRef = useRef([]);
+
+    // Track text changes to trigger fade-in animation
+    useEffect(() => {
+        if (currentDisplayText) {
+            setTextKey(prev => prev + 1);
+        }
+    }, [currentDisplayText]);
+
+    // Handle end screen animation sequence
+    useEffect(() => {
+        if (showEndHold) {
+            // Reset animation states
+            setShowEndLogo(false);
+            setShowEndText(false);
+
+            // Start logo fade-in immediately
+            setTimeout(() => {
+                setShowEndLogo(true);
+            }, 100);
+
+            // Start text fade-in after logo
+            setTimeout(() => {
+                setShowEndText(true);
+            }, 800);
+        } else {
+            // Reset states when end screen is hidden
+            setShowEndLogo(false);
+            setShowEndText(false);
+        }
+    }, [showEndHold]);
+
+    // Progress tracking functions
+    const calculateTotalDuration = useCallback((segments) => {
+        if (!segments || segments.length === 0) return 0;
+
+        let total = 0;
+        segments.forEach(segment => {
+            if (segment.type === 'hold') {
+                total += parseFloat(segment.duration || 3.0);
+            } else if (segment.type === 'loadscreen') {
+                total += parseFloat(segment.loadDuration || 2.0);
+            } else if (segment.type === 'media') {
+                total += 2.0; // Media segments are typically 2 seconds
+            } else if (segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor') {
+                // Estimate voice segment duration by text length
+                const cleanContent = segment.content.replace(/<[^>]+>/g, '').trim();
+                const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
+                total += estimatedDuration;
+            }
+        });
+
+        console.log(`📊 Calculated total duration: ${total.toFixed(2)} seconds`);
+        return total;
+    }, []);
+
+    const updateProgress = useCallback((currentStep, segments) => {
+        if (!segments || segments.length === 0) return;
+
+        let elapsedTime = 0;
+
+        // Calculate elapsed time from completed segments
+        for (let i = 0; i < currentStep && i < segments.length; i++) {
+            const segment = segments[i];
+            if (segment.type === 'hold') {
+                elapsedTime += parseFloat(segment.duration || 3.0);
+            } else if (segment.type === 'loadscreen') {
+                elapsedTime += parseFloat(segment.loadDuration || 2.0);
+            } else if (segment.type === 'media') {
+                elapsedTime += 2.0;
+            } else if (segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor') {
+                const cleanContent = segment.content.replace(/<[^>]+>/g, '').trim();
+                const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
+                elapsedTime += estimatedDuration;
+            }
+        }
+
+        setCurrentProgress(elapsedTime);
+        setCurrentTimelineStep(currentStep);
+        setCurrentSegmentStartTime(elapsedTime); // Track where current segment starts
+    }, []);
+
+    const startSmoothProgress = useCallback((audioElement, segmentStartTime = 0) => {
+        if (!audioElement) return;
+
+        // Clear any existing interval
+        if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current);
+        }
+
+        setCurrentAudioElement(audioElement);
+
+        // Update progress every 100ms for smooth animation
+        progressIntervalRef.current = setInterval(() => {
+            if (audioElement && !audioElement.paused && !audioElement.ended) {
+                const currentAudioTime = audioElement.currentTime || 0;
+                const newProgress = segmentStartTime + currentAudioTime;
+                setCurrentProgress(newProgress);
+            }
+        }, 100);
+    }, []);
+
+    const stopSmoothProgress = useCallback(() => {
+        if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current);
+            progressIntervalRef.current = null;
+        }
+        setCurrentAudioElement(null);
+    }, []);
+
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Progress Bar Component
+    const ProgressBar = () => {
+        const percentage = totalDuration > 0 ? Math.min((currentProgress / totalDuration) * 100, 100) : 0;
+
+        return (
+            <div className="w-full bg-black/50 backdrop-blur-sm px-4 py-2">
+                <div className="w-full bg-gray-700 rounded-full h-1">
+                    <div
+                        className="bg-white h-1 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${percentage}%` }}
+                    />
+                </div>
+            </div>
+        );
+    };
 
     // Auto-trigger background processing when ember loads (removed for shared users)
     // These functions are not needed for public sharing
@@ -160,7 +336,31 @@ export default function EmberPlay() {
         setShowFullscreenPlay(true);
     }, [setShowFullscreenPlay]);
 
+    // Calculate total duration when story cut is available
+    useEffect(() => {
+        if (primaryStoryCut && primaryStoryCut.full_script) {
+            try {
+                const segments = parseScriptSegments(primaryStoryCut.full_script);
+                const duration = calculateTotalDuration(segments);
+                setTotalDuration(duration);
+                setTotalTimelineSteps(segments.length);
+                setCurrentProgress(0);
+                setCurrentTimelineStep(0);
+                console.log(`📊 Timeline initialized: ${segments.length} segments, ${duration.toFixed(2)}s total`);
+            } catch (error) {
+                console.error('Error calculating timeline duration:', error);
+            }
+        }
+    }, [primaryStoryCut, calculateTotalDuration]);
 
+    // Cleanup progress interval on component unmount
+    useEffect(() => {
+        return () => {
+            if (progressIntervalRef.current) {
+                clearInterval(progressIntervalRef.current);
+            }
+        };
+    }, []);
 
     // Debug recorded audio data when primaryStoryCut is available
     useEffect(() => {
@@ -209,6 +409,12 @@ export default function EmberPlay() {
             return;
         }
 
+        // Reset progress when starting playback
+        setCurrentProgress(0);
+        setCurrentTimelineStep(0);
+        setCurrentSegmentStartTime(0);
+        stopSmoothProgress();
+
         await handleMediaPlay(ember, storyCuts, primaryStoryCut, selectedEmberVoice, { isPlaying }, {
             setShowFullscreenPlay,
             setIsGeneratingAudio,
@@ -239,7 +445,11 @@ export default function EmberPlay() {
             setMessage,
             setCurrentFadeEffect,
             setCurrentPanEffect,
-            setCurrentZoomEffect
+            setCurrentZoomEffect,
+            // Add progress tracking
+            updateProgress,
+            startSmoothProgress,
+            stopSmoothProgress
         });
     };
 
@@ -304,6 +514,12 @@ export default function EmberPlay() {
         setCurrentZoomEffect(null);
         setShowEndHold(false);
 
+        // Reset progress tracking
+        setCurrentProgress(0);
+        setCurrentTimelineStep(0);
+        setCurrentSegmentStartTime(0);
+        stopSmoothProgress();
+
         console.log('✅ All audio stopped immediately');
     };
 
@@ -339,6 +555,11 @@ export default function EmberPlay() {
         setCurrentPanEffect(null);
         setCurrentZoomEffect(null);
         setShowEndHold(true);
+
+        // Reset progress tracking
+        setCurrentProgress(totalDuration);
+        setCurrentTimelineStep(totalTimelineSteps);
+        stopSmoothProgress();
 
         // Clear timeouts
         sentenceTimeouts.forEach(timeout => clearTimeout(timeout));
@@ -396,6 +617,9 @@ export default function EmberPlay() {
 
     return (
         <div className="fixed inset-0 z-50" data-component="EmberPlay-standalone">
+            {/* Inject CSS keyframes */}
+            <style dangerouslySetInnerHTML={{ __html: fadeInKeyframes }} />
+
             {/* Mobile Layout */}
             <div className="md:hidden h-screen overflow-hidden">
                 <Card className="py-0 w-full h-full bg-black rounded-none">
@@ -586,6 +810,13 @@ export default function EmberPlay() {
                                 </div>
                             </div>
 
+                            {/* Progress Bar - Between photo and text sections */}
+                            {(isPlaying || showEndHold) && totalDuration > 0 && (
+                                <div className="mt-2.5">
+                                    <ProgressBar />
+                                </div>
+                            )}
+
                             {/* Bottom Section - Text Display Area - 35vh */}
                             <div className="relative flex-1 h-[35vh] overflow-hidden">
                                 {/* Background for text area */}
@@ -596,7 +827,13 @@ export default function EmberPlay() {
                                     <div className="text-center max-w-md">
                                         {currentDisplayText && (
                                             <div className="mb-4">
-                                                <p className="text-white text-xl font-bold leading-relaxed">
+                                                <p
+                                                    key={textKey}
+                                                    className="text-white text-xl font-bold leading-relaxed"
+                                                    style={{
+                                                        animation: 'textFadeIn 0.5s ease-out forwards'
+                                                    }}
+                                                >
                                                     {currentDisplayText}
                                                 </p>
                                             </div>
@@ -616,11 +853,25 @@ export default function EmberPlay() {
                                 {showEndHold && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-black">
                                         <div className="text-center">
-                                            <p className="text-white text-xl mb-4">
-                                                {ember?.title || 'Untitled Ember'}
-                                            </p>
-                                            <p className="text-gray-400 text-sm">
-                                                Story complete
+                                            <div className="flex justify-center mb-4">
+                                                <img
+                                                    src="/EMBERFAV.svg"
+                                                    alt="Ember Logo"
+                                                    className="w-16 h-16"
+                                                    style={{
+                                                        opacity: showEndLogo ? 1 : 0,
+                                                        animation: showEndLogo ? 'logoFadeIn 0.8s ease-out forwards' : 'none'
+                                                    }}
+                                                />
+                                            </div>
+                                            <p
+                                                className="text-white text-lg font-medium"
+                                                style={{
+                                                    opacity: showEndText ? 1 : 0,
+                                                    animation: showEndText ? 'endTextFadeIn 0.8s ease-out forwards' : 'none'
+                                                }}
+                                            >
+                                                Ask Ember AI
                                             </p>
                                         </div>
                                     </div>
@@ -829,7 +1080,13 @@ export default function EmberPlay() {
                                     <div className="text-center max-w-md">
                                         {currentDisplayText && (
                                             <div className="mb-4">
-                                                <p className="text-white text-xl font-bold leading-relaxed">
+                                                <p
+                                                    key={textKey}
+                                                    className="text-white text-xl font-bold leading-relaxed"
+                                                    style={{
+                                                        animation: 'textFadeIn 0.5s ease-out forwards'
+                                                    }}
+                                                >
                                                     {currentDisplayText}
                                                 </p>
                                             </div>
@@ -849,13 +1106,25 @@ export default function EmberPlay() {
                                 {showEndHold && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-black">
                                         <div className="text-center">
-                                            <p className="text-white text-2xl mb-4">
-                                                {ember?.title || 'Untitled Ember'}
-                                            </p>
-                                            <p className="text-gray-400 text-sm">
-                                                Story complete
-                                            </p>
+                                            <div className="flex justify-center">
+                                                <img
+                                                    src="/EMBERFAV.svg"
+                                                    alt="Ember Logo"
+                                                    className="w-16 h-16"
+                                                    style={{
+                                                        opacity: showEndLogo ? 1 : 0,
+                                                        animation: showEndLogo ? 'logoFadeIn 0.8s ease-out forwards' : 'none'
+                                                    }}
+                                                />
+                                            </div>
                                         </div>
+                                    </div>
+                                )}
+
+                                {/* Progress Bar - At bottom of photo area */}
+                                {(isPlaying || showEndHold) && totalDuration > 0 && (
+                                    <div className="absolute bottom-2.5 left-0 right-0">
+                                        <ProgressBar />
                                     </div>
                                 )}
                             </div>

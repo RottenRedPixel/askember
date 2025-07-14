@@ -1343,12 +1343,13 @@ export default function EmberDetail() {
 
                 {/* Play button */}
                 <button
-                  className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                  className="p-1 hover:bg-white/50 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => navigate(`/embers/${id}`)}
                   aria-label="Play ember story"
                   type="button"
+                  disabled={!storyCuts || storyCuts.length === 0}
                 >
-                  <PlayCircle size={24} className="text-gray-700" />
+                  <PlayCircle size={24} className={storyCuts && storyCuts.length > 0 ? "text-gray-700" : "text-gray-400"} />
                 </button>
               </div>
             </div>

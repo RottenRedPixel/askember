@@ -257,7 +257,11 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
         // Visual effects state setters
         setCurrentFadeEffect,
         setCurrentPanEffect,
-        setCurrentZoomEffect
+        setCurrentZoomEffect,
+        // Progress tracking
+        updateProgress,
+        startSmoothProgress,
+        stopSmoothProgress
     } = setters;
 
     if (isPlaying) {
@@ -364,7 +368,11 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
                     // 🎯 Add media timeout management
                     setMediaTimeouts,
                     mediaTimeouts,
-                    mediaTimeoutsRef
+                    mediaTimeoutsRef,
+                    // 🎯 Add progress tracking
+                    updateProgress,
+                    startSmoothProgress,
+                    stopSmoothProgress
                 }, ember);
             } else {
                 // Fallback if no segments could be parsed
@@ -399,9 +407,8 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
             }
 
         } else {
-            // Fallback to basic wiki content if no story cuts exist
-            console.log('📖 No story cuts found, using basic wiki content');
-            console.log('💡 Tip: Create a story cut for richer, AI-generated narration!');
+            // No story cuts available - this should not happen as play button is disabled
+            console.log('📖 No story cuts found, play button should be disabled');
             console.log('🎬 Story cuts debug:', {
                 storyCuts: storyCuts,
                 storyCutsIsArray: Array.isArray(storyCuts),
@@ -409,49 +416,18 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
                 storyCutsType: typeof storyCuts
             });
 
-            setCurrentLoadingMessage('Preparing basic content...');
-
+            // Reset states and exit play mode
             setIsGeneratingAudio(false);
             setCurrentLoadingState(false);
-            setIsPlaying(true);
+            setIsPlaying(false);
+            setShowFullscreenPlay(false);
 
-            // Simple fallback content
-            const content = "Let's build this story together by pressing Story Cuts on the bottom left.";
-            console.log('📖 Content to narrate:', content);
-
-            // Generate speech using ElevenLabs with Ember voice (Lily)
-            const { textToSpeech } = await import('@/lib/elevenlabs');
-            const audioBlob = await textToSpeech(content, selectedEmberVoice);
-
-            // Create audio URL and play
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-
-            setCurrentAudio(audio);
-
-            // Handle audio end
-            audio.onended = () => {
-                handlePlaybackComplete();
-                URL.revokeObjectURL(audioUrl);
-
-                // Show helpful message about creating story cuts for richer narration
-                setTimeout(() => {
-                    setMessage({
-                        type: 'info',
-                        text: 'Want richer narration? Create a Story Cut with AI-generated scripts in different styles!'
-                    });
-                    setTimeout(() => setMessage(null), 6000);
-                }, 1000);
-            };
-
-            // Handle audio error
-            audio.onerror = () => {
-                console.error('Audio playback failed');
-                handleExitPlay();
-                URL.revokeObjectURL(audioUrl);
-            };
-
-            await audio.play();
+            // Show message about needing story cuts
+            setMessage({
+                type: 'info',
+                text: 'Create a Story Cut to play your ember story!'
+            });
+            setTimeout(() => setMessage(null), 3000);
         }
 
     } catch (error) {

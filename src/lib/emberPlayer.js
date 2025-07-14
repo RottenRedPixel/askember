@@ -738,7 +738,11 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
     // 🎯 Media timeout management
     setMediaTimeouts,
     mediaTimeouts,
-    mediaTimeoutsRef
+    mediaTimeoutsRef,
+    // 🎯 Progress tracking
+    updateProgress,
+    startSmoothProgress,
+    stopSmoothProgress
   } = stateSetters;
 
   console.log('🎭 Starting multi-voice playback with', segments.length, 'segments');
@@ -779,112 +783,120 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
 
     // Create unified timeline with media effects and voice audio
     const timeline = [];
-    let audioIndex = 0;
+    let lastSegmentIndex = -1; // Track which segment we're currently processing
 
     console.log('🎬 Building unified timeline...');
-    segments.forEach((segment, index) => {
+    for (let index = 0; index < segments.length; index++) {
+      const segment = segments[index];
+
       if (segment.type === 'hold') {
         // Hold segment - blocks timeline for set duration
-        const duration = parseFloat(estimateSegmentDuration(segment.content, segment.type));
+        const duration = parseFloat(segment.duration || 3.0);
         timeline.push({
           type: 'hold',
-          segment,
-          duration,
-          index
+          duration: duration,
+          segment: segment,
+          segmentIndex: index // Add segment index for progress tracking
         });
         console.log(`⏸️ Timeline ${index + 1}: HOLD effect for ${duration}s - ${segment.content.substring(0, 50)}...`);
       } else if (segment.type === 'loadscreen') {
         // Load screen segment - blocks timeline for set duration with loading UI
-        const duration = segment.loadDuration || parseFloat(estimateSegmentDuration(segment.content, segment.type));
+        const duration = parseFloat(segment.loadDuration || 2.0);
         timeline.push({
           type: 'loadscreen',
-          segment,
-          duration,
-          index
+          duration: duration,
+          segment: segment,
+          segmentIndex: index // Add segment index for progress tracking
         });
         console.log(`⏳ Timeline ${index + 1}: LOAD SCREEN for ${duration}s - "${segment.loadMessage}"`);
       } else if (segment.type === 'media') {
         // Media segment - add to timeline for sequential processing
         timeline.push({
           type: 'media',
-          segment,
-          index
+          segment: segment,
+          segmentIndex: index // Add segment index for progress tracking
         });
         console.log(`📺 Timeline ${index + 1}: MEDIA switch - ${segment.content.substring(0, 50)}...`);
       } else if (segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor') {
-        // Voice segment - use generated audio
-        if (audioIndex < audioSegments.length) {
-          const audioSegment = audioSegments[audioIndex];
-          if (audioSegment) {
-            timeline.push({
-              type: 'voice',
-              segment,
-              audio: audioSegment,
-              index
-            });
-            console.log(`🎤 Timeline ${index + 1}: VOICE audio - [${segment.voiceTag}]`);
-          } else {
-            console.warn(`⚠️ Skipping timeline step ${index + 1}: No audio available for [${segment.voiceTag}]`);
-          }
-          audioIndex++;
-        }
+        // Voice segment - find corresponding audio
+        const audioSegment = audioSegments.find(audio => audio.voiceTag === segment.voiceTag);
+        timeline.push({
+          type: 'voice',
+          segment: segment,
+          segmentIndex: index, // Add segment index for progress tracking
+          audio: audioSegment
+        });
+        console.log(`🎤 Timeline ${index + 1}: VOICE audio - [${segment.voiceTag}]`);
       } else {
-        console.warn(`⚠️ Unknown segment type: ${segment.type} - [${segment.voiceTag}]`);
+        console.warn(`⚠️ Skipping timeline step ${index + 1}: No audio available for [${segment.voiceTag}]`);
       }
-    });
+    }
 
     console.log('✅ Generated', audioSegments.length, 'audio segments');
     console.log('🎬 Starting unified timeline playback...');
     console.log(`🎭 Timeline has ${timeline.length} sequential steps`);
 
-    // Store audio segments in state for cleanup
-    setActiveAudioSegments(audioSegments);
-
-    // Switch from generating to playing state - clear all loading states
-    setIsGeneratingAudio(false);
+    // Initialize loading state for the first segment
     setCurrentLoadingState(false);
-    setCurrentLoadingMessage('');
-    setCurrentLoadingIcon('default');
+    setIsGeneratingAudio(false);
     setIsPlaying(true);
 
-    console.log('✅ Audio generation complete - starting playback');
-
+    // Use imperative playback approach with nested callbacks
+    // This ensures proper sequential timing and visual effect coordination
     // No background media processing - MEDIA elements are now in timeline
 
     let currentTimelineIndex = 0;
-    // Clear any existing media timeouts before starting new playback
-    mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
-    mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
-    setMediaTimeouts([]);
-    mediaTimeoutsRef.current = [];
+    let currentSegmentIndex = -1; // Track which segment we're currently processing (start at -1 so first segment triggers update)
 
     const playNextTimelineStep = () => {
       if (playbackStoppedRef.current || currentTimelineIndex >= timeline.length) {
-        // Clean up any remaining media timeouts
-        console.log('🧹 Cleaning up', mediaTimeouts.length, 'media timeouts');
-        mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
-        mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
-        setMediaTimeouts([]);
-        mediaTimeoutsRef.current = [];
-
-        // All timeline steps finished or playback was stopped
-        if (!playbackStoppedRef.current) {
+        if (playbackStoppedRef.current) {
+          console.log('🛑 Timeline playback stopped');
+          // Stop any smooth progress tracking
+          if (stopSmoothProgress) {
+            stopSmoothProgress();
+          }
+        } else {
+          // All timeline steps finished or playback was stopped
           console.log('🎬 Timeline playback complete');
-          // Clear any remaining visual effects
-          setCurrentVoiceType(null);
-          setCurrentVoiceTransparency(0.2); // Reset to default
+
+          // Reset media state to default
           setCurrentMediaColor(null);
           setCurrentZoomScale({ start: 1.0, end: 1.0 }); // Reset to default
           setCurrentMediaImageUrl(null); // Reset to default ember image
           handlePlaybackComplete();
-        } else {
-          console.log('🛑 Timeline playback stopped');
         }
         return;
       }
 
       const currentStep = timeline[currentTimelineIndex];
       console.log(`🎬 Timeline step ${currentTimelineIndex + 1}/${timeline.length}: ${currentStep.type} - ${currentStep.type === 'hold' ? `${currentStep.duration}s` : `[${currentStep.segment.voiceTag}]`}`);
+
+      // Update progress tracking only when we start a new segment
+      let currentSegmentStartTime = 0;
+      if (currentStep.segmentIndex !== undefined && currentStep.segmentIndex !== currentSegmentIndex) {
+        currentSegmentIndex = currentStep.segmentIndex;
+
+        // Calculate elapsed time from completed segments
+        for (let i = 0; i < currentSegmentIndex && i < segments.length; i++) {
+          const segment = segments[i];
+          if (segment.type === 'hold') {
+            currentSegmentStartTime += parseFloat(segment.duration || 3.0);
+          } else if (segment.type === 'loadscreen') {
+            currentSegmentStartTime += parseFloat(segment.loadDuration || 2.0);
+          } else if (segment.type === 'media') {
+            currentSegmentStartTime += 2.0;
+          } else if (segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor') {
+            const cleanContent = segment.content.replace(/<[^>]+>/g, '').trim();
+            const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
+            currentSegmentStartTime += estimatedDuration;
+          }
+        }
+
+        if (updateProgress) {
+          updateProgress(currentSegmentIndex, segments);
+        }
+      }
 
       if (currentStep.type === 'hold') {
         // Hold step - apply visual effect and wait for duration
@@ -1124,6 +1136,12 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
           if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
 
           console.log(`✅ Completed voice segment: [${segment.voiceTag}]`);
+
+          // Stop smooth progress tracking when audio ends
+          if (stopSmoothProgress) {
+            stopSmoothProgress();
+          }
+
           currentTimelineIndex++;
           playNextTimelineStep();
         };
@@ -1133,12 +1151,25 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
           if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
 
           console.error(`❌ Error playing voice segment [${segment.voiceTag}]:`, error);
+
+          // Stop smooth progress tracking on error
+          if (stopSmoothProgress) {
+            stopSmoothProgress();
+          }
+
           currentTimelineIndex++;
           playNextTimelineStep(); // Continue to next timeline step
         };
 
-        // Play the audio
-        audio.play().catch(error => {
+        // Play the audio and start smooth progress tracking
+        audio.play().then(() => {
+          if (playbackStoppedRef.current) return; // Don't start progress if playback was stopped
+
+          // Start smooth progress tracking for this audio segment
+          if (startSmoothProgress) {
+            startSmoothProgress(audio, currentSegmentStartTime);
+          }
+        }).catch(error => {
           if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
 
           console.error(`❌ Failed to play voice segment [${segment.voiceTag}]:`, error);
@@ -1161,6 +1192,11 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
     mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
     setMediaTimeouts([]);
     mediaTimeoutsRef.current = [];
+
+    // Stop smooth progress tracking on error
+    if (stopSmoothProgress) {
+      stopSmoothProgress();
+    }
 
     // Reset states on error
     setIsGeneratingAudio(false);
