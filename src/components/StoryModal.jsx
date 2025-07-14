@@ -249,7 +249,7 @@ const ModalContent = ({
                             onClick={() => playTTSAudio(message.messageId, message.content, message.userId)}
                             className="ml-2 p-1 hover:bg-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title={
-                              userVoiceStatus[message.userId] === false
+                              userVoiceStatus && userVoiceStatus[message.userId] === false
                                 ? "No trained voice available"
                                 : isGeneratingTts === message.messageId
                                   ? "Generating..."
@@ -257,14 +257,14 @@ const ModalContent = ({
                                     ? "Stop TTS"
                                     : "Play with AI voice"
                             }
-                            disabled={isGeneratingTts === message.messageId || userVoiceStatus[message.userId] === false}
+                            disabled={isGeneratingTts === message.messageId || (userVoiceStatus && userVoiceStatus[message.userId] === false)}
                           >
                             {isGeneratingTts === message.messageId ? (
                               <Sparkles size={14} className="text-purple-600 animate-spin" />
                             ) : ttsMessageId === message.messageId ? (
                               <Pause size={14} className="text-purple-600" />
                             ) : (
-                              <Sparkles size={14} className={userVoiceStatus[message.userId] === true ? "text-purple-600" : "text-gray-400"} />
+                              <Sparkles size={14} className={userVoiceStatus && userVoiceStatus[message.userId] === true ? "text-purple-600" : "text-gray-400"} />
                             )}
                           </button>
                         )}
@@ -296,7 +296,7 @@ const ModalContent = ({
                             onClick={() => playTTSAudio(message.messageId, message.content, message.userId)}
                             className="ml-2 p-1 hover:bg-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title={
-                              userVoiceStatus[message.userId] === false
+                              userVoiceStatus && userVoiceStatus[message.userId] === false
                                 ? "No trained voice available"
                                 : isGeneratingTts === message.messageId
                                   ? "Generating..."
@@ -304,14 +304,14 @@ const ModalContent = ({
                                     ? "Stop TTS"
                                     : "Play with AI voice"
                             }
-                            disabled={isGeneratingTts === message.messageId || userVoiceStatus[message.userId] === false}
+                            disabled={isGeneratingTts === message.messageId || (userVoiceStatus && userVoiceStatus[message.userId] === false)}
                           >
                             {isGeneratingTts === message.messageId ? (
                               <Sparkles size={14} className="text-purple-600 animate-spin" />
                             ) : ttsMessageId === message.messageId ? (
                               <Pause size={14} className="text-purple-600" />
                             ) : (
-                              <Sparkles size={14} className={userVoiceStatus[message.userId] === true ? "text-purple-600" : "text-gray-400"} />
+                              <Sparkles size={14} className={userVoiceStatus && userVoiceStatus[message.userId] === true ? "text-purple-600" : "text-gray-400"} />
                             )}
                           </button>
                         )}
@@ -520,7 +520,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
 
   // Check if a user has a trained voice
   const checkUserVoiceStatus = async (userId) => {
-    if (userVoiceStatus[userId] !== undefined) {
+    if (userVoiceStatus && userVoiceStatus[userId] !== undefined) {
       return userVoiceStatus[userId];
     }
 
