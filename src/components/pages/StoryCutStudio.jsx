@@ -716,13 +716,31 @@ export default function StoryCutStudio() {
             try {
                 console.log('🔄 Auto-generating complete script with preferences...');
 
+                // ✅ NEW: Better detection of script completeness for inline voice format
+                const hasInlineVoiceFormat = /\[[^\]]+\s*-\s*[^:]+:[^:\]]+\]/.test(storedScript);
+                const hasOldAudioSuffixes = storedScript.includes(':recorded') || storedScript.includes(':text') || storedScript.includes(':synth');
+
+                // Check if script already has the new inline voice format with preferences
+                const isScriptComplete = hasInlineVoiceFormat || hasOldAudioSuffixes;
+
+                console.log('🔍 Script completeness check:', {
+                    hasInlineVoiceFormat,
+                    hasOldAudioSuffixes,
+                    isScriptComplete,
+                    scriptLength: storedScript.length
+                });
+
+                if (isScriptComplete) {
+                    console.log('✅ Script already has proper voice format - no auto-generation needed');
+                    return;
+                }
+
+                // ✅ NEW: Only generate if script is genuinely incomplete
                 const generatedScript = generateScript();
 
-                // Compare with stored script to see if update is needed
-                const isScriptIncomplete = !storedScript.includes(':recorded') && !storedScript.includes(':text') && !storedScript.includes(':synth');
-
-                if (isScriptIncomplete || generatedScript !== storedScript) {
-                    console.log('💾 Database script needs updating - auto-saving complete script...');
+                // ✅ NEW: More conservative update logic
+                if (generatedScript !== storedScript) {
+                    console.log('💾 Adding missing voice preferences to script...');
                     console.log('📝 Stored script preview:', storedScript.substring(0, 200) + '...');
                     console.log('📝 Generated script preview:', generatedScript.substring(0, 200) + '...');
 
@@ -747,7 +765,7 @@ export default function StoryCutStudio() {
                         }
                     }));
                 } else {
-                    console.log('✅ Database script is already complete - no update needed');
+                    console.log('✅ Database script matches generated script - no update needed');
                 }
             } catch (error) {
                 console.error('❌ Failed to auto-generate complete script:', error);
@@ -1188,10 +1206,9 @@ export default function StoryCutStudio() {
         }
     };
 
-    // Handle previewing the story cut
 
 
-    // Player handlers
+    // Handle preview playback completion
     const handlePlaybackComplete = () => {
         // Start fade-out animation
         setIsPlayerFadingOut(true);
@@ -2029,11 +2046,48 @@ export default function StoryCutStudio() {
                                                     )}
                                                 </>
                                             )}
+
+                                            {(block.type === 'start' || block.type === 'end') && (
+                                                <>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`font-semibold ${textColor}`}>{block.title}</span>
+                                                        </div>
+                                                        <span className={`text-xs px-2 py-1 rounded-full ${block.type === 'start' ? 'bg-gray-300 text-gray-900' : 'bg-gray-300 text-gray-900'}`}>
+                                                            {block.type === 'start' ? 'Story Start' : 'Story End'}
+                                                        </span>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     );
                                 })}
                             </div>
                         )}
+
+                        {/* Action Buttons */}
+                        {!loading && !error && (
+                            <div className="mt-6 flex gap-3 max-w-md mx-auto">
+                                <Button
+                                    onClick={() => navigate(`/embers/${id}/manage?view=story-cuts`)}
+                                    variant="outline"
+                                    size="lg"
+                                    className="px-6 py-3 h-auto flex-1"
+                                >
+                                    Back
+                                </Button>
+                                <Button
+                                    onClick={handleUpdateStoryCut}
+                                    disabled={updating}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 h-auto disabled:opacity-50 flex-1"
+                                    size="lg"
+                                >
+                                    {updating ? 'Updating...' : 'Update'}
+                                </Button>
+                            </div>
+                        )}
+
+
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -2097,6 +2151,94 @@ export default function StoryCutStudio() {
                     </div>
                 )}
             </div>
+
+            {/* Fullscreen EmberPlay Preview */}
+            {showFullscreenPlay && (
+                <>
+                    <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
+                        <div className="w-full h-full max-w-md mx-auto relative">
+                            {/* Exit Button */}
+                            <button
+                                onClick={handleExitPlay}
+                                className="absolute top-4 right-4 z-10 p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors backdrop-blur-sm"
+                                aria-label="Exit fullscreen"
+                            >
+                                <X size={24} className="text-white" />
+                            </button>
+
+                            {/* Main Content Card */}
+                            <Card className="w-full h-full bg-white shadow-2xl overflow-hidden">
+                                <CardContent className="p-0 h-full flex flex-col">
+                                    {/* Story Content */}
+                                    <div className="flex-1 flex flex-col">
+                                        {/* Top Section - Photo - 70% height to match EmberDetail */}
+                                        <div className="h-[70vh] bg-gray-100 relative overflow-hidden">
+                                            {/* Media Display */}
+                                            {currentMediaImageUrl && (
+                                                <div
+                                                    className="w-full h-full bg-cover bg-center transition-all duration-1000 ease-out"
+                                                    style={{
+                                                        backgroundImage: `url(${currentMediaImageUrl})`,
+                                                        backgroundColor: currentMediaColor || '#000000',
+                                                        transform: `scale(${currentZoomScale})`,
+                                                        opacity: currentVoiceTransparency
+                                                    }}
+                                                />
+                                            )}
+
+                                            {/* Loading State */}
+                                            {(currentLoadingState || isGeneratingAudio) && (
+                                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                    <div className="text-center text-white">
+                                                        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                                                        <p className="text-lg font-medium">
+                                                            {currentLoadingMessage || 'Generating Audio...'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Bottom Section - Black - 30% height to match EmberDetail */}
+                                        <div className="h-[30vh] bg-black relative">
+                                            {/* End Hold Effect */}
+                                            {showEndHold && (
+                                                <div className="absolute inset-0 bg-black" />
+                                            )}
+
+                                            {/* Text Content Display */}
+                                            <div className="w-full px-4 pt-3 pb-2 md:px-6 flex-shrink-0">
+                                                {/* Voice Tag */}
+                                                {currentVoiceTag && (
+                                                    <div className="text-center mb-2">
+                                                        <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
+                                                            {currentVoiceTag}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {/* Display Text */}
+                                                <p className="text-lg font-bold text-white text-center">
+                                                    {currentDisplayText}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* Add Block Modal */}
+            <AddBlockModal
+                isOpen={showAddBlockModal}
+                onClose={() => setShowAddBlockModal(false)}
+                emberId={id}
+                onAddBlock={handleAddMediaBlock}
+                storyMessages={storyMessages}
+            />
         </div>
     );
 }

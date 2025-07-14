@@ -3,36 +3,38 @@ import packageJson from '../../package.json';
 /**
  * Application version information
  */
+export const version = '1.0.210';
+
 export const VERSION_INFO = {
   // Package version from package.json
-  version: packageJson.version,
-  
+  version: version,
+
   // Build-time information (injected by Vite)
   buildDate: typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : new Date().toISOString(),
   gitCommit: typeof __GIT_COMMIT__ !== 'undefined' ? __GIT_COMMIT__ : 'dev',
   buildEnv: typeof __BUILD_ENV__ !== 'undefined' ? __BUILD_ENV__ : 'development',
-  
+
   // Computed properties
   get isDevelopment() {
     return this.buildEnv === 'development';
   },
-  
+
   get isProduction() {
     return this.buildEnv === 'production';
   },
-  
+
   get shortCommit() {
     return this.gitCommit.slice(0, 7);
   },
-  
+
   get formattedBuildDate() {
     return new Date(this.buildDate).toLocaleString();
   },
-  
+
   get versionString() {
     return `v${this.version}`;
   },
-  
+
   get fullVersionString() {
     const env = this.isDevelopment ? '-dev' : '';
     const commit = this.gitCommit !== 'dev' ? `+${this.shortCommit}` : '';
@@ -62,7 +64,7 @@ export const getVersionInfo = () => ({
 export const parseVersion = (versionString) => {
   const match = versionString.match(/^v?(\d+)\.(\d+)\.(\d+)(?:-(.+?))?(?:\+(.+))?$/);
   if (!match) return null;
-  
+
   return {
     major: parseInt(match[1], 10),
     minor: parseInt(match[2], 10),
@@ -80,66 +82,64 @@ export const parseVersion = (versionString) => {
 export const compareVersions = (a, b) => {
   const versionA = parseVersion(a);
   const versionB = parseVersion(b);
-  
+
   if (!versionA || !versionB) return 0;
-  
+
   // Compare major.minor.patch
   const compareNumber = (x, y) => x < y ? -1 : x > y ? 1 : 0;
-  
+
   let result = compareNumber(versionA.major, versionB.major);
   if (result !== 0) return result;
-  
+
   result = compareNumber(versionA.minor, versionB.minor);
   if (result !== 0) return result;
-  
+
   result = compareNumber(versionA.patch, versionB.patch);
   if (result !== 0) return result;
-  
+
   // Handle prerelease versions
   if (versionA.prerelease && !versionB.prerelease) return -1;
   if (!versionA.prerelease && versionB.prerelease) return 1;
   if (versionA.prerelease && versionB.prerelease) {
     return versionA.prerelease.localeCompare(versionB.prerelease);
   }
-  
+
   return 0;
 };
 
 /**
  * Format version for display
+ * @param {boolean} compact - Whether to show compact version
+ * @param {boolean} showEnv - Whether to show environment
+ * @param {boolean} showCommit - Whether to show git commit
+ * @param {boolean} showBuild - Whether to show build date
+ * @returns {string} Formatted version string
  */
-export const formatVersionForDisplay = (options = {}) => {
-  const {
-    showBuild = false,
-    showEnv = true,
-    showCommit = false,
-    compact = false
-  } = options;
-  
+export const formatVersionForDisplay = (compact = false, showEnv = true, showCommit = true, showBuild = false) => {
   if (compact) {
     return VERSION_INFO.versionString;
   }
-  
+
   let version = VERSION_INFO.versionString;
-  
+
   if (showEnv && VERSION_INFO.isDevelopment) {
     version += '-dev';
   }
-  
+
   if (showCommit && VERSION_INFO.gitCommit !== 'dev') {
     version += `+${VERSION_INFO.shortCommit}`;
   }
-  
+
   if (showBuild) {
     const buildDate = new Date(VERSION_INFO.buildDate).toLocaleDateString();
     version += ` (${buildDate})`;
   }
-  
+
   return version;
 };
 
 /**
- * Log version information to console (for debugging)
+ * Log version information to console
  */
 export const logVersionInfo = () => {
   console.group('🔥 Ember Version Information');
@@ -155,7 +155,7 @@ export const logVersionInfo = () => {
 if (VERSION_INFO.isDevelopment && typeof window !== 'undefined') {
   // Only log once per session
   if (!window.__EMBER_VERSION_LOGGED__) {
-    logVersionInfo();
     window.__EMBER_VERSION_LOGGED__ = true;
+    logVersionInfo();
   }
 } 
