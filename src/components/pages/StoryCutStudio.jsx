@@ -255,44 +255,13 @@ export default function StoryCutStudio() {
                     const lines = primaryStoryCut.full_script.split('\n');
                     let blockId = 2;
 
-                    // First pass: Look for voice declarations
-                    for (const line of lines) {
-                        const trimmedLine = line.trim();
-                        if (!trimmedLine) continue;
-
-                        // Parse voice declarations: [[VOICE]] <EMBER:id,NARRATOR:id>
-                        const voiceDeclarationMatch = trimmedLine.match(/^\[\[VOICE\]\]\s*<([^>]+)>$/);
-                        if (voiceDeclarationMatch) {
-                            const voiceContent = voiceDeclarationMatch[1];
-                            console.log('🎤 Found voice declaration:', voiceContent);
-
-                            // Parse individual voice assignments
-                            const voiceAssignments = voiceContent.split(',');
-                            for (const assignment of voiceAssignments) {
-                                const trimmedAssignment = assignment.trim();
-                                const [voiceType, voiceId] = trimmedAssignment.split(':');
-
-                                if (voiceType === 'EMBER' && voiceId) {
-                                    // Store the voice ID and keep the existing name for now
-                                    embedVoiceNames.ember = primaryStoryCut.ember_voice_name || `Voice ${voiceId}`;
-                                    console.log('🎤 Parsed EMBER voice:', voiceId);
-                                } else if (voiceType === 'NARRATOR' && voiceId) {
-                                    // Store the voice ID and keep the existing name for now
-                                    embedVoiceNames.narrator = primaryStoryCut.narrator_voice_name || `Voice ${voiceId}`;
-                                    console.log('🎤 Parsed NARRATOR voice:', voiceId);
-                                }
-                            }
-                        }
-                    }
+                    // Voice IDs are now handled inline with voice lines
 
                     for (const line of lines) {
                         const trimmedLine = line.trim();
                         if (!trimmedLine) continue;
 
-                        // Skip voice declarations - they're already processed
-                        if (trimmedLine.match(/^\[\[VOICE\]\]/)) {
-                            continue;
-                        }
+                        // Voice IDs are now handled inline with voice lines
 
                         // Match media tags
                         const mediaMatch = trimmedLine.match(/^\[\[(MEDIA|HOLD|LOAD SCREEN)\]\]\s*(.*)$/);
@@ -812,27 +781,7 @@ export default function StoryCutStudio() {
     };
 
     const generateScript = () => {
-        // Generate voice configuration at the beginning of the script
-        let voiceDeclaration = '';
-        if (storyCut) {
-            const voiceParts = [];
-
-            // Add ember voice if available
-            if (storyCut.ember_voice_id) {
-                voiceParts.push(`EMBER:${storyCut.ember_voice_id}`);
-            }
-
-            // Add narrator voice if available
-            if (storyCut.narrator_voice_id) {
-                voiceParts.push(`NARRATOR:${storyCut.narrator_voice_id}`);
-            }
-
-            // Create voice declaration line if we have any voices
-            if (voiceParts.length > 0) {
-                voiceDeclaration = `[[VOICE]] <${voiceParts.join(',')}>`;
-                console.log('🎤 Generated voice declaration:', voiceDeclaration);
-            }
-        }
+        // Voice IDs are now included inline with voice lines
 
         const scriptLines = blocks.map(block => {
             switch (block.type) {
@@ -874,10 +823,19 @@ export default function StoryCutStudio() {
 
                     return mediaLine;
                 case 'voice':
-                    // Embed voice preference directly in the script
+                    // Embed voice preference and voice ID directly in the script
                     const blockKey = `${block.voiceTag}-${block.id}`;
                     const preference = contributorAudioPreferences[blockKey] || 'text';
-                    return `[${block.voiceTag}:${preference}] ${block.content}`;
+
+                    // Determine voice ID based on voice type
+                    let voiceTagWithId = block.voiceTag;
+                    if (block.voiceType === 'ember' && storyCut?.ember_voice_id) {
+                        voiceTagWithId = `${block.voiceTag} - ${storyCut.ember_voice_id}`;
+                    } else if (block.voiceType === 'narrator' && storyCut?.narrator_voice_id) {
+                        voiceTagWithId = `${block.voiceTag} - ${storyCut.narrator_voice_id}`;
+                    }
+
+                    return `[${voiceTagWithId}:${preference}] ${block.content}`;
                 case 'hold':
                     const holdEffects = selectedEffects[`hold-${block.id}`] || [];
                     const holdDuration = effectDurations[`hold-duration-${block.id}`] || block.duration || 4.0;
@@ -900,14 +858,8 @@ export default function StoryCutStudio() {
             }
         }).filter(line => line.trim() !== '');
 
-        // Combine voice declaration with script lines
-        const allLines = [];
-        if (voiceDeclaration) {
-            allLines.push(voiceDeclaration);
-        }
-        allLines.push(...scriptLines);
-
-        return allLines.join('\n\n');
+        // Voice IDs are now included inline with voice lines
+        return scriptLines.join('\n\n');
     };
 
     // Handle updating the story cut

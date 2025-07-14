@@ -58,27 +58,12 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       throw new Error('AI script is required');
     }
 
-    // 1. Build VOICE declaration with embedded voice IDs
-    let voiceDeclaration = '';
-    if (voiceCasting) {
-      const voiceParts = [];
-
-      // Add ember voice if available
-      if (voiceCasting.ember?.voice_id) {
-        voiceParts.push(`EMBER:${voiceCasting.ember.voice_id}`);
-      }
-
-      // Add narrator voice if available
-      if (voiceCasting.narrator?.voice_id) {
-        voiceParts.push(`NARRATOR:${voiceCasting.narrator.voice_id}`);
-      }
-
-      // Create voice declaration line if we have any voices
-      if (voiceParts.length > 0) {
-        voiceDeclaration = `[[VOICE]] <${voiceParts.join(',')}>`;
-        console.log('🎤 API: Generated voice declaration:', voiceDeclaration);
-      }
-    }
+    // 1. Store voice casting for inline use
+    const voiceIds = {
+      ember: voiceCasting?.ember?.voice_id || null,
+      narrator: voiceCasting?.narrator?.voice_id || null
+    };
+    console.log('🎤 API: Voice IDs for inline use:', voiceIds);
 
     // 2. Build MEDIA elements from selected media - prioritize ember photo first
     let emberImage = '';
@@ -145,7 +130,7 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       }
     }
 
-    // 3. Process voice lines from AI script - add auto-colorization
+    // 3. Process voice lines from AI script - include voice IDs inline
     const processedVoiceLines = aiScript
       .split('\n\n')
       .filter(line => line.trim())
@@ -166,23 +151,23 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
         const [, voiceTag, content] = voiceMatch;
         const cleanContent = content.trim();
 
-        // Determine voice type for auto-colorization
-        // No color indicators - clean script format
-        return `[${voiceTag}] ${cleanContent}`;
+        // Determine voice type and add inline voice ID
+        let enhancedVoiceTag = voiceTag;
+        if (voiceTag.toLowerCase().includes('ember') && voiceIds.ember) {
+          enhancedVoiceTag = `${voiceTag} - ${voiceIds.ember}`;
+        } else if (voiceTag.toLowerCase().includes('narrator') && voiceIds.narrator) {
+          enhancedVoiceTag = `${voiceTag} - ${voiceIds.narrator}`;
+        }
+
+        return `[${enhancedVoiceTag}] ${cleanContent}`;
       })
       .join('\n\n');
 
     // 4. Closing HOLD segment (4-second black fade-out)
     const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
 
-    // 5. Combine all elements into complete ember script - START WITH VOICE DECLARATION
+    // 5. Combine all elements into complete ember script
     const scriptParts = [];
-
-    // Start with voice declaration if available
-    if (voiceDeclaration) {
-      scriptParts.push(voiceDeclaration);
-      console.log('✅ API: Starting script with voice declaration');
-    }
 
     // Add ember image immediately (no black opening)
     if (emberImage) {
@@ -228,27 +213,12 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
       return '[EMBER VOICE] No script content available';
     }
 
-    // 1. Build VOICE declaration with embedded voice IDs
-    let voiceDeclaration = '';
-    if (voiceCasting) {
-      const voiceParts = [];
-
-      // Add ember voice if available
-      if (voiceCasting.ember?.voice_id) {
-        voiceParts.push(`EMBER:${voiceCasting.ember.voice_id}`);
-      }
-
-      // Add narrator voice if available
-      if (voiceCasting.narrator?.voice_id) {
-        voiceParts.push(`NARRATOR:${voiceCasting.narrator.voice_id}`);
-      }
-
-      // Create voice declaration line if we have any voices
-      if (voiceParts.length > 0) {
-        voiceDeclaration = `[[VOICE]] <${voiceParts.join(',')}>`;
-        console.log('🎤 API: Basic processing - generated voice declaration:', voiceDeclaration);
-      }
-    }
+    // 1. Store voice casting for inline use
+    const voiceIds = {
+      ember: voiceCasting?.ember?.voice_id || null,
+      narrator: voiceCasting?.narrator?.voice_id || null
+    };
+    console.log('🎤 API: Basic processing - Voice IDs for inline use:', voiceIds);
 
     // 2. Remove loading screen generation - loading controlled by actual preparation time
     // The system already handles loading via isGeneratingAudio state
@@ -314,7 +284,7 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
       // Note: In basic processing, we don't have emberData available, so no fallback ember image
     }
 
-    // Add basic colorization
+    // Add inline voice IDs to voice lines
     const processedContent = aiScript
       .split('\n\n')
       .filter(line => line.trim())
@@ -329,18 +299,19 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
 
         const [, voiceTag, content] = voiceMatch;
 
-        // No color indicators - clean script format
-        return `[${voiceTag}] ${content.trim()}`;
+        // Determine voice type and add inline voice ID
+        let enhancedVoiceTag = voiceTag;
+        if (voiceTag.toLowerCase().includes('ember') && voiceIds.ember) {
+          enhancedVoiceTag = `${voiceTag} - ${voiceIds.ember}`;
+        } else if (voiceTag.toLowerCase().includes('narrator') && voiceIds.narrator) {
+          enhancedVoiceTag = `${voiceTag} - ${voiceIds.narrator}`;
+        }
+
+        return `[${enhancedVoiceTag}] ${content.trim()}`;
       })
       .join('\n\n');
 
     const scriptParts = [];
-
-    // Start with voice declaration if available
-    if (voiceDeclaration) {
-      scriptParts.push(voiceDeclaration);
-      console.log('✅ API: Basic processing - starting script with voice declaration');
-    }
 
     // Add ember image immediately (no black opening)
     if (emberImage) {

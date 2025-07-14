@@ -30,26 +30,7 @@ export const parseScriptSegments = (script) => {
 
         console.log(`🔍 Processing line: "${trimmedLine.substring(0, 100)}..."`);
 
-        // Parse voice configuration [[VOICE]] <EMBER:id,NARRATOR:id>
-        const voiceMatch = trimmedLine.match(/^\[\[VOICE\]\]\s*<([^>]+)>$/);
-        if (voiceMatch) {
-            const voiceContent = voiceMatch[1];
-            console.log(`🎤 Found voice configuration: ${voiceContent}`);
-
-            voiceConfiguration = {};
-            const voicePairs = voiceContent.split(',');
-
-            voicePairs.forEach(pair => {
-                const [type, id] = pair.trim().split(':');
-                if (type && id) {
-                    voiceConfiguration[type.toLowerCase()] = id;
-                    console.log(`🎤 Parsed voice: ${type} → ${id}`);
-                }
-            });
-
-            console.log('🎤 Voice configuration:', voiceConfiguration);
-            continue; // Don't add voice declarations as segments
-        }
+        // Voice configuration is now handled inline with voice lines
 
         // Skip malformed lines (common parsing artifacts)
         if ((trimmedLine.includes('[[MEDIA]') && !trimmedLine.includes('[[MEDIA]]')) ||
@@ -236,7 +217,7 @@ export const parseScriptSegments = (script) => {
                 });
             }
         } else {
-            // Match voice tags with optional preference: [voiceTag:preference] or [voiceTag]
+            // Match voice tags with optional voice ID and preference: [voiceTag - voice_id:preference] or [voiceTag:preference] or [voiceTag]
             const voiceMatch = trimmedLine.match(/^\[([^:\]]+)(?::([^:\]]+))?\]\s*(.+)$/);
 
             if (voiceMatch) {
@@ -246,7 +227,22 @@ export const parseScriptSegments = (script) => {
                     preference: voiceMatch[2] || 'text',
                     content: voiceMatch[3]
                 });
-                const voiceTag = voiceMatch[1].trim();
+
+                // Extract voice ID from voice tag if present (format: "voiceTag - voice_id")
+                const voiceTagFull = voiceMatch[1].trim();
+                const voiceIdMatch = voiceTagFull.match(/^(.+)\s*-\s*([a-zA-Z0-9]+)$/);
+                let voiceTag, voiceId;
+
+                if (voiceIdMatch) {
+                    voiceTag = voiceIdMatch[1].trim();
+                    voiceId = voiceIdMatch[2].trim();
+                    console.log(`🎤 Extracted inline voice ID: ${voiceTag} → ${voiceId}`);
+                } else {
+                    voiceTag = voiceTagFull;
+                    voiceId = null;
+                    console.log(`🎤 No inline voice ID found for: ${voiceTag}`);
+                }
+
                 const preference = voiceMatch[2]?.trim() || 'text'; // Default to 'text' if no preference
                 let content = voiceMatch[3].trim();
                 const voiceType = getVoiceType(voiceTag);
@@ -275,6 +271,12 @@ export const parseScriptSegments = (script) => {
                 const finalContent = `${allVisualActions} ${cleanContent}`.trim();
 
                 if (cleanContent) {
+                    // Create voice configuration with inline voice ID
+                    const segmentVoiceConfig = { ...voiceConfiguration };
+                    if (voiceId) {
+                        segmentVoiceConfig[voiceType] = voiceId;
+                    }
+                    
                     segments.push({
                         voiceTag,
                         content: finalContent, // For display (includes visual actions)
@@ -282,8 +284,8 @@ export const parseScriptSegments = (script) => {
                         type: voiceType,
                         visualActions: existingVisualActions,
                         hasAutoColorize: false, // No auto-colorization anymore
-                        // Add voice configuration
-                        voiceConfiguration: voiceConfiguration,
+                        // Add voice configuration (inline voice ID takes precedence)
+                        voiceConfiguration: segmentVoiceConfig,
                         // Add embedded preference from script
                         preference: preference
                     });

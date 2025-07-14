@@ -65,7 +65,7 @@ export default function About() {
             <MicIcon />
           </div>
           <p className="text-lg text-gray-600 leading-relaxed">
-          Ember records real voices of the people who gather to reflect on a moment — capturing what happened, how it felt, and what it meant to everyone.
+            Ember records real voices of the people who gather to reflect on a moment — capturing what happened, how it felt, and what it meant to everyone.
           </p>
         </div>
       </div>
@@ -73,12 +73,12 @@ export default function About() {
       {/* Build a Story Circle Section */}
       <div className="text-center space-y-6">
         <h2 className="text-3xl font-bold text-gray-900">The Story Circle</h2>
-        
+
         {/* Animated Donut Chart */}
         <div className="mt-3">
           <StoryCircleChart />
         </div>
-        
+
         <p className="text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto">
           Invite others to join a group conversation about a time or place — preserving not just the stories, but the voices and reactions around them.
         </p>
@@ -100,7 +100,7 @@ export default function About() {
       {/* Get Started Button - Bottom */}
       <div className="text-center pt-8">
         <Link to="/create">
-                      <Button size="lg" variant="blue" className="px-8 text-lg font-semibold">
+          <Button size="lg" variant="blue" className="px-8 text-lg font-semibold">
             Get Started Now
           </Button>
         </Link>
