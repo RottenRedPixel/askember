@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { FilmSlate, PencilSimple } from 'phosphor-react';
-import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber } from '@/lib/database';
+import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber, getStoryCutsForEmber } from '@/lib/database';
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import { formatDuration } from '@/lib/dateUtils';
 import { resolveMediaReference } from '@/lib/scriptParser';
@@ -128,12 +128,21 @@ export default function StoryCutStudio() {
                 const primaryStoryCut = await getPrimaryStoryCut(id);
 
                 if (!primaryStoryCut) {
-                    setError('No primary story cut found for this ember.');
-                    return;
-                }
+                    // If no primary exists, try to load any available story cut
+                    console.log('🔍 No primary story cut found, looking for any available story cut...');
+                    const allStoryCuts = await getStoryCutsForEmber(id);
 
-                console.log('✅ Loaded story cut:', primaryStoryCut.title);
-                setStoryCut(primaryStoryCut);
+                    if (allStoryCuts && allStoryCuts.length > 0) {
+                        console.log('✅ Found available story cut:', allStoryCuts[0].title);
+                        setStoryCut(allStoryCuts[0]);
+                    } else {
+                        setError('No story cuts found for this ember.');
+                        return;
+                    }
+                } else {
+                    console.log('✅ Loaded primary story cut:', primaryStoryCut.title);
+                    setStoryCut(primaryStoryCut);
+                }
 
                 // Load ember data for the player
                 console.log('🌟 Loading ember data for player...');
