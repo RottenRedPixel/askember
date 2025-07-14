@@ -468,9 +468,8 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       console.log(`🎤 User preference for "${audioContent.substring(0, 30)}...": ${userPreference}`);
       console.log(`🔍 All available preferences:`, window.messageAudioPreferences);
 
-      // 🚨 CRITICAL FIX: Content-first matching (script is sacred)
-      // Instead of finding user first, find the exact content first across ALL recorded audio
-      console.log(`🎯 CONTENT-FIRST MATCHING: Looking for "${audioContent}"`);
+      // 🚨 CRITICAL FIX: Hybrid approach - prioritize recorded audio, but also support content matching
+      console.log(`🎯 HYBRID MATCHING: Looking for "${audioContent}" by ${voiceTag}`);
 
       // Helper function to normalize text for better matching
       const normalizeText = (text) => {
@@ -481,10 +480,10 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
           .trim();
       };
 
-      // Search ALL recorded audio for content match (content-first, not user-first)
       let matchingAudioEntry = null;
       const normalizedScriptContent = normalizeText(audioContent);
 
+      // STRATEGY 1: Look for exact content match first (script is sacred)
       for (const [userId, audioData] of Object.entries(recordedAudio)) {
         if (!audioData.message_content || !audioData.audio_url) continue;
 
@@ -505,9 +504,6 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         if (contentMatches) {
           console.log(`🎯 CONTENT MATCH FOUND: "${recordedContent}" by ${audioData.user_first_name}`);
           console.log(`  - Exact match: ${exactMatch}`);
-          console.log(`  - Recorded contains segment: ${recordedContainsSegment}`);
-          console.log(`  - Segment contains recorded: ${segmentContainsRecorded}`);
-          console.log(`  - Normalized exact match: ${normalizedExactMatch}`);
           console.log(`  - Audio URL: ${audioData.audio_url}`);
 
           matchingAudioEntry = [userId, audioData];
@@ -515,20 +511,19 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         }
       }
 
-      // If no content match found, fall back to user-name matching for synth voices
+      // STRATEGY 2: If no exact content match, find user by name and use their recorded audio if available
       if (!matchingAudioEntry) {
-        console.log(`❌ No content match found for "${audioContent}"`);
-        console.log(`🔄 Falling back to user-name matching for synth voice generation`);
+        console.log(`❌ No exact content match found for "${audioContent}"`);
+        console.log(`🔄 Looking for user "${voiceTag}" with recorded audio`);
 
-        // Find user by name for synth voice generation
         const userByName = Object.entries(recordedAudio).find(([userId, audioData]) => {
           return audioData.user_first_name === voiceTag;
         });
 
         if (userByName) {
           const [userId, audioData] = userByName;
-          console.log(`🔍 Found user ${voiceTag} for synth voice generation`);
-          matchingAudioEntry = [userId, { ...audioData, message_content: null, audio_url: null }];
+          console.log(`🔍 Found user ${voiceTag}: ${audioData.audio_url ? 'HAS RECORDED AUDIO' : 'NO RECORDED AUDIO'}`);
+          matchingAudioEntry = [userId, audioData];
         } else {
           // Check story cut contributors
           if (storyCut.selected_contributors && storyCut.selected_contributors.length > 0) {
@@ -589,15 +584,34 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       const [userId, audioData] = matchingAudioEntry;
       console.log(`🔍 Processing audio for ${voiceTag} (userId: ${userId})`);
 
-      // Check if we have recorded audio that matches the content
+      // Check if we have recorded audio
       const hasRecordedAudio = !!(audioData.message_content && audioData.audio_url);
 
-      // 🚨 CRITICAL: If user explicitly wants recorded audio and we found content match, use it
-      if (userPreference === 'recorded' && hasRecordedAudio) {
-        console.log(`🎯 EXPLICIT RECORDED PREFERENCE: Using matched recorded audio`);
-        console.log(`🎯 Matched content: "${audioData.message_content}"`);
+      // 🚨 CRITICAL: If we have recorded audio, prioritize it (especially for :recorded preference)
+      if (hasRecordedAudio) {
+        console.log(`🎯 RECORDED AUDIO AVAILABLE: Using recorded audio`);
+        console.log(`🎯 Recorded content: "${audioData.message_content}"`);
         console.log(`🎯 Script content: "${audioContent}"`);
         console.log(`🎯 Audio URL: ${audioData.audio_url}`);
+        console.log(`🎯 User preference: ${userPreference}`);
+
+        // For recorded preference, definitely use recorded audio
+        if (userPreference === 'recorded') {
+          console.log(`🎯 EXPLICIT RECORDED PREFERENCE: Using recorded audio`);
+
+          const audio = new Audio(audioData.audio_url);
+          return {
+            type: 'contributor_recorded',
+            audio,
+            url: audioData.audio_url,
+            voiceTag,
+            content: audioData.message_content,
+            userId: userId
+          };
+        }
+
+        // For other preferences, still use recorded audio if available (script is sacred)
+        console.log(`🎯 RECORDED AUDIO FOUND: Using recorded audio even with ${userPreference} preference`);
 
         const audio = new Audio(audioData.audio_url);
         return {
