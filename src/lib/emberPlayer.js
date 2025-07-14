@@ -385,22 +385,24 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
     .replace(/^\[.*?\]\s*/, '') // Remove voice tags like [NARRATOR] or [EMBER VOICE]
     .trim();
 
-  console.log(`🎵 Generating audio for [${voiceTag}]: "${audioContent.substring(0, 50)}..."`);
-  console.log(`🔍 Segment type: ${type}`);
-  console.log(`🎨 Full content with visual actions: "${content}"`);
-  console.log(`🎙️ Audio content (no visual actions): "${audioContent}"`);
+  // Remove excessive debug logging
+  // console.log(`🐛 AUDIO DEBUG - Processing segment [${voiceTag}]:`);
+  // console.log(`🐛   Raw originalContent: "${originalContent}"`);
+  // console.log(`🐛   Raw content: "${content}"`);
+  // console.log(`🐛   Raw audioContent: "${rawAudioContent}"`);
+  // console.log(`🐛   Final audioContent: "${audioContent}"`);
 
-  // 🐛 ENHANCED DEBUG: Log all available recorded audio
-  console.log('🐛 DEBUG - All recorded audio available:');
-  Object.entries(recordedAudio).forEach(([userId, audioData]) => {
-    console.log(`  - User ${userId} (${audioData.user_first_name}): "${audioData.message_content?.substring(0, 50)}..."`);
-    console.log(`    Audio URL: ${audioData.audio_url ? 'EXISTS' : 'MISSING'}`);
-  });
+  // console.log('🐛 DEBUG - All recorded audio available:');
+  // Object.entries(recordedAudio).forEach(([userId, audioData]) => {
+  //   console.log(`  - User ${userId} (${audioData.user_first_name}): "${audioData.message_content?.substring(0, 50)}..."`);
+  //   console.log(`    Audio URL: ${audioData.audio_url ? 'EXISTS' : 'MISSING'}`);
+  // });
 
   try {
     if (type === 'contributor') {
-      console.log(`🐛 DEBUG - Looking for recorded audio for contributor: ${voiceTag}`);
-      console.log(`🐛 DEBUG - Script content: "${audioContent}"`);
+      // Remove excessive debug logging
+      // console.log(`🐛 DEBUG - Looking for recorded audio for contributor: ${voiceTag}`);
+      // console.log(`🐛 DEBUG - Script content: "${audioContent}"`);
 
       // Check per-message preference for this content
       let userPreference = 'recorded'; // default
@@ -408,14 +410,14 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
 
       // PRIORITY 1: Check if preference is embedded in script segment
       if (segment.preference) {
-        console.log(`🎯 ✅ Found embedded preference in script: ${segment.preference}`);
-        console.log(`🎯 ✅ Full segment data:`, {
-          voiceTag: segment.voiceTag,
-          content: segment.content.substring(0, 50) + '...',
-          originalContent: segment.originalContent?.substring(0, 50) + '...',
-          type: segment.type,
-          preference: segment.preference
-        });
+        // console.log(`🎯 ✅ Found embedded preference in script: ${segment.preference}`);
+        // console.log(`🎯 ✅ Full segment data:`, {
+        //   voiceTag: segment.voiceTag,
+        //   content: segment.content.substring(0, 50) + '...',
+        //   originalContent: segment.originalContent?.substring(0, 50) + '...',
+        //   type: segment.type,
+        //   preference: segment.preference
+        // });
         // Convert script preference format to audio generation format
         if (segment.preference === 'synth') {
           userPreference = 'personal';

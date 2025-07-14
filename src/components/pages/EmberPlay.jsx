@@ -60,9 +60,10 @@ export default function EmberPlay() {
     const navigate = useNavigate();
     const { user, userProfile } = useStore();
 
-    console.log('🎬 EmberPlay: Rendering');
-    console.log('🎬 EmberPlay: Current URL:', window.location.href);
-    console.log('🎬 EmberPlay: Ember ID:', id);
+    // Remove excessive debug logging that was causing infinite console output
+    // console.log('🎬 EmberPlay: Rendering');
+    // console.log('🎬 EmberPlay: Current URL:', window.location.href);
+    // console.log('🎬 EmberPlay: Ember ID:', id);
 
     // Use the same data fetching hooks as EmberDetail
     const {
@@ -462,8 +463,17 @@ export default function EmberPlay() {
         // Stop the main current audio if it exists
         if (currentAudio) {
             console.log('🛑 Stopping current audio...');
-            currentAudio.pause();
-            currentAudio.currentTime = 0;
+            try {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+                // Remove event listeners to prevent any delayed callbacks
+                currentAudio.onended = null;
+                currentAudio.onerror = null;
+                currentAudio.onloadeddata = null;
+                currentAudio.oncanplay = null;
+            } catch (error) {
+                console.warn('⚠️ Error stopping current audio:', error);
+            }
         }
 
         // Stop ALL active audio segments (multi-voice system)
@@ -474,6 +484,11 @@ export default function EmberPlay() {
                     try {
                         audioSegment.audio.pause();
                         audioSegment.audio.currentTime = 0;
+                        // Remove event listeners to prevent any delayed callbacks
+                        audioSegment.audio.onended = null;
+                        audioSegment.audio.onerror = null;
+                        audioSegment.audio.onloadeddata = null;
+                        audioSegment.audio.oncanplay = null;
                         console.log(`✅ Stopped audio segment ${index + 1}: [${audioSegment.voiceTag}]`);
                     } catch (error) {
                         console.warn(`⚠️ Error stopping audio segment ${index + 1}:`, error);

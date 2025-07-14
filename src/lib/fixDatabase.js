@@ -211,7 +211,7 @@ $$ LANGUAGE plpgsql;
 export async function checkPromptsTable() {
   try {
     console.log('🔍 Checking current prompts table...');
-    
+
     const { data, error } = await supabase
       .from('prompts')
       .select('*')
@@ -224,9 +224,9 @@ export async function checkPromptsTable() {
 
     const fields = data && data.length > 0 ? Object.keys(data[0]) : [];
     console.log('📋 Current fields:', fields);
-    
+
     return { exists: true, fields, sampleData: data };
-    
+
   } catch (error) {
     console.error('❌ Error checking prompts table:', error);
     return { exists: false, error: error.message };
@@ -239,33 +239,33 @@ export async function checkPromptsTable() {
 export async function fixPromptsDatabase() {
   try {
     console.log('🚀 Starting prompts database fix...');
-    
+
     // Check current structure first
     const check = await checkPromptsTable();
     console.log('Current table status:', check);
-    
+
     // Split the SQL into individual statements
     const statements = PROMPTS_FIX_SQL
       .split(';')
       .map(stmt => stmt.trim())
       .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
-    
+
     console.log(`📋 Executing ${statements.length} SQL statements...`);
-    
+
     const results = [];
-    
+
     // Execute each statement
     for (let i = 0; i < statements.length; i++) {
       const statement = statements[i];
-      
+
       if (!statement.trim()) continue;
-      
+
       console.log(`📍 Statement ${i + 1}/${statements.length}...`);
-      
+
       try {
         // Try direct query first for simple statements
         let result;
-        
+
         if (statement.includes('ALTER TABLE') || statement.includes('CREATE INDEX')) {
           // Use RPC for DDL statements
           result = await supabase.rpc('execute_sql', { sql_query: statement });
@@ -273,7 +273,7 @@ export async function fixPromptsDatabase() {
           // Use RPC for everything to be safe
           result = await supabase.rpc('execute_sql', { sql_query: statement });
         }
-        
+
         if (result.error) {
           console.warn(`⚠️ Statement ${i + 1} warning:`, result.error.message);
           results.push({
@@ -290,7 +290,7 @@ export async function fixPromptsDatabase() {
             sql: statement.substring(0, 50) + '...'
           });
         }
-        
+
       } catch (error) {
         console.warn(`⚠️ Statement ${i + 1} exception:`, error.message);
         results.push({
@@ -301,16 +301,16 @@ export async function fixPromptsDatabase() {
         });
       }
     }
-    
+
     const successCount = results.filter(r => r.success).length;
     const errorCount = results.filter(r => !r.success).length;
-    
+
     console.log(`📊 Fix complete: ${successCount} successful, ${errorCount} errors/warnings`);
-    
+
     // Test the functions
     console.log('🧪 Testing functions...');
     await testDatabaseFunctions();
-    
+
     return {
       success: true, // Consider success if we got through it
       totalStatements: statements.length,
@@ -318,7 +318,7 @@ export async function fixPromptsDatabase() {
       errorCount,
       results
     };
-    
+
   } catch (error) {
     console.error('❌ Database fix failed:', error);
     return {
@@ -334,13 +334,13 @@ export async function fixPromptsDatabase() {
 export async function testDatabaseFunctions() {
   try {
     console.log('🧪 Testing database functions...');
-    
+
     // Test get_active_prompt
     try {
       const { data, error } = await supabase.rpc('get_active_prompt', {
         prompt_key_param: 'test_key'
       });
-      
+
       if (error) {
         console.log('⚠️ get_active_prompt test warning:', error.message);
       } else {
@@ -349,13 +349,13 @@ export async function testDatabaseFunctions() {
     } catch (error) {
       console.log('❌ get_active_prompt test failed:', error.message);
     }
-    
+
     // Test get_prompts_by_category
     try {
       const { data, error } = await supabase.rpc('get_prompts_by_category', {
         category_param: 'test_category'
       });
-      
+
       if (error) {
         console.log('⚠️ get_prompts_by_category test warning:', error.message);
       } else {
@@ -364,7 +364,7 @@ export async function testDatabaseFunctions() {
     } catch (error) {
       console.log('❌ get_prompts_by_category test failed:', error.message);
     }
-    
+
     // Test increment_prompt_usage
     try {
       const { data, error } = await supabase.rpc('increment_prompt_usage', {
@@ -373,7 +373,7 @@ export async function testDatabaseFunctions() {
         response_time_ms: 500,
         was_successful: true
       });
-      
+
       if (error) {
         console.log('⚠️ increment_prompt_usage test warning:', error.message);
       } else {
@@ -382,9 +382,9 @@ export async function testDatabaseFunctions() {
     } catch (error) {
       console.log('❌ increment_prompt_usage test failed:', error.message);
     }
-    
+
     console.log('✅ Function tests complete');
-    
+
   } catch (error) {
     console.error('❌ Function testing failed:', error);
   }
@@ -396,7 +396,7 @@ export async function testDatabaseFunctions() {
 export async function addElevenLabsVoiceToUsers() {
   try {
     console.log('🎤 Adding ElevenLabs voice fields to user profiles...');
-    
+
     const migrationSQL = `
       -- Add ElevenLabs voice fields to user_profiles table
       ALTER TABLE user_profiles 
@@ -406,27 +406,27 @@ export async function addElevenLabsVoiceToUsers() {
       -- Add indexes for performance
       CREATE INDEX IF NOT EXISTS idx_user_profiles_elevenlabs_voice_id ON user_profiles(elevenlabs_voice_id);
     `;
-    
+
     // Split into statements
     const statements = migrationSQL
       .split(';')
       .map(stmt => stmt.trim())
       .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
-    
+
     console.log(`📋 Executing ${statements.length} SQL statements...`);
-    
+
     const results = [];
-    
+
     for (let i = 0; i < statements.length; i++) {
       const statement = statements[i];
-      
+
       if (!statement.trim()) continue;
-      
+
       console.log(`📍 Statement ${i + 1}/${statements.length}: ${statement.substring(0, 50)}...`);
-      
+
       try {
         const { data, error } = await supabase.rpc('execute_sql', { sql_query: statement });
-        
+
         if (error) {
           console.warn(`⚠️ Statement ${i + 1} warning:`, error.message);
           results.push({
@@ -443,7 +443,7 @@ export async function addElevenLabsVoiceToUsers() {
             sql: statement.substring(0, 50) + '...'
           });
         }
-        
+
       } catch (error) {
         console.warn(`⚠️ Statement ${i + 1} exception:`, error.message);
         results.push({
@@ -454,12 +454,12 @@ export async function addElevenLabsVoiceToUsers() {
         });
       }
     }
-    
+
     const successCount = results.filter(r => r.success).length;
     const errorCount = results.filter(r => !r.success).length;
-    
+
     console.log(`📊 Migration complete: ${successCount} successful, ${errorCount} errors/warnings`);
-    
+
     // Test the new fields by checking the table schema
     console.log('🧪 Testing new fields...');
     try {
@@ -467,7 +467,7 @@ export async function addElevenLabsVoiceToUsers() {
         .from('user_profiles')
         .select('elevenlabs_voice_id, elevenlabs_voice_name')
         .limit(1);
-      
+
       if (error) {
         console.log('❌ New fields test failed:', error.message);
       } else {
@@ -476,7 +476,7 @@ export async function addElevenLabsVoiceToUsers() {
     } catch (error) {
       console.log('❌ New fields test exception:', error.message);
     }
-    
+
     return {
       success: successCount > 0,
       totalStatements: statements.length,
@@ -484,7 +484,7 @@ export async function addElevenLabsVoiceToUsers() {
       errorCount,
       results
     };
-    
+
   } catch (error) {
     console.error('❌ Migration failed:', error);
     return {
@@ -495,19 +495,124 @@ export async function addElevenLabsVoiceToUsers() {
 }
 
 /**
+ * Fix existing story cuts by converting inline voice format to [EMBER VOICE] format
+ * This fixes the repeating audio issue caused by inline voice declarations
+ */
+export async function fixStoryCutsVoiceFormat() {
+  try {
+    console.log('🔧 Starting story cuts voice format fix...');
+
+    // Get all story cuts from the database
+    const { data: storyCuts, error: fetchError } = await supabase
+      .from('ember_story_cuts')
+      .select('id, title, full_script, ember_voice_id, ember_voice_name')
+      .order('created_at', { ascending: false });
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch story cuts: ${fetchError.message}`);
+    }
+
+    console.log(`📋 Found ${storyCuts.length} story cuts to check`);
+
+    let fixedCount = 0;
+    let skippedCount = 0;
+    const results = [];
+
+    for (const storyCut of storyCuts) {
+      const { id, title, full_script, ember_voice_id, ember_voice_name } = storyCut;
+
+      if (!full_script) {
+        console.log(`⏭️ Skipping ${title} - no script`);
+        skippedCount++;
+        continue;
+      }
+
+      // Check if this story cut has the problematic inline format
+      const hasInlineFormat = full_script.includes('Ember Voice (') && full_script.includes(' - ') && full_script.includes(':text]');
+
+      if (!hasInlineFormat) {
+        console.log(`⏭️ Skipping ${title} - already correct format`);
+        skippedCount++;
+        continue;
+      }
+
+      console.log(`🔧 Fixing ${title}...`);
+
+      // Convert inline format to [EMBER VOICE] format
+      const fixedScript = full_script
+        .split('\n')
+        .map(line => {
+          // Match inline format: [Ember Voice (name) - voice_id:preference] content
+          const inlineMatch = line.match(/^\[Ember Voice \([^)]+\) - [^:]+:text\]\s*(.+)$/);
+          if (inlineMatch) {
+            const content = inlineMatch[1];
+            return `[EMBER VOICE] ${content}`;
+          }
+          return line;
+        })
+        .join('\n');
+
+      // Update the story cut in the database
+      try {
+        const { error: updateError } = await supabase
+          .from('ember_story_cuts')
+          .update({ full_script: fixedScript })
+          .eq('id', id);
+
+        if (updateError) {
+          throw new Error(`Failed to update story cut ${title}: ${updateError.message}`);
+        }
+
+        console.log(`✅ Fixed ${title}`);
+        fixedCount++;
+        results.push({
+          id,
+          title,
+          success: true,
+          changes: 'Converted inline voice format to [EMBER VOICE] format'
+        });
+
+      } catch (updateError) {
+        console.error(`❌ Failed to fix ${title}:`, updateError.message);
+        results.push({
+          id,
+          title,
+          success: false,
+          error: updateError.message
+        });
+      }
+    }
+
+    console.log(`📊 Fix complete: ${fixedCount} fixed, ${skippedCount} skipped`);
+
+    return {
+      success: true,
+      totalStoryCuts: storyCuts.length,
+      fixedCount,
+      skippedCount,
+      results
+    };
+
+  } catch (error) {
+    console.error('❌ Error fixing story cuts voice format:', error);
+    throw error;
+  }
+}
+
+/**
  * Quick fix - just run this to fix your database
  */
 export async function quickFix() {
   console.log('⚡ Quick database fix starting...');
-  
+
   const result = await fixPromptsDatabase();
-  
+
   if (result.success) {
     console.log('✅ Database fix completed! You can now use the new prompt system.');
   } else {
     console.error('❌ Database fix failed:', result.error);
   }
-  
+
   return result;
 }
 
@@ -518,9 +623,10 @@ if (typeof window !== 'undefined') {
     fixPromptsDatabase,
     checkPromptsTable,
     testDatabaseFunctions,
-    addElevenLabsVoiceToUsers
+    addElevenLabsVoiceToUsers,
+    fixStoryCutsVoiceFormat
   };
-  
+
   console.log('💡 Database fix utilities loaded! Run window.fixDatabase.quickFix() to fix your database.');
   console.log('🎤 To add ElevenLabs voice fields, run: window.fixDatabase.addElevenLabsVoiceToUsers()');
 } 

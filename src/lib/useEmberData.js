@@ -126,7 +126,7 @@ export const useEmber = (id, userProfile = null) => {
     const [imageAnalysisData, setImageAnalysisData] = useState(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    const fetchEmber = async () => {
+    const fetchEmber = useCallback(async () => {
         try {
             setLoading(true);
             setIsRefreshing(true);
@@ -196,13 +196,13 @@ export const useEmber = (id, userProfile = null) => {
             setLoading(false);
             setIsRefreshing(false);
         }
-    };
+    }, [id, userProfile]);
 
     useEffect(() => {
         if (id) {
             fetchEmber();
         }
-    }, [id, userProfile]);
+    }, [id, fetchEmber]);
 
     const updateImageAnalysis = async () => {
         // Refresh the image analysis data when it's updated
@@ -243,7 +243,7 @@ export const useStoryCuts = (emberId, userProfile) => {
     const [storyCutsLoading, setStoryCutsLoading] = useState(false);
     const [primaryStoryCut, setPrimaryStoryCutState] = useState(null);
 
-    const fetchStoryCuts = async () => {
+    const fetchStoryCuts = useCallback(async () => {
         if (!emberId) return;
 
         try {
@@ -285,13 +285,13 @@ export const useStoryCuts = (emberId, userProfile) => {
         } finally {
             setStoryCutsLoading(false);
         }
-    };
+    }, [emberId, userProfile?.user_id]);
 
     useEffect(() => {
         if (emberId) {
             fetchStoryCuts();
         }
-    }, [emberId]);
+    }, [emberId, fetchStoryCuts]);
 
     return {
         storyCuts,

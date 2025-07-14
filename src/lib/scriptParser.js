@@ -11,359 +11,145 @@ import { getEmberSupportingMedia } from '@/lib/database';
  * @param {string} script - The script content to parse
  * @returns {Array} Array of script segments
  */
-export const parseScriptSegments = (script) => {
-    if (!script) return [];
-
-    const segments = [];
+export function parseScriptSegments(script) {
     const lines = script.split('\n');
-    let voiceConfiguration = null;
+    const segments = [];
 
-    console.log('🔍 parseScriptSegments: Processing', lines.length, 'lines');
-    console.log('🔍 FULL SCRIPT CONTENT:', script);
+    // Remove excessive debug logging
+    // console.log('🔍 parseScriptSegments: Processing', lines.length, 'lines');
+    // console.log('🔍 FULL SCRIPT CONTENT:', script);
+
     lines.forEach((line, index) => {
-        console.log(`🔍 Line ${index + 1}: "${line}"`);
-    });
+        // Remove excessive debug logging
+        // console.log(`🔍 Line ${index + 1}: "${line}"`);
 
-    for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (!trimmedLine) continue;
+        if (line.trim() === '') return;
 
-        console.log(`🔍 Processing line: "${trimmedLine.substring(0, 100)}..."`);
+        // Remove excessive debug logging
+        // console.log(`🔍 Processing line: "${line.substring(0, 50)}..."`);
 
-        // Voice configuration is now handled inline with voice lines
-
-        // Skip malformed lines (common parsing artifacts)
-        if ((trimmedLine.includes('[[MEDIA]') && !trimmedLine.includes('[[MEDIA]]')) ||
-            (trimmedLine.includes('[[HOLD]') && !trimmedLine.includes('[[HOLD]]'))) {
-            console.log('⚠️ Skipping malformed MEDIA/HOLD line:', trimmedLine);
-            continue;
-        }
-
-        // Match media tags like [[MEDIA]], [[HOLD]], or [[LOAD SCREEN]] with content
-        const mediaMatch = trimmedLine.match(/^\[\[(MEDIA|HOLD|LOAD SCREEN)\]\]\s*(.*)$/);
-
+        // Check for media references first
+        const mediaMatch = line.match(/^\[\[([A-Z]+)\]\]\s*(.*)$/);
         if (mediaMatch) {
-            const mediaType = mediaMatch[1]; // MEDIA, HOLD, or LOAD SCREEN
-            const content = mediaMatch[2].trim();
+            // Remove excessive debug logging
+            // console.log('🔍 MEDIA match found:', { fullMatch: line, type: mediaMatch[1], content: mediaMatch[2] });
 
-            console.log(`🔍 ${mediaType} match found:`, {
-                fullMatch: mediaMatch[0],
-                type: mediaType,
-                content: content
-            });
+            const mediaType = mediaMatch[1];
+            const mediaContent = mediaMatch[2];
 
-            // Skip if content is empty or just whitespace
-            if (!content) {
-                console.log(`⚠️ Skipping empty ${mediaType} segment`);
-                continue;
-            }
+            // Parse media reference
+            const mediaReference = parseMediaReference(mediaContent);
 
-            // Extract visual actions (but NOT media references like <name="file.jpg">, <id=abc123>, or <path="url">)
-            const existingVisualActions = [];
-            let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
-                // Don't treat media references as visual actions
-                if (action.startsWith('name=') || action.startsWith('id=') || action.startsWith('path=')) {
-                    return match; // Keep media references in the content
-                }
-                // Extract all visual actions for HOLD/MEDIA segments (including COLOR:)
-                existingVisualActions.push(action);
-                return '';
-            }).trim();
+            // Extract visual actions
+            const visualActions = extractVisualActions(mediaContent);
 
-            // For media lines, the content after removing actions should be the media reference
-            const mediaReference = cleanContent;
-
-            // Parse media reference to extract path, ID, or name
-            let mediaId = null;
-            let mediaName = null;
-            let mediaPath = null;
-            let fallbackName = null;
-            let resolvedMediaReference = mediaReference;
-
-            console.log(`🔍 Parsing media reference: "${mediaReference}"`);
-
-            if (mediaReference) {
-                // Check for path="URL",fallback="name" format (new format)
-                const pathMatch = mediaReference.match(/path="([^"]+)"(?:,fallback="([^"]+)")?/);
-                console.log(`🔍 Path regex test result:`, pathMatch);
-                if (pathMatch) {
-                    mediaPath = pathMatch[1];
-                    fallbackName = pathMatch[2] || 'ember_image';
-                    resolvedMediaReference = mediaReference; // Keep original for display
-                    console.log(`✅ Extracted media path: ${mediaPath}, fallback: ${fallbackName}`);
-                } else {
-                    // Check for id=abc123 format (legacy)
-                    const idMatch = mediaReference.match(/id=([a-zA-Z0-9\-_]+)/);
-                    console.log(`🔍 ID regex test result:`, idMatch);
-                    if (idMatch) {
-                        mediaId = idMatch[1];
-                        resolvedMediaReference = mediaReference; // Keep original for display
-                        console.log(`✅ Extracted media ID: ${mediaId}`);
-                    } else {
-                        // Check for name="Display Name" format (legacy)
-                        const nameMatch = mediaReference.match(/name="([^"]+)"/);
-                        console.log(`🔍 Name regex test result:`, nameMatch);
-                        if (nameMatch) {
-                            mediaName = nameMatch[1];
-                            resolvedMediaReference = mediaReference; // Keep original for display
-                            console.log(`✅ Extracted media name: ${mediaName}`);
-                        } else {
-                            // If no path=, id=, or name= format, treat as legacy media reference
-                            mediaId = mediaReference;
-                            console.log(`🔄 Using legacy media reference: ${mediaId}`);
-                        }
-                    }
-                }
-            }
-
-            // Reconstruct content with visual actions FOR DISPLAY
-            const allVisualActions = existingVisualActions.map(action => `<${action}>`).join('');
-            const finalContent = mediaReference ? `${mediaReference} ${allVisualActions}`.trim() : allVisualActions;
-
-            // Handle LOAD SCREEN segments differently
-            if (mediaType === 'LOAD SCREEN') {
-                // Parse LOAD SCREEN attributes: message, duration, icon
-                let loadMessage = 'Loading...';
-                let loadDuration = 2.0;
-                let loadIcon = 'default';
-
-                // Extract message
-                const messageMatch = content.match(/message="([^"]+)"/);
-                if (messageMatch) {
-                    loadMessage = messageMatch[1];
-                }
-
-                // Extract duration
-                const durationMatch = content.match(/duration=([0-9.]+)/);
-                if (durationMatch) {
-                    loadDuration = parseFloat(durationMatch[1]);
-                }
-
-                // Extract icon
-                const iconMatch = content.match(/icon="([^"]+)"/);
-                if (iconMatch) {
-                    loadIcon = iconMatch[1];
-                }
-
-                segments.push({
-                    voiceTag: 'System',
-                    content: finalContent,
-                    originalContent: content,
-                    type: 'loadscreen',
-                    visualActions: existingVisualActions,
-                    hasAutoColorize: false,
-                    // LOAD SCREEN specific properties
-                    loadMessage: loadMessage,
-                    loadDuration: loadDuration,
-                    loadIcon: loadIcon,
-                    // Add voice configuration
-                    voiceConfiguration: voiceConfiguration
-                });
-
-                console.log(`🎬 Parsed LOAD SCREEN segment:`, {
-                    line: trimmedLine,
-                    message: loadMessage,
-                    duration: loadDuration,
-                    icon: loadIcon,
-                    type: 'loadscreen'
-                });
-            } else if (finalContent || existingVisualActions.length > 0) {
-                // Handle MEDIA and HOLD segments
-                const segmentType = mediaType.toLowerCase(); // 'media' or 'hold'
-
-                // Calculate duration for HOLD segments
-                const segmentDuration = segmentType === 'hold' ?
-                    parseFloat(estimateSegmentDuration(content, segmentType)) :
-                    undefined;
-
-                segments.push({
-                    voiceTag: mediaType,
-                    content: finalContent,
-                    originalContent: mediaReference,
-                    type: segmentType,
-                    visualActions: existingVisualActions,
-                    hasAutoColorize: false,
-                    // Add media reference resolution data
-                    mediaId: mediaId,
-                    mediaName: mediaName,
-                    mediaPath: mediaPath,
-                    fallbackName: fallbackName,
-                    resolvedMediaReference: resolvedMediaReference,
-                    // Add voice configuration
-                    voiceConfiguration: voiceConfiguration,
-                    // Add duration for HOLD segments
-                    ...(segmentDuration !== undefined && { duration: segmentDuration })
-                });
-                console.log(`🎬 Parsed ${mediaType} segment:`, {
-                    line: trimmedLine,
-                    finalContent,
-                    mediaReference,
-                    visualActions: existingVisualActions.length,
-                    type: segmentType,
-                    mediaId: mediaId,
-                    mediaName: mediaName,
-                    resolvedMediaReference: resolvedMediaReference,
-                    duration: segmentDuration
-                });
-
-                // 🐛 HOLD SPECIFIC DEBUG
-                if (segmentType === 'hold') {
-                    console.log(`🔍 HOLD SEGMENT DEBUG:`, {
-                        originalInput: trimmedLine,
-                        extractedContent: content,
-                        cleanContent: cleanContent,
-                        mediaReference: mediaReference,
-                        visualActions: existingVisualActions,
-                        allVisualActions: allVisualActions,
-                        finalContent: finalContent,
-                        passedCondition: (finalContent || existingVisualActions.length > 0),
-                        calculatedDuration: segmentDuration
-                    });
-                }
-            } else {
-                console.log(`❌ SKIPPED ${mediaType} segment - no content or visual actions:`, {
-                    finalContent,
-                    existingVisualActionsLength: existingVisualActions.length
-                });
-            }
-        } else {
-            // Match voice tags with optional voice ID and preference: [voiceTag - voice_id:preference] or [voiceTag:preference] or [voiceTag]
-            const voiceMatch = trimmedLine.match(/^\[([^:\]]+)(?::([^:\]]+))?\]\s*(.+)$/);
-
-            if (voiceMatch) {
-                console.log(`🔍 Voice match found:`, {
-                    fullMatch: voiceMatch[0],
-                    voiceTag: voiceMatch[1],
-                    preference: voiceMatch[2] || 'text',
-                    content: voiceMatch[3]
-                });
-
-                // Extract voice ID from voice tag if present (format: "voiceTag - voice_id")
-                const voiceTagFull = voiceMatch[1].trim();
-                const voiceIdMatch = voiceTagFull.match(/^(.+)\s*-\s*([a-zA-Z0-9]+)$/);
-                let voiceTag, voiceId;
-
-                if (voiceIdMatch) {
-                    voiceTag = voiceIdMatch[1].trim();
-                    voiceId = voiceIdMatch[2].trim();
-                    console.log(`🎤 Extracted inline voice ID: ${voiceTag} → ${voiceId}`);
-                } else {
-                    voiceTag = voiceTagFull;
-                    voiceId = null;
-                    console.log(`🎤 No inline voice ID found for: ${voiceTag}`);
-                }
-
-                const preference = voiceMatch[2]?.trim() || 'text'; // Default to 'text' if no preference
-                let content = voiceMatch[3].trim();
-                const voiceType = getVoiceType(voiceTag);
-
-                // Extract visual actions (but NOT media references like <name="file.jpg">, <id=abc123>, or <path="url">)
-                // Also ignore color overlay commands for voice segments
-                const existingVisualActions = [];
-                let cleanContent = content.replace(/\<([^>]+)\>/g, (match, action) => {
-                    // Don't treat media references as visual actions
-                    if (action.startsWith('name=') || action.startsWith('id=') || action.startsWith('path=')) {
-                        return match; // Keep media references in the content
-                    }
-                    // Skip color overlay commands for voice segments (COLOR:, TRAN:)
-                    if (action.startsWith('COLOR:') || action.startsWith('TRAN:')) {
-                        return ''; // Remove color overlay commands
-                    }
-                    // Only extract actual visual actions (zoom, etc.)
-                    existingVisualActions.push(action);
-                    return '';
-                }).trim();
-
-                // No automatic colorization - removed color overlay system
-
-                // Reconstruct content with visual actions FOR DISPLAY
-                const allVisualActions = existingVisualActions.map(action => `<${action}>`).join('');
-                const finalContent = `${allVisualActions} ${cleanContent}`.trim();
-
-                if (cleanContent) {
-                    // Create voice configuration with inline voice ID
-                    const segmentVoiceConfig = { ...voiceConfiguration };
-                    if (voiceId) {
-                        segmentVoiceConfig[voiceType] = voiceId;
-                    }
-
-                    segments.push({
-                        voiceTag,
-                        content: finalContent, // For display (includes visual actions)
-                        originalContent: cleanContent, // For audio synthesis (clean text only)
-                        type: voiceType,
-                        visualActions: existingVisualActions,
-                        hasAutoColorize: false, // No auto-colorization anymore
-                        // Add voice configuration (inline voice ID takes precedence)
-                        voiceConfiguration: segmentVoiceConfig,
-                        // Add embedded preference from script
-                        preference: preference
-                    });
-                }
-            }
-        }
-    }
-
-    console.log('📝 Parsed script segments:', segments.length, 'segments');
-    console.log('🎨 Applied auto-colorization based on voice types:');
-    segments.forEach((segment, index) => {
-        if (segment.type === 'media' || segment.type === 'hold') {
-            console.log(`  ${index + 1}. [[${segment.voiceTag}]] → ${segment.type.toUpperCase()} SEGMENT (${segment.content})`);
-        } else if (segment.hasAutoColorize) {
-            const colorMap = {
-                ember: 'RED (255,0,0,0.2)',
-                narrator: 'BLUE (0,0,255,0.2)',
-                contributor: 'GREEN (0,255,0,0.2)'
+            // Create media segment
+            const mediaSegment = {
+                line: line,
+                finalContent: mediaContent,
+                mediaReference: mediaReference,
+                visualActions: visualActions.length,
+                type: mediaType.toLowerCase(),
+                originalContent: mediaContent,
+                content: mediaContent,
+                voiceTag: mediaType,
+                voiceType: 'media',
+                voiceId: null,
+                preference: null,
+                speaker: null,
+                visualActionsList: visualActions
             };
-            console.log(`  ${index + 1}. [${segment.voiceTag}] → ${colorMap[segment.type]}`);
-        }
-    });
 
-    // Remove exact duplicates (but preserve HOLD segments since opening/closing are legitimately the same)
-    const uniqueSegments = [];
-    const seenSegments = new Set();
+            // Remove excessive debug logging
+            // console.log(`🎬 Parsed ${mediaType} segment:`, mediaSegment);
 
-    console.log('🔄 Removing duplicates from', segments.length, 'segments...');
-
-    segments.forEach((segment, index) => {
-        // Skip duplicate removal for HOLD segments - opening and closing are expected to be the same
-        if (segment.type === 'hold') {
-            uniqueSegments.push(segment);
-            console.log(`  ✅ Kept HOLD segment ${index + 1}: [[${segment.voiceTag}]] "${segment.content.substring(0, 50)}..." (skipping duplicate check)`);
+            segments.push(mediaSegment);
             return;
         }
 
-        const key = `${segment.type}-${segment.voiceTag}-${segment.content}`;
-        console.log(`🔍 Checking segment ${index + 1}: Key="${key.substring(0, 50)}..."`);
+        // Check for voice segments
+        const voiceMatch = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+        if (voiceMatch) {
+            // Remove excessive debug logging
+            // console.log('🔍 Voice match found:', { fullMatch: line, voiceTag: voiceMatch[1], preference: null, content: voiceMatch[2] });
 
-        if (seenSegments.has(key)) {
-            console.warn('⚠️ Removing duplicate segment:', {
-                index: index + 1,
-                key: key.substring(0, 100),
-                segment: `${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} ${segment.content.substring(0, 50)}...`
-            });
-        } else {
-            seenSegments.add(key);
-            uniqueSegments.push(segment);
-            console.log(`  ✅ Kept segment ${index + 1}: ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 50)}..."`);
+            const voiceTag = voiceMatch[1];
+            const content = voiceMatch[2];
+
+            // Extract inline voice ID if present
+            const inlineVoiceId = extractInlineVoiceId(voiceTag);
+
+            // Remove excessive debug logging
+            // if (inlineVoiceId) {
+            //     console.log('🎤 Extracted inline voice ID:', voiceTag, '→', inlineVoiceId);
+            // } else {
+            //     console.log('🎤 No inline voice ID found for:', voiceTag);
+            // }
+
+            // Clean the content
+            const cleanContent = cleanTextContent(content);
+
+            // Determine voice type
+            let voiceType = 'contributor';
+            if (voiceTag.includes('Ember Voice')) {
+                voiceType = 'ember';
+                // Remove excessive debug logging
+                // console.log('✅ Detected EMBER voice:', `"${voiceTag}"`);
+            } else if (voiceTag.includes('Narrator')) {
+                voiceType = 'narrator';
+                // Remove excessive debug logging
+                // console.log('✅ Detected NARRATOR voice:', `"${voiceTag}"`);
+            } else {
+                voiceType = 'contributor';
+                // Remove excessive debug logging
+                // console.log('✅ Detected CONTRIBUTOR voice:', `"${voiceTag}"`);
+            }
+
+            // Extract preference from voice tag
+            const preference = extractPreference(voiceTag);
+
+            // Remove excessive debug logging
+            // console.log('🐛 SEGMENT DEBUG - Creating segment for [' + voiceTag + ']:');
+            // console.log('🐛   Original line:', line);
+            // console.log('🐛   Extracted content:', content);
+            // console.log('🐛   Clean content:', cleanContent);
+            // console.log('🐛   Final content:', cleanContent);
+            // console.log('🐛   Voice type:', voiceType);
+            // console.log('🐛   Voice ID:', inlineVoiceId);
+
+            // Create voice segment
+            const voiceSegment = {
+                line: line,
+                finalContent: cleanContent,
+                originalContent: cleanContent,
+                content: cleanContent,
+                voiceTag: voiceTag.replace(/:.*$/, ''), // Remove preference suffix for name matching
+                voiceType: voiceType,
+                voiceId: inlineVoiceId,
+                preference: preference,
+                speaker: extractSpeakerName(voiceTag),
+                type: voiceType,
+                visualActions: 0,
+                visualActionsList: []
+            };
+
+            segments.push(voiceSegment);
         }
     });
 
-    console.log(`📝 Removed ${segments.length - uniqueSegments.length} duplicate segments`);
-    console.log('📝 Final unique segments order:');
-    uniqueSegments.forEach((segment, index) => {
-        console.log(`  ${index + 1}. ${(segment.type === 'media' || segment.type === 'hold') ? '[[' + segment.voiceTag + ']]' : '[' + segment.voiceTag + ']'} "${segment.content.substring(0, 30)}..."`);
-    });
+    // Remove excessive debug logging
+    // console.log('📝 Parsed script segments:', segments.length, 'segments');
+    // console.log('🎨 Applied auto-colorization based on voice types:');
 
-    // 🚨 CRITICAL DEBUG: Count HOLD segments specifically
-    const holdSegments = uniqueSegments.filter(seg => seg.type === 'hold');
-    console.log(`🚨 HOLD SEGMENTS COUNT: ${holdSegments.length}`);
-    holdSegments.forEach((holdSeg, index) => {
-        console.log(`  🚨 HOLD ${index + 1}: "${holdSeg.content}" (type: ${holdSeg.type}, voiceTag: ${holdSeg.voiceTag})`);
-    });
+    // segments.forEach((segment, index) => {
+    //     console.log(`  ${index + 1}. [${segment.voiceTag}] → ${segment.type.toUpperCase()} SEGMENT (${segment.finalContent.substring(0, 50)}...)`);
+    // });
+
+    // Remove duplicates
+    const uniqueSegments = removeDuplicateSegments(segments);
 
     return uniqueSegments;
-};
+}
 
 /**
  * Parse text into sentences for synchronized display
@@ -773,4 +559,127 @@ export const formatScriptForDisplay = async (script, ember, storyCut) => {
         // Fallback: return script as-is
         return script;
     }
-}; 
+};
+
+// Helper function to parse media references
+function parseMediaReference(content) {
+    if (!content) return '';
+
+    // Check for path="URL",fallback="name" format
+    const pathMatch = content.match(/path="([^"]+)"(?:,fallback="([^"]+)")?/);
+    if (pathMatch) {
+        return content; // Return original format
+    }
+
+    // Check for id=abc123 format
+    const idMatch = content.match(/id=([a-zA-Z0-9\-_]+)/);
+    if (idMatch) {
+        return content; // Return original format
+    }
+
+    // Check for name="Display Name" format
+    const nameMatch = content.match(/name="([^"]+)"/);
+    if (nameMatch) {
+        return content; // Return original format
+    }
+
+    return content; // Return as-is if no specific format
+}
+
+// Helper function to extract visual actions
+function extractVisualActions(content) {
+    const actions = [];
+    content.replace(/\<([^>]+)\>/g, (match, action) => {
+        // Don't treat media references as visual actions
+        if (action.startsWith('name=') || action.startsWith('id=') || action.startsWith('path=')) {
+            return match; // Keep media references
+        }
+        actions.push(action);
+        return '';
+    });
+    return actions;
+}
+
+// Helper function to extract inline voice ID
+function extractInlineVoiceId(voiceTag) {
+    const voiceIdMatch = voiceTag.match(/^(.+)\s*-\s*([a-zA-Z0-9]+)$/);
+    if (voiceIdMatch) {
+        return voiceIdMatch[2].trim();
+    }
+    return null;
+}
+
+// Helper function to clean text content
+function cleanTextContent(content) {
+    // Remove visual actions but keep media references
+    return content.replace(/\<([^>]+)\>/g, (match, action) => {
+        // Keep media references
+        if (action.startsWith('name=') || action.startsWith('id=') || action.startsWith('path=')) {
+            return match;
+        }
+        // Remove visual actions
+        return '';
+    }).trim();
+}
+
+// Helper function to extract preference from voice tag
+function extractPreference(voiceTag) {
+    const preferenceMatch = voiceTag.match(/:([^:]+)$/);
+    return preferenceMatch ? preferenceMatch[1].trim() : 'text';
+}
+
+// Helper function to extract speaker name
+function extractSpeakerName(voiceTag) {
+    // Remove voice ID and preference to get clean speaker name
+    const cleanTag = voiceTag.replace(/\s*-\s*[a-zA-Z0-9]+/, '').replace(/:.*$/, '');
+
+    // Extract name from parentheses for voices like "Ember Voice (Lily)"
+    const nameMatch = cleanTag.match(/\(([^)]+)\)/);
+    if (nameMatch) {
+        return nameMatch[1];
+    }
+
+    return cleanTag;
+}
+
+// Helper function to remove duplicate segments
+function removeDuplicateSegments(segments) {
+    const uniqueSegments = [];
+    const seenSegments = new Set();
+
+    // Remove excessive debug logging
+    // console.log('🔄 Removing duplicates from', segments.length, 'segments...');
+
+    segments.forEach((segment, index) => {
+        // Skip duplicate removal for HOLD segments
+        if (segment.type === 'hold') {
+            uniqueSegments.push(segment);
+            // Remove excessive debug logging
+            // console.log(`  ✅ Kept HOLD segment ${index + 1}: [[${segment.voiceTag}]] "${segment.content.substring(0, 50)}..." (skipping duplicate check)`);
+            return;
+        }
+
+        const key = `${segment.type}-${segment.voiceTag}-${segment.content}`;
+        // Remove excessive debug logging
+        // console.log(`🔍 Checking segment ${index + 1}: Key="${key.substring(0, 50)}..."`);
+
+        if (seenSegments.has(key)) {
+            // Remove excessive debug logging
+            // console.warn('⚠️ Removing duplicate segment:', { index: index + 1, segment: `[${segment.voiceTag}] ${segment.content.substring(0, 50)}...` });
+        } else {
+            seenSegments.add(key);
+            uniqueSegments.push(segment);
+            // Remove excessive debug logging
+            // console.log(`  ✅ Kept segment ${index + 1}: [${segment.voiceTag}] "${segment.content.substring(0, 50)}..."`);
+        }
+    });
+
+    // Remove excessive debug logging
+    // console.log(`📝 Removed ${segments.length - uniqueSegments.length} duplicate segments`);
+    // console.log('📝 Final unique segments order:');
+    // uniqueSegments.forEach((segment, index) => {
+    //     console.log(`  ${index + 1}. [${segment.voiceTag}] "${segment.content.substring(0, 30)}..."`);
+    // });
+
+    return uniqueSegments;
+} 
