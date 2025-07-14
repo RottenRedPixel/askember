@@ -2007,4 +2007,29 @@ export default function StoryCutStudio() {
                                                                         onClick={() => {
                                                                             setEffectDirections(prev => ({
                                                                                 ...prev,
-                                                                                [`hold-fade-${block.id}`]: prev[`hold-fade-${block.id}`
+                                                                                [`hold-fade-${block.id}`]: prev[`hold-fade-${block.id}`] === 'in' ? 'out' : 'in'
+                                                                            }));
+                                                                        }}
+                                                                        className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 transition-colors"
+                                                                    >
+                                                                        Toggle
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                        </div>
+                                    );
+                                }
+
+                                    return null;
+                                })}
+                            </div>
+                        </div>
+                )}
+            </div>
+        </div>
+        </div >
+    );
+}
