@@ -203,6 +203,12 @@ export default function EmberPlay() {
     }, []);
 
     const handlePlay = async () => {
+        // Don't allow play if ember data isn't loaded yet
+        if (!ember || !storyCuts) {
+            console.log('⏳ Ember data not loaded yet, please wait...');
+            return;
+        }
+
         await handleMediaPlay(ember, storyCuts, primaryStoryCut, selectedEmberVoice, { isPlaying }, {
             setShowFullscreenPlay,
             setIsGeneratingAudio,
@@ -357,17 +363,17 @@ export default function EmberPlay() {
         return '';
     };
 
-    // Show loading state
-    if (loading) {
-        return (
-            <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
-                <div className="flex flex-col items-center space-y-4">
-                    <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-white text-lg font-medium">Loading ember...</p>
-                </div>
-            </div>
-        );
-    }
+    // Remove loading screen - show ember immediately while data loads in background
+    // if (loading) {
+    //     return (
+    //         <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+    //             <div className="flex flex-col items-center space-y-4">
+    //                 <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+    //                 <p className="text-white text-lg font-medium">Loading ember...</p>
+    //             </div>
+    //         </div>
+    //     );
+    // }
 
     // Show error state
     if (error) {
@@ -558,11 +564,11 @@ export default function EmberPlay() {
 
                                         {/* Play/Stop Button - toggles between play and stop */}
                                         <button
-                                            className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                            className="p-1 hover:bg-white/70 rounded-full transition-colors disabled:opacity-50"
                                             onClick={isPlaying ? handleStop : handlePlay}
-                                            aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Stop story" : "Play story")}
+                                            aria-label={isGeneratingAudio ? "Preparing Story..." : (!ember || !storyCuts) ? "Loading..." : (isPlaying ? "Stop story" : "Play story")}
                                             type="button"
-                                            disabled={isGeneratingAudio}
+                                            disabled={isGeneratingAudio || !ember || !storyCuts}
                                         >
                                             {isGeneratingAudio ? (
                                                 <div className="w-6 h-6 flex items-center justify-center">
@@ -791,11 +797,11 @@ export default function EmberPlay() {
 
                                         {/* Play/Stop Button - toggles between play and stop */}
                                         <button
-                                            className="p-1 hover:bg-white/70 rounded-full transition-colors"
+                                            className="p-1 hover:bg-white/70 rounded-full transition-colors disabled:opacity-50"
                                             onClick={isPlaying ? handleStop : handlePlay}
-                                            aria-label={isGeneratingAudio ? "Preparing Story..." : (isPlaying ? "Stop story" : "Play story")}
+                                            aria-label={isGeneratingAudio ? "Preparing Story..." : (!ember || !storyCuts) ? "Loading..." : (isPlaying ? "Stop story" : "Play story")}
                                             type="button"
-                                            disabled={isGeneratingAudio}
+                                            disabled={isGeneratingAudio || !ember || !storyCuts}
                                         >
                                             {isGeneratingAudio ? (
                                                 <div className="w-6 h-6 flex items-center justify-center">
