@@ -262,6 +262,9 @@ export const useStoryCuts = (emberId, userProfile) => {
             console.log('🎬 Primary story cut fetched:', primary);
             setPrimaryStoryCutState(primary);
 
+            // 🚫 REMOVED: Auto-set single story cut as "The One" - this was causing story cut reuse
+            // This logic was preventing multiple story cuts from being created
+            /*
             // Auto-set single story cut as "The One" if no primary exists
             if (cuts.length === 1 && !primary && userProfile?.user_id) {
                 try {
@@ -275,6 +278,7 @@ export const useStoryCuts = (emberId, userProfile) => {
                     console.error('Error auto-setting primary story cut:', error);
                 }
             }
+            */
         } catch (error) {
             console.error('Error fetching story cuts:', error);
             setStoryCuts([]);
