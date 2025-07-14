@@ -132,8 +132,8 @@ export default function StoryCutStudio() {
 
                     if (!targetStoryCut) {
                         setError(`Story cut not found: ${storyCutId}`);
-                        return;
-                    }
+                    return;
+                }
 
                     console.log('✅ Loaded specific story cut:', targetStoryCut.title);
                 } else {
@@ -2097,12 +2097,12 @@ export default function StoryCutStudio() {
                                                             {block.type === 'start' ? 'Story Start' : 'Story End'}
                                                         </span>
                                                     </div>
-                                                </>
+                                        </>
                                             )}
                                         </div>
-                                    );
+                        );
                                 })}
-                            </div>
+                    </div>
                         )}
 
                         {/* Action Buttons */}
@@ -2124,11 +2124,11 @@ export default function StoryCutStudio() {
                                 >
                                     {updating ? 'Updating...' : 'Update'}
                                 </Button>
-                            </div>
-                        )}
-
-
                     </div>
+                )}
+
+
+        </div>
                 ) : (
                     <div className="space-y-4">
                         {/* Code View Header */}
