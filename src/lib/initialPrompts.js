@@ -201,6 +201,13 @@ CONTENT INSTRUCTIONS:
 - Create content suitable for audio narration
 - Make the story personally meaningful while being accessible to listeners
 
+MULTIPLE CONTRIBUTIONS HANDLING:
+- When a contributor has made multiple contributions in the story circle, use DIFFERENT contributions for different voice blocks
+- DO NOT repeat the same contribution content in multiple voice blocks from the same person
+- If [Amado] appears multiple times in your script, each instance should use a different quote from Amado's contributions
+- Vary the contributions to create a richer, more dynamic narrative
+- Use the most relevant contribution from each person for each specific moment in the story
+
 VOICE TAG NAMING:
 - Use [{{owner_first_name}}] for the ember owner's actual quotes (e.g., [Amado])
 - Use [CONTRIBUTOR_FIRST_NAME] with actual first names for contributors (e.g., [Odama], [Sarah])

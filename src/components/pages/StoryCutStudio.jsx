@@ -230,6 +230,112 @@ export default function StoryCutStudio() {
                     return 'Text Response';
                 };
 
+                // ✅ NEW: Enhanced function to determine message type with contribution tracking
+                const usedContributions = new Set(); // Track which contributions have been used
+                const determineMessageTypeWithTracking = (voiceTag, content, voiceType) => {
+                    if (voiceType !== 'contributor') {
+                        return 'AI Voice';
+                    }
+
+                    // For contributors, try to match with original story messages
+                    if (!loadedStoryMessages || loadedStoryMessages.length === 0) {
+                        console.log(`🔍 No story messages available for ${voiceTag}`);
+                        return 'Text Response'; // Default to text if no messages available
+                    }
+
+                    console.log(`🔍 MULTI-CONTRIBUTION MATCHING for ${voiceTag}:`);
+                    console.log(`  Script content: "${content}"`);
+                    console.log(`  Used contributions so far: ${Array.from(usedContributions).join(', ')}`);
+
+                    // Get contributor messages for this specific user (by first name)
+                    const contributorMessages = loadedStoryMessages.filter(msg =>
+                        msg.sender === 'user' && msg.user_first_name === voiceTag
+                    ).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+                    console.log(`  Available messages from ${voiceTag}: ${contributorMessages.length}`);
+
+                    // Filter out already used contributions
+                    const availableMessages = contributorMessages.filter(msg =>
+                        !usedContributions.has(msg.id)
+                    );
+
+                    console.log(`  Available unused messages from ${voiceTag}: ${availableMessages.length}`);
+
+                    // Try to find the best match among available messages
+                    let bestMatch = null;
+                    let bestScore = 0;
+                    let bestMatchType = null;
+
+                    for (const msg of availableMessages) {
+                        if (msg.content && msg.content.trim()) {
+                            const msgContent = msg.content.toLowerCase().trim();
+                            const scriptContent = content.toLowerCase().trim();
+
+                            // Method 1: Exact match (highest priority)
+                            if (msgContent === scriptContent) {
+                                console.log(`  ✅ EXACT MATCH with unused contribution: "${msg.content}"`);
+                                bestMatch = msg;
+                                bestScore = 100;
+                                bestMatchType = 'exact';
+                                break;
+                            }
+
+                            // Method 2: One contains the other
+                            if (msgContent.includes(scriptContent) || scriptContent.includes(msgContent)) {
+                                const score = 80;
+                                if (score > bestScore) {
+                                    console.log(`  ✅ SUBSTRING MATCH with unused contribution: "${msg.content}"`);
+                                    bestMatch = msg;
+                                    bestScore = score;
+                                    bestMatchType = 'substring';
+                                }
+                            }
+
+                            // Method 3: Word-based matching
+                            const msgWords = msgContent.split(/\s+/).filter(word => word.length > 2);
+                            const scriptWords = scriptContent.split(/\s+/).filter(word => word.length > 2);
+
+                            let matchingWords = 0;
+                            for (const word of msgWords) {
+                                if (scriptWords.includes(word)) {
+                                    matchingWords++;
+                                }
+                            }
+
+                            const matchPercentage = matchingWords / Math.min(msgWords.length, scriptWords.length);
+                            if (matchPercentage >= 0.5 && matchingWords >= 2) {
+                                const score = Math.round(matchPercentage * 70); // Max 70 for word match
+                                if (score > bestScore) {
+                                    console.log(`  ✅ WORD MATCH (${Math.round(matchPercentage * 100)}%) with unused contribution: "${msg.content}"`);
+                                    bestMatch = msg;
+                                    bestScore = score;
+                                    bestMatchType = 'word';
+                                }
+                            }
+                        }
+                    }
+
+                    if (bestMatch) {
+                        // Mark this contribution as used
+                        usedContributions.add(bestMatch.id);
+                        console.log(`  ✅ SELECTED contribution (${bestMatchType}): "${bestMatch.content}" (has_audio: ${bestMatch.has_audio})`);
+                        console.log(`  📝 Updated used contributions: ${Array.from(usedContributions).join(', ')}`);
+                        return bestMatch.has_audio ? 'Audio Message' : 'Text Response';
+                    }
+
+                    // If no unused contributions match, fall back to any available contribution from this user
+                    console.log(`  ⚠️ No unused contributions match - falling back to any contribution from ${voiceTag}`);
+                    if (contributorMessages.length > 0) {
+                        const fallbackMsg = contributorMessages[0];
+                        console.log(`  📝 Using fallback contribution: "${fallbackMsg.content}" (has_audio: ${fallbackMsg.has_audio})`);
+                        return fallbackMsg.has_audio ? 'Audio Message' : 'Text Response';
+                    }
+
+                    // Default to text response if no match found
+                    console.log(`  ❌ No contributions found for ${voiceTag} - defaulting to Text Response`);
+                    return 'Text Response';
+                };
+
                 // Parse the actual script and create blocks with real content
                 const realBlocks = [];
 
@@ -1901,445 +2007,4 @@ export default function StoryCutStudio() {
                                                                         onClick={() => {
                                                                             setEffectDirections(prev => ({
                                                                                 ...prev,
-                                                                                [`hold-fade-${block.id}`]: prev[`hold-fade-${block.id}`] === 'out' ? 'in' : 'out'
-                                                                            }));
-                                                                        }}
-                                                                        className="w-12 h-6 rounded-full transition-colors duration-200 relative bg-gray-600"
-                                                                    >
-                                                                        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 ${effectDirections[`hold-fade-${block.id}`] === 'out'
-                                                                            ? 'translate-x-6'
-                                                                            : 'translate-x-0.5'
-                                                                            }`} />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-
-                                                </>
-                                            )}
-
-                                            {block.type === 'loadscreen' && (
-                                                <>
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <div className="flex items-center gap-3">
-                                                            {/* Reorder Controls */}
-                                                            <div className="flex flex-col gap-1">
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        moveBlockUp(index);
-                                                                    }}
-                                                                    disabled={index === 0}
-                                                                    className={`p-1 rounded-full transition-colors duration-200 ${index === 0
-                                                                        ? getArrowButtonColors(block).disabled
-                                                                        : getArrowButtonColors(block).active
-                                                                        }`}
-                                                                    title="Move up"
-                                                                >
-                                                                    <ArrowUp className="w-4 h-4" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        moveBlockDown(index);
-                                                                    }}
-                                                                    disabled={index === blocks.length - 1}
-                                                                    className={`p-1 rounded-full transition-colors duration-200 ${index === blocks.length - 1
-                                                                        ? getArrowButtonColors(block).disabled
-                                                                        : getArrowButtonColors(block).active
-                                                                        }`}
-                                                                    title="Move down"
-                                                                >
-                                                                    <ArrowDown className="w-4 h-4" />
-                                                                </button>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-8 h-8 rounded border border-gray-300 flex items-center justify-center bg-gray-100">
-                                                                    <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
-                                                                </div>
-                                                                <span className={`font-semibold ${textColor}`}>Load Screen</span>
-                                                            </div>
-                                                        </div>
-                                                        <span className={`text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-800`}>
-                                                            System
-                                                        </span>
-                                                    </div>
-                                                </>
-                                            )}
-
-                                            {(block.type === 'start' || block.type === 'end') && (
-                                                <>
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`font-semibold ${textColor}`}>{block.title}</span>
-                                                        </div>
-                                                        <span className={`text-xs px-2 py-1 rounded-full ${block.type === 'start' ? 'bg-gray-300 text-gray-900' : 'bg-gray-300 text-gray-900'}`}>
-                                                            {block.type === 'start' ? 'Story Start' : 'Story End'}
-                                                        </span>
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        {!loading && !error && (
-                            <div className="mt-6 flex gap-3 max-w-md mx-auto">
-                                <Button
-                                    onClick={() => navigate(`/embers/${id}/manage?view=story-cuts`)}
-                                    variant="outline"
-                                    size="lg"
-                                    className="px-6 py-3 h-auto flex-1"
-                                >
-                                    Back
-                                </Button>
-                                <Button
-                                    onClick={handleUpdateStoryCut}
-                                    disabled={updating}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 h-auto disabled:opacity-50 flex-1"
-                                    size="lg"
-                                >
-                                    {updating ? 'Updating...' : 'Update'}
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    /* Code View - Script editing functionality */
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-gray-900">Generated Script</h3>
-                            {!isEditingScript && (
-                                <Button
-                                    onClick={handleEditScript}
-                                    variant="outline"
-                                    size="sm"
-                                    className="flex items-center gap-2"
-                                >
-                                    <PencilSimple size={16} />
-                                    Edit
-                                </Button>
-                            )}
-                        </div>
-
-                        {isEditingScript ? (
-                            /* Edit Mode */
-                            <div className="space-y-3">
-                                <textarea
-                                    value={editedScript}
-                                    onChange={(e) => setEditedScript(e.target.value)}
-                                    className="w-full h-96 p-4 bg-white border border-gray-300 rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="Enter your script here..."
-                                />
-                                <div className="flex items-center gap-3">
-                                    <Button
-                                        onClick={handleSaveScript}
-                                        disabled={isSavingScript || !editedScript.trim()}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                                    >
-                                        <Save size={16} className="mr-2" />
-                                        {isSavingScript ? 'Saving...' : 'Save'}
-                                    </Button>
-                                    <Button
-                                        onClick={handleCancelScriptEdit}
-                                        variant="outline"
-                                        disabled={isSavingScript}
-                                    >
-                                        <X size={16} className="mr-2" />
-                                        Cancel
-                                    </Button>
-                                </div>
-                            </div>
-                        ) : (
-                            /* View Mode */
-                            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
-                                <div className="text-gray-700 leading-relaxed font-mono text-sm overflow-auto">
-                                    <pre className="whitespace-pre-wrap break-words max-w-full" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{storyCut?.full_script || 'Loading script...'}</pre>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* EmberPlay - Same wrapper structure as EmberDetail */}
-            {showFullscreenPlay && (
-                <>
-                    {/* Mobile Layout */}
-                    <div className="md:hidden h-screen overflow-hidden">
-                        <div className={`h-full bg-gray-100 flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
-                            {/* Top Section - Clean background, no orange */}
-                            <div className="h-[70vh] relative bg-black">
-                                {/* Background Image - blurred when playing without story cut */}
-                                {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
-                                    <img
-                                        src={currentMediaImageUrl}
-                                        alt={ember?.title || 'Ember'}
-                                        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-                                        id="ember-background-image"
-                                    />
-                                )}
-
-                                {/* Show main ember image when no media image and playing without story cut */}
-                                {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
-                                    <img
-                                        src={ember.image_url}
-                                        alt={ember?.title || 'Ember'}
-                                        className="absolute inset-0 w-full h-full object-cover"
-                                    />
-                                )}
-
-                                {/* Media Color Screen - solid color background when color effect is active */}
-                                {!isGeneratingAudio && !showEndHold && currentMediaColor && (
-                                    <div
-                                        className="absolute inset-0"
-                                        style={{
-                                            backgroundColor: currentMediaColor
-                                        }}
-                                    />
-                                )}
-
-                                {/* Loading State */}
-                                {isGeneratingAudio && (
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="text-white text-center">
-                                            <div className="mb-4">
-                                                <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
-                                            </div>
-                                            <p className="text-lg">Generating audio...</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Load Screen - shows when currentLoadingState is true */}
-                                {currentLoadingState && (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ backgroundColor: 'black' }}>
-                                        <div className="flex flex-col items-center space-y-4">
-                                            {/* Loading Spinner */}
-                                            <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                                            {/* Loading Message */}
-                                            <p className="text-white text-lg font-medium text-center">
-                                                {currentLoadingMessage}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Story Cut Content Display */}
-                                {!isGeneratingAudio && currentDisplayText && (
-                                    <div className="absolute inset-0 flex items-center justify-center p-4">
-                                        <div className="container mx-auto max-w-4xl">
-                                            <div className="text-center">
-                                                {/* Voice Tag */}
-                                                {currentVoiceTag && (
-                                                    <div className="mb-4">
-                                                        <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
-                                                            {currentVoiceTag}
-                                                        </span>
-                                                    </div>
-                                                )}
-
-                                                {/* Display Text */}
-                                                <p className="text-white text-lg font-bold">
-                                                    {currentDisplayText}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Bottom right capsule: Main EmberDetail capsule in top section */}
-                                <div className="absolute right-4 bottom-4 z-20">
-                                    <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
-                                        <button
-                                            className="p-1 hover:bg-white/70 rounded-full transition-colors"
-                                            onClick={handleExitPlay}
-                                            aria-label="Close player"
-                                            type="button"
-                                        >
-                                            <X size={24} className="text-gray-700" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Bottom Section - Black - 30% height to match EmberDetail */}
-                            <div className="h-[30vh] bg-black relative">
-                                {/* End Hold Effect */}
-                                {showEndHold && (
-                                    <div className="absolute inset-0 bg-black" />
-                                )}
-
-                                {/* Text Content Display */}
-                                <div className="w-full px-4 pt-3 pb-2 md:px-6 flex-shrink-0">
-                                    {/* Voice Tag */}
-                                    {currentVoiceTag && (
-                                        <div className="text-center mb-2">
-                                            <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
-                                                {currentVoiceTag}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Display Text */}
-                                    <p className="text-lg font-bold text-white text-center">
-                                        {currentDisplayText}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Desktop Layout */}
-                    <div className="hidden md:block">
-                        <div className="container mx-auto px-1.5 py-8">
-                            <div className="max-w-4xl mx-auto">
-                                <div className="rounded-xl bg-white shadow-sm">
-                                    <Card className="py-0 w-full bg-gray-100">
-                                        <CardContent className="p-0 h-full">
-                                            <div className={`h-screen flex flex-col ${isPlayerFadingOut ? 'animate-fade-out' : 'opacity-0 animate-fade-in'}`}>
-                                                {/* Top Section - Clean background, no orange */}
-                                                <div className="h-[70vh] relative bg-black">
-                                                    {/* Background Image - blurred when playing without story cut */}
-                                                    {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
-                                                        <img
-                                                            src={currentMediaImageUrl}
-                                                            alt={ember?.title || 'Ember'}
-                                                            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-                                                            id="ember-background-image"
-                                                        />
-                                                    )}
-
-                                                    {/* Show main ember image when no media image and playing without story cut */}
-                                                    {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
-                                                        <img
-                                                            src={ember.image_url}
-                                                            alt={ember?.title || 'Ember'}
-                                                            className="absolute inset-0 w-full h-full object-cover"
-                                                        />
-                                                    )}
-
-                                                    {/* Media Color Screen - solid color background when color effect is active */}
-                                                    {!isGeneratingAudio && !showEndHold && currentMediaColor && (
-                                                        <div
-                                                            className="absolute inset-0"
-                                                            style={{
-                                                                backgroundColor: currentMediaColor
-                                                            }}
-                                                        />
-                                                    )}
-
-                                                    {/* Loading State */}
-                                                    {isGeneratingAudio && (
-                                                        <div className="absolute inset-0 flex items-center justify-center">
-                                                            <div className="text-white text-center">
-                                                                <div className="mb-4">
-                                                                    <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
-                                                                </div>
-                                                                <p className="text-lg">Generating audio...</p>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Load Screen - shows when currentLoadingState is true */}
-                                                    {currentLoadingState && (
-                                                        <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ backgroundColor: 'black' }}>
-                                                            <div className="flex flex-col items-center space-y-4">
-                                                                {/* Loading Spinner */}
-                                                                <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                                {/* Loading Message */}
-                                                                <p className="text-white text-lg font-medium text-center">
-                                                                    {currentLoadingMessage}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Story Cut Content Display */}
-                                                    {!isGeneratingAudio && currentDisplayText && (
-                                                        <div className="absolute inset-0 flex items-center justify-center p-4">
-                                                            <div className="container mx-auto max-w-4xl">
-                                                                <div className="text-center">
-                                                                    {/* Voice Tag */}
-                                                                    {currentVoiceTag && (
-                                                                        <div className="mb-4">
-                                                                            <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
-                                                                                {currentVoiceTag}
-                                                                            </span>
-                                                                        </div>
-                                                                    )}
-
-                                                                    {/* Display Text */}
-                                                                    <p className="text-white text-lg font-bold">
-                                                                        {currentDisplayText}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Bottom right capsule: Main EmberDetail capsule in top section */}
-                                                    <div className="absolute right-4 bottom-4 z-20">
-                                                        <div className="flex flex-col items-center gap-2 bg-white/50 backdrop-blur-sm px-2 py-3 rounded-full shadow-lg">
-                                                            <button
-                                                                className="p-1 hover:bg-white/70 rounded-full transition-colors"
-                                                                onClick={handleExitPlay}
-                                                                aria-label="Close player"
-                                                                type="button"
-                                                            >
-                                                                <X size={24} className="text-gray-700" />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Bottom Section - Black - 30% height to match EmberDetail */}
-                                                <div className="h-[30vh] bg-black relative">
-                                                    {/* End Hold Effect */}
-                                                    {showEndHold && (
-                                                        <div className="absolute inset-0 bg-black" />
-                                                    )}
-
-                                                    {/* Text Content Display */}
-                                                    <div className="w-full px-4 pt-3 pb-2 md:px-6 flex-shrink-0">
-                                                        {/* Voice Tag */}
-                                                        {currentVoiceTag && (
-                                                            <div className="text-center mb-2">
-                                                                <span className="inline-block px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium backdrop-blur-sm">
-                                                                    {currentVoiceTag}
-                                                                </span>
-                                                            </div>
-                                                        )}
-
-                                                        {/* Display Text */}
-                                                        <p className="text-lg font-bold text-white text-center">
-                                                            {currentDisplayText}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </>
-            )}
-
-            {/* Add Block Modal */}
-            <AddBlockModal
-                isOpen={showAddBlockModal}
-                onClose={() => setShowAddBlockModal(false)}
-                emberId={id}
-                onAddBlock={handleAddMediaBlock}
-                storyMessages={storyMessages}
-            />
-        </div>
-    );
-} 
+                                                                                [`hold-fade-${block.id}`]: prev[`hold-fade-${block.id}`
