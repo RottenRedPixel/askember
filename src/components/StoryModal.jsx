@@ -18,8 +18,10 @@ import {
   completeStoryConversation,
   getAllStoryMessagesForEmber,
   clearAllStoriesForEmber,
-  deleteStoryMessage
+  deleteStoryMessage,
+  getUserVoiceModel
 } from '../lib/database';
+import { textToSpeech } from '../lib/elevenlabs';
 import { speechToText, storeVoiceTraining } from '../lib/elevenlabs';
 import { generateEmberAIQuestion } from '@/lib/emberAI';
 
@@ -125,7 +127,13 @@ const ModalContent = ({
   user,
   userProfile,
   isEmberOwner,
-  onDeleteMessage
+  onDeleteMessage,
+  playMessageAudio,
+  playingMessageId,
+  playTTSAudio,
+  ttsMessageId,
+  isGeneratingTts,
+  userVoiceStatus
 }) => (
   <div className="space-y-4">
     {isLoading ? (
@@ -234,12 +242,79 @@ const ModalContent = ({
                       <div className="flex items-center gap-2 mt-2">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                         <span className="text-xs opacity-70">Audio message</span>
+
+                        {/* TTS Button - only show for user messages */}
+                        {message.sender === 'user' && message.userId && (
+                          <button
+                            onClick={() => playTTSAudio(message.messageId, message.content, message.userId)}
+                            className="ml-2 p-1 hover:bg-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={
+                              userVoiceStatus[message.userId] === false
+                                ? "No trained voice available"
+                                : isGeneratingTts === message.messageId
+                                  ? "Generating..."
+                                  : ttsMessageId === message.messageId
+                                    ? "Stop TTS"
+                                    : "Play with AI voice"
+                            }
+                            disabled={isGeneratingTts === message.messageId || userVoiceStatus[message.userId] === false}
+                          >
+                            {isGeneratingTts === message.messageId ? (
+                              <Sparkles size={14} className="text-purple-600 animate-spin" />
+                            ) : ttsMessageId === message.messageId ? (
+                              <Pause size={14} className="text-purple-600" />
+                            ) : (
+                              <Sparkles size={14} className={userVoiceStatus[message.userId] === true ? "text-purple-600" : "text-gray-400"} />
+                            )}
+                          </button>
+                        )}
+
+                        {/* Original Audio Play Button */}
+                        {message.audioUrl && (
+                          <button
+                            onClick={() => playMessageAudio(message.messageId, message.audioUrl)}
+                            className="ml-2 p-1 hover:bg-gray-200 rounded-full transition-colors"
+                            title={playingMessageId === message.messageId ? "Stop audio" : "Play audio"}
+                          >
+                            {playingMessageId === message.messageId ? (
+                              <Pause size={14} className="text-green-600" />
+                            ) : (
+                              <Play size={14} className="text-green-600" />
+                            )}
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 mt-2">
                         <div className={`w-2 h-2 rounded-full ${message.isCurrentUser ? 'bg-green-500' : 'bg-blue-500'
                           }`}></div>
                         <span className="text-xs opacity-70">Text response</span>
+
+                        {/* TTS Button for text messages - only show for user messages */}
+                        {message.sender === 'user' && message.userId && (
+                          <button
+                            onClick={() => playTTSAudio(message.messageId, message.content, message.userId)}
+                            className="ml-2 p-1 hover:bg-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={
+                              userVoiceStatus[message.userId] === false
+                                ? "No trained voice available"
+                                : isGeneratingTts === message.messageId
+                                  ? "Generating..."
+                                  : ttsMessageId === message.messageId
+                                    ? "Stop TTS"
+                                    : "Play with AI voice"
+                            }
+                            disabled={isGeneratingTts === message.messageId || userVoiceStatus[message.userId] === false}
+                          >
+                            {isGeneratingTts === message.messageId ? (
+                              <Sparkles size={14} className="text-purple-600 animate-spin" />
+                            ) : ttsMessageId === message.messageId ? (
+                              <Pause size={14} className="text-purple-600" />
+                            ) : (
+                              <Sparkles size={14} className={userVoiceStatus[message.userId] === true ? "text-purple-600" : "text-gray-400"} />
+                            )}
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -425,6 +500,16 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   // Individual message delete state
   const [isDeletingMessage, setIsDeletingMessage] = useState(false);
 
+  // Message audio playback state
+  const [playingMessageId, setPlayingMessageId] = useState(null);
+  const [messageAudioRef, setMessageAudioRef] = useState(null);
+
+  // TTS state
+  const [ttsMessageId, setTtsMessageId] = useState(null);
+  const [ttsAudioRef, setTtsAudioRef] = useState(null);
+  const [isGeneratingTts, setIsGeneratingTts] = useState(null);
+  const [userVoiceStatus, setUserVoiceStatus] = useState({});
+
   const mediaRecorderRef = useRef(null);
   const audioRef = useRef(null);
   const recordingIntervalRef = useRef(null);
@@ -432,6 +517,24 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
 
   // Check if current user is ember owner
   const isEmberOwner = ember?.user_id === user?.id;
+
+  // Check if a user has a trained voice
+  const checkUserVoiceStatus = async (userId) => {
+    if (userVoiceStatus[userId] !== undefined) {
+      return userVoiceStatus[userId];
+    }
+
+    try {
+      const userVoiceModel = await getUserVoiceModel(userId);
+      const hasVoice = !!(userVoiceModel && userVoiceModel.elevenlabs_voice_id);
+      setUserVoiceStatus(prev => ({ ...prev, [userId]: hasVoice }));
+      return hasVoice;
+    } catch (error) {
+      console.error('Error checking user voice status:', error);
+      setUserVoiceStatus(prev => ({ ...prev, [userId]: false }));
+      return false;
+    }
+  };
 
 
 
@@ -444,8 +547,17 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
       }
+      // Clean up audio playback
+      if (messageAudioRef) {
+        messageAudioRef.pause();
+        messageAudioRef.currentTime = 0;
+      }
+      if (ttsAudioRef) {
+        ttsAudioRef.pause();
+        ttsAudioRef.currentTime = 0;
+      }
     };
-  }, []);
+  }, [messageAudioRef, ttsAudioRef]);
 
   // Get available microphones
   const getAvailableMicrophones = async () => {
@@ -601,6 +713,14 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         console.log('👥 [UI] Users in conversation:', userSummary);
 
         setMessages(uiMessages);
+
+        // Check voice status for all users with messages
+        const userIds = [...new Set(uiMessages.filter(msg => msg.sender === 'user').map(msg => msg.userId))];
+        userIds.forEach(userId => {
+          if (userId) {
+            checkUserVoiceStatus(userId);
+          }
+        });
 
         // Force a re-render to ensure UI updates with correct names
         setTimeout(() => {
@@ -892,6 +1012,115 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
         audioRefCurrent: audioRef.current
       });
       alert('No recording available to play.');
+    }
+  };
+
+  // Play message audio
+  const playMessageAudio = async (messageId, audioUrl) => {
+    if (playingMessageId === messageId) {
+      // Stop current audio if playing same message
+      if (messageAudioRef) {
+        messageAudioRef.pause();
+        messageAudioRef.currentTime = 0;
+        setPlayingMessageId(null);
+        setMessageAudioRef(null);
+      }
+      return;
+    }
+
+    // Stop any currently playing message audio
+    if (messageAudioRef) {
+      messageAudioRef.pause();
+      messageAudioRef.currentTime = 0;
+    }
+
+    try {
+      const audio = new Audio(audioUrl);
+      setMessageAudioRef(audio);
+      setPlayingMessageId(messageId);
+
+      // Set up event listeners
+      audio.onended = () => {
+        setPlayingMessageId(null);
+        setMessageAudioRef(null);
+      };
+
+      audio.onerror = (error) => {
+        console.error('Error playing message audio:', error);
+        setPlayingMessageId(null);
+        setMessageAudioRef(null);
+      };
+
+      await audio.play();
+    } catch (error) {
+      console.error('Error playing message audio:', error);
+      setPlayingMessageId(null);
+      setMessageAudioRef(null);
+    }
+  };
+
+  // Play TTS with user's trained voice
+  const playTTSAudio = async (messageId, text, userId) => {
+    if (ttsMessageId === messageId) {
+      // Stop current TTS if playing same message
+      if (ttsAudioRef) {
+        ttsAudioRef.pause();
+        ttsAudioRef.currentTime = 0;
+        setTtsMessageId(null);
+        setTtsAudioRef(null);
+      }
+      return;
+    }
+
+    // Stop any currently playing TTS audio
+    if (ttsAudioRef) {
+      ttsAudioRef.pause();
+      ttsAudioRef.currentTime = 0;
+    }
+
+    try {
+      setIsGeneratingTts(messageId);
+      setTtsMessageId(messageId);
+
+      // Get user's trained voice
+      const userVoiceModel = await getUserVoiceModel(userId);
+
+      if (!userVoiceModel || !userVoiceModel.elevenlabs_voice_id) {
+        console.error('No trained voice available for user:', userId);
+        setIsGeneratingTts(null);
+        setTtsMessageId(null);
+        return;
+      }
+
+      // Generate TTS audio
+      const audioBlob = await textToSpeech(text, userVoiceModel.elevenlabs_voice_id);
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      setTtsAudioRef(audio);
+      setIsGeneratingTts(null);
+
+      // Set up event listeners
+      audio.onended = () => {
+        setTtsMessageId(null);
+        setTtsAudioRef(null);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.onerror = (error) => {
+        console.error('Error playing TTS audio:', error);
+        setTtsMessageId(null);
+        setTtsAudioRef(null);
+        setIsGeneratingTts(null);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      await audio.play();
+    } catch (error) {
+      console.error('Error generating TTS audio:', error);
+      setTtsMessageId(null);
+      setTtsAudioRef(null);
+      setIsGeneratingTts(null);
     }
   };
 
@@ -1336,6 +1565,11 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
                 userProfile={userProfile}
                 isEmberOwner={isEmberOwner}
                 onDeleteMessage={handleDeleteMessage}
+                playMessageAudio={playMessageAudio}
+                playingMessageId={playingMessageId}
+                playTTSAudio={playTTSAudio}
+                ttsMessageId={ttsMessageId}
+                isGeneratingTts={isGeneratingTts}
               />
               <audio ref={audioRef} style={{ display: 'none' }} />
             </div>
@@ -1400,6 +1634,12 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
             userProfile={userProfile}
             isEmberOwner={isEmberOwner}
             onDeleteMessage={handleDeleteMessage}
+            playMessageAudio={playMessageAudio}
+            playingMessageId={playingMessageId}
+            playTTSAudio={playTTSAudio}
+            ttsMessageId={ttsMessageId}
+            isGeneratingTts={isGeneratingTts}
+            userVoiceStatus={userVoiceStatus}
           />
           <audio ref={audioRef} style={{ display: 'none' }} />
         </DialogContent>
