@@ -125,13 +125,13 @@ export async function buildEmberContext(emberId, options = {}) {
  * @returns {string} Formatted context string
  */
 export function formatEmberContextForAI(context, options = {}) {
-  const { 
+  const {
     includeSystemInfo = true,
     includeMetadata = true,
     includeMediaDetails = true,
     includePeopleDetails = true,
     includeNarrative = true,
-    maxStoryLength = 5000 
+    maxStoryLength = 5000
   } = options;
 
   let formattedContext = '';
@@ -157,7 +157,7 @@ export function formatEmberContextForAI(context, options = {}) {
   if (includeNarrative && storyMessages.length > 0) {
     formattedContext += `=== STORY NARRATIVE ===\n`;
     let storyText = '';
-    
+
     for (const message of storyMessages) {
       const author = `User ${message.user_id || 'Unknown'}`;
       const timestamp = new Date(message.created_at).toLocaleString();
@@ -168,7 +168,7 @@ export function formatEmberContextForAI(context, options = {}) {
     if (storyText.length > maxStoryLength) {
       storyText = storyText.substring(0, maxStoryLength) + '... [truncated]';
     }
-    
+
     formattedContext += storyText + '\n\n';
   }
 
@@ -227,25 +227,25 @@ export function formatEmberContextForAI(context, options = {}) {
  */
 function getLastActivity(context) {
   const timestamps = [];
-  
+
   if (context.ember?.created_at) timestamps.push(new Date(context.ember.created_at));
   if (context.ember?.updated_at) timestamps.push(new Date(context.ember.updated_at));
-  
+
   // Use optional chaining and default to empty array to prevent errors
   (context.storyMessages || []).forEach(msg => {
     if (msg.created_at) timestamps.push(new Date(msg.created_at));
   });
-  
+
   (context.supportingMedia || []).forEach(media => {
     if (media.created_at) timestamps.push(new Date(media.created_at));
   });
-  
+
   (context.contributors || []).forEach(contributor => {
     if (contributor.last_contributed_at) timestamps.push(new Date(contributor.last_contributed_at));
   });
 
-  return timestamps.length > 0 ? 
-    new Date(Math.max(...timestamps)).toISOString() : 
+  return timestamps.length > 0 ?
+    new Date(Math.max(...timestamps)).toISOString() :
     new Date().toISOString();
 }
 
@@ -301,12 +301,12 @@ function calculateContextCompleteness(context) {
 async function buildTitleGenerationContext(emberData) {
   // Build context directly from ember data object (API pattern)
   let contextParts = [];
-  
+
   // Image information
   if (emberData.image_url) {
     contextParts.push(`This is a photo analysis for creating a title.`);
   }
-  
+
   // Location data
   if (emberData.latitude && emberData.longitude) {
     contextParts.push(`Location: ${emberData.address || `${emberData.latitude}, ${emberData.longitude}`}`);
@@ -320,33 +320,33 @@ async function buildTitleGenerationContext(emberData) {
       contextParts.push(`Country: ${emberData.country}`);
     }
   }
-  
+
   if (emberData.manual_location) {
     contextParts.push(`Manual location: ${emberData.manual_location}`);
   }
-  
+
   // Time and date information
   if (emberData.ember_timestamp) {
     const date = new Date(emberData.ember_timestamp);
     contextParts.push(`Date taken: ${date.toLocaleDateString()}`);
     contextParts.push(`Time taken: ${date.toLocaleTimeString()}`);
   }
-  
+
   if (emberData.manual_datetime) {
     const date = new Date(emberData.manual_datetime);
     contextParts.push(`Manual date/time: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`);
   }
-  
+
   // Camera information
   if (emberData.camera_make && emberData.camera_model) {
     contextParts.push(`Camera: ${emberData.camera_make} ${emberData.camera_model}`);
   }
-  
+
   // Image analysis data
   if (emberData.image_analysis) {
     contextParts.push(`Image analysis: ${emberData.image_analysis}`);
   }
-  
+
   // Current title (if exists)
   if (emberData.title && emberData.title !== 'Untitled Ember') {
     contextParts.push(`Current title: ${emberData.title}`);
@@ -356,7 +356,7 @@ async function buildTitleGenerationContext(emberData) {
 }
 
 export const emberContextBuilders = {
-  
+
   // For title generation - focus on narrative and visual elements
   async forTitleGeneration(emberId) {
     const context = await buildEmberContext(emberId);
@@ -433,47 +433,47 @@ export const emberContextBuilders = {
 export async function generateStoryCutWithOpenAI(storyCutData) {
   try {
     console.log('🎬 [DIRECT] Starting story cut generation with OpenAI...');
-    
-    const { 
-      emberId, 
-      formData, 
-      selectedStyle, 
-      voiceCasting, 
-      contributorQuotes 
+
+    const {
+      emberId,
+      formData,
+      selectedStyle,
+      voiceCasting,
+      contributorQuotes
     } = storyCutData;
 
     // Import prompt management functions
     const { executePrompt, getActivePrompt } = await import('./promptManager.js');
-    
+
     // Calculate approximate word count (3 words per second)
     const approximateWords = Math.round(formData.duration * 3);
-    
+
     // Build comprehensive ember context using our universal system
     console.log('🔍 Building ember context...');
     const emberContext = await emberContextBuilders.forStoryCut(emberId);
-    
+
     // Get the master story cut generation prompt
     console.log('🔍 Loading master story cut generation prompt...');
     let masterPrompt = await getActivePrompt('story_cut_generation');
-    
+
     if (!masterPrompt) {
       console.log('⚠️ Master story cut generation prompt not found, attempting to seed it...');
-      
+
       // Import seeding functions
       const { supabase } = await import('./supabase.js');
       const { initialPrompts } = await import('./initialPrompts.js');
-      
+
       // Find the story cut generation prompt in initial prompts
       const storyCutPrompt = initialPrompts.find(p => p.prompt_key === 'story_cut_generation');
-      
+
       if (storyCutPrompt) {
         // Get current user for seeding
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
+
         if (userError || !user) {
           throw new Error('Cannot seed prompt: User not authenticated');
         }
-        
+
         // Seed the story cut generation prompt with minimal required fields
         const promptData = {
           prompt_key: storyCutPrompt.prompt_key,
@@ -493,22 +493,22 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
           created_by_user_id: user.id,
           updated_by_user_id: user.id
         };
-        
+
         console.log('🔍 Seeding prompt data (minimal):', {
           prompt_key: promptData.prompt_key,
           max_tokens: promptData.max_tokens,
           temperature: promptData.temperature,
           is_active: promptData.is_active
         });
-        
+
         // Use the existing prompt management system for safer insertion
         const { promptsCRUD } = await import('./promptManager.js');
         const seededPrompt = await promptsCRUD.create(promptData);
-        
+
         if (!seededPrompt) {
           throw new Error('Failed to seed story cut generation prompt: No data returned');
         }
-        
+
         console.log('✅ Successfully seeded story cut generation prompt');
         masterPrompt = seededPrompt;
       } else {
@@ -518,42 +518,42 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
       // Check if we need to update existing prompt with latest formatting instructions
       const { initialPrompts } = await import('./initialPrompts.js');
       const latestPrompt = initialPrompts.find(p => p.prompt_key === 'story_cut_generation');
-      
+
       if (latestPrompt && masterPrompt.user_prompt_template !== latestPrompt.user_prompt_template) {
         console.log('🔄 Updating existing prompt with latest formatting instructions...');
-        
+
         const { promptsCRUD } = await import('./promptManager.js');
         await promptsCRUD.update(masterPrompt.id, {
           user_prompt_template: latestPrompt.user_prompt_template,
           system_prompt: latestPrompt.system_prompt
         });
-        
+
         // Reload the updated prompt
         masterPrompt = await getActivePrompt('story_cut_generation');
         console.log('✅ Updated prompt with new formatting instructions');
       }
     }
-    
+
     if (!masterPrompt) {
       throw new Error('Master story cut generation prompt not found in database');
     }
-    
+
     console.log('✅ Loaded master prompt:', masterPrompt.title);
-    
+
     // Get the selected style prompt
     console.log('🎨 Loading style prompt:', selectedStyle);
     const stylePrompt = await getActivePrompt(selectedStyle);
-    
+
     if (!stylePrompt) {
       throw new Error(`Style prompt not found: ${selectedStyle}`);
     }
-    
+
     console.log('✅ Loaded style prompt:', stylePrompt.title);
-    
+
     // Get all story messages for the ember
     const { getAllStoryMessagesForEmber } = await import('./database.js');
     const allStoryMessages = await getAllStoryMessagesForEmber(emberId);
-    
+
     // Extract recorded audio URLs from story messages
     const recordedAudioMap = new Map();
     if (allStoryMessages?.messages) {
@@ -569,9 +569,9 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
         }
       });
     }
-    
+
     console.log('🎙️ Found recorded audio for users:', Array.from(recordedAudioMap.keys()));
-    
+
     // Format story conversations with proper voice attribution
     let storyConversations = 'No story circle conversations available yet.';
     if (allStoryMessages?.messages && allStoryMessages.messages.length > 0) {
@@ -587,7 +587,7 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
         })
         .join('\n');
     }
-    
+
     // Get ember owner's information for proper voice attribution
     // Check if owner info is available in voiceCasting.contributors first
     let ownerFirstName = 'Owner';
@@ -597,7 +597,7 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
         ownerFirstName = ownerInfo.name;
       }
     }
-    
+
     // If not found in voiceCasting, get from current user (fallback for cases where owner is current user)
     if (ownerFirstName === 'Owner') {
       const { supabase } = await import('./supabase.js');
@@ -628,7 +628,7 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
       use_ember_voice: voiceCasting.ember !== null,
       use_narrator_voice: voiceCasting.narrator !== null
     };
-    
+
     console.log('🤖 Generating story cut with:', {
       style: stylePrompt.title,
       duration: formData.duration,
@@ -642,80 +642,80 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
     // Dynamically modify the prompt based on voice selections
     let modifiedPrompt = { ...masterPrompt };
     let promptTemplate = masterPrompt.user_prompt_template;
-    
+
     // Build voice-specific instructions
-    const hasEmberId = voiceCasting.ember !== null;
+    const hasEmber = voiceCasting.ember !== null;
     const hasNarrator = voiceCasting.narrator !== null;
-    
-    if (hasEmberId && hasNarrator) {
+
+    if (hasEmber && hasNarrator) {
       // Both voices selected - use original template
       console.log('🎭 Using both Ember and Narrator voices');
-    } else if (hasEmberId && !hasNarrator) {
+    } else if (hasEmber && !hasNarrator) {
       // Only Ember voice selected
       console.log('🎭 Using only Ember voice - modifying prompt');
-      
+
       // Update voice tag instructions to only mention Ember voice
       promptTemplate = promptTemplate.replace(
         /- Use these voice tags: \[EMBER VOICE\], \[NARRATOR\], \[\{\{owner_first_name\}\}\], \[ACTUAL_CONTRIBUTOR_FIRST_NAME\]/,
         '- Use these voice tags: [EMBER VOICE], [{{owner_first_name}}], [ACTUAL_CONTRIBUTOR_FIRST_NAME]'
       );
-      
+
       // Update format example to exclude narrator
       promptTemplate = promptTemplate.replace(
         /Format like: "\[EMBER VOICE\] Narrative line\\n\[NARRATOR\] Context line\\n\[\{\{owner_first_name\}\}\] Actual quote from owner\\n\[CONTRIBUTOR_FIRST_NAME\] Quote from contributor"/,
         'Format like: "[EMBER VOICE] Narrative line\\n[{{owner_first_name}}] Actual quote from owner\\n[CONTRIBUTOR_FIRST_NAME] Quote from contributor"'
       );
-      
+
       // Update output format to exclude narrator_voice_lines
       promptTemplate = promptTemplate.replace(
         /"narrator_voice_lines": \["A dodgeball tournament begins", "Who will claim victory\?"\],/,
         ''
       );
-      
+
       // Update voiceCasting object to exclude narratorVoice
       promptTemplate = promptTemplate.replace(
         /"narratorVoice": "\{\{narrator_voice_name\}\}",/,
         ''
       );
-      
-    } else if (!hasEmberId && hasNarrator) {
+
+    } else if (!hasEmber && hasNarrator) {
       // Only Narrator voice selected
       console.log('🎭 Using only Narrator voice - modifying prompt');
-      
+
       // Update voice tag instructions to only mention Narrator voice
       promptTemplate = promptTemplate.replace(
         /- Use these voice tags: \[EMBER VOICE\], \[NARRATOR\], \[\{\{owner_first_name\}\}\], \[ACTUAL_CONTRIBUTOR_FIRST_NAME\]/,
         '- Use these voice tags: [NARRATOR], [{{owner_first_name}}], [ACTUAL_CONTRIBUTOR_FIRST_NAME]'
       );
-      
+
       // Update format example to exclude ember voice
       promptTemplate = promptTemplate.replace(
         /Format like: "\[EMBER VOICE\] Narrative line\\n\[NARRATOR\] Context line\\n\[\{\{owner_first_name\}\}\] Actual quote from owner\\n\[CONTRIBUTOR_FIRST_NAME\] Quote from contributor"/,
         'Format like: "[NARRATOR] Context line\\n[{{owner_first_name}}] Actual quote from owner\\n[CONTRIBUTOR_FIRST_NAME] Quote from contributor"'
       );
-      
+
       // Update output format to exclude ember_voice_lines
       promptTemplate = promptTemplate.replace(
         /"ember_voice_lines": \["A classroom buzzes with anticipation", "Faces filled with determination"\],/,
         ''
       );
-      
+
       // Update voiceCasting object to exclude emberVoice
       promptTemplate = promptTemplate.replace(
         /"emberVoice": "\{\{ember_voice_name\}\}",/,
         ''
       );
     }
-    
+
     // Update the prompt object with the modified template
     modifiedPrompt.user_prompt_template = promptTemplate;
-    
+
     // Execute the prompt using the modified prompt template
     const { formatPrompt } = await import('./promptManager.js');
-    
+
     // Format the modified prompt with variables
     const formattedPrompt = await formatPrompt(modifiedPrompt, promptVariables, emberId);
-    
+
     // Make the OpenAI API call directly with the modified prompt
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -731,7 +731,7 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
     }
 
     const apiData = await response.json();
-    
+
     const result = {
       success: true,
       data: apiData,
@@ -755,10 +755,10 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
         scriptKeys: Object.keys(generatedStoryCut.script || {}),
         fullScript: generatedStoryCut.script?.fullScript?.substring(0, 200) + '...'
       });
-      
+
       // Add recorded audio URLs to the story cut data
       generatedStoryCut.recordedAudio = {};
-      
+
       // Map recorded audio to contributors
       if (voiceCasting.contributors) {
         voiceCasting.contributors.forEach(contributor => {
@@ -774,9 +774,9 @@ export async function generateStoryCutWithOpenAI(storyCutData) {
           }
         });
       }
-      
+
       console.log('🎙️ Added recorded audio to story cut:', Object.keys(generatedStoryCut.recordedAudio));
-      
+
     } catch (parseError) {
       console.error('OpenAI returned invalid JSON:', result.content);
       throw new Error('OpenAI returned invalid JSON response');

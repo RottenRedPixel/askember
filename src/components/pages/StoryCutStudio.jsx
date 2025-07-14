@@ -2017,19 +2017,77 @@ export default function StoryCutStudio() {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
                                     );
-                                }
-
-                                    return null;
                                 })}
                             </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {/* Code View Header */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Code size={20} className="text-blue-600" />
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                    Script Editor
+                                </h3>
+                            </div>
+                            {!isEditingScript && (
+                                <Button
+                                    onClick={() => setIsEditingScript(true)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex items-center gap-2"
+                                >
+                                    <PencilSimple size={16} />
+                                    Edit
+                                </Button>
+                            )}
                         </div>
+
+                        {isEditingScript ? (
+                            /* Edit Mode */
+                            <div className="space-y-3">
+                                <textarea
+                                    value={editedScript}
+                                    onChange={(e) => setEditedScript(e.target.value)}
+                                    className="w-full h-96 p-4 bg-white border border-gray-300 rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Enter your script here..."
+                                />
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        onClick={handleSaveScript}
+                                        disabled={isSavingScript || !editedScript.trim()}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    >
+                                        <Save size={16} className="mr-2" />
+                                        {isSavingScript ? 'Saving...' : 'Save'}
+                                    </Button>
+                                    <Button
+                                        onClick={handleCancelScriptEdit}
+                                        variant="outline"
+                                        disabled={isSavingScript}
+                                    >
+                                        <X size={16} className="mr-2" />
+                                        Cancel
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            /* View Mode */
+                            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                                <div className="text-gray-700 leading-relaxed font-mono text-sm overflow-auto">
+                                    <pre className="whitespace-pre-wrap break-words max-w-full" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{storyCut?.full_script || 'Loading script...'}</pre>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
         </div>
-        </div >
     );
 }
