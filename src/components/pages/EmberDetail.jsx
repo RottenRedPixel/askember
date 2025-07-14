@@ -768,11 +768,29 @@ export default function EmberDetail() {
       if (!primaryStoryCut) {
         try {
           console.log('🎯 Setting new story cut as primary since none exists');
-          await setPrimaryStoryCut(savedStoryCut.id, ember.id, userProfile.user_id);
-          console.log('✅ New story cut set as primary');
+          console.log('🔍 DEBUG - setPrimaryStoryCut parameters:', {
+            storyCutId: savedStoryCut.id,
+            emberId: ember.id,
+            userId: userProfile.user_id,
+            savedStoryCutType: typeof savedStoryCut.id,
+            emberIdType: typeof ember.id,
+            userIdType: typeof userProfile.user_id
+          });
+          
+          const primaryResult = await setPrimaryStoryCut(savedStoryCut.id, ember.id, userProfile.user_id);
+          console.log('✅ New story cut set as primary - result:', primaryResult);
+          
+          // Immediately verify it was set
+          const verifyPrimary = await getPrimaryStoryCut(ember.id);
+          console.log('🔍 DEBUG - Verification check - primary story cut after setting:', verifyPrimary);
+          
         } catch (error) {
           console.error('❌ Error setting story cut as primary:', error);
+          console.error('❌ Error details:', error.message);
+          console.error('❌ Error stack:', error.stack);
         }
+      } else {
+        console.log('🎬 Primary story cut already exists, not setting new one as primary:', primaryStoryCut.title);
       }
 
       // Refresh the story cuts list to show the new one
