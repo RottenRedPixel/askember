@@ -15,7 +15,7 @@ import { useUIState } from '@/lib/useUIState';
 import AddBlockModal from '@/components/AddBlockModal';
 
 export default function StoryCutStudio() {
-    const { id } = useParams(); // This is the ember ID
+    const { id, storyCutId } = useParams(); // id is ember ID, storyCutId is story cut ID
     const navigate = useNavigate();
     const { user } = useStore();
     const [blocks, setBlocks] = useState([]);
@@ -123,26 +123,42 @@ export default function StoryCutStudio() {
                 setLoading(true);
                 setError(null);
 
-                // Get the primary story cut for this ember
-                console.log('🎬 Loading primary story cut for ember:', id);
-                const primaryStoryCut = await getPrimaryStoryCut(id);
+                let targetStoryCut = null;
 
-                if (!primaryStoryCut) {
-                    // If no primary exists, try to load any available story cut
-                    console.log('🔍 No primary story cut found, looking for any available story cut...');
-                    const allStoryCuts = await getStoryCutsForEmber(id);
+                if (storyCutId) {
+                    // Load specific story cut by ID
+                    console.log('🎬 Loading specific story cut:', storyCutId);
+                    targetStoryCut = await getStoryCutById(storyCutId);
 
-                    if (allStoryCuts && allStoryCuts.length > 0) {
-                        console.log('✅ Found available story cut:', allStoryCuts[0].title);
-                        setStoryCut(allStoryCuts[0]);
-                    } else {
-                        setError('No story cuts found for this ember.');
+                    if (!targetStoryCut) {
+                        setError(`Story cut not found: ${storyCutId}`);
                         return;
                     }
+
+                    console.log('✅ Loaded specific story cut:', targetStoryCut.title);
                 } else {
-                    console.log('✅ Loaded primary story cut:', primaryStoryCut.title);
-                    setStoryCut(primaryStoryCut);
+                    // Fallback to primary story cut if no specific ID provided
+                    console.log('🎬 No story cut ID provided, loading primary story cut for ember:', id);
+                    targetStoryCut = await getPrimaryStoryCut(id);
+
+                    if (!targetStoryCut) {
+                        // If no primary exists, try to load any available story cut
+                        console.log('🔍 No primary story cut found, looking for any available story cut...');
+                        const allStoryCuts = await getStoryCutsForEmber(id);
+
+                        if (allStoryCuts && allStoryCuts.length > 0) {
+                            console.log('✅ Found available story cut:', allStoryCuts[0].title);
+                            targetStoryCut = allStoryCuts[0];
+                        } else {
+                            setError('No story cuts found for this ember.');
+                            return;
+                        }
+                    } else {
+                        console.log('✅ Loaded primary story cut:', targetStoryCut.title);
+                    }
                 }
+
+                setStoryCut(targetStoryCut);
 
                 // Load ember data for the player
                 console.log('🌟 Loading ember data for player...');
@@ -362,12 +378,12 @@ export default function StoryCutStudio() {
 
                 // Parse voice declarations and override story cut voice names
                 let embedVoiceNames = {
-                    ember: primaryStoryCut.ember_voice_name || 'Unknown Voice',
-                    narrator: primaryStoryCut.narrator_voice_name || 'Unknown Voice'
+                    ember: targetStoryCut.ember_voice_name || 'Unknown Voice',
+                    narrator: targetStoryCut.narrator_voice_name || 'Unknown Voice'
                 };
 
-                if (primaryStoryCut.full_script) {
-                    const lines = primaryStoryCut.full_script.split('\n');
+                if (targetStoryCut.full_script) {
+                    const lines = targetStoryCut.full_script.split('\n');
                     let blockId = 2;
 
                     // Voice IDs are now handled inline with voice lines
@@ -693,7 +709,7 @@ export default function StoryCutStudio() {
         };
 
         loadStoryCut();
-    }, [id]);
+    }, [id, storyCutId]);
 
     // Sync editedScript with storyCut when entering edit mode
     useEffect(() => {

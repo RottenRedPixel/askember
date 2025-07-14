@@ -55,7 +55,7 @@ const StoryCutDetailContent = ({
                     {!isEditingScript && (
                         <div className="flex items-center gap-3">
                             <a
-                                href={`/embers/${ember?.id}/studio`}
+                                href={`/embers/${ember?.id}/studio/${selectedStoryCut.id}`}
                                 className="text-sm bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg font-medium flex items-center gap-1"
                             >
                                 🎬 Studio

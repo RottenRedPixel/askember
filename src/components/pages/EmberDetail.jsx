@@ -776,14 +776,14 @@ export default function EmberDetail() {
             emberIdType: typeof ember.id,
             userIdType: typeof userProfile.user_id
           });
-          
+
           const primaryResult = await setPrimaryStoryCut(savedStoryCut.id, ember.id, userProfile.user_id);
           console.log('✅ New story cut set as primary - result:', primaryResult);
-          
+
           // Immediately verify it was set
           const verifyPrimary = await getPrimaryStoryCut(ember.id);
           console.log('🔍 DEBUG - Verification check - primary story cut after setting:', verifyPrimary);
-          
+
         } catch (error) {
           console.error('❌ Error setting story cut as primary:', error);
           console.error('❌ Error details:', error.message);
@@ -1948,7 +1948,7 @@ export default function EmberDetail() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    navigate(`/embers/${ember.id}/studio`);
+                                    navigate(`/embers/${ember.id}/studio/${cut.id}`);
                                   }}
                                   className="p-1 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-full transition-colors duration-200"
                                   title="Open in Studio"

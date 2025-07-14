@@ -75,7 +75,7 @@ export default function App() {
       <Route path="/embers/:id" element={<EmberRedirect />} />
 
       {/* StoryCut Studio route without layout (full-screen editor) */}
-      <Route path="/embers/:id/studio" element={<StoryCutStudio />} />
+      <Route path="/embers/:id/studio/:storyCutId" element={<StoryCutStudio />} />
 
       {/* All other routes with layout */}
       <Route path="/*" element={
