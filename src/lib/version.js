@@ -3,7 +3,7 @@ import packageJson from '../../package.json';
 /**
  * Application version information
  */
-export const VERSION = '1.0.213';
+export const VERSION = '1.0.214';
 
 export const VERSION_INFO = {
   // Package version from package.json
