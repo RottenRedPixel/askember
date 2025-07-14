@@ -170,6 +170,12 @@ export const parseScriptSegments = (script) => {
             } else if (finalContent || existingVisualActions.length > 0) {
                 // Handle MEDIA and HOLD segments
                 const segmentType = mediaType.toLowerCase(); // 'media' or 'hold'
+
+                // Calculate duration for HOLD segments
+                const segmentDuration = segmentType === 'hold' ?
+                    parseFloat(estimateSegmentDuration(content, segmentType)) :
+                    undefined;
+
                 segments.push({
                     voiceTag: mediaType,
                     content: finalContent,
@@ -184,7 +190,9 @@ export const parseScriptSegments = (script) => {
                     fallbackName: fallbackName,
                     resolvedMediaReference: resolvedMediaReference,
                     // Add voice configuration
-                    voiceConfiguration: voiceConfiguration
+                    voiceConfiguration: voiceConfiguration,
+                    // Add duration for HOLD segments
+                    ...(segmentDuration !== undefined && { duration: segmentDuration })
                 });
                 console.log(`🎬 Parsed ${mediaType} segment:`, {
                     line: trimmedLine,
@@ -194,7 +202,8 @@ export const parseScriptSegments = (script) => {
                     type: segmentType,
                     mediaId: mediaId,
                     mediaName: mediaName,
-                    resolvedMediaReference: resolvedMediaReference
+                    resolvedMediaReference: resolvedMediaReference,
+                    duration: segmentDuration
                 });
 
                 // 🐛 HOLD SPECIFIC DEBUG
@@ -207,7 +216,8 @@ export const parseScriptSegments = (script) => {
                         visualActions: existingVisualActions,
                         allVisualActions: allVisualActions,
                         finalContent: finalContent,
-                        passedCondition: (finalContent || existingVisualActions.length > 0)
+                        passedCondition: (finalContent || existingVisualActions.length > 0),
+                        calculatedDuration: segmentDuration
                     });
                 }
             } else {
@@ -276,7 +286,7 @@ export const parseScriptSegments = (script) => {
                     if (voiceId) {
                         segmentVoiceConfig[voiceType] = voiceId;
                     }
-                    
+
                     segments.push({
                         voiceTag,
                         content: finalContent, // For display (includes visual actions)
