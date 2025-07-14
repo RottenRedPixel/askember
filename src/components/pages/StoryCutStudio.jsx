@@ -959,60 +959,91 @@ export default function StoryCutStudio() {
     };
 
     // Handle adding a new media block
-    const handleAddMediaBlock = async (selectedMedia) => {
-        if (!selectedMedia || !user || !storyCut) return;
+    const handleAddMediaBlock = async (selection) => {
+        if (!selection || !user || !storyCut) return;
+
+        // Handle both old format (direct media) and new format (object with media/contributions)
+        const selectedMedia = selection.media || (selection.name ? selection : null);
+        const selectedContributions = selection.contributions || [];
+
+        if (!selectedMedia && selectedContributions.length === 0) return;
 
         try {
-            console.log('➕ Adding new media block:', selectedMedia.name);
-
-            // Generate a unique ID for the new block
-            const newBlockId = Math.max(...blocks.map(b => b.id), 0) + 1;
-
-            // Create the new media block
-            const newBlock = {
-                id: newBlockId,
-                type: 'media',
-                mediaName: selectedMedia.name,
-                mediaId: selectedMedia.id,
-                mediaUrl: selectedMedia.url,
-                effect: null,
-                duration: 0
-            };
-
-            // Add the new block to the blocks array (insert before the end block)
             const newBlocks = [...blocks];
             const endBlockIndex = newBlocks.findIndex(block => block.type === 'end');
-            if (endBlockIndex !== -1) {
-                newBlocks.splice(endBlockIndex, 0, newBlock);
-            } else {
-                newBlocks.push(newBlock);
+            let insertIndex = endBlockIndex !== -1 ? endBlockIndex : newBlocks.length;
+
+            // Create new blocks array to hold all new blocks
+            const blocksToAdd = [];
+            let currentBlockId = Math.max(...blocks.map(b => b.id), 0) + 1;
+
+            // Add media block if selected and it has the required properties
+            if (selectedMedia && selectedMedia.name && selectedMedia.id) {
+                console.log('➕ Adding new media block:', selectedMedia.name);
+
+                const mediaBlock = {
+                    id: currentBlockId++,
+                    type: 'media',
+                    mediaName: selectedMedia.name,
+                    mediaId: selectedMedia.id,
+                    mediaUrl: selectedMedia.url,
+                    effect: null,
+                    duration: 0
+                };
+
+                blocksToAdd.push(mediaBlock);
             }
 
+            // Add voice blocks from contributions
+            selectedContributions.forEach(contribution => {
+                console.log('➕ Adding new voice block:', contribution.user_first_name, contribution.content.substring(0, 50));
+
+                const voiceBlock = {
+                    id: currentBlockId++,
+                    type: 'voice',
+                    voiceTag: contribution.user_first_name,
+                    content: contribution.content,
+                    voiceType: 'contributor',
+                    avatarUrl: 'https://i.pravatar.cc/40?img=1',
+                    messageType: contribution.has_audio ? 'Audio Message' : 'Text Response',
+                    preference: contribution.has_audio ? 'recorded' : 'text'
+                };
+
+                blocksToAdd.push(voiceBlock);
+            });
+
+            // Insert all new blocks at once
+            newBlocks.splice(insertIndex, 0, ...blocksToAdd);
+
             setBlocks(newBlocks);
-            console.log('✅ Media block added successfully');
+            console.log(`✅ Added ${blocksToAdd.length} new block(s) successfully`);
 
-            // Initialize effects state for the new block
-            setEffectDirections(prev => ({
-                ...prev,
-                [`fade-${newBlockId}`]: 'in',
-                [`pan-${newBlockId}`]: 'left',
-                [`zoom-${newBlockId}`]: 'in'
-            }));
+            // Initialize effects state for all new blocks
+            const newEffectDirections = {};
+            const newEffectDurations = {};
+            const newSelectedEffects = {};
 
-            setEffectDurations(prev => ({
-                ...prev,
-                [`fade-${newBlockId}`]: 3.0,
-                [`pan-${newBlockId}`]: 4.0,
-                [`zoom-${newBlockId}`]: 3.5
-            }));
+            blocksToAdd.forEach(block => {
+                if (block.type === 'media') {
+                    // Initialize media block effects
+                    newEffectDirections[`fade-${block.id}`] = 'in';
+                    newEffectDirections[`pan-${block.id}`] = 'left';
+                    newEffectDirections[`zoom-${block.id}`] = 'in';
 
-            // Initialize selectedEffects to enable checkboxes like initial blocks
-            setSelectedEffects(prev => ({
-                ...prev,
-                [`effect-${newBlockId}`]: ['fade'] // Start with fade effect enabled by default (like most media blocks)
-            }));
+                    newEffectDurations[`fade-${block.id}`] = 3.0;
+                    newEffectDurations[`pan-${block.id}`] = 4.0;
+                    newEffectDurations[`zoom-${block.id}`] = 3.5;
 
-            console.log('✅ Effects state initialized for new block');
+                    newSelectedEffects[`effect-${block.id}`] = ['fade'];
+                }
+                // Voice blocks don't need effects initialization
+            });
+
+            setEffectDirections(prev => ({ ...prev, ...newEffectDirections }));
+            setEffectDurations(prev => ({ ...prev, ...newEffectDurations }));
+            setSelectedEffects(prev => ({ ...prev, ...newSelectedEffects }));
+
+            console.log('✅ Effects state initialized for new blocks');
 
             // Auto-save the updated script to database
             try {
@@ -1333,7 +1364,7 @@ export default function StoryCutStudio() {
                                                                 <div className="flex-shrink-0">
                                                                     <img
                                                                         src={block.mediaUrl}
-                                                                        alt={block.mediaName}
+                                                                        alt={block.mediaName || 'Media'}
                                                                         className="w-16 h-16 object-cover rounded-lg border border-gray-300"
                                                                         onError={(e) => {
                                                                             e.target.style.display = 'none';
@@ -1345,9 +1376,9 @@ export default function StoryCutStudio() {
                                                             <div className="flex items-center gap-2">
                                                                 <span
                                                                     className={`font-semibold ${textColor}`}
-                                                                    title={block.mediaName}
+                                                                    title={block.mediaName || ''}
                                                                 >
-                                                                    {block.mediaName.length > 15 ? `${block.mediaName.substring(0, 15)}...` : block.mediaName}
+                                                                    {block.mediaName && block.mediaName.length > 15 ? `${block.mediaName.substring(0, 15)}...` : block.mediaName}
                                                                 </span>
                                                                 {block.effect && (
                                                                     <span className={`text-xs ${bgColor.replace('50', '100')} ${textColor.replace('600', '800')} px-2 py-1 rounded`}>
@@ -2307,6 +2338,7 @@ export default function StoryCutStudio() {
                 onClose={() => setShowAddBlockModal(false)}
                 emberId={id}
                 onAddBlock={handleAddMediaBlock}
+                storyMessages={storyMessages}
             />
         </div>
     );

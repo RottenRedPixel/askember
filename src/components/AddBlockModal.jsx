@@ -3,7 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Camera, X } from 'lucide-react';
+import { Plus, Camera, X, MessageCircle, Mic, User } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getEmberPhotos } from '@/lib/photos';
 import { getEmberSupportingMedia } from '@/lib/database';
 
@@ -24,10 +25,43 @@ function useMediaQuery(query) {
     return matches;
 }
 
+// Helper function to get user initials
+const getUserInitials = (email, firstName = '', lastName = '') => {
+    if (firstName && lastName) {
+        return (firstName[0] + lastName[0]).toUpperCase();
+    }
+    if (firstName) {
+        return firstName.substring(0, 2).toUpperCase();
+    }
+    if (!email) return 'U';
+    const parts = email.split('@')[0].split('.');
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return email.substring(0, 2).toUpperCase();
+};
+
+// Helper function to get display name
+const getDisplayName = (firstName, lastName, email) => {
+    if (firstName && lastName) {
+        return `${firstName} ${lastName}`;
+    }
+    if (firstName) {
+        return firstName;
+    }
+    if (email) {
+        return email.split('@')[0];
+    }
+    return 'Unknown User';
+};
+
 const ModalContent = ({
     availableMedia,
     selectedMedia,
     setSelectedMedia,
+    storyMessages,
+    selectedContributions,
+    setSelectedContributions,
     loading,
     onAddBlock,
     onClose
@@ -65,9 +99,9 @@ const ModalContent = ({
                             className="relative cursor-pointer group"
                         >
                             <div
-                                className={`relative rounded-lg overflow-hidden border-2 transition-all ${selectedMedia?.id === media.id
-                                        ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50'
-                                        : 'border-gray-200 hover:border-gray-300'
+                                className={`relative rounded-lg overflow-hidden transition-all ${selectedMedia?.id === media.id
+                                    ? 'border-2 border-blue-500'
+                                    : 'border border-gray-200 hover:border-gray-300'
                                     }`}
                             >
                                 <img
@@ -90,8 +124,8 @@ const ModalContent = ({
                                     <Badge
                                         variant="secondary"
                                         className={`text-xs px-2 py-0.5 ${media.category === 'ember'
-                                                ? 'bg-amber-100 text-amber-800'
-                                                : 'bg-blue-100 text-blue-800'
+                                            ? 'bg-amber-100 text-amber-800'
+                                            : 'bg-blue-100 text-blue-800'
                                             }`}
                                     >
                                         {media.category === 'ember' ? 'Ember' : 'Media'}
@@ -107,6 +141,89 @@ const ModalContent = ({
                     ))}
                 </div>
             )}
+
+            {/* Contributions Section */}
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <MessageCircle size={16} className="text-green-600" />
+                        <span className="text-sm font-medium text-gray-900">Select Contributions to Add</span>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                        {storyMessages?.filter(msg => msg.sender === 'user').length || 0} available
+                    </Badge>
+                </div>
+
+                <p className="text-sm text-gray-600">
+                    Choose voice contributions from Story Circle to add as new voice blocks.
+                </p>
+
+                {loading ? (
+                    <div className="flex items-center justify-center py-4">
+                        <div className="text-sm text-gray-500">Loading contributions...</div>
+                    </div>
+                ) : !storyMessages || storyMessages.filter(msg => msg.sender === 'user').length === 0 ? (
+                    <div className="flex items-center justify-center py-4">
+                        <div className="text-sm text-gray-500">No contributions available</div>
+                    </div>
+                ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {storyMessages
+                            .filter(msg => msg.sender === 'user')
+                            .map((message) => (
+                                <div
+                                    key={message.id}
+                                    onClick={() => {
+                                        const isSelected = selectedContributions.some(c => c.id === message.id);
+                                        if (isSelected) {
+                                            setSelectedContributions(selectedContributions.filter(c => c.id !== message.id));
+                                        } else {
+                                            setSelectedContributions([...selectedContributions, message]);
+                                        }
+                                    }}
+                                    className={`p-3 rounded-lg cursor-pointer transition-all ${selectedContributions.some(c => c.id === message.id)
+                                        ? 'border-2 border-green-500 bg-green-100'
+                                        : 'border border-green-200 bg-green-50 hover:border-green-300 hover:bg-green-100'
+                                        }`}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <Avatar className="h-8 w-8 flex-shrink-0">
+                                            <AvatarImage
+                                                src={message.avatar_url || message.user_avatar_url}
+                                                alt={getDisplayName(message.user_first_name, message.user_last_name, message.user_email)}
+                                            />
+                                            <AvatarFallback className="bg-green-100 text-green-700 text-xs font-medium">
+                                                {getUserInitials(message.user_email, message.user_first_name, message.user_last_name)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-sm font-medium text-green-800">
+                                                    {getDisplayName(message.user_first_name, message.user_last_name, message.user_email)}
+                                                </span>
+                                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 flex items-center gap-1">
+                                                    {message.has_audio && <Mic size={12} />}
+                                                    {message.has_audio ? 'Audio Message' : 'Text Response'}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-sm text-gray-700 line-clamp-2">
+                                                {message.content}
+                                            </p>
+                                            <p className="text-xs text-green-600 mt-1">
+                                                {new Date(message.created_at).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                        {selectedContributions.some(c => c.id === message.id) && (
+                                            <div className="flex-shrink-0 w-5 h-5 bg-green-600 rounded-full flex items-center justify-center">
+                                                <span className="text-white text-xs">✓</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                    </div>
+                )}
+            </div>
 
             {/* Selected media preview */}
             {selectedMedia && (
@@ -131,11 +248,13 @@ const ModalContent = ({
             <div className="flex items-center gap-3 pt-4">
                 <Button
                     onClick={onAddBlock}
-                    disabled={!selectedMedia}
+                    disabled={!selectedMedia && selectedContributions.length === 0}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                 >
                     <Plus size={16} className="mr-2" />
-                    Add Block
+                    Add {selectedMedia && selectedContributions.length > 0 ? 'Blocks' :
+                        selectedMedia ? 'Media Block' :
+                            selectedContributions.length > 0 ? `${selectedContributions.length} Voice Block${selectedContributions.length > 1 ? 's' : ''}` : 'Block'}
                 </Button>
                 <Button
                     onClick={onClose}
@@ -149,9 +268,10 @@ const ModalContent = ({
     );
 };
 
-export default function AddBlockModal({ isOpen, onClose, emberId, onAddBlock }) {
+export default function AddBlockModal({ isOpen, onClose, emberId, onAddBlock, storyMessages = [] }) {
     const [availableMedia, setAvailableMedia] = useState([]);
     const [selectedMedia, setSelectedMedia] = useState(null);
+    const [selectedContributions, setSelectedContributions] = useState([]);
     const [loading, setLoading] = useState(false);
 
     const isMobile = useMediaQuery("(max-width: 768px)");
@@ -162,6 +282,7 @@ export default function AddBlockModal({ isOpen, onClose, emberId, onAddBlock }) 
         } else if (!isOpen) {
             // Reset state when modal closes
             setSelectedMedia(null);
+            setSelectedContributions([]);
             setAvailableMedia([]);
         }
     }, [isOpen, emberId]);
@@ -212,9 +333,12 @@ export default function AddBlockModal({ isOpen, onClose, emberId, onAddBlock }) 
     };
 
     const handleAddBlock = () => {
-        if (!selectedMedia) return;
+        if (!selectedMedia && selectedContributions.length === 0) return;
 
-        onAddBlock(selectedMedia);
+        onAddBlock({
+            media: selectedMedia,
+            contributions: selectedContributions
+        });
         onClose();
     };
 
@@ -223,6 +347,9 @@ export default function AddBlockModal({ isOpen, onClose, emberId, onAddBlock }) 
             availableMedia={availableMedia}
             selectedMedia={selectedMedia}
             setSelectedMedia={setSelectedMedia}
+            storyMessages={storyMessages}
+            selectedContributions={selectedContributions}
+            setSelectedContributions={setSelectedContributions}
             loading={loading}
             onAddBlock={handleAddBlock}
             onClose={onClose}
