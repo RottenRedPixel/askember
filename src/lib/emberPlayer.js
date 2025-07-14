@@ -789,25 +789,25 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
       const segment = segments[index];
 
       if (segment.type === 'hold') {
-        // Hold segment - blocks timeline for set duration
-        const duration = parseFloat(segment.duration || 3.0);
+        // Hold segment - add to timeline for sequential processing
         timeline.push({
           type: 'hold',
-          duration: duration,
           segment: segment,
-          segmentIndex: index // Add segment index for progress tracking
+          segmentIndex: index, // Add segment index for progress tracking
+          duration: parseFloat(segment.duration || 3.0)
         });
-        console.log(`⏸️ Timeline ${index + 1}: HOLD effect for ${duration}s - ${segment.content.substring(0, 50)}...`);
+        console.log(`⏸️ Timeline ${index + 1}: HOLD effect for ${segment.duration || 3.0}s - ${segment.content.substring(0, 50)}...`);
       } else if (segment.type === 'loadscreen') {
-        // Load screen segment - blocks timeline for set duration with loading UI
-        const duration = parseFloat(segment.loadDuration || 2.0);
+        // Load screen segment - add to timeline for sequential processing
         timeline.push({
           type: 'loadscreen',
-          duration: duration,
           segment: segment,
-          segmentIndex: index // Add segment index for progress tracking
+          segmentIndex: index, // Add segment index for progress tracking
+          message: segment.loadMessage || 'Loading...',
+          duration: parseFloat(segment.loadDuration || 2.0),
+          icon: segment.loadIcon || 'default'
         });
-        console.log(`⏳ Timeline ${index + 1}: LOAD SCREEN for ${duration}s - "${segment.loadMessage}"`);
+        console.log(`📱 Timeline ${index + 1}: LOAD SCREEN for ${segment.loadDuration || 2.0}s - ${segment.loadMessage || 'Loading...'}...`);
       } else if (segment.type === 'media') {
         // Media segment - add to timeline for sequential processing
         timeline.push({
@@ -817,8 +817,10 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
         });
         console.log(`📺 Timeline ${index + 1}: MEDIA switch - ${segment.content.substring(0, 50)}...`);
       } else if (segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor') {
-        // Voice segment - find corresponding audio
-        const audioSegment = audioSegments.find(audio => audio.voiceTag === segment.voiceTag);
+        // Voice segment - find corresponding audio by index instead of voiceTag to prevent repetition
+        const audioSegment = audioSegments[lastSegmentIndex + 1];
+        lastSegmentIndex++;
+
         timeline.push({
           type: 'voice',
           segment: segment,
