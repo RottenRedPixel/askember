@@ -38,7 +38,7 @@ export function parseScriptSegments(script) {
             const mediaContent = mediaMatch[2];
 
             // Parse media reference
-            const mediaReference = parseMediaReference(mediaContent);
+            const parsedMedia = parseMediaReference(mediaContent);
 
             // Extract visual actions
             const visualActions = extractVisualActions(mediaContent);
@@ -47,7 +47,11 @@ export function parseScriptSegments(script) {
             const mediaSegment = {
                 line: line,
                 finalContent: mediaContent,
-                mediaReference: mediaReference,
+                mediaReference: parsedMedia.mediaReference,
+                mediaId: parsedMedia.mediaId,
+                mediaName: parsedMedia.mediaName,
+                mediaPath: parsedMedia.mediaPath,
+                fallbackName: parsedMedia.fallbackName,
                 visualActions: visualActions.length,
                 type: mediaType.toLowerCase(),
                 originalContent: mediaContent,
@@ -563,27 +567,49 @@ export const formatScriptForDisplay = async (script, ember, storyCut) => {
 
 // Helper function to parse media references
 function parseMediaReference(content) {
-    if (!content) return '';
+    if (!content) return { mediaReference: '', mediaId: null, mediaName: null, mediaPath: null };
 
-    // Check for path="URL",fallback="name" format
+    // Check for path="URL",fallback="name" format (new format)
     const pathMatch = content.match(/path="([^"]+)"(?:,fallback="([^"]+)")?/);
     if (pathMatch) {
-        return content; // Return original format
+        return {
+            mediaReference: content,
+            mediaId: null,
+            mediaName: null,
+            mediaPath: pathMatch[1],
+            fallbackName: pathMatch[2] || 'Ember Image'
+        };
     }
 
-    // Check for id=abc123 format
+    // Check for id=abc123 format (legacy)
     const idMatch = content.match(/id=([a-zA-Z0-9\-_]+)/);
     if (idMatch) {
-        return content; // Return original format
+        return {
+            mediaReference: content,
+            mediaId: idMatch[1],
+            mediaName: null,
+            mediaPath: null
+        };
     }
 
-    // Check for name="Display Name" format
+    // Check for name="Display Name" format (legacy)
     const nameMatch = content.match(/name="([^"]+)"/);
     if (nameMatch) {
-        return content; // Return original format
+        return {
+            mediaReference: content,
+            mediaId: null,
+            mediaName: nameMatch[1],
+            mediaPath: null
+        };
     }
 
-    return content; // Return as-is if no specific format
+    // If no specific format, treat as legacy media reference
+    return {
+        mediaReference: content,
+        mediaId: content,
+        mediaName: null,
+        mediaPath: null
+    };
 }
 
 // Helper function to extract visual actions
