@@ -768,7 +768,7 @@ export default function EmberDetail() {
       if (!primaryStoryCut) {
         try {
           console.log('🎯 Setting new story cut as primary since none exists');
-          await setPrimaryStoryCut(savedStoryCut.id, ember.id);
+          await setPrimaryStoryCut(savedStoryCut.id, ember.id, userProfile.user_id);
           console.log('✅ New story cut set as primary');
         } catch (error) {
           console.error('❌ Error setting story cut as primary:', error);
