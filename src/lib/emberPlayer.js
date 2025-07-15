@@ -326,6 +326,8 @@ export const debugRecordedAudio = (recordedAudio, scriptSegments) => {
     console.log(`    - Voice Tag: "${segment.voiceTag}"`);
     console.log(`    - Content: "${segment.content}"`);
     console.log(`    - Type: ${segment.type}`);
+    console.log(`    - Message ID: ${segment.messageId || 'NONE'}`);
+    console.log(`    - Preference: ${segment.preference || 'NONE'}`);
 
     // Check for matches
     const matches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
@@ -403,6 +405,41 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       // Remove excessive debug logging
       // console.log(`🐛 DEBUG - Looking for recorded audio for contributor: ${voiceTag}`);
       // console.log(`🐛 DEBUG - Script content: "${audioContent}"`);
+
+      // NEW: Check if segment has a message ID for direct lookup
+      if (segment.messageId && storyCut.metadata?.messageIdMap && storyCut.metadata.messageIdMap[segment.messageId]) {
+        const messageData = storyCut.metadata.messageIdMap[segment.messageId];
+        console.log(`🆔 DIRECT MESSAGE ID MATCH: Using message ID ${segment.messageId} for ${voiceTag}`);
+        console.log(`🆔 Message data:`, messageData);
+
+        // Check if we have recorded audio for this message
+        const hasRecordedAudio = !!(messageData.audio_url);
+
+        if (hasRecordedAudio) {
+          console.log(`🎯 RECORDED AUDIO FOUND via message ID: Using recorded audio`);
+          console.log(`🎯 Audio URL: ${messageData.audio_url}`);
+          console.log(`🎯 Content: "${messageData.content}"`);
+
+          const audio = new Audio(messageData.audio_url);
+          return {
+            type: 'contributor_recorded',
+            audio,
+            url: messageData.audio_url,
+            voiceTag,
+            content: messageData.content,
+            userId: messageData.user_id,
+            messageId: segment.messageId
+          };
+        } else {
+          console.log(`⚠️ Message ID found but no recorded audio - using user fallback`);
+          // Continue with user-based fallback logic below
+        }
+      } else if (segment.messageId) {
+        console.log(`⚠️ Message ID ${segment.messageId} not found in messageIdMap - using fallback matching`);
+        console.log(`⚠️ Available message IDs:`, Object.keys(storyCut.metadata?.messageIdMap || {}));
+      } else {
+        console.log(`ℹ️ No message ID in segment - using traditional matching`);
+      }
 
       // Check per-message preference for this content
       let userPreference = 'recorded'; // default

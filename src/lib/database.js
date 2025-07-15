@@ -906,7 +906,9 @@ export const saveStoryCut = async (storyCutData) => {
       metadata: {
         ...storyCutData.metadata,
         // Include recorded audio URLs for playback
-        recordedAudio: storyCutData.recordedAudio || {}
+        recordedAudio: storyCutData.recordedAudio || {},
+        // Include message ID mapping for precise audio matching
+        messageIdMap: storyCutData.messageIdMap || {}
       }
     };
 

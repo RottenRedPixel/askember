@@ -111,8 +111,8 @@ export function parseScriptSegments(script) {
                 // console.log('✅ Detected CONTRIBUTOR voice:', `"${voiceTag}"`);
             }
 
-            // Extract preference from voice tag
-            const preference = extractPreference(voiceTag);
+            // Extract preference and message ID from voice tag
+            const { preference, messageId } = extractPreferenceAndMessageId(voiceTag);
 
             // Remove excessive debug logging
             // console.log('🐛 SEGMENT DEBUG - Creating segment for [' + voiceTag + ']:');
@@ -129,10 +129,11 @@ export function parseScriptSegments(script) {
                 finalContent: cleanContent,
                 originalContent: cleanContent,
                 content: cleanContent,
-                voiceTag: voiceTag.replace(/:.*$/, ''), // Remove preference suffix for name matching
+                voiceTag: voiceTag.replace(/:.*$/, ''), // Remove preference and message ID suffix for name matching
                 voiceType: voiceType,
                 voiceId: inlineVoiceId,
                 preference: preference,
+                messageId: messageId, // Add messageId to the segment
                 speaker: extractSpeakerName(voiceTag),
                 type: voiceType,
                 visualActions: 0,
@@ -637,6 +638,41 @@ function extractInlineVoiceId(voiceTag) {
     return null;
 }
 
+/**
+ * Extract preference and message ID from voice tag
+ * @param {string} voiceTag - Voice tag like "Amado:recorded:msg_id" or "Sarah:text"
+ * @returns {Object} { preference, messageId }
+ */
+const extractPreferenceAndMessageId = (voiceTag) => {
+    const parts = voiceTag.split(':');
+    if (parts.length >= 2) {
+        const preference = parts[1];
+        const messageId = parts.length >= 3 ? parts[2] : null;
+        return { preference, messageId };
+    }
+    return { preference: null, messageId: null };
+};
+
+/**
+ * Extract preference from voice tag (legacy function - now enhanced)
+ * @param {string} voiceTag - Voice tag to analyze
+ * @returns {string|null} Preference type or null
+ */
+export const extractPreference = (voiceTag) => {
+    const { preference } = extractPreferenceAndMessageId(voiceTag);
+    return preference;
+};
+
+/**
+ * Extract message ID from voice tag
+ * @param {string} voiceTag - Voice tag to analyze
+ * @returns {string|null} Message ID or null
+ */
+export const extractMessageId = (voiceTag) => {
+    const { messageId } = extractPreferenceAndMessageId(voiceTag);
+    return messageId;
+};
+
 // Helper function to clean text content
 function cleanTextContent(content) {
     // Remove visual actions but keep media references
@@ -648,12 +684,6 @@ function cleanTextContent(content) {
         // Remove visual actions
         return '';
     }).trim();
-}
-
-// Helper function to extract preference from voice tag
-function extractPreference(voiceTag) {
-    const preferenceMatch = voiceTag.match(/:([^:]+)$/);
-    return preferenceMatch ? preferenceMatch[1].trim() : 'text';
 }
 
 // Helper function to extract speaker name

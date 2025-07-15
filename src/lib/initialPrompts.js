@@ -11,13 +11,13 @@ export const initialPrompts = [
     description: 'Detailed analysis of images including people, demographics, setting, activities, and technical details',
     category: 'image_analysis',
     subcategory: 'comprehensive',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o',
     max_tokens: 4000,
     temperature: 0.3,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'user_only',
     system_prompt: null,
@@ -63,11 +63,11 @@ STORY ELEMENTS:
 - What might happen next?
 
 Please provide rich, detailed descriptions that would help someone understand the complete context and story of this moment.`,
-    
+
     // Management & Versioning
     is_active: true,
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['image', 'analysis', 'comprehensive', 'people', 'setting', 'story'],
     notes: 'Original hard-coded prompt from image analysis system. Provides comprehensive analysis for ember creation.'
@@ -82,13 +82,13 @@ Please provide rich, detailed descriptions that would help someone understand th
     description: 'Generate 5 creative and memorable titles for embers based on context',
     category: 'title_generation',
     subcategory: 'creative',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o-mini',
     max_tokens: 200,
     temperature: 0.8,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'user_only',
     system_prompt: null,
@@ -107,11 +107,11 @@ Format your response as a numbered list:
 3. [Title]
 4. [Title]
 5. [Title]`,
-    
+
     // Management & Versioning
     is_active: true,
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['title', 'generation', 'creative', 'naming', 'suggestions'],
     notes: 'Generates creative titles for embers based on full context including story and image analysis.'
@@ -126,13 +126,13 @@ Format your response as a numbered list:
     description: 'Generates pure storytelling content for audio narratives - focuses solely on compelling voice content creation',
     category: 'story_generation',
     subcategory: 'story_cut',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o',
     max_tokens: 2000,
     temperature: 0.7,
     response_format: 'json_object',
-    
+
     // Prompt Structure
     prompt_type: 'system_and_user',
     system_prompt: `You are an AI Story Content Generator, a professional narrative writer who creates compelling audio story content.
@@ -163,7 +163,7 @@ STYLE APPLICATION:
 The narrative style will be provided separately and should be seamlessly integrated into your storytelling approach while maintaining authenticity.
 
 Always return valid JSON with the exact structure specified in the user prompt.`,
-    
+
     user_prompt_template: `EMBER CONTEXT AND STORY MATERIAL:
 {{ember_context}}
 
@@ -187,6 +187,16 @@ VOICE CASTING DETAILS:
 
 DIRECT QUOTES AVAILABLE:
 {{contributor_quotes}}
+
+VOICE TAG FORMAT WITH MESSAGE IDS:
+- When using actual quotes from contributors, include the message ID for precise audio matching
+- Format: [CONTRIBUTOR_FIRST_NAME:preference:message_id] for quotes with recorded audio
+- Format: [CONTRIBUTOR_FIRST_NAME:text] for quotes without recorded audio
+- Example: [Amado:recorded:550e8400-e29b-41d4-a716-446655440000] for a recorded quote
+- Example: [Sarah:text] for a text-only quote
+- The message_id is provided in the contributor_quotes data structure above
+- ALWAYS include the message ID when available to ensure precise audio matching
+- Look for the "message_id" field in each contributor quote and use it in the voice tag
 
 GENERATION REQUIREMENTS:
 Create a {{duration}}-second story that weaves together the ember context and story circle conversations into a compelling narrative. Apply the provided style directive to shape your storytelling approach.
@@ -214,14 +224,24 @@ VOICE TAG NAMING:
 - Available contributor names are provided in the "Selected Contributors" section above
 - DO NOT use generic tags like [Owner] or [CONTRIBUTOR NAME] - always use actual first names
 
+VOICE TAG FORMAT WITH MESSAGE IDS:
+- When using actual quotes from contributors, include the message ID for precise audio matching
+- Format: [CONTRIBUTOR_FIRST_NAME:preference:message_id] for quotes with recorded audio
+- Format: [CONTRIBUTOR_FIRST_NAME:text] for quotes without recorded audio
+- Example: [Amado:recorded:550e8400-e29b-41d4-a716-446655440000] for a recorded quote
+- Example: [Sarah:text] for a text-only quote
+- The message_id is provided in the contributor_quotes data structure above
+- ALWAYS include the message ID when available to ensure precise audio matching
+- Look for the "message_id" field in each contributor quote and use it in the voice tag
+
 SCRIPT FORMATTING (SIMPLE):
 - Create clean voice content only
-- Use these voice tags: [EMBER VOICE], [NARRATOR], [{{owner_first_name}}], [ACTUAL_CONTRIBUTOR_FIRST_NAME]
+- Use these voice tags: [EMBER VOICE], [NARRATOR], [{{owner_first_name}}], [ACTUAL_CONTRIBUTOR_FIRST_NAME:preference:message_id]
 - Start each voice change on a new line using double line breaks
-- Format like: "[EMBER VOICE] Narrative line\n\n[NARRATOR] Context line\n\n[{{owner_first_name}}] Actual quote from owner\n\n[CONTRIBUTOR_FIRST_NAME] Quote from contributor"
+- Format like: "[EMBER VOICE] Narrative line\n\n[NARRATOR] Context line\n\n[{{owner_first_name}}] Actual quote from owner\n\n[CONTRIBUTOR_FIRST_NAME:recorded:message_id] Quote from contributor"
 - Ember Voice and Narrator are for storytelling; Owner/Contributors are for actual quotes
 - Replace {{owner_first_name}} with the actual first name of the ember owner (e.g., [Amado])
-- Replace contributor placeholders with actual contributor first names (e.g., [Odama], [Sarah])
+- Replace contributor placeholders with actual contributor first names and include message IDs when available
 
 VOICE LINE ARRAYS REQUIREMENT:
 - MUST populate ember_voice_lines array with all [EMBER VOICE] lines from the ai_script
@@ -263,11 +283,11 @@ Return a JSON object with this exact structure:
     "generatedAt": "{{timestamp}}"
   }
 }`,
-    
+
     // Management & Versioning
     is_active: true,
     version: 'v3.0',
-    
+
     // Metadata
     tags: ['story', 'generation', 'ai-script', 'content', 'narrative', 'audio'],
     notes: 'AI Story Content Generator - focuses purely on storytelling content creation. Returns raw AI script that gets processed into ember format by platform. v3.0: Simplified to focus on content creation only.'
@@ -282,13 +302,13 @@ Return a JSON object with this exact structure:
     description: 'Generate an opening question for the story circle conversation',
     category: 'conversation',
     subcategory: 'story_circle',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o-mini',
     max_tokens: 100,
     temperature: 0.7,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'user_only',
     system_prompt: null,
@@ -302,11 +322,11 @@ Based on the ember context above, generate ONE thoughtful, engaging opening ques
 - Invite reflection on the experience
 
 Only provide the question, no additional text or explanation.`,
-    
+
     // Management & Versioning
     is_active: true,
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['conversation', 'story_circle', 'questions', 'initial', 'opening'],
     notes: 'Generates opening questions for story circle conversations based on ember context.'
@@ -318,13 +338,13 @@ Only provide the question, no additional text or explanation.`,
     description: 'Generate contextual follow-up questions for story circle conversations',
     category: 'conversation',
     subcategory: 'story_circle',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o-mini',
     max_tokens: 150,
     temperature: 0.8,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'user_only',
     system_prompt: null,
@@ -341,11 +361,11 @@ Based on the ember context and conversation history above, generate ONE thoughtf
 - Helps uncover more details or emotions about the moment
 
 Only provide the question, no additional text or explanation.`,
-    
+
     // Management & Versioning
     is_active: true,
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['conversation', 'story_circle', 'followup', 'questions', 'contextual'],
     notes: 'Generates follow-up questions for ongoing story circle conversations.'
@@ -360,13 +380,13 @@ Only provide the question, no additional text or explanation.`,
     description: 'Generate a concise summary of an ember based on all available context',
     category: 'general',
     subcategory: 'summary',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o-mini',
     max_tokens: 300,
     temperature: 0.6,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'user_only',
     system_prompt: null,
@@ -380,11 +400,11 @@ Based on the complete ember context above, generate a concise but comprehensive 
 - Sound natural and engaging
 
 Focus on what makes this moment unique and memorable.`,
-    
+
     // Management & Versioning
     is_active: true,
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['summary', 'general', 'ember', 'overview'],
     notes: 'Generates concise summaries of ember moments for overview purposes.'
@@ -399,13 +419,13 @@ Focus on what makes this moment unique and memorable.`,
     description: 'Generate more poetic and artistic titles for embers',
     category: 'title_generation',
     subcategory: 'poetic',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o-mini',
     max_tokens: 200,
     temperature: 0.9,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'user_only',
     system_prompt: null,
@@ -425,11 +445,11 @@ Format your response as a numbered list:
 3. [Title]
 4. [Title]
 5. [Title]`,
-    
+
     // Management & Versioning
     is_active: false, // Inactive - alternative to main title generation
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['title', 'generation', 'poetic', 'artistic', 'alternative'],
     notes: 'Alternative prompt for more poetic/artistic title generation. Currently inactive.'
@@ -441,13 +461,13 @@ Format your response as a numbered list:
     description: 'Focus on technical and compositional aspects of images',
     category: 'image_analysis',
     subcategory: 'technical',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o',
     max_tokens: 2000,
     temperature: 0.2,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'user_only',
     system_prompt: null,
@@ -482,11 +502,11 @@ VISUAL STORYTELLING:
 - What the technical elements reveal about the moment
 
 Provide a detailed technical analysis that would help understand the photographic craft behind this image.`,
-    
+
     // Management & Versioning
     is_active: false, // Inactive - specialized use case
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['image', 'analysis', 'technical', 'composition', 'photography'],
     notes: 'Specialized prompt for technical image analysis. Currently inactive.'
@@ -498,13 +518,13 @@ Provide a detailed technical analysis that would help understand the photographi
     description: 'Generate questions focused on emotional aspects of moments',
     category: 'conversation',
     subcategory: 'story_circle',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o-mini',
     max_tokens: 100,
     temperature: 0.8,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'user_only',
     system_prompt: null,
@@ -518,11 +538,11 @@ Based on the ember context above, generate ONE question that focuses specificall
 - Help uncover the emotional significance
 
 Only provide the question, no additional text or explanation.`,
-    
+
     // Management & Versioning
     is_active: false, // Inactive - specialized variation
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['conversation', 'story_circle', 'emotional', 'feelings', 'specialized'],
     notes: 'Specialized prompt for emotionally-focused story circle questions. Currently inactive.'
@@ -534,13 +554,13 @@ Only provide the question, no additional text or explanation.`,
     description: 'Ember AI analyzes comments and wiki context to generate thoughtful questions focusing on the 5 W\'s and emotional responses',
     category: 'conversation',
     subcategory: 'story_circle',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o-mini',
     max_tokens: 150,
     temperature: 0.7,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'system_and_user',
     system_prompt: `You are Ember AI, a thoughtful conversation guide helping people explore their memories and stories. Your role is to:
@@ -553,7 +573,7 @@ Only provide the question, no additional text or explanation.`,
 6. Be warm, curious, and conversational - never clinical or formal
 
 Keep your questions brief, natural, and focused on one specific aspect. Avoid long explanations or multiple questions at once.`,
-    
+
     user_prompt_template: `EMBER WIKI CONTEXT:
 {{ember_context}}
 
@@ -578,11 +598,11 @@ Generate ONE short, casual question (1-2 sentences) that either:
 - Connects to something the comment author mentioned
 
 Be conversational and warm. Ask about feelings, personal memories, or little details that make this moment special.`,
-    
+
     // Management & Versioning
     is_active: true,
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['conversation', 'story_circle', 'ember_ai', 'emotional', 'five_ws', 'anecdotes'],
     notes: 'Main Ember AI prompt for analyzing comments and generating emotional story circle questions based on the 5 W\'s framework.'
@@ -597,13 +617,13 @@ Be conversational and warm. Ask about feelings, personal memories, or little det
     description: 'Fast-paced, dramatic storytelling that builds excitement and tension',
     category: 'story_styles',
     subcategory: 'cinematic',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o',
     max_tokens: 500,
     temperature: 0.8,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'system_only',
     system_prompt: `You are creating a MOVIE TRAILER style story cut. This style is characterized by:
@@ -640,13 +660,13 @@ FOCUS AREAS:
 - Create a sense of urgency or importance
 
 When generating story cuts in this style, make every word count and every moment feel significant. The goal is to make the listener feel the excitement and emotion of a movie trailer while telling their personal story.`,
-    
+
     user_prompt_template: null,
-    
+
     // Management & Versioning
     is_active: true,
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['story', 'style', 'cinematic', 'dramatic', 'fast-paced', 'trailer'],
     notes: 'Movie trailer style for dynamic, exciting story cuts that build tension and drama.'
@@ -658,13 +678,13 @@ When generating story cuts in this style, make every word count and every moment
     description: 'Thoughtful, educational storytelling that explores context and meaning',
     category: 'story_styles',
     subcategory: 'educational',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o',
     max_tokens: 500,
     temperature: 0.6,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'system_only',
     system_prompt: `You are creating a DOCUMENTARY style story cut. This style is characterized by:
@@ -702,13 +722,13 @@ FOCUS AREAS:
 - Include quiet, contemplative moments
 
 When generating story cuts in this style, prioritize depth over drama, understanding over excitement. Help the listener learn something new about the moment while feeling deeply connected to it.`,
-    
+
     user_prompt_template: null,
-    
+
     // Management & Versioning
     is_active: true,
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['story', 'style', 'documentary', 'educational', 'thoughtful', 'reflective'],
     notes: 'Documentary style for thoughtful, educational story cuts that explore context and meaning.'
@@ -720,13 +740,13 @@ When generating story cuts in this style, prioritize depth over drama, understan
     description: 'Factual, structured storytelling with clear timeline and professional tone',
     category: 'story_styles',
     subcategory: 'journalistic',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o',
     max_tokens: 500,
     temperature: 0.4,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'system_only',
     system_prompt: `You are creating a NEWS REPORT style story cut. This style is characterized by:
@@ -765,13 +785,13 @@ FOCUS AREAS:
 - Maintain objectivity while showing human interest
 
 When generating story cuts in this style, prioritize clarity, accuracy, and professional presentation. Make the personal story feel newsworthy and significant while maintaining journalistic integrity.`,
-    
+
     user_prompt_template: null,
-    
+
     // Management & Versioning
     is_active: true,
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['story', 'style', 'news', 'journalistic', 'factual', 'professional'],
     notes: 'News report style for clear, factual story cuts with professional presentation.'
@@ -783,13 +803,13 @@ When generating story cuts in this style, prioritize clarity, accuracy, and prof
     description: 'Intimate, personal storytelling with rich descriptions and human connection',
     category: 'story_styles',
     subcategory: 'intimate',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o',
     max_tokens: 500,
     temperature: 0.7,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'system_only',
     system_prompt: `You are creating a PUBLIC RADIO style story cut. This style is characterized by:
@@ -829,13 +849,13 @@ FOCUS AREAS:
 - What makes this moment uniquely human
 
 When generating story cuts in this style, create an intimate listening experience that makes the audience feel they're sharing a meaningful conversation with a close friend. Focus on the human heart of the story.`,
-    
+
     user_prompt_template: null,
-    
+
     // Management & Versioning
     is_active: true,
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['story', 'style', 'public_radio', 'intimate', 'personal', 'conversational'],
     notes: 'Public radio style for intimate, personal story cuts with rich descriptions and emotional depth.'
@@ -847,13 +867,13 @@ When generating story cuts in this style, create an intimate listening experienc
     description: 'Engaging conversational storytelling with strong narrative arc and listener engagement',
     category: 'story_styles',
     subcategory: 'conversational',
-    
+
     // OpenAI Configuration
     model: 'gpt-4o',
     max_tokens: 500,
     temperature: 0.7,
     response_format: 'text',
-    
+
     // Prompt Structure
     prompt_type: 'system_only',
     system_prompt: `You are creating a PODCAST NARRATIVE style story cut. This style is characterized by:
@@ -893,13 +913,13 @@ FOCUS AREAS:
 - Make the listener feel part of the experience
 
 When generating story cuts in this style, imagine you're telling an engaging story to a friend over coffee, but with the polish and structure of a well-produced podcast. Keep the listener hooked while honoring the personal nature of the story.`,
-    
+
     user_prompt_template: null,
-    
+
     // Management & Versioning
     is_active: true,
     version: 'v1.0',
-    
+
     // Metadata
     tags: ['story', 'style', 'podcast', 'narrative', 'conversational', 'engaging'],
     notes: 'Podcast narrative style for engaging, conversational story cuts with strong narrative structure.'
@@ -914,9 +934,9 @@ When generating story cuts in this style, imagine you're telling an engaging sto
 export async function insertInitialPrompts(userId) {
   const { supabase } = await import('./supabase.js');
   const { promptsCRUD } = await import('./promptManager.js');
-  
+
   const createdPrompts = [];
-  
+
   for (const promptData of initialPrompts) {
     try {
       // Add user ID to the prompt data
@@ -925,16 +945,16 @@ export async function insertInitialPrompts(userId) {
         created_by_user_id: userId,
         updated_by_user_id: userId
       };
-      
+
       const created = await promptsCRUD.create(fullPromptData);
       createdPrompts.push(created);
-      
+
       console.log(`Created prompt: ${promptData.prompt_key}`);
     } catch (error) {
       console.error(`Error creating prompt ${promptData.prompt_key}:`, error);
     }
   }
-  
+
   return createdPrompts;
 }
 
@@ -964,7 +984,7 @@ export const inactivePrompts = initialPrompts.filter(p => !p.is_active);
  * Prompt validation and migration utilities
  */
 export const promptMigrationUtils = {
-  
+
   /**
    * Validate all prompts have required fields
    * @returns {Object} Validation result
@@ -972,7 +992,7 @@ export const promptMigrationUtils = {
   validatePrompts() {
     const required = ['prompt_key', 'title', 'category', 'model', 'max_tokens', 'temperature', 'user_prompt_template'];
     const errors = [];
-    
+
     initialPrompts.forEach((prompt, index) => {
       required.forEach(field => {
         if (!prompt[field]) {
@@ -980,14 +1000,14 @@ export const promptMigrationUtils = {
         }
       });
     });
-    
+
     return {
       valid: errors.length === 0,
       errors,
       totalPrompts: initialPrompts.length
     };
   },
-  
+
   /**
    * Check for duplicate prompt keys
    * @returns {Array} Array of duplicate keys
@@ -997,7 +1017,7 @@ export const promptMigrationUtils = {
     const duplicates = keys.filter((key, index) => keys.indexOf(key) !== index);
     return [...new Set(duplicates)];
   },
-  
+
   /**
    * Get statistics about the initial prompts
    * @returns {Object} Statistics object
@@ -1011,27 +1031,27 @@ export const promptMigrationUtils = {
       byModel: {},
       byResponseFormat: {}
     };
-    
+
     initialPrompts.forEach(prompt => {
       // By category
       if (!stats.byCategory[prompt.category]) {
         stats.byCategory[prompt.category] = 0;
       }
       stats.byCategory[prompt.category]++;
-      
+
       // By model
       if (!stats.byModel[prompt.model]) {
         stats.byModel[prompt.model] = 0;
       }
       stats.byModel[prompt.model]++;
-      
+
       // By response format
       if (!stats.byResponseFormat[prompt.response_format]) {
         stats.byResponseFormat[prompt.response_format] = 0;
       }
       stats.byResponseFormat[prompt.response_format]++;
     });
-    
+
     return stats;
   }
 }; 

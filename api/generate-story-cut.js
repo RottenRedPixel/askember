@@ -398,6 +398,7 @@ export default async function handler(req, res) {
 
     // Extract recorded audio URLs from story messages (RPC returns array directly)
     const recordedAudioMap = new Map();
+    const messageIdMap = new Map(); // NEW: Map message IDs to message data
     if (storyMessages && Array.isArray(storyMessages)) {
       storyMessages.forEach(msg => {
         if (msg.sender === 'user' && msg.audio_url) {
@@ -408,13 +409,42 @@ export default async function handler(req, res) {
             user_first_name: msg.user_first_name,
             message_content: msg.content
           });
+          // NEW: Store message ID mapping
+          messageIdMap.set(msg.id, {
+            user_id: msg.user_id,
+            user_first_name: msg.user_first_name,
+            content: msg.content,
+            audio_url: msg.audio_url,
+            audio_filename: msg.audio_filename,
+            audio_duration_seconds: msg.audio_duration_seconds
+          });
         }
+      });
+    }
+
+    // NEW: Enhanced contributor quotes with message IDs
+    let enhancedContributorQuotes = contributorQuotes;
+    if (contributorQuotes && storyMessages) {
+      enhancedContributorQuotes = contributorQuotes.map(quote => {
+        // Find the corresponding message ID for this quote
+        const matchingMessage = storyMessages.find(msg =>
+          msg.sender === 'user' &&
+          msg.content === quote.content &&
+          msg.user_first_name === quote.contributor
+        );
+
+        return {
+          ...quote,
+          message_id: matchingMessage?.id || null
+        };
       });
     }
 
     console.log('🎙️ API - Found recorded audio for users:', Array.from(recordedAudioMap.keys()));
     console.log('🔍 API DEBUG - Story messages loaded from RPC:', storyMessages?.length || 0);
     console.log('🔍 API DEBUG - Voice casting contributors:', voiceCasting.contributors?.length || 0);
+    console.log('🆔 API DEBUG - Enhanced contributor quotes with message IDs:', enhancedContributorQuotes?.length || 0);
+    console.log('🆔 API DEBUG - Message ID map size:', messageIdMap.size);
 
     // 🐛 ENHANCED DEBUG: Log all story messages details
     console.log('🐛 API DEBUG - All story messages:');
@@ -477,11 +507,11 @@ export default async function handler(req, res) {
       ember_voice_name: voiceCasting.ember?.name || 'Selected Voice',
       narrator_voice_name: voiceCasting.narrator?.name || 'Selected Voice',
       voice_casting_info: JSON.stringify(voiceCasting, null, 2),
-      contributor_quotes: contributorQuotes ? JSON.stringify(contributorQuotes, null, 2) : 'No direct quotes available',
+      contributor_quotes: enhancedContributorQuotes ? JSON.stringify(enhancedContributorQuotes, null, 2) : 'No direct quotes available',
       selected_style: selectedStyle,
       selected_contributors_json: JSON.stringify(voiceCasting.contributors || []),
       contributor_count: voiceCasting.contributors?.length || 0,
-      has_quotes: contributorQuotes && contributorQuotes.length > 0,
+      has_quotes: enhancedContributorQuotes && enhancedContributorQuotes.length > 0,
       timestamp: new Date().toISOString(),
       use_ember_voice: voiceCasting.ember !== null,
       use_narrator_voice: voiceCasting.narrator !== null
@@ -563,7 +593,7 @@ export default async function handler(req, res) {
       duration: formData.duration,
       wordCount: approximateWords,
       contributors: voiceCasting.contributors?.length || 0,
-      hasQuotes: contributorQuotes && contributorQuotes.length > 0,
+      hasQuotes: enhancedContributorQuotes && enhancedContributorQuotes.length > 0,
       useEmberVoice: hasEmber,
       useNarratorVoice: hasNarrator
     });
@@ -682,7 +712,7 @@ export default async function handler(req, res) {
       // Add recorded audio URLs to the story cut data (MISSING LOGIC FROM LOCALHOST)
       generatedStoryCut.recordedAudio = {};
 
-      // Map recorded audio to contributors
+      // Map recorded audio to contributors with message IDs
       if (voiceCasting.contributors) {
         voiceCasting.contributors.forEach(contributor => {
           if (recordedAudioMap.has(contributor.id)) {
@@ -698,7 +728,11 @@ export default async function handler(req, res) {
         });
       }
 
+      // NEW: Add message ID mapping to metadata for audio matching
+      generatedStoryCut.messageIdMap = Object.fromEntries(messageIdMap);
+
       console.log('🎙️ API - Added recorded audio to story cut:', Object.keys(generatedStoryCut.recordedAudio));
+      console.log('🆔 API - Added message ID mapping:', Object.keys(generatedStoryCut.messageIdMap || {}));
       console.log('🔍 API DEBUG - Contributors to map:', voiceCasting.contributors?.map(c => ({ id: c.id, name: c.name })) || []);
       console.log('🔍 API DEBUG - Available audio users in map:', Array.from(recordedAudioMap.keys()));
 
