@@ -130,24 +130,24 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       // Legacy format - convert to sacred format for backward compatibility
       console.log('🔄 API: Converting legacy format to sacred format');
       processedVoiceLines = aiScript
-        .split('\n\n')
-        .filter(line => line.trim())
-        .map(line => {
-          const trimmedLine = line.trim();
+      .split('\n\n')
+      .filter(line => line.trim())
+      .map(line => {
+        const trimmedLine = line.trim();
 
-          // Skip if already processed or malformed
-          if (!trimmedLine.includes('[') || !trimmedLine.includes(']')) {
-            return trimmedLine;
-          }
+        // Skip if already processed or malformed
+        if (!trimmedLine.includes('[') || !trimmedLine.includes(']')) {
+          return trimmedLine;
+        }
 
           // Extract voice tag and content from legacy format
-          const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.*)$/);
-          if (!voiceMatch) {
-            return trimmedLine;
-          }
+        const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.*)$/);
+        if (!voiceMatch) {
+          return trimmedLine;
+        }
 
-          const [, voiceTag, content] = voiceMatch;
-          const cleanContent = content.trim();
+        const [, voiceTag, content] = voiceMatch;
+        const cleanContent = content.trim();
 
           // Convert to sacred format
           let sacredName = voiceTag;
@@ -177,8 +177,8 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
 
           // Build sacred format with actual voice data
           return `[${sacredName} | ${preference} | ${contributionId}] <${cleanContent}>`;
-        })
-        .join('\n\n');
+      })
+      .join('\n\n');
     }
 
     // 4. Combine all elements into complete ember script (no closing HOLD)
