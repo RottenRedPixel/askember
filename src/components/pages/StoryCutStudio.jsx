@@ -2241,45 +2241,7 @@ export default function StoryCutStudio() {
                             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                                 <div className="text-gray-700 leading-relaxed font-mono text-sm overflow-auto">
                                     <pre className="whitespace-pre-wrap break-words max-w-full" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                                        {(() => {
-                                            console.log('🔍 DEBUG - View mode rendering, storyCut?.full_script:', storyCut?.full_script);
-                                            console.log('🔍 DEBUG - View mode script length:', storyCut?.full_script?.length);
-
-                                            // Show user-friendly format (no technical metadata)
-                                            if (storyCut?.full_script && ember) {
-                                                // Use the same formatScriptForDisplay as other components for consistency
-                                                const { formatScriptForDisplay } = require('@/lib/scriptParser');
-                                                formatScriptForDisplay(storyCut.full_script, ember, storyCut)
-                                                    .then(formatted => {
-                                                        console.log('🎨 StoryCutStudio: Formatted script for display');
-                                                        // Update display by re-rendering component (trigger state update)
-                                                        if (window.forceStoryCutStudioUpdate) {
-                                                            window.forceStoryCutStudioUpdate(formatted);
-                                                        }
-                                                    })
-                                                    .catch(err => console.error('Error formatting script:', err));
-
-                                                // For immediate display, show a simplified version
-                                                return storyCut.full_script
-                                                    .split('\n')
-                                                    .map(line => {
-                                                        // Quick transform for immediate display
-                                                        const sacredMatch = line.match(/^(\[([^|]+)\|([^|]*)\|([^\]]*)\])\s*<(.+)>$/);
-                                                        if (sacredMatch) {
-                                                            const [, , name, preference, messageId, content] = sacredMatch;
-                                                            if (preference === 'recorded' && messageId && messageId !== 'null') {
-                                                                return `[${name.trim()}] ${content}`;
-                                                            } else {
-                                                                return `[${name.trim()}] ${content}`;
-                                                            }
-                                                        }
-                                                        return line;
-                                                    })
-                                                    .join('\n');
-                                            }
-
-                                            return storyCut?.full_script || 'Loading script...';
-                                        })()}
+                                        {storyCut?.full_script || 'Loading script...'}
                                     </pre>
                                 </div>
                             </div>
