@@ -624,7 +624,7 @@ export default function EmberPlay() {
 
             {/* Mobile Layout */}
             <div className="md:hidden h-screen overflow-hidden">
-                <Card className="py-0 w-full h-full bg-black rounded-none">
+                <Card className="py-0 w-full h-full bg-black rounded-none border-0">
                     <CardContent className="p-0 h-full">
                         <div className="h-full flex flex-col bg-black overflow-hidden">
                             {/* Photo Area - 65vh */}
@@ -888,7 +888,7 @@ export default function EmberPlay() {
 
             {/* Desktop Layout */}
             <div className="hidden md:block h-screen overflow-hidden">
-                <Card className="py-0 w-full h-full bg-black rounded-none">
+                <Card className="py-0 w-full h-full bg-black rounded-none border-0">
                     <CardContent className="p-0 h-full">
                         <div className="h-full flex bg-black overflow-hidden">
                             {/* Left side - Photo Area */}
