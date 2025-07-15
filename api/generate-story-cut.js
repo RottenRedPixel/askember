@@ -90,6 +90,15 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       console.log('🔍 API DEBUG: Sorted media order:', sortedMedia.map(m => `${m.name} (${m.category})`));
 
       // Use new sacred format for media elements
+      console.log('🔍 API DEBUG: MEDIA generation starting');
+      console.log('🔍 API DEBUG: sortedMedia length:', sortedMedia?.length);
+      console.log('🔍 API DEBUG: sortedMedia summary:', sortedMedia?.map(m => ({
+        id: m.id,
+        name: m.name,
+        category: m.category,
+        storage_url: m.storage_url?.substring(0, 50) + '...'
+      })));
+
       if (sortedMedia.length > 0) {
         const firstMedia = sortedMedia[0];
         console.log('🔍 API DEBUG: First media object:', JSON.stringify(firstMedia, null, 2));
@@ -109,19 +118,32 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
 
         // Additional media (if any)
         if (sortedMedia.length > 1) {
+          console.log('🔍 API DEBUG: Processing additional media elements:', sortedMedia.length - 1);
           additionalMediaElements = sortedMedia.slice(1)
             .map(media => {
+              console.log('🔍 API DEBUG: Processing additional media:', {
+                id: media.id,
+                name: media.name,
+                storage_url: media.storage_url?.substring(0, 30) + '...'
+              });
+
+              let line;
               if (media.file_url || media.storage_url) {
                 const mediaUrl = media.file_url || media.storage_url;
                 const fallbackName = media.display_name || media.filename || media.name || 'media';
-                return `[MEDIA | ${media.id || 'generated'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
+                line = `[MEDIA | ${media.id || 'generated'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
+                console.log('✅ API DEBUG: Created additional MEDIA line with URL:', line);
               } else if (media.id) {
-                return `[MEDIA | ${media.id}] <id="${media.id}">`;
+                line = `[MEDIA | ${media.id}] <id="${media.id}">`;
+                console.log('✅ API DEBUG: Created additional MEDIA line with ID:', line);
               } else {
-                return `[MEDIA | generated] <name="${media.filename || media.name}">`;
+                line = `[MEDIA | generated] <name="${media.filename || media.name}">`;
+                console.log('✅ API DEBUG: Created additional MEDIA line with name:', line);
               }
+              return line;
             })
             .join('\n\n');
+          console.log('🔍 API DEBUG: additionalMediaElements:', additionalMediaElements);
         }
       }
     } else {

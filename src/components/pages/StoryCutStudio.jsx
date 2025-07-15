@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Eye, Code, Plus, Save, X, ArrowLeft, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -450,6 +450,8 @@ export default function StoryCutStudio() {
                         const trimmedLine = line.trim();
                         if (!trimmedLine) continue;
 
+                        console.log('🔍 DEBUG - Parsing line:', trimmedLine);
+
                         // Voice IDs are now handled inline with voice lines
 
                         // Enhanced MEDIA parsing - Handle multiple format variations
@@ -464,6 +466,12 @@ export default function StoryCutStudio() {
                             mediaId = mediaMatch[1].trim();
                             content = mediaMatch[2].trim();
                             formatType = 'new_single_bracket';
+                            console.log('🔍 DEBUG - MEDIA Pattern 1 MATCH:', {
+                                fullLine: trimmedLine,
+                                mediaId,
+                                content,
+                                formatType
+                            });
                         }
 
                         // 2. Old format: [[MEDIA | id]] (content)
@@ -473,6 +481,12 @@ export default function StoryCutStudio() {
                                 mediaId = mediaMatch[1].trim();
                                 content = mediaMatch[2].trim();
                                 formatType = 'old_double_bracket';
+                                console.log('🔍 DEBUG - MEDIA Pattern 2 MATCH:', {
+                                    fullLine: trimmedLine,
+                                    mediaId,
+                                    content,
+                                    formatType
+                                });
                             }
                         }
 
@@ -483,6 +497,12 @@ export default function StoryCutStudio() {
                                 mediaId = 'legacy';
                                 content = mediaMatch[1].trim();
                                 formatType = 'legacy_no_id';
+                                console.log('🔍 DEBUG - MEDIA Pattern 3 MATCH:', {
+                                    fullLine: trimmedLine,
+                                    mediaId,
+                                    content,
+                                    formatType
+                                });
                             }
                         }
 
@@ -493,12 +513,18 @@ export default function StoryCutStudio() {
                                 mediaId = mediaMatch[1].trim();
                                 content = mediaMatch[2].trim();
                                 formatType = 'malformed_sacred';
-                                console.warn('🚨 Detected malformed MEDIA Sacred Format, auto-correcting');
+                                console.warn('🚨 DEBUG - Detected malformed MEDIA Sacred Format, auto-correcting');
+                                console.log('🔍 DEBUG - MEDIA Pattern 4 MATCH:', {
+                                    fullLine: trimmedLine,
+                                    mediaId,
+                                    content,
+                                    formatType
+                                });
                             }
                         }
 
                         if (mediaMatch) {
-                            console.log(`📸 Parsed MEDIA block - Format: ${formatType}, ID: ${mediaId}, Content: ${content}`);
+                            console.log(`📸 DEBUG - Parsed MEDIA block - Format: ${formatType}, ID: ${mediaId}, Content: ${content}`);
 
                             // Extract media name, ID, or path from content
                             // Check for path format: path="url",fallback="name"
@@ -844,21 +870,38 @@ export default function StoryCutStudio() {
 
     // Auto-generate and save complete script when blocks are loaded (but not when manually edited)
     useEffect(() => {
-        if (!blocks || blocks.length === 0 || !storyCut || !user) return;
+        console.log('🔍 DEBUG - Auto-generation useEffect TRIGGERED');
+        console.log('🔍 DEBUG - Dependencies:', {
+            blocks: blocks?.length,
+            storyCut: !!storyCut,
+            user: !!user,
+            contributorAudioPreferences: Object.keys(contributorAudioPreferences || {}).length
+        });
+
+        if (!blocks || blocks.length === 0 || !storyCut || !user) {
+            console.log('🔍 DEBUG - Auto-generation EARLY RETURN - missing dependencies');
+            return;
+        }
 
         // ✅ ENHANCED: Check for existing MEDIA blocks to prevent duplication
         const existingMediaBlocks = blocks.filter(b => b.type === 'media');
         const storedScript = storyCut.full_script?.trim() || '';
 
-        console.log('🔍 Auto-generation check:', {
+        console.log('🔍 DEBUG - Auto-generation check:', {
             totalBlocks: blocks.length,
             mediaBlocks: existingMediaBlocks.length,
-            scriptLength: storedScript.length
+            scriptLength: storedScript.length,
+            storedScriptPreview: storedScript.substring(0, 100) + '...'
         });
 
         // Don't auto-generate if multiple MEDIA blocks exist (likely duplicates)
         if (existingMediaBlocks.length > 1) {
-            console.log('⚠️ Multiple MEDIA blocks detected - skipping auto-generation to prevent duplicates');
+            console.log('⚠️ DEBUG - Multiple MEDIA blocks detected - skipping auto-generation to prevent duplicates');
+            console.log('🔍 DEBUG - Existing MEDIA blocks:', existingMediaBlocks.map(b => ({
+                id: b.id,
+                mediaId: b.mediaId,
+                mediaUrl: b.mediaUrl?.substring(0, 30) + '...'
+            })));
             return;
         }
 
@@ -869,14 +912,14 @@ export default function StoryCutStudio() {
             storedScript.split('\n').some(line => line.trim() && !line.match(/^\[\[|^\[/)); // Non-standard lines
 
         if (hasManualFormatting) {
-            console.log('📝 Script appears to be manually edited - skipping auto-generation');
+            console.log('📝 DEBUG - Script appears to be manually edited - skipping auto-generation');
             return;
         }
 
         // Wait for all state to settle, then auto-generate complete script
         const timeout = setTimeout(async () => {
             try {
-                console.log('🔄 Auto-generating complete script with preferences...');
+                console.log('🔄 DEBUG - Auto-generation STARTING...');
 
                 // ✅ NEW: Better detection of script completeness for inline voice format
                 const hasInlineVoiceFormat = /\[[^\]]+\s*-\s*[^:]+:[^:\]]+\]/.test(storedScript);
@@ -885,7 +928,7 @@ export default function StoryCutStudio() {
                 // Check if script already has the new inline voice format with preferences
                 const isScriptComplete = hasInlineVoiceFormat || hasOldAudioSuffixes;
 
-                console.log('🔍 Script completeness check:', {
+                console.log('🔍 DEBUG - Script completeness check:', {
                     hasInlineVoiceFormat,
                     hasOldAudioSuffixes,
                     isScriptComplete,
@@ -893,18 +936,20 @@ export default function StoryCutStudio() {
                 });
 
                 if (isScriptComplete) {
-                    console.log('✅ Script already has proper voice format - no auto-generation needed');
+                    console.log('✅ DEBUG - Script already has proper voice format - no auto-generation needed');
                     return;
                 }
 
                 // ✅ NEW: Only generate if script is genuinely incomplete
+                console.log('🔄 DEBUG - Calling generateScript()...');
                 const generatedScript = generateScript();
+                console.log('🔄 DEBUG - generateScript() returned:', generatedScript.length, 'characters');
 
                 // ✅ NEW: More conservative update logic
                 if (generatedScript !== storedScript) {
-                    console.log('💾 Adding missing voice preferences to script...');
-                    console.log('📝 Stored script preview:', storedScript.substring(0, 200) + '...');
-                    console.log('📝 Generated script preview:', generatedScript.substring(0, 200) + '...');
+                    console.log('💾 DEBUG - Scripts differ - updating database...');
+                    console.log('📝 DEBUG - Stored script preview:', storedScript.substring(0, 200) + '...');
+                    console.log('📝 DEBUG - Generated script preview:', generatedScript.substring(0, 200) + '...');
 
                     await updateStoryCut(storyCut.id, {
                         full_script: generatedScript
@@ -916,7 +961,7 @@ export default function StoryCutStudio() {
                         full_script: generatedScript
                     }));
 
-                    console.log('✅ Auto-saved complete script to database for EmberPlay');
+                    console.log('✅ DEBUG - Auto-saved complete script to database for EmberPlay');
 
                     // 🔄 Notify other components about the script update
                     window.dispatchEvent(new CustomEvent('emberScriptUpdated', {
@@ -927,14 +972,17 @@ export default function StoryCutStudio() {
                         }
                     }));
                 } else {
-                    console.log('✅ Database script matches generated script - no update needed');
+                    console.log('✅ DEBUG - Database script matches generated script - no update needed');
                 }
             } catch (error) {
-                console.error('❌ Failed to auto-generate complete script:', error);
+                console.error('❌ DEBUG - Failed to auto-generate complete script:', error);
             }
         }, 1000); // Wait for all state to settle
 
-        return () => clearTimeout(timeout);
+        return () => {
+            console.log('🔍 DEBUG - Auto-generation useEffect CLEANUP');
+            clearTimeout(timeout);
+        };
     }, [blocks, user, contributorAudioPreferences]); // Removed storyCut from dependencies to avoid triggering on manual edits
 
     // Cleanup all audio when component unmounts
@@ -1077,13 +1125,24 @@ export default function StoryCutStudio() {
 
     const generateScript = () => {
         // Generate scripts using the new SACRED FORMAT to preserve critical data
+        console.log('🔍 DEBUG - generateScript() ENTRY');
+        console.log('🔍 DEBUG - Current blocks:', blocks?.length, blocks?.map(b => ({ type: b.type, id: b.id, mediaId: b.mediaId })));
 
         const scriptLines = blocks.map(block => {
+            console.log('🔍 DEBUG - Processing block:', { type: block.type, id: block.id, mediaId: block.mediaId });
+
             switch (block.type) {
                 case 'media':
                     // Media blocks use new single bracket format: [MEDIA | id] <content>
                     let mediaContent = '';
                     let mediaId = block.mediaId || 'generated';
+
+                    console.log('🔍 DEBUG - MEDIA block generation:', {
+                        blockId: block.id,
+                        mediaId: block.mediaId,
+                        mediaUrl: block.mediaUrl?.substring(0, 50) + '...',
+                        mediaName: block.mediaName
+                    });
 
                     // Build base content
                     if (block.mediaUrl) {
@@ -1094,58 +1153,27 @@ export default function StoryCutStudio() {
                         mediaContent = `name="${block.mediaName}"`;
                     }
 
-                    // Build effects from current state
-                    const blockEffects = selectedEffects[`effect-${block.id}`] || [];
-                    const effectParts = [];
-
-                    blockEffects.forEach(effectType => {
-                        const direction = effectDirections[`${effectType}-${block.id}`];
-                        const duration = effectDurations[`${effectType}-${block.id}`] || 0;
-
-                        if (duration > 0) {
-                            let effectString = '';
-                            if (effectType === 'fade') {
-                                effectString = `FADE-${direction?.toUpperCase() || 'IN'}:duration=${duration}`;
-                            } else if (effectType === 'pan') {
-                                effectString = `PAN-${direction?.toUpperCase() || 'LEFT'}:duration=${duration}`;
-                            } else if (effectType === 'zoom') {
-                                effectString = `ZOOM-${direction?.toUpperCase() || 'IN'}:duration=${duration}`;
-                            }
-                            if (effectString) effectParts.push(effectString);
-                        }
-                    });
-
-                    // Combine content and effects
-                    if (effectParts.length > 0) {
-                        mediaContent += `,${effectParts.join(',')}`;
-                    }
-
                     const mediaLine = `[MEDIA | ${mediaId}] <${mediaContent}>`;
+                    console.log('🔍 DEBUG - Generated MEDIA line:', mediaLine);
                     return mediaLine;
 
                 case 'voice':
-                    // NEW: Generate SACRED FORMAT for voice blocks
-                    const blockKey = `${block.voiceTag}-${block.id}`;
-                    const preference = contributorAudioPreferences[blockKey] || block.preference || 'text';
+                    // Voice blocks use Sacred Format: [NAME | preference | contributionID] <content>
+                    const contributorName = block.contributorName || 'Unknown';
+                    const audioPreference = getAudioPreference(block.contributorId);
+                    const contributionId = block.contributionId || 'no-audio';
 
-                    // Extract the clean voice name (remove any embedded voice names for sacred format)
-                    let cleanVoiceName = block.voiceTag;
+                    console.log('🔍 DEBUG - Voice block generation:', {
+                        blockId: block.id,
+                        contributorName,
+                        audioPreference,
+                        contributionId,
+                        content: block.content?.substring(0, 30) + '...'
+                    });
 
-                    // Handle enhanced voice tags like "Ember Voice (Lily)" -> "EMBER VOICE"
-                    if (block.voiceType === 'ember') {
-                        cleanVoiceName = 'EMBER VOICE';
-                    } else if (block.voiceType === 'narrator') {
-                        cleanVoiceName = 'NARRATOR';
-                    } else {
-                        // For contributors, extract just the first name
-                        cleanVoiceName = cleanVoiceName.replace(/\s*\([^)]*\)/, '').trim();
-                    }
-
-                    // Use existing message ID if available, otherwise null
-                    const contributionId = block.messageId || 'null';
-
-                    // Build SACRED FORMAT: [NAME | preference | contributionID] <content>
-                    return `[${cleanVoiceName} | ${preference} | ${contributionId}] <${block.content}>`;
+                    const voiceLine = `[${contributorName} | ${audioPreference} | ${contributionId}] <${block.content}>`;
+                    console.log('🔍 DEBUG - Generated voice line:', voiceLine);
+                    return voiceLine;
 
                 case 'hold':
                     // Hold blocks use existing logic but with new format
@@ -1169,12 +1197,17 @@ export default function StoryCutStudio() {
                 case 'end':
                     return ''; // End blocks don't generate script content
                 default:
+                    console.log('🔍 DEBUG - Unknown block type:', block.type);
                     return '';
             }
-        }).filter(line => line.trim() !== '');
+        });
 
-        // Join with double line breaks (existing logic)
-        return scriptLines.join('\n\n');
+        const finalScript = scriptLines.filter(line => line.trim()).join('\n\n');
+        console.log('🔍 DEBUG - generateScript() EXIT');
+        console.log('🔍 DEBUG - Final script length:', finalScript.length);
+        console.log('🔍 DEBUG - Final script preview:', finalScript.substring(0, 200) + '...');
+
+        return finalScript;
     };
 
     // Handle updating the story cut

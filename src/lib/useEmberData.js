@@ -536,6 +536,37 @@ export const useEmberData = (id, userProfile) => {
     const voicesData = useVoices();
     const storyStylesData = useStoryStyles();
 
+    // 🚫 FIXED: Only auto-select ember photos when NO selection exists (prevent duplicate generation)
+    useEffect(() => {
+        console.log('🔍 DEBUG - useEmberData auto-selection useEffect TRIGGERED');
+        console.log('🔍 DEBUG - Dependencies:', {
+            ember: !!ember,
+            emberPhotos: emberPhotos?.length,
+            selectedImages: selectedImages?.length,
+            userProfile: !!userProfile
+        });
+
+        // Only auto-select if ember exists, has photos, and NO selection exists
+        if (ember && emberPhotos.length > 0 && selectedImages.length === 0 && userProfile?.user_id) {
+            console.log('🔍 DEBUG - Auto-selecting ember photos');
+            console.log('🔍 DEBUG - Available photos:', emberPhotos.map(p => ({
+                id: p.id,
+                display_name: p.display_name,
+                storage_url: p.storage_url?.substring(0, 30) + '...'
+            })));
+
+            setSelectedImages(emberPhotos);
+            console.log('✅ DEBUG - Auto-selected ember photos for story generation');
+        } else {
+            console.log('🔍 DEBUG - Skipping auto-selection:', {
+                hasEmber: !!ember,
+                hasPhotos: emberPhotos.length > 0,
+                hasExistingSelection: selectedImages.length > 0,
+                hasUserProfile: !!userProfile?.user_id
+            });
+        }
+    }, [ember, emberPhotos, userProfile?.user_id]); // FIXED: Removed selectedImages dependency to prevent loops
+
     return {
         // Ember data
         ...emberData,
