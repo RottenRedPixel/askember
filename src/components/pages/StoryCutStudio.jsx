@@ -531,6 +531,7 @@ export default function StoryCutStudio() {
                             console.log(`📸 DEBUG - Parsed MEDIA block - Format: ${formatType}, ID: ${mediaId}, Content: ${content}, Name: ${mediaName}`);
 
                             // For Sacred Format, we already have the mediaName - don't override it
+                            let mediaUrl = null; // Declare mediaUrl for all format types
                             if (formatType === 'sacred_format') {
                                 // mediaName already extracted from Sacred Format parsing
                                 console.log('🔍 Sacred Format: Using extracted mediaName:', mediaName);
@@ -544,7 +545,6 @@ export default function StoryCutStudio() {
                                 const nameMatch = content.match(/name="([^"]+)"/);
 
                                 let extractedMediaName = 'Unknown Media';
-                                let mediaUrl = null;
 
                                 if (pathMatch) {
                                     mediaUrl = pathMatch[1];
@@ -1147,8 +1147,9 @@ export default function StoryCutStudio() {
 
             switch (block.type) {
                 case 'media':
-                    // Media blocks use Sacred Format: [MEDIA | id] <media>
+                    // PRESERVE Sacred Format metadata - only update <content>
                     let mediaId = block.mediaId || 'generated';
+                    let mediaName = block.mediaName || 'media';
 
                     console.log('🔍 DEBUG - MEDIA block generation:', {
                         blockId: block.id,
@@ -1157,8 +1158,8 @@ export default function StoryCutStudio() {
                         mediaName: block.mediaName
                     });
 
-                    // Simplified Sacred Format content - ID contains the reference, content is simple
-                    const mediaLine = `[MEDIA | ${mediaId}] <media>`;
+                    // Generate Sacred Format preserving metadata: [MEDIA | name | id] <content>
+                    const mediaLine = `[MEDIA | ${mediaName} | ${mediaId}] <media>`;
                     console.log('🔍 DEBUG - Generated MEDIA line:', mediaLine);
                     return mediaLine;
 
