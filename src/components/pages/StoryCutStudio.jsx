@@ -83,42 +83,6 @@ export default function StoryCutStudio() {
         }
     }, [blocks]);
 
-    // Update existing voice blocks with real avatar data when contributors are loaded
-    useEffect(() => {
-        if (contributors && contributors.length > 0 && blocks && blocks.length > 0) {
-            const contributorVoiceBlocks = blocks.filter(block =>
-                block.type === 'voice' &&
-                block.voiceType === 'contributor' &&
-                (!block.contributorData || !block.contributorData.avatarUrl) // Only update blocks without real avatar data
-            );
-
-            if (contributorVoiceBlocks.length > 0) {
-                console.log(`🎭 Updating ${contributorVoiceBlocks.length} existing voice blocks with real avatar data`);
-
-                setBlocks(prevBlocks => {
-                    return prevBlocks.map(block => {
-                        if (block.type === 'voice' &&
-                            block.voiceType === 'contributor' &&
-                            (!block.contributorData || !block.contributorData.avatarUrl)) {
-
-                            // Get real contributor data
-                            const contributorData = getContributorAvatarData(block.voiceTag);
-
-                            console.log(`🎭 Updated avatar for ${block.voiceTag}:`, contributorData.avatarUrl);
-
-                            return {
-                                ...block,
-                                avatarUrl: contributorData.avatarUrl,
-                                contributorData: contributorData
-                            };
-                        }
-                        return block;
-                    });
-                });
-            }
-        }
-    }, [contributors, blocks]); // Re-run when contributors or blocks change
-
 
 
     // Expose contributor preferences globally for audio generation
