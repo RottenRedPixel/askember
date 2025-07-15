@@ -166,13 +166,13 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
           if (sacredName.toLowerCase().includes('ember')) {
             sacredName = 'EMBER VOICE';
             // Use actual ember voice data from voiceCasting
-            preference = voiceCasting.ember?.name || 'text';
-            contributionId = voiceCasting.ember?.voice_id || 'null';
+            preference = voiceCasting.ember?.preference || 'text';
+            contributionId = voiceCasting.ember?.contributionId || 'null';
           } else if (sacredName.toLowerCase().includes('narrator')) {
             sacredName = 'NARRATOR';
             // Use actual narrator voice data from voiceCasting
-            preference = voiceCasting.narrator?.name || 'text';
-            contributionId = voiceCasting.narrator?.voice_id || 'null';
+            preference = voiceCasting.narrator?.preference || 'text';
+            contributionId = voiceCasting.narrator?.contributionId || 'null';
           }
 
           // Build sacred format with actual voice data
@@ -244,13 +244,13 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
         if (sacredName.toLowerCase().includes('ember')) {
           sacredName = 'EMBER VOICE';
           // Use actual ember voice data from voiceCasting
-          preference = voiceCasting.ember?.name || 'text';
-          contributionId = voiceCasting.ember?.voice_id || 'null';
+          preference = voiceCasting.ember?.preference || 'text';
+          contributionId = voiceCasting.ember?.contributionId || 'null';
         } else if (sacredName.toLowerCase().includes('narrator')) {
           sacredName = 'NARRATOR';
           // Use actual narrator voice data from voiceCasting
-          preference = voiceCasting.narrator?.name || 'text';
-          contributionId = voiceCasting.narrator?.voice_id || 'null';
+          preference = voiceCasting.narrator?.preference || 'text';
+          contributionId = voiceCasting.narrator?.contributionId || 'null';
         }
         return `[${sacredName} | ${preference} | ${contributionId}] <${content.trim()}>`;
       });
