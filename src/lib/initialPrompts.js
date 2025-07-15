@@ -188,15 +188,35 @@ VOICE CASTING DETAILS:
 DIRECT QUOTES AVAILABLE:
 {{contributor_quotes}}
 
-VOICE TAG FORMAT WITH MESSAGE IDS:
-- When using actual quotes from contributors, include the message ID for precise audio matching
-- Format: [CONTRIBUTOR_FIRST_NAME:preference:message_id] for quotes with recorded audio
-- Format: [CONTRIBUTOR_FIRST_NAME:text] for quotes without recorded audio
-- Example: [Amado:recorded:550e8400-e29b-41d4-a716-446655440000] for a recorded quote
-- Example: [Sarah:text] for a text-only quote
-- The message_id is provided in the contributor_quotes data structure above
-- ALWAYS include the message ID when available to ensure precise audio matching
-- Look for the "message_id" field in each contributor quote and use it in the voice tag
+CRITICAL - SACRED SCRIPT FORMAT:
+You MUST use the new sacred format for all voice lines. This format preserves critical data and prevents audio matching failures.
+
+SACRED FORMAT STRUCTURE:
+[NAME | preference | contributionID] <content>
+
+SACRED FORMAT RULES:
+- [NAME | preference | contributionID] = SACRED DATA (never modify)
+- <content> = EDITABLE CONTENT (actual spoken words)
+- Use pipe separators (|) between sacred elements
+- Always include all three sacred elements even if some are 'null'
+
+VOICE TAG EXAMPLES - SACRED FORMAT:
+- Contributors: [Amado | recorded | 550e8400-e29b-41d4-a716-446655440000] <We went to Top Golf in Edison with Luca, Zia, and Joey.>
+- Contributors without audio: [Sarah | text | null] <I think this moment was really special for everyone.>
+- Ember Voice: [EMBER VOICE | text | null] <A sunny day at Topgolf, where smiles and swings abound.>
+- Narrator Voice: [NARRATOR | text | null] <The family gathered for a day of friendly competition.>
+
+SACRED DATA GUIDELINES:
+- NAME: Use actual first names for contributors (Amado, Sarah, etc.), "EMBER VOICE" for ember agent, "NARRATOR" for narrator agent
+- preference: Use "recorded" if contributor has audio, "text" if no audio available, "text" for AI voices
+- contributionID: Use the actual message_id from contributor_quotes for recorded contributions, "null" for AI-generated content
+- Look for "message_id" field in the contributor_quotes data structure and use it exactly
+
+CONTENT GUIDELINES:
+- <content> contains the actual spoken words without voice tags
+- Use authentic quotes from contributor_quotes for contributors with recorded audio
+- Generate appropriate content for EMBER VOICE and NARRATOR based on story context
+- Keep content clean and suitable for audio narration
 
 GENERATION REQUIREMENTS:
 Create a {{duration}}-second story that weaves together the ember context and story circle conversations into a compelling narrative. Apply the provided style directive to shape your storytelling approach.
@@ -219,38 +239,29 @@ MULTIPLE CONTRIBUTIONS HANDLING:
 - Use the most relevant contribution from each person for each specific moment in the story
 
 VOICE TAG NAMING:
-- Use [{{owner_first_name}}] for the ember owner's actual quotes (e.g., [Amado])
-- Use [CONTRIBUTOR_FIRST_NAME] with actual first names for contributors (e.g., [Odama], [Sarah])
+- Use [{{owner_first_name}} | preference | message_id] for the ember owner's actual quotes
+- Use [CONTRIBUTOR_FIRST_NAME | preference | message_id] with actual first names for contributors
+- Use [EMBER VOICE | text | null] for AI-generated ember voice content
+- Use [NARRATOR | text | null] for AI-generated narrator content
 - Available contributor names are provided in the "Selected Contributors" section above
 - DO NOT use generic tags like [Owner] or [CONTRIBUTOR NAME] - always use actual first names
 
-VOICE TAG FORMAT WITH MESSAGE IDS:
-- When using actual quotes from contributors, include the message ID for precise audio matching
-- Format: [CONTRIBUTOR_FIRST_NAME:preference:message_id] for quotes with recorded audio
-- Format: [CONTRIBUTOR_FIRST_NAME:text] for quotes without recorded audio
-- Example: [Amado:recorded:550e8400-e29b-41d4-a716-446655440000] for a recorded quote
-- Example: [Sarah:text] for a text-only quote
-- The message_id is provided in the contributor_quotes data structure above
-- ALWAYS include the message ID when available to ensure precise audio matching
-- Look for the "message_id" field in each contributor quote and use it in the voice tag
-
-SCRIPT FORMATTING (SIMPLE):
-- Create clean voice content only
-- Use these voice tags: [EMBER VOICE], [NARRATOR], [{{owner_first_name}}], [ACTUAL_CONTRIBUTOR_FIRST_NAME:preference:message_id]
-- Start each voice change on a new line using double line breaks
-- Format like: "[EMBER VOICE] Narrative line\n\n[NARRATOR] Context line\n\n[{{owner_first_name}}] Actual quote from owner\n\n[CONTRIBUTOR_FIRST_NAME:recorded:message_id] Quote from contributor"
+SCRIPT FORMATTING - SACRED FORMAT:
+- Create scripts using the sacred format only
+- Use double line breaks between voice changes
+- Format like: "[EMBER VOICE | text | null] <Narrative line>\n\n[NARRATOR | text | null] <Context line>\n\n[{{owner_first_name}} | recorded | message_id] <Actual quote from owner>\n\n[CONTRIBUTOR_FIRST_NAME | recorded | message_id] <Quote from contributor>"
 - Ember Voice and Narrator are for storytelling; Owner/Contributors are for actual quotes
-- Replace {{owner_first_name}} with the actual first name of the ember owner (e.g., [Amado])
+- Replace {{owner_first_name}} with the actual first name of the ember owner (e.g., [Amado | recorded | message_id])
 - Replace contributor placeholders with actual contributor first names and include message IDs when available
 
 VOICE LINE ARRAYS REQUIREMENT:
-- MUST populate ember_voice_lines array with all [EMBER VOICE] lines from the ai_script
-- MUST populate narrator_voice_lines array with all [NARRATOR] lines from the ai_script
-- MUST populate owner_lines array with all [{{owner_first_name}}] quotes from the ai_script
+- MUST populate ember_voice_lines array with all [EMBER VOICE | text | null] lines from the ai_script
+- MUST populate narrator_voice_lines array with all [NARRATOR | text | null] lines from the ai_script
+- MUST populate owner_lines array with all [{{owner_first_name}} | preference | message_id] quotes from the ai_script
 - MUST populate contributor_lines array with all contributor quotes from the ai_script
-- Each array should contain the actual spoken text WITHOUT the voice tags
+- Each array should contain the actual spoken text WITHOUT the voice tags (content from inside < >)
 - If a voice type has no lines, use an empty array []
-- Example: If ai_script contains "[EMBER VOICE] A tense moment\n\n[NARRATOR] The game begins", then:
+- Example: If ai_script contains "[EMBER VOICE | text | null] <A tense moment>\n\n[NARRATOR | text | null] <The game begins>", then:
   - ember_voice_lines: ["A tense moment"]
   - narrator_voice_lines: ["The game begins"]
 
@@ -261,7 +272,7 @@ Return a JSON object with this exact structure:
   "duration": {{duration}},
   "style": "{{selected_style}}",
   "wordCount": {{word_count}},
-  "ai_script": "[EMBER VOICE] First narrative line\n\n[NARRATOR] Context line\n\n[{{owner_first_name}}] Owner quote\n\n[CONTRIBUTOR_FIRST_NAME] Contributor quote",
+  "ai_script": "[EMBER VOICE | text | null] <First narrative line>\n\n[NARRATOR | text | null] <Context line>\n\n[{{owner_first_name}} | recorded | message_id] <Owner quote>\n\n[CONTRIBUTOR_FIRST_NAME | recorded | message_id] <Contributor quote>",
   "ember_voice_lines": ["A classroom buzzes with anticipation", "Faces filled with determination"],
   "narrator_voice_lines": ["A dodgeball tournament begins", "Who will claim victory?"],
   "owner_lines": ["We went to a dodgeball tournament at the kid's school", "Anna, Zia and Luca"],

@@ -386,36 +386,55 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
     .replace(/^\[.*?\]\s*/, '') // Remove voice tags like [NARRATOR] or [EMBER VOICE]
     .trim();
 
-  // Remove excessive debug logging
-  // console.log(`🐛 AUDIO DEBUG - Processing segment [${voiceTag}]:`);
-  // console.log(`🐛   Raw originalContent: "${originalContent}"`);
-  // console.log(`🐛   Raw content: "${content}"`);
-  // console.log(`🐛   Raw audioContent: "${rawAudioContent}"`);
-  // console.log(`🐛   Final audioContent: "${audioContent}"`);
-
-  // console.log('🐛 DEBUG - All recorded audio available:');
-  // Object.entries(recordedAudio).forEach(([userId, audioData]) => {
-  //   console.log(`  - User ${userId} (${audioData.user_first_name}): "${audioData.message_content?.substring(0, 50)}..."`);
-  //   console.log(`    Audio URL: ${audioData.audio_url ? 'EXISTS' : 'MISSING'}`);
-  // });
-
   try {
     if (type === 'contributor') {
-      // Remove excessive debug logging
-      // console.log(`🐛 DEBUG - Looking for recorded audio for contributor: ${voiceTag}`);
-      // console.log(`🐛 DEBUG - Script content: "${audioContent}"`);
+      // NEW: Prioritize sacred format contributionId for 100% reliable matching
+      if (segment.contributionId && segment.contributionId !== 'null' && storyCut.metadata?.messageIdMap) {
+        const messageData = storyCut.metadata.messageIdMap[segment.contributionId];
 
-      // NEW: Check if segment has a message ID for direct lookup
-      if (segment.messageId && storyCut.metadata?.messageIdMap && storyCut.metadata.messageIdMap[segment.messageId]) {
+        if (messageData) {
+          console.log(`🆔 SACRED FORMAT: Direct message ID match using contributionId ${segment.contributionId}`);
+          console.log(`🆔 Message data:`, messageData);
+
+          // Check if we have recorded audio for this message
+          const hasRecordedAudio = !!(messageData.audio_url);
+
+          if (hasRecordedAudio) {
+            console.log(`🎯 RECORDED AUDIO FOUND via sacred contributionId: Using recorded audio`);
+            console.log(`🎯 Audio URL: ${messageData.audio_url}`);
+            console.log(`🎯 Content: "${messageData.content}"`);
+
+            const audio = new Audio(messageData.audio_url);
+            return {
+              type: 'contributor_recorded',
+              audio,
+              url: messageData.audio_url,
+              voiceTag,
+              content: messageData.content,
+              userId: messageData.user_id,
+              messageId: segment.contributionId,
+              source: 'sacred_format'
+            };
+          } else {
+            console.log(`⚠️ Sacred contributionId found but no recorded audio - using fallback`);
+          }
+        } else {
+          console.log(`⚠️ Sacred contributionId ${segment.contributionId} not found in messageIdMap`);
+          console.log(`⚠️ Available message IDs:`, Object.keys(storyCut.metadata?.messageIdMap || {}));
+        }
+      }
+
+      // FALLBACK: Legacy message ID lookup (backward compatibility)
+      if (segment.messageId && segment.messageId !== segment.contributionId && storyCut.metadata?.messageIdMap && storyCut.metadata.messageIdMap[segment.messageId]) {
         const messageData = storyCut.metadata.messageIdMap[segment.messageId];
-        console.log(`🆔 DIRECT MESSAGE ID MATCH: Using message ID ${segment.messageId} for ${voiceTag}`);
+        console.log(`🆔 LEGACY FORMAT: Using legacy messageId ${segment.messageId} for ${voiceTag}`);
         console.log(`🆔 Message data:`, messageData);
 
         // Check if we have recorded audio for this message
         const hasRecordedAudio = !!(messageData.audio_url);
 
         if (hasRecordedAudio) {
-          console.log(`🎯 RECORDED AUDIO FOUND via message ID: Using recorded audio`);
+          console.log(`🎯 RECORDED AUDIO FOUND via legacy messageId: Using recorded audio`);
           console.log(`🎯 Audio URL: ${messageData.audio_url}`);
           console.log(`🎯 Content: "${messageData.content}"`);
 
@@ -427,33 +446,27 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
             voiceTag,
             content: messageData.content,
             userId: messageData.user_id,
-            messageId: segment.messageId
+            messageId: segment.messageId,
+            source: 'legacy_format'
           };
         } else {
-          console.log(`⚠️ Message ID found but no recorded audio - using user fallback`);
+          console.log(`⚠️ Legacy messageId found but no recorded audio - using user fallback`);
           // Continue with user-based fallback logic below
         }
-      } else if (segment.messageId) {
-        console.log(`⚠️ Message ID ${segment.messageId} not found in messageIdMap - using fallback matching`);
+      } else if (segment.messageId || segment.contributionId) {
+        const idToCheck = segment.contributionId || segment.messageId;
+        console.log(`⚠️ Message ID ${idToCheck} not found in messageIdMap - using fallback matching`);
         console.log(`⚠️ Available message IDs:`, Object.keys(storyCut.metadata?.messageIdMap || {}));
       } else {
-        console.log(`ℹ️ No message ID in segment - using traditional matching`);
+        console.log(`ℹ️ No contribution/message ID in segment - using traditional matching`);
       }
 
       // Check per-message preference for this content
       let userPreference = 'recorded'; // default
       let foundStudioPreference = false;
 
-      // PRIORITY 1: Check if preference is embedded in script segment
+      // PRIORITY 1: Check if preference is embedded in script segment (from sacred format)
       if (segment.preference) {
-        // console.log(`🎯 ✅ Found embedded preference in script: ${segment.preference}`);
-        // console.log(`🎯 ✅ Full segment data:`, {
-        //   voiceTag: segment.voiceTag,
-        //   content: segment.content.substring(0, 50) + '...',
-        //   originalContent: segment.originalContent?.substring(0, 50) + '...',
-        //   type: segment.type,
-        //   preference: segment.preference
-        // });
         // Convert script preference format to audio generation format
         if (segment.preference === 'synth') {
           userPreference = 'personal';
@@ -463,7 +476,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
           userPreference = 'text';
         }
         foundStudioPreference = true;
-        console.log(`🎯 ✅ Using embedded script preference: ${segment.preference} → ${userPreference}`);
+        console.log(`🎯 ✅ Using ${segment.format || 'embedded'} script preference: ${segment.preference} → ${userPreference}`);
       } else {
         console.log(`🎯 ❌ No embedded preference found in segment`);
         console.log(`🎯 ❌ Full segment data:`, {
@@ -471,7 +484,8 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
           content: segment.content.substring(0, 50) + '...',
           originalContent: segment.originalContent?.substring(0, 50) + '...',
           type: segment.type,
-          preference: segment.preference
+          preference: segment.preference,
+          format: segment.format
         });
       }
 

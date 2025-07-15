@@ -91,6 +91,22 @@ const StoryCutDetailContent = ({
 
                 {isEditingScript ? (
                     <div className="space-y-3">
+                        {/* NEW: Sacred format helper */}
+                        {editedScript.includes(' | ') && editedScript.includes('<') && editedScript.includes('>') && (
+                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="text-sm text-blue-800">
+                                    <strong>Sacred Format Detected:</strong>
+                                    <span className="ml-2">
+                                        Only edit content inside <code className="bg-blue-100 px-1 rounded">&lt; &gt;</code> and
+                                        <code className="bg-blue-100 px-1 rounded ml-1">( )</code> sections.
+                                    </span>
+                                </div>
+                                <div className="text-xs text-blue-600 mt-1">
+                                    <span className="font-medium">Protected:</span> [NAME | preference | ID] sections preserve audio matching
+                                </div>
+                            </div>
+                        )}
+
                         <textarea
                             value={editedScript}
                             onChange={(e) => setEditedScript(e.target.value)}
@@ -116,9 +132,30 @@ const StoryCutDetailContent = ({
                     </div>
                 ) : (
                     <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        {/* NEW: Display format indicator */}
+                        {formattedScript.includes(' | ') && formattedScript.includes('<') && formattedScript.includes('>') && (
+                            <div className="mb-3 text-xs text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">
+                                <span className="font-medium">✅ Sacred Format:</span> Reliable audio matching enabled
+                            </div>
+                        )}
+
                         <div className="text-gray-700 leading-relaxed font-mono text-sm">
                             {formattedScript.split('\n\n').map((line, index) => {
-                                // Parse voice tag, content, and duration - handle both [[MEDIA]] and [VOICE] formats
+                                // NEW: Handle sacred format display
+                                const sacredMatch = line.match(/^(\[[^|]+\|[^|]+\|[^\]]*\])\s*<(.+)>$/);
+                                if (sacredMatch) {
+                                    const [, sacredTag, content] = sacredMatch;
+                                    return (
+                                        <div key={index} className="mb-2">
+                                            <span className="text-gray-500 text-xs bg-gray-100 px-1 rounded mr-2">
+                                                {sacredTag}
+                                            </span>
+                                            <span className="text-gray-800">{content}</span>
+                                        </div>
+                                    );
+                                }
+
+                                // Parse voice tag, content, and duration - handle both [[MEDIA]] and [VOICE] formats (legacy)
                                 const voiceMatch = line.match(/^(\[\[?[^\]]+\]\]?)\s*(.*?)\s*\((\d+\.\d+)\)$/);
                                 if (!voiceMatch) return <div key={index}>{line}</div>;
 

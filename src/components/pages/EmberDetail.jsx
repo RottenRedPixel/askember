@@ -941,6 +941,37 @@ export default function EmberDetail() {
 
       console.log('💾 Saving script...');
       console.log('🔍 Edited script content (first 500 chars):', editedScript.trim().substring(0, 500));
+      
+      // NEW: Check if script uses sacred format
+      const { isSacredFormat } = await import('@/lib/scriptParser');
+      const isUsingNewFormat = isSacredFormat(editedScript);
+      console.log('🔍 Script format detection - Sacred format:', isUsingNewFormat);
+
+      // NEW: Basic sacred format validation
+      if (isUsingNewFormat) {
+        const sacredLines = editedScript.split('\n').filter(line => 
+          line.trim().startsWith('[') && !line.trim().startsWith('[[')
+        );
+        
+        let hasValidationErrors = false;
+        const validationErrors = [];
+
+        sacredLines.forEach((line, index) => {
+          const sacredMatch = line.match(/^\[([^|]+)\|([^|]+)\|([^\]]*)\]\s*<(.+)>$/);
+          if (!sacredMatch) {
+            hasValidationErrors = true;
+            validationErrors.push(`Line ${index + 1}: Invalid sacred format - should be [NAME | preference | ID] <content>`);
+          }
+        });
+
+        if (hasValidationErrors) {
+          console.warn('⚠️ Sacred format validation warnings:', validationErrors);
+          // Don't block save, just warn in console
+        } else {
+          console.log('✅ Sacred format validation passed');
+        }
+      }
+
       console.log('📝 Script has MEDIA lines:', editedScript.includes('[[MEDIA]]'));
       console.log('📝 Script has HOLD lines:', editedScript.includes('[[HOLD]]'));
       console.log('📝 Original selectedStoryCut script before save (first 500 chars):', selectedStoryCut.full_script.substring(0, 500));
@@ -1008,7 +1039,12 @@ export default function EmberDetail() {
 
       // Exit editing mode
       setIsEditingScript(false);
-      setMessage({ type: 'success', text: 'Script updated successfully!' });
+      setMessage({ 
+        type: 'success', 
+        text: isUsingNewFormat 
+          ? 'Sacred format script updated successfully!' 
+          : 'Script updated successfully!' 
+      });
 
       // Refresh story cuts to ensure we have the latest data
       console.log('🔄 Refreshing story cuts to get latest data...');
@@ -1020,7 +1056,8 @@ export default function EmberDetail() {
         detail: {
           emberId: ember.id,
           storyCutId: selectedStoryCut.id,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          format: isUsingNewFormat ? 'sacred' : 'legacy'
         }
       }));
 

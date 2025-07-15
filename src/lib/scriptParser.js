@@ -7,6 +7,97 @@ import { getEmberSupportingMedia } from '@/lib/database';
  */
 
 /**
+ * Parse sacred format voice line: [NAME | preference | ID] <content>
+ * @param {string} line - Line to parse
+ * @returns {Object|null} Parsed sacred data or null if not sacred format
+ */
+const parseSacredVoiceLine = (line) => {
+    // Match sacred format: [NAME | preference | ID] <content>
+    const sacredMatch = line.match(/^\[([^|]+)\|([^|]+)\|([^\]]*)\]\s*<(.+)>$/);
+    if (sacredMatch) {
+        const name = sacredMatch[1].trim();
+        const preference = sacredMatch[2].trim();
+        const contributionId = sacredMatch[3].trim() || null;
+        const content = sacredMatch[4].trim();
+
+        return {
+            name,
+            preference,
+            contributionId,
+            content,
+            sacredData: `${name} | ${preference} | ${contributionId || ''}`,
+            format: 'sacred',
+            voiceType: determineSacredVoiceType(name)
+        };
+    }
+    return null;
+};
+
+/**
+ * Parse legacy format voice line: [NAME:preference:ID] content or [NAME:preference] content
+ * @param {string} line - Line to parse  
+ * @returns {Object|null} Parsed legacy data or null if not legacy format
+ */
+const parseLegacyVoiceLine = (line) => {
+    // Match legacy format: [NAME:preference:ID] content or [NAME:preference] content
+    const legacyMatch = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+    if (legacyMatch) {
+        const voiceTag = legacyMatch[1];
+        const content = legacyMatch[2].trim();
+
+        // Extract preference and message ID from voice tag (existing logic)
+        const { preference, messageId } = extractPreferenceAndMessageId(voiceTag);
+
+        // Extract base name (remove preference and ID suffixes)
+        const name = voiceTag.replace(/:.*$/, '').trim();
+
+        return {
+            name,
+            preference,
+            contributionId: messageId,
+            content,
+            sacredData: null, // Legacy format doesn't have structured sacred data
+            format: 'legacy',
+            voiceType: determineLegacyVoiceType(voiceTag)
+        };
+    }
+    return null;
+};
+
+/**
+ * Determine voice type from sacred format name
+ * @param {string} name - Name from sacred format
+ * @returns {string} Voice type: 'ember', 'narrator', or 'contributor'
+ */
+const determineSacredVoiceType = (name) => {
+    const lowerName = name.toLowerCase().trim();
+
+    if (lowerName === 'ember voice' || lowerName === 'ember') {
+        return 'ember';
+    } else if (lowerName === 'narrator') {
+        return 'narrator';
+    } else {
+        return 'contributor';
+    }
+};
+
+/**
+ * Determine voice type from legacy format voice tag (preserve existing logic)
+ * @param {string} voiceTag - Legacy voice tag
+ * @returns {string} Voice type: 'ember', 'narrator', or 'contributor'
+ */
+const determineLegacyVoiceType = (voiceTag) => {
+    const lowerVoiceTag = voiceTag.toLowerCase();
+    if (lowerVoiceTag.includes('ember voice') || lowerVoiceTag.includes('ember')) {
+        return 'ember';
+    } else if (lowerVoiceTag.includes('narrator')) {
+        return 'narrator';
+    } else {
+        return 'contributor';
+    }
+};
+
+/**
  * Parse script into voice segments for multi-voice playback
  * @param {string} script - The script content to parse
  * @returns {Array} Array of script segments
@@ -73,71 +164,60 @@ export function parseScriptSegments(script) {
             return;
         }
 
-        // Check for voice segments
-        const voiceMatch = line.match(/^\[([^\]]+)\]\s*(.*)$/);
-        if (voiceMatch) {
-            // Remove excessive debug logging
-            // console.log('🔍 Voice match found:', { fullMatch: line, voiceTag: voiceMatch[1], preference: null, content: voiceMatch[2] });
+        // Try to parse as sacred format first
+        const sacredData = parseSacredVoiceLine(line);
+        if (sacredData) {
+            // Create voice segment with sacred format data
+            const voiceSegment = {
+                line: line,
+                finalContent: sacredData.content,
+                originalContent: sacredData.content,
+                content: sacredData.content,
+                voiceTag: sacredData.name,
+                voiceType: sacredData.voiceType,
+                voiceId: null, // Will be extracted from other sources if needed
+                preference: sacredData.preference,
+                messageId: sacredData.contributionId,
+                contributionId: sacredData.contributionId, // NEW: Direct access to contribution ID
+                speaker: sacredData.name,
+                type: sacredData.voiceType,
+                visualActions: 0,
+                visualActionsList: [],
+                format: 'sacred',
+                sacredData: sacredData.sacredData
+            };
 
-            const voiceTag = voiceMatch[1];
-            const content = voiceMatch[2];
+            segments.push(voiceSegment);
+            return;
+        }
 
-            // Extract inline voice ID if present
-            const inlineVoiceId = extractInlineVoiceId(voiceTag);
+        // Fall back to legacy format parsing
+        const legacyData = parseLegacyVoiceLine(line);
+        if (legacyData) {
+            // Extract inline voice ID if present (existing logic)
+            const inlineVoiceId = extractInlineVoiceId(legacyData.name);
 
-            // Remove excessive debug logging
-            // if (inlineVoiceId) {
-            //     console.log('🎤 Extracted inline voice ID:', voiceTag, '→', inlineVoiceId);
-            // } else {
-            //     console.log('🎤 No inline voice ID found for:', voiceTag);
-            // }
+            // Clean the content (existing logic)
+            const cleanContent = cleanTextContent(legacyData.content);
 
-            // Clean the content
-            const cleanContent = cleanTextContent(content);
-
-            // Determine voice type
-            let voiceType = 'contributor';
-            if (voiceTag.includes('Ember Voice')) {
-                voiceType = 'ember';
-                // Remove excessive debug logging
-                // console.log('✅ Detected EMBER voice:', `"${voiceTag}"`);
-            } else if (voiceTag.includes('Narrator')) {
-                voiceType = 'narrator';
-                // Remove excessive debug logging
-                // console.log('✅ Detected NARRATOR voice:', `"${voiceTag}"`);
-            } else {
-                voiceType = 'contributor';
-                // Remove excessive debug logging
-                // console.log('✅ Detected CONTRIBUTOR voice:', `"${voiceTag}"`);
-            }
-
-            // Extract preference and message ID from voice tag
-            const { preference, messageId } = extractPreferenceAndMessageId(voiceTag);
-
-            // Remove excessive debug logging
-            // console.log('🐛 SEGMENT DEBUG - Creating segment for [' + voiceTag + ']:');
-            // console.log('🐛   Original line:', line);
-            // console.log('🐛   Extracted content:', content);
-            // console.log('🐛   Clean content:', cleanContent);
-            // console.log('🐛   Final content:', cleanContent);
-            // console.log('🐛   Voice type:', voiceType);
-            // console.log('🐛   Voice ID:', inlineVoiceId);
-
-            // Create voice segment
+            // Create voice segment with legacy format data
             const voiceSegment = {
                 line: line,
                 finalContent: cleanContent,
                 originalContent: cleanContent,
                 content: cleanContent,
-                voiceTag: voiceTag.replace(/:.*$/, ''), // Remove preference and message ID suffix for name matching
-                voiceType: voiceType,
+                voiceTag: legacyData.name,
+                voiceType: legacyData.voiceType,
                 voiceId: inlineVoiceId,
-                preference: preference,
-                messageId: messageId, // Add messageId to the segment
-                speaker: extractSpeakerName(voiceTag),
-                type: voiceType,
+                preference: legacyData.preference,
+                messageId: legacyData.contributionId,
+                contributionId: legacyData.contributionId, // NEW: Also available for legacy
+                speaker: extractSpeakerName(legacyData.name),
+                type: legacyData.voiceType,
                 visualActions: 0,
-                visualActionsList: []
+                visualActionsList: [],
+                format: 'legacy',
+                sacredData: null
             };
 
             segments.push(voiceSegment);
@@ -754,4 +834,110 @@ function removeDuplicateSegments(segments) {
     // });
 
     return uniqueSegments;
-} 
+}
+
+/**
+ * Extract all sacred data from a script (for preservation during updates)
+ * @param {string} script - Script to extract sacred data from
+ * @returns {Map} Map of line numbers to sacred data
+ */
+export const extractAllSacredData = (script) => {
+    const lines = script.split('\n');
+    const sacredDataMap = new Map();
+
+    lines.forEach((line, index) => {
+        const sacredData = parseSacredVoiceLine(line);
+        if (sacredData) {
+            sacredDataMap.set(index, sacredData);
+        }
+    });
+
+    return sacredDataMap;
+};
+
+/**
+ * Convert legacy format line to sacred format
+ * @param {string} line - Legacy format line
+ * @param {Object} voiceInfo - Voice information (voiceId, voiceName)
+ * @returns {string} Sacred format line or original line if can't convert
+ */
+export const convertLegacyToSacred = (line, voiceInfo = {}) => {
+    const legacyData = parseLegacyVoiceLine(line);
+    if (!legacyData) return line;
+
+    // Build sacred format
+    const name = legacyData.name;
+    const preference = legacyData.preference || 'text';
+    const contributionId = legacyData.contributionId || 'null';
+    const content = legacyData.content;
+
+    return `[${name} | ${preference} | ${contributionId}] <${content}>`;
+};
+
+/**
+ * Check if a script uses the new sacred format
+ * @param {string} script - Script to check
+ * @returns {boolean} True if script uses sacred format
+ */
+export const isSacredFormat = (script) => {
+    if (!script) return false;
+
+    const lines = script.split('\n');
+    const voiceLines = lines.filter(line => line.trim().startsWith('[') && !line.trim().startsWith('[['));
+
+    if (voiceLines.length === 0) return false;
+
+    // Check if majority of voice lines use sacred format
+    const sacredLines = voiceLines.filter(line => parseSacredVoiceLine(line));
+    return sacredLines.length > voiceLines.length / 2;
+};
+
+/**
+ * Preserve sacred data during script generation
+ * @param {string} originalScript - Original script with sacred data
+ * @param {string} newScript - New script to merge sacred data into
+ * @returns {string} Script with sacred data preserved
+ */
+export const preserveSacredData = (originalScript, newScript) => {
+    if (!originalScript || !newScript) return newScript;
+
+    const originalLines = originalScript.split('\n');
+    const newLines = newScript.split('\n');
+    const preservedLines = [];
+
+    newLines.forEach((newLine, index) => {
+        if (newLine.trim().startsWith('[') && !newLine.trim().startsWith('[[')) {
+            // This is a voice line - try to preserve sacred data
+            const originalSacred = originalLines[index] ? parseSacredVoiceLine(originalLines[index]) : null;
+
+            if (originalSacred) {
+                // Extract new content from new line
+                const newContent = extractContentFromLine(newLine) || originalSacred.content;
+                preservedLines.push(`[${originalSacred.sacredData}] <${newContent}>`);
+            } else {
+                preservedLines.push(newLine);
+            }
+        } else {
+            preservedLines.push(newLine);
+        }
+    });
+
+    return preservedLines.join('\n');
+};
+
+/**
+ * Extract content from any line format
+ * @param {string} line - Line to extract content from
+ * @returns {string|null} Extracted content or null
+ */
+const extractContentFromLine = (line) => {
+    // Try sacred format first
+    const sacredData = parseSacredVoiceLine(line);
+    if (sacredData) return sacredData.content;
+
+    // Try legacy format
+    const legacyData = parseLegacyVoiceLine(line);
+    if (legacyData) return legacyData.content;
+
+    return null;
+}; 

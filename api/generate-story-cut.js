@@ -45,10 +45,10 @@ function replaceVariables(text, variables) {
   return result;
 }
 
-// Self-contained AI script to Ember script processing (API version) - NEW FORMAT
+// Self-contained AI script to Ember script processing (API version) - SACRED FORMAT
 function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = [], voiceCasting = {}) {
   try {
-    console.log('🔄 API: Processing AI script to Ember script format (NEW FORMAT)');
+    console.log('🔄 API: Processing AI script to Ember script format (SACRED FORMAT)');
     console.log('📝 API: Input ai_script:', aiScript?.substring(0, 100) + '...');
     console.log('📸 API: Selected media:', selectedMedia?.length || 0, 'files');
     console.log('🎤 API: Voice casting:', voiceCasting);
@@ -58,64 +58,53 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       throw new Error('AI script is required');
     }
 
-    // 1. Store voice casting for inline use
-    const voiceIds = {
-      ember: voiceCasting?.ember?.voice_id || null,
-      narrator: voiceCasting?.narrator?.voice_id || null
-    };
-    console.log('🎤 API: Voice IDs for inline use:', voiceIds);
+    // 1. Check if AI script is already in sacred format
+    const isSacredFormat = aiScript.includes(' | ') && aiScript.includes('<') && aiScript.includes('>');
+    console.log('🔍 API: AI script format detection - Sacred format:', isSacredFormat);
 
     // 2. Build MEDIA elements from selected media - prioritize ember photo first
     let emberImage = '';
     let additionalMediaElements = '';
-
-    // Remove the loading screen generation - loading should be controlled by actual preparation time
-    // The system already handles loading via isGeneratingAudio state
 
     if (selectedMedia && selectedMedia.length > 0) {
       console.log('📸 API: Adding selected media to script:', selectedMedia.map(m => m.name));
 
       // Sort media to put ember photo first
       const sortedMedia = [...selectedMedia].sort((a, b) => {
-        // Check if media is the main ember photo (category 'ember' or name contains 'ember')
         const aIsEmber = a.category === 'ember' || (a.name && a.name.toLowerCase().includes('ember'));
         const bIsEmber = b.category === 'ember' || (b.name && b.name.toLowerCase().includes('ember'));
 
-        if (aIsEmber && !bIsEmber) return -1; // a comes first
-        if (!aIsEmber && bIsEmber) return 1;  // b comes first
-        return 0; // maintain original order for non-ember media
+        if (aIsEmber && !bIsEmber) return -1;
+        if (!aIsEmber && bIsEmber) return 1;
+        return 0;
       });
 
-      console.log('📸 API: Media order after ember prioritization:', sortedMedia.map(m => ({ name: m.name, category: m.category, isEmber: m.category === 'ember' || (m.name && m.name.toLowerCase().includes('ember')) })));
-
-      // Separate ember image (first) from additional media
+      // Use new sacred format for media elements
       if (sortedMedia.length > 0) {
         const firstMedia = sortedMedia[0];
 
-        // Use new format with full URL if available
         if (firstMedia.file_url || firstMedia.storage_url) {
           const mediaUrl = firstMedia.file_url || firstMedia.storage_url;
           const fallbackName = firstMedia.display_name || firstMedia.filename || firstMedia.name || 'media';
-          emberImage = `[[MEDIA]] <path="${mediaUrl}",fallback="${fallbackName}">`;
+          emberImage = `[[MEDIA | ${firstMedia.id || 'generated'}]] (path="${mediaUrl}",fallback="${fallbackName}")`;
         } else if (firstMedia.id) {
-          emberImage = `[[MEDIA]] <id=${firstMedia.id}>`;
+          emberImage = `[[MEDIA | ${firstMedia.id}]]`;
         } else {
-          emberImage = `[[MEDIA]] <name="${firstMedia.filename || firstMedia.name}">`;
+          emberImage = `[[MEDIA | generated]] (name="${firstMedia.filename || firstMedia.name}")`;
         }
 
         // Additional media (if any)
         if (sortedMedia.length > 1) {
           additionalMediaElements = sortedMedia.slice(1)
             .map(media => {
-              // Use new format with full URL if available
               if (media.file_url || media.storage_url) {
                 const mediaUrl = media.file_url || media.storage_url;
                 const fallbackName = media.display_name || media.filename || media.name || 'media';
-                return `[[MEDIA]] <path="${mediaUrl}",fallback="${fallbackName}">`;
+                return `[[MEDIA | ${media.id || 'generated'}]] (path="${mediaUrl}",fallback="${fallbackName}")`;
               } else if (media.id) {
-                return `[[MEDIA]] <id=${media.id}>`;
+                return `[[MEDIA | ${media.id}]]`;
               } else {
-                return `[[MEDIA]] <name="${media.filename || media.name}">`;
+                return `[[MEDIA | generated]] (name="${media.filename || media.name}")`;
               }
             })
             .join('\n\n');
@@ -125,46 +114,69 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       // No media selected - use ember's own image data if available
       console.log('📸 API: No media selected, checking for ember image from emberData');
       if (emberData && emberData.original_filename) {
-        emberImage = `[[MEDIA]] <name="${emberData.original_filename}">`;
+        emberImage = `[[MEDIA | ember_image]] (name="${emberData.original_filename}")`;
         console.log('📸 API: Using ember original filename:', emberData.original_filename);
       }
     }
 
-    // 3. Process voice lines from AI script - include voice IDs inline
-    const processedVoiceLines = aiScript
-      .split('\n\n')
-      .filter(line => line.trim())
-      .map(line => {
-        const trimmedLine = line.trim();
+    // 3. Process AI script - preserve sacred format if already present
+    let processedVoiceLines = aiScript;
 
-        // Skip if already processed or malformed
-        if (!trimmedLine.includes('[') || !trimmedLine.includes(']')) {
-          return trimmedLine;
-        }
+    if (isSacredFormat) {
+      // AI script is already in sacred format - preserve it exactly
+      console.log('✅ API: AI script already in sacred format - preserving as-is');
+      processedVoiceLines = aiScript.trim();
+    } else {
+      // Legacy format - convert to sacred format for backward compatibility
+      console.log('🔄 API: Converting legacy format to sacred format');
+      processedVoiceLines = aiScript
+        .split('\n\n')
+        .filter(line => line.trim())
+        .map(line => {
+          const trimmedLine = line.trim();
 
-        // Extract voice tag and content
-        const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.*)$/);
-        if (!voiceMatch) {
-          return trimmedLine;
-        }
+          // Skip if already processed or malformed
+          if (!trimmedLine.includes('[') || !trimmedLine.includes(']')) {
+            return trimmedLine;
+          }
 
-        const [, voiceTag, content] = voiceMatch;
-        const cleanContent = content.trim();
+          // Extract voice tag and content from legacy format
+          const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.*)$/);
+          if (!voiceMatch) {
+            return trimmedLine;
+          }
 
-        // Determine voice type and add inline voice ID
-        let enhancedVoiceTag = voiceTag;
-        if (voiceTag.toLowerCase().includes('ember') && voiceIds.ember) {
-          enhancedVoiceTag = `${voiceTag} - ${voiceIds.ember}`;
-        } else if (voiceTag.toLowerCase().includes('narrator') && voiceIds.narrator) {
-          enhancedVoiceTag = `${voiceTag} - ${voiceIds.narrator}`;
-        }
+          const [, voiceTag, content] = voiceMatch;
+          const cleanContent = content.trim();
 
-        return `[${enhancedVoiceTag}] ${cleanContent}`;
-      })
-      .join('\n\n');
+          // Convert to sacred format
+          let sacredName = voiceTag;
+          let preference = 'text';
+          let contributionId = 'null';
 
-    // 4. Closing HOLD segment (4-second black fade-out)
-    const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
+          // Check if it's already partially sacred (has colons)
+          const colonParts = voiceTag.split(':');
+          if (colonParts.length >= 2) {
+            sacredName = colonParts[0];
+            preference = colonParts[1];
+            contributionId = colonParts[2] || 'null';
+          }
+
+          // Normalize voice names for sacred format
+          if (sacredName.toLowerCase().includes('ember')) {
+            sacredName = 'EMBER VOICE';
+          } else if (sacredName.toLowerCase().includes('narrator')) {
+            sacredName = 'NARRATOR';
+          }
+
+          // Build sacred format
+          return `[${sacredName} | ${preference} | ${contributionId}] <${cleanContent}>`;
+        })
+        .join('\n\n');
+    }
+
+    // 4. Closing HOLD segment using sacred format
+    const closingHold = '[[HOLD]] (COLOR:#000000,duration=4.0)';
 
     // 5. Combine all elements into complete ember script
     const scriptParts = [];
@@ -188,9 +200,9 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
 
     const emberScript = scriptParts.join('\n\n');
 
-    console.log('✅ API: Ember script generated successfully');
+    console.log('✅ API: Sacred format ember script generated successfully');
     console.log('📝 API: Output script length:', emberScript?.length || 0);
-    console.log('📝 API: Output script preview:', emberScript?.substring(0, 200) + '...');
+    console.log('📝 API: Output script preview:', emberScript?.substring(0, 300) + '...');
 
     return emberScript;
   } catch (error) {
@@ -200,146 +212,50 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
   }
 }
 
-// Fallback basic processing without ember data - NEW FORMAT
+// Fallback basic processing without ember data - SACRED FORMAT
 function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCasting = {}) {
   try {
-    console.log('🔄 API: Using basic processing fallback (NEW FORMAT)');
+    console.log('🔄 API: Using basic processing fallback (SACRED FORMAT)');
     console.log('📝 API: Basic processing input:', aiScript?.substring(0, 100) + '...');
-    console.log('📸 API: Basic processing with selected media:', selectedMedia?.length || 0, 'files');
-    console.log('🎤 API: Basic processing voice casting:', voiceCasting);
 
     if (!aiScript || aiScript.trim() === '') {
       console.error('❌ API: Basic processing - no script content available');
-      return '[EMBER VOICE] No script content available';
+      return '[EMBER VOICE | text | null] <No script content available>';
     }
 
-    // 1. Store voice casting for inline use
-    const voiceIds = {
-      ember: voiceCasting?.ember?.voice_id || null,
-      narrator: voiceCasting?.narrator?.voice_id || null
-    };
-    console.log('🎤 API: Basic processing - Voice IDs for inline use:', voiceIds);
+    // Check if AI script is already in sacred format
+    const isSacredFormat = aiScript.includes(' | ') && aiScript.includes('<') && aiScript.includes('>');
+    console.log('🔍 API: Basic processing - Sacred format:', isSacredFormat);
 
-    // 2. Remove loading screen generation - loading controlled by actual preparation time
-    // The system already handles loading via isGeneratingAudio state
+    // Basic processing with minimal sacred format
+    const closingHold = '[[HOLD]] (COLOR:#000000,duration=4.0)';
 
-    // 3. Basic processing with minimal ember format
-    const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
-
-    // Build media elements from selected media or none - prioritize ember photo first
-    let emberImage = '';
-    let additionalMediaElements = '';
-
-    if (selectedMedia && selectedMedia.length > 0) {
-      console.log('📸 API: Basic processing - adding selected media:', selectedMedia.map(m => m.name));
-
-      // Sort media to put ember photo first
-      const sortedMedia = [...selectedMedia].sort((a, b) => {
-        // Check if media is the main ember photo (category 'ember' or name contains 'ember')
-        const aIsEmber = a.category === 'ember' || (a.name && a.name.toLowerCase().includes('ember'));
-        const bIsEmber = b.category === 'ember' || (b.name && b.name.toLowerCase().includes('ember'));
-
-        if (aIsEmber && !bIsEmber) return -1; // a comes first
-        if (!aIsEmber && bIsEmber) return 1;  // b comes first
-        return 0; // maintain original order for non-ember media
+    // Process the script based on format
+    let processedScript = aiScript;
+    if (!isSacredFormat) {
+      // Convert legacy to sacred format
+      console.log('🔄 API: Basic processing - converting to sacred format');
+      processedScript = aiScript.replace(/^\[([^\]]+)\]\s*(.+)$/gm, (match, voiceTag, content) => {
+        let sacredName = voiceTag;
+        if (sacredName.toLowerCase().includes('ember')) {
+          sacredName = 'EMBER VOICE';
+        } else if (sacredName.toLowerCase().includes('narrator')) {
+          sacredName = 'NARRATOR';
+        }
+        return `[${sacredName} | text | null] <${content.trim()}>`;
       });
-
-      console.log('📸 API: Basic processing - media order after ember prioritization:', sortedMedia.map(m => ({ name: m.name, category: m.category, isEmber: m.category === 'ember' || (m.name && m.name.toLowerCase().includes('ember')) })));
-
-      // Separate ember image (first) from additional media
-      if (sortedMedia.length > 0) {
-        const firstMedia = sortedMedia[0];
-
-        // Use new format with full URL if available
-        if (firstMedia.file_url || firstMedia.storage_url) {
-          const mediaUrl = firstMedia.file_url || firstMedia.storage_url;
-          const fallbackName = firstMedia.display_name || firstMedia.filename || firstMedia.name || 'media';
-          emberImage = `[[MEDIA]] <path="${mediaUrl}",fallback="${fallbackName}">`;
-        } else if (firstMedia.id) {
-          emberImage = `[[MEDIA]] <id=${firstMedia.id}>`;
-        } else {
-          emberImage = `[[MEDIA]] <name="${firstMedia.filename || firstMedia.name}">`;
-        }
-
-        // Additional media (if any)
-        if (sortedMedia.length > 1) {
-          additionalMediaElements = sortedMedia.slice(1)
-            .map(media => {
-              // Use new format with full URL if available
-              if (media.file_url || media.storage_url) {
-                const mediaUrl = media.file_url || media.storage_url;
-                const fallbackName = media.display_name || media.filename || media.name || 'media';
-                return `[[MEDIA]] <path="${mediaUrl}",fallback="${fallbackName}">`;
-              } else if (media.id) {
-                return `[[MEDIA]] <id=${media.id}>`;
-              } else {
-                return `[[MEDIA]] <name="${media.filename || media.name}">`;
-              }
-            })
-            .join('\n\n');
-        }
-      }
-    } else {
-      console.log('📸 API: Basic processing - no media selected, creating story without media');
-      // Note: In basic processing, we don't have emberData available, so no fallback ember image
     }
 
-    // Add inline voice IDs to voice lines
-    const processedContent = aiScript
-      .split('\n\n')
-      .filter(line => line.trim())
-      .map(line => {
-        const trimmedLine = line.trim();
-        if (!trimmedLine.includes('[') || !trimmedLine.includes(']')) {
-          return trimmedLine;
-        }
+    const scriptParts = [processedScript, closingHold];
+    const emberScript = scriptParts.join('\n\n');
 
-        const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.*)$/);
-        if (!voiceMatch) return trimmedLine;
+    console.log('✅ API: Basic sacred format script generated');
+    console.log('📝 API: Basic output length:', emberScript?.length || 0);
 
-        const [, voiceTag, content] = voiceMatch;
-
-        // Determine voice type and add inline voice ID
-        let enhancedVoiceTag = voiceTag;
-        if (voiceTag.toLowerCase().includes('ember') && voiceIds.ember) {
-          enhancedVoiceTag = `${voiceTag} - ${voiceIds.ember}`;
-        } else if (voiceTag.toLowerCase().includes('narrator') && voiceIds.narrator) {
-          enhancedVoiceTag = `${voiceTag} - ${voiceIds.narrator}`;
-        }
-
-        return `[${enhancedVoiceTag}] ${content.trim()}`;
-      })
-      .join('\n\n');
-
-    const scriptParts = [];
-
-    // Add ember image immediately (no black opening)
-    if (emberImage) {
-      scriptParts.push(emberImage);
-      console.log('✅ API: Basic processing - adding ember image to script');
-    }
-
-    // Add voice content
-    scriptParts.push(processedContent);
-
-    // Add any additional media
-    if (additionalMediaElements) {
-      scriptParts.push(additionalMediaElements);
-    }
-
-    // End with closing hold
-    scriptParts.push(closingHold);
-
-    const finalScript = scriptParts.join('\n\n');
-
-    console.log('✅ API: Basic processing completed');
-    console.log('📝 API: Basic output length:', finalScript?.length || 0);
-    console.log('📝 API: Basic output preview:', finalScript?.substring(0, 200) + '...');
-
-    return finalScript;
+    return emberScript;
   } catch (error) {
     console.error('❌ API: Error in basic processing:', error);
-    return '[EMBER VOICE] Error processing script content';
+    return '[EMBER VOICE | text | null] <Error processing script>';
   }
 }
 

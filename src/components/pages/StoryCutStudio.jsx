@@ -962,19 +962,19 @@ export default function StoryCutStudio() {
     };
 
     const generateScript = () => {
-        // Voice IDs are now included inline with voice lines
+        // Generate scripts using the new SACRED FORMAT to preserve critical data
 
         const scriptLines = blocks.map(block => {
             switch (block.type) {
                 case 'media':
-                    // Use full media path if available, otherwise fallback to ID/name format
+                    // Media blocks use existing logic (unchanged)
                     let mediaLine;
                     if (block.mediaUrl) {
-                        mediaLine = `[[MEDIA]] <path="${block.mediaUrl}",fallback="${block.mediaName || 'ember_image'}">`;
+                        mediaLine = `[[MEDIA | ${block.mediaId || 'generated'}]] (path="${block.mediaUrl}",fallback="${block.mediaName || 'ember_image'}")`;
                     } else if (block.mediaId) {
-                        mediaLine = `[[MEDIA]] <id=${block.mediaId}>`;
+                        mediaLine = `[[MEDIA | ${block.mediaId}]]`;
                     } else {
-                        mediaLine = `[[MEDIA]] <name="${block.mediaName}">`;
+                        mediaLine = `[[MEDIA | generated]] (name="${block.mediaName}")`;
                     }
 
                     // Build effects from current state
@@ -999,37 +999,52 @@ export default function StoryCutStudio() {
                     });
 
                     if (effectParts.length > 0) {
-                        mediaLine += ` <${effectParts.join(',')}>`;
+                        mediaLine += ` (${effectParts.join(',')})`;
                     }
 
                     return mediaLine;
+                    
                 case 'voice':
-                    // Embed voice preference and voice ID directly in the script
+                    // NEW: Generate SACRED FORMAT for voice blocks
                     const blockKey = `${block.voiceTag}-${block.id}`;
-                    const preference = contributorAudioPreferences[blockKey] || 'text';
-
-                    // Determine voice ID based on voice type
-                    let voiceTagWithId = block.voiceTag;
-                    if (block.voiceType === 'ember' && storyCut?.ember_voice_id) {
-                        voiceTagWithId = `${block.voiceTag} - ${storyCut.ember_voice_id}`;
-                    } else if (block.voiceType === 'narrator' && storyCut?.narrator_voice_id) {
-                        voiceTagWithId = `${block.voiceTag} - ${storyCut.narrator_voice_id}`;
+                    const preference = contributorAudioPreferences[blockKey] || block.preference || 'text';
+                    
+                    // Extract the clean voice name (remove any embedded voice names for sacred format)
+                    let cleanVoiceName = block.voiceTag;
+                    
+                    // Handle enhanced voice tags like "Ember Voice (Lily)" -> "EMBER VOICE"
+                    if (block.voiceType === 'ember') {
+                        cleanVoiceName = 'EMBER VOICE';
+                    } else if (block.voiceType === 'narrator') {
+                        cleanVoiceName = 'NARRATOR';
+                    } else {
+                        // For contributors, extract just the first name
+                        cleanVoiceName = cleanVoiceName.replace(/\s*\([^)]*\)/, '').trim();
                     }
-
-                    return `[${voiceTagWithId}:${preference}] ${block.content}`;
+                    
+                    // Use existing message ID if available, otherwise null
+                    const contributionId = block.messageId || 'null';
+                    
+                    // Build SACRED FORMAT: [NAME | preference | contributionID] <content>
+                    return `[${cleanVoiceName} | ${preference} | ${contributionId}] <${block.content}>`;
+                    
                 case 'hold':
+                    // Hold blocks use existing logic but with new format
                     const holdEffects = selectedEffects[`hold-${block.id}`] || [];
                     const holdDuration = effectDurations[`hold-duration-${block.id}`] || block.duration || 4.0;
                     const holdFadeDirection = effectDirections[`hold-fade-${block.id}`] || 'in';
 
+                    let holdAttributes = `COLOR:${block.color || '#000000'},duration=${holdDuration}`;
+
                     if (holdEffects.includes('fade')) {
-                        // Include fade direction in the script: FADE-IN or FADE-OUT
-                        return `[[HOLD]] <COLOR:${block.color},FADE-${holdFadeDirection.toUpperCase()}:duration=${holdDuration}>`;
-                    } else {
-                        return `[[HOLD]] <COLOR:${block.color}>`;
+                        holdAttributes += `,FADE-${holdFadeDirection.toUpperCase()}:duration=${holdDuration}`;
                     }
+
+                    return `[[HOLD]] (${holdAttributes})`;
+                    
                 case 'loadscreen':
-                    return `[[LOAD SCREEN]] <message="${block.message}",duration=${block.duration},icon="${block.icon}">`;
+                    return `[[LOAD SCREEN]] (message="${block.message}",duration=${block.duration},icon="${block.icon}")`;
+                    
                 case 'start':
                     return ''; // Start blocks don't generate script content
                 case 'end':
@@ -1039,7 +1054,7 @@ export default function StoryCutStudio() {
             }
         }).filter(line => line.trim() !== '');
 
-        // Voice IDs are now included inline with voice lines
+        // Join with double line breaks (existing logic)
         return scriptLines.join('\n\n');
     };
 
