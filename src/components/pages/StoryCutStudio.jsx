@@ -570,52 +570,44 @@ export default function StoryCutStudio() {
                             const blockKey = `effect-${currentBlockId}`;
                             const currentBlockEffects = [];
 
-                            // Find all effect patterns like <FADE-IN:duration=3.0,PAN-LEFT:duration=4.0>
-                            const effectsMatch = content.match(/<([^>]+)>/g);
-                            if (effectsMatch) {
-                                effectsMatch.forEach(effectMatch => {
-                                    const effectContent = effectMatch.slice(1, -1); // Remove < >
+                            // Skip media references (id= or name=) - content is already extracted from angle brackets
+                            if (!content.startsWith('id=') && !content.startsWith('name=') && content !== 'media') {
+                                console.log(`🎬 Parsing effects from content: "${content}" for block ${currentBlockId}`);
 
-                                    // Skip media references (id= or name=)
-                                    if (effectContent.startsWith('id=') || effectContent.startsWith('name=')) {
-                                        return;
+                                // Parse individual effects separated by commas - content already extracted from angle brackets
+                                const effects = content.split(',');
+                                effects.forEach(effect => {
+                                    const trimmedEffect = effect.trim();
+
+                                    // Parse FADE effects: FADE-IN:duration=3.0 or FADE-OUT:duration=2.5
+                                    const fadeMatch = trimmedEffect.match(/FADE-(IN|OUT):duration=([0-9.]+)/);
+                                    if (fadeMatch) {
+                                        const [, direction, duration] = fadeMatch;
+                                        currentBlockEffects.push('fade');
+                                        initialDirections[`fade-${currentBlockId}`] = direction.toLowerCase();
+                                        initialDurations[`fade-${currentBlockId}`] = parseFloat(duration);
+                                        console.log(`🎬 Parsed FADE effect: ${direction} ${duration}s for block ${currentBlockId}`);
                                     }
 
-                                    // Parse individual effects separated by commas
-                                    const effects = effectContent.split(',');
-                                    effects.forEach(effect => {
-                                        const trimmedEffect = effect.trim();
+                                    // Parse PAN effects: PAN-LEFT:duration=4.0 or PAN-RIGHT:duration=3.5
+                                    const panMatch = trimmedEffect.match(/PAN-(LEFT|RIGHT):duration=([0-9.]+)/);
+                                    if (panMatch) {
+                                        const [, direction, duration] = panMatch;
+                                        currentBlockEffects.push('pan');
+                                        initialDirections[`pan-${currentBlockId}`] = direction.toLowerCase();
+                                        initialDurations[`pan-${currentBlockId}`] = parseFloat(duration);
+                                        console.log(`🎬 Parsed PAN effect: ${direction} ${duration}s for block ${currentBlockId}`);
+                                    }
 
-                                        // Parse FADE effects: FADE-IN:duration=3.0 or FADE-OUT:duration=2.5
-                                        const fadeMatch = trimmedEffect.match(/FADE-(IN|OUT):duration=([0-9.]+)/);
-                                        if (fadeMatch) {
-                                            const [, direction, duration] = fadeMatch;
-                                            currentBlockEffects.push('fade');
-                                            initialDirections[`fade-${currentBlockId}`] = direction.toLowerCase();
-                                            initialDurations[`fade-${currentBlockId}`] = parseFloat(duration);
-                                            console.log(`🎬 Parsed FADE effect: ${direction} ${duration}s for block ${currentBlockId}`);
-                                        }
-
-                                        // Parse PAN effects: PAN-LEFT:duration=4.0 or PAN-RIGHT:duration=3.5
-                                        const panMatch = trimmedEffect.match(/PAN-(LEFT|RIGHT):duration=([0-9.]+)/);
-                                        if (panMatch) {
-                                            const [, direction, duration] = panMatch;
-                                            currentBlockEffects.push('pan');
-                                            initialDirections[`pan-${currentBlockId}`] = direction.toLowerCase();
-                                            initialDurations[`pan-${currentBlockId}`] = parseFloat(duration);
-                                            console.log(`🎬 Parsed PAN effect: ${direction} ${duration}s for block ${currentBlockId}`);
-                                        }
-
-                                        // Parse ZOOM effects: ZOOM-IN:duration=3.5 or ZOOM-OUT:duration=2.0
-                                        const zoomMatch = trimmedEffect.match(/ZOOM-(IN|OUT):duration=([0-9.]+)/);
-                                        if (zoomMatch) {
-                                            const [, direction, duration] = zoomMatch;
-                                            currentBlockEffects.push('zoom');
-                                            initialDirections[`zoom-${currentBlockId}`] = direction.toLowerCase();
-                                            initialDurations[`zoom-${currentBlockId}`] = parseFloat(duration);
-                                            console.log(`🎬 Parsed ZOOM effect: ${direction} ${duration}s for block ${currentBlockId}`);
-                                        }
-                                    });
+                                    // Parse ZOOM effects: ZOOM-IN:duration=3.5 or ZOOM-OUT:duration=2.0
+                                    const zoomMatch = trimmedEffect.match(/ZOOM-(IN|OUT):duration=([0-9.]+)/);
+                                    if (zoomMatch) {
+                                        const [, direction, duration] = zoomMatch;
+                                        currentBlockEffects.push('zoom');
+                                        initialDirections[`zoom-${currentBlockId}`] = direction.toLowerCase();
+                                        initialDurations[`zoom-${currentBlockId}`] = parseFloat(duration);
+                                        console.log(`🎬 Parsed ZOOM effect: ${direction} ${duration}s for block ${currentBlockId}`);
+                                    }
                                 });
                             }
 

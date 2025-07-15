@@ -942,7 +942,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
             // Extract fade effects directly from content
             if (contentForEffects.includes('FADE-') && !fadeEffect) {
               fadeEffect = extractFadeFromAction(contentForEffects);
-              if (fadeEffect) {
+                  if (fadeEffect) {
                 console.log(`🎬 Fade effect extracted from content: ${fadeEffect.type} - ${fadeEffect.duration}s`);
               }
             }
@@ -950,7 +950,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
             // Extract pan effects directly from content
             if (contentForEffects.includes('PAN-') && !panEffect) {
               panEffect = extractPanFromAction(contentForEffects);
-              if (panEffect) {
+                  if (panEffect) {
                 console.log(`🎬 Pan effect extracted from content: ${panEffect.direction} - ${panEffect.duration}s`);
               }
             }
@@ -958,14 +958,14 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
             // Extract zoom effects directly from content
             if (contentForEffects.includes('ZOOM-') && !zoomEffect) {
               zoomEffect = extractZoomFromAction(contentForEffects);
-              if (zoomEffect) {
+                  if (zoomEffect) {
                 console.log(`🎬 Zoom effect extracted from content: ${zoomEffect.type} - ${zoomEffect.duration}s`);
-              }
-            }
+                  }
+                }
 
-            // Check for legacy zoom effects
+                // Check for legacy zoom effects
             if (contentForEffects.includes('Z-OUT:')) {
-              hasLegacyZoomEffects = true;
+                  hasLegacyZoomEffects = true;
             }
 
             // Apply legacy zoom effects (Z-OUT: system)
