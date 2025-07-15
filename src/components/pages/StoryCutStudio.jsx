@@ -457,21 +457,40 @@ export default function StoryCutStudio() {
                         // Enhanced MEDIA parsing - Handle multiple format variations
                         let mediaMatch = null;
                         let mediaId = null;
+                        let mediaName = null;
                         let content = null;
                         let formatType = null;
 
-                        // 1. New format: [MEDIA | id] <content>
-                        mediaMatch = trimmedLine.match(/^\[MEDIA\s*\|\s*([^\]]+)\]\s*<(.+)>$/);
+                        // 1. Sacred Format (3-part): [MEDIA | name | id] <content>
+                        mediaMatch = trimmedLine.match(/^\[MEDIA\s*\|\s*([^|]+?)\s*\|\s*([^\]]+?)\]\s*<(.+)>$/);
                         if (mediaMatch) {
-                            mediaId = mediaMatch[1].trim();
-                            content = mediaMatch[2].trim();
-                            formatType = 'new_single_bracket';
-                            console.log('🔍 DEBUG - MEDIA Pattern 1 MATCH:', {
+                            mediaName = mediaMatch[1].trim();
+                            mediaId = mediaMatch[2].trim();
+                            content = mediaMatch[3].trim();
+                            formatType = 'sacred_format';
+                            console.log('🔍 DEBUG - MEDIA Sacred Format MATCH:', {
                                 fullLine: trimmedLine,
+                                mediaName,
                                 mediaId,
                                 content,
                                 formatType
                             });
+                        }
+
+                        // 2. Legacy format: [MEDIA | id] <content>
+                        if (!mediaMatch) {
+                            mediaMatch = trimmedLine.match(/^\[MEDIA\s*\|\s*([^\]]+)\]\s*<(.+)>$/);
+                            if (mediaMatch) {
+                                mediaId = mediaMatch[1].trim();
+                                content = mediaMatch[2].trim();
+                                formatType = 'legacy_single_bracket';
+                                console.log('🔍 DEBUG - MEDIA Legacy Pattern MATCH:', {
+                                    fullLine: trimmedLine,
+                                    mediaId,
+                                    content,
+                                    formatType
+                                });
+                            }
                         }
 
                         // 2. Old format: [[MEDIA | id]] (content)
@@ -506,51 +525,44 @@ export default function StoryCutStudio() {
                             }
                         }
 
-                        // 4. Malformed Sacred format: [MEDIA | id | extra | stuff] <content>
-                        if (!mediaMatch) {
-                            mediaMatch = trimmedLine.match(/^\[MEDIA\s*\|([^|]+)\|[^\]]*\]\s*<(.+)>$/);
-                            if (mediaMatch) {
-                                mediaId = mediaMatch[1].trim();
-                                content = mediaMatch[2].trim();
-                                formatType = 'malformed_sacred';
-                                console.warn('🚨 DEBUG - Detected malformed MEDIA Sacred Format, auto-correcting');
-                                console.log('🔍 DEBUG - MEDIA Pattern 4 MATCH:', {
-                                    fullLine: trimmedLine,
-                                    mediaId,
-                                    content,
-                                    formatType
-                                });
-                            }
-                        }
+
 
                         if (mediaMatch) {
-                            console.log(`📸 DEBUG - Parsed MEDIA block - Format: ${formatType}, ID: ${mediaId}, Content: ${content}`);
+                            console.log(`📸 DEBUG - Parsed MEDIA block - Format: ${formatType}, ID: ${mediaId}, Content: ${content}, Name: ${mediaName}`);
 
-                            // Extract media name, ID, or path from content
-                            // Check for path format: path="url",fallback="name"
-                            const pathMatch = content.match(/path="([^"]+)"(?:,fallback="([^"]+)")?/);
-                            // Check for ID format: id="abc123"
-                            const idContentMatch = content.match(/id="([^"]+)"/);
-                            // Check for name format: name="filename"
-                            const nameMatch = content.match(/name="([^"]+)"/);
-
-                            let mediaName = 'Unknown Media';
-                            let mediaUrl = null;
-
-                            if (pathMatch) {
-                                mediaUrl = pathMatch[1];
-                                mediaName = pathMatch[2] || mediaId || 'Media';
-                                console.log('🔍 Extracted media path:', mediaUrl, 'fallback:', mediaName);
-                            } else if (idContentMatch) {
-                                mediaName = 'Loading...'; // Will be replaced with actual display name
-                                console.log('🔍 Extracted media from ID content:', idContentMatch[1]);
-                            } else if (nameMatch) {
-                                mediaName = nameMatch[1];
-                                console.log('🔍 Extracted media name:', mediaName);
+                            // For Sacred Format, we already have the mediaName - don't override it
+                            if (formatType === 'sacred_format') {
+                                // mediaName already extracted from Sacred Format parsing
+                                console.log('🔍 Sacred Format: Using extracted mediaName:', mediaName);
                             } else {
-                                // Use the media ID as fallback name
-                                mediaName = mediaId || 'Media';
-                                console.log('🔍 Using media ID as name fallback:', mediaName);
+                                // Extract media name, ID, or path from content for non-Sacred formats
+                                // Check for path format: path="url",fallback="name"
+                                const pathMatch = content.match(/path="([^"]+)"(?:,fallback="([^"]+)")?/);
+                                // Check for ID format: id="abc123"
+                                const idContentMatch = content.match(/id="([^"]+)"/);
+                                // Check for name format: name="filename"
+                                const nameMatch = content.match(/name="([^"]+)"/);
+
+                                let extractedMediaName = 'Unknown Media';
+                                let mediaUrl = null;
+
+                                if (pathMatch) {
+                                    mediaUrl = pathMatch[1];
+                                    extractedMediaName = pathMatch[2] || mediaId || 'Media';
+                                    console.log('🔍 Extracted media path:', mediaUrl, 'fallback:', extractedMediaName);
+                                } else if (idContentMatch) {
+                                    extractedMediaName = 'Loading...'; // Will be replaced with actual display name
+                                    console.log('🔍 Extracted media from ID content:', idContentMatch[1]);
+                                } else if (nameMatch) {
+                                    extractedMediaName = nameMatch[1];
+                                    console.log('🔍 Extracted media name:', extractedMediaName);
+                                } else {
+                                    // Use the media ID as fallback name
+                                    extractedMediaName = mediaId || 'Media';
+                                    console.log('🔍 Using media ID as name fallback:', extractedMediaName);
+                                }
+
+                                mediaName = extractedMediaName;
                             }
 
                             // Parse effects from the content
