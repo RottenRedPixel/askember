@@ -695,15 +695,13 @@ export default function StoryCutStudio() {
                                 let voiceType = 'contributor';
                                 let enhancedVoiceTag = voiceTag;
 
-                                if (voiceTag.toLowerCase().includes('ember')) {
-                                    voiceType = 'ember';
-                                    const emberVoiceName = embedVoiceNames.ember;
-                                    enhancedVoiceTag = `Ember Voice (${emberVoiceName})`;
-                                } else if (voiceTag.toLowerCase().includes('narrator')) {
-                                    voiceType = 'narrator';
-                                    const narratorVoiceName = embedVoiceNames.narrator;
-                                    enhancedVoiceTag = `Narrator (${narratorVoiceName})`;
-                                }
+                                                if (voiceTag.toLowerCase().includes('ember')) {
+                    voiceType = 'ember';
+                    enhancedVoiceTag = 'Ember Voice';
+                } else if (voiceTag.toLowerCase().includes('narrator')) {
+                    voiceType = 'narrator';
+                    enhancedVoiceTag = 'Narrator';
+                }
 
                                 // NEW: Determine message type using direct message ID lookup when available
                                 let originalMessageType = 'Text Response'; // Default for non-contributors
