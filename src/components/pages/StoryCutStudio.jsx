@@ -1158,9 +1158,32 @@ export default function StoryCutStudio() {
                         mediaName: block.mediaName
                     });
 
-                    // Generate Sacred Format preserving metadata: [MEDIA | name | id] <content>
-                    const mediaLine = `[MEDIA | ${mediaName} | ${mediaId}] <media>`;
-                    console.log('🔍 DEBUG - Generated MEDIA line:', mediaLine);
+                    // Build effects string from UI controls
+                    const blockEffects = selectedEffects[`effect-${block.id}`] || [];
+                    let effectsArray = [];
+
+                    if (blockEffects.includes('fade')) {
+                        const direction = effectDirections[`fade-${block.id}`] || 'in';
+                        const duration = effectDurations[`fade-${block.id}`] || 3.0;
+                        effectsArray.push(`FADE-${direction.toUpperCase()}:duration=${duration}`);
+                    }
+
+                    if (blockEffects.includes('pan')) {
+                        const direction = effectDirections[`pan-${block.id}`] || 'left';
+                        const duration = effectDurations[`pan-${block.id}`] || 4.0;
+                        effectsArray.push(`PAN-${direction.toUpperCase()}:duration=${duration}`);
+                    }
+
+                    if (blockEffects.includes('zoom')) {
+                        const direction = effectDirections[`zoom-${block.id}`] || 'in';
+                        const duration = effectDurations[`zoom-${block.id}`] || 3.5;
+                        effectsArray.push(`ZOOM-${direction.toUpperCase()}:duration=${duration}`);
+                    }
+
+                    // Join effects with commas, fallback to 'media' if no effects
+                    const effectsString = effectsArray.length > 0 ? effectsArray.join(',') : 'media';
+                    const mediaLine = `[MEDIA | ${mediaName} | ${mediaId}] <${effectsString}>`;
+                    console.log('🔍 DEBUG - Generated MEDIA line with effects:', mediaLine);
                     return mediaLine;
 
                 case 'voice':
