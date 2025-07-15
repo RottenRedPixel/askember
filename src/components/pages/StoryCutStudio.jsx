@@ -4,8 +4,10 @@ import { Eye, Code, Plus, Save, X, ArrowLeft, ArrowUp, ArrowDown } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { FilmSlate, PencilSimple } from 'phosphor-react';
 import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber, getStoryCutsForEmber } from '@/lib/database';
+import { getEmberWithSharing } from '@/lib/sharing';
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import { formatDuration } from '@/lib/dateUtils';
 import { resolveMediaReference } from '@/lib/scriptParser';
@@ -34,6 +36,9 @@ export default function StoryCutStudio() {
 
     // Story messages for determining contributor message types
     const [storyMessages, setStoryMessages] = useState([]);
+
+    // Contributors data for real user avatars
+    const [contributors, setContributors] = useState([]);
 
     // Contributor audio preferences - store per block
     const [contributorAudioPreferences, setContributorAudioPreferences] = useState({});
@@ -114,26 +119,6 @@ export default function StoryCutStudio() {
         message, setMessage
     } = uiState;
 
-    // Helper function to get contributor avatar from story messages
-    const getContributorAvatar = (contributorName, storyMessages) => {
-        if (!storyMessages || storyMessages.length === 0) {
-            return 'https://i.pravatar.cc/40?img=1'; // Fallback
-        }
-
-        // Find a message from this contributor to get their avatar
-        const contributorMessage = storyMessages.find(msg =>
-            msg.sender === 'user' &&
-            msg.user_first_name === contributorName
-        );
-
-        if (contributorMessage && contributorMessage.user_avatar_url) {
-            return contributorMessage.user_avatar_url;
-        }
-
-        // Fallback to placeholder
-        return 'https://i.pravatar.cc/40?img=1';
-    };
-
     // Load real story cut data
     useEffect(() => {
         const loadStoryCut = async () => {
@@ -185,6 +170,31 @@ export default function StoryCutStudio() {
                 const emberData = await getEmber(id);
                 setEmber(emberData);
 
+                // Load sharing data for contributor avatars
+                console.log('👥 Loading contributor data for avatars...');
+                try {
+                    const sharingData = await getEmberWithSharing(id);
+                    if (sharingData.shares && sharingData.shares.length > 0) {
+                        // Extract contributor data with real user profiles
+                        const contributorData = sharingData.shares
+                            .filter(share => share.shared_user && share.shared_user.user_id)
+                            .map(share => ({
+                                user_id: share.shared_user.user_id,
+                                first_name: share.shared_user.first_name,
+                                last_name: share.shared_user.last_name,
+                                avatar_url: share.shared_user.avatar_url,
+                                email: share.shared_with_email
+                            }));
+                        setContributors(contributorData);
+                        console.log('✅ Loaded contributors:', contributorData);
+                    } else {
+                        setContributors([]);
+                    }
+                } catch (sharingError) {
+                    console.warn('⚠️ Could not load contributor data:', sharingError);
+                    setContributors([]);
+                }
+
                 // Load story messages for contributor type detection
                 console.log('📖 Loading story messages for contributor type detection...');
                 let loadedStoryMessages = [];
@@ -197,6 +207,34 @@ export default function StoryCutStudio() {
                     console.warn('⚠️ Could not load story messages:', messageError);
                     setStoryMessages([]);
                 }
+
+                // Helper function to get contributor avatar data
+                const getContributorAvatarData = (voiceTag) => {
+                    // Find contributor by first name (voice tag is typically the first name)
+                    const contributor = contributors.find(c =>
+                        c.first_name && c.first_name.toLowerCase() === voiceTag.toLowerCase().trim()
+                    );
+
+                    if (contributor) {
+                        console.log(`✅ Found contributor data for ${voiceTag}:`, contributor);
+                        return {
+                            avatarUrl: contributor.avatar_url || null,
+                            firstName: contributor.first_name,
+                            lastName: contributor.last_name,
+                            email: contributor.email,
+                            fallbackText: contributor.first_name?.[0] || contributor.last_name?.[0] || contributor.email?.[0]?.toUpperCase() || voiceTag[0]?.toUpperCase() || '?'
+                        };
+                    }
+
+                    console.log(`⚠️ No contributor found for ${voiceTag}, using defaults`);
+                    return {
+                        avatarUrl: 'https://i.pravatar.cc/40?img=1', // Fallback to placeholder for unknown contributors
+                        firstName: voiceTag,
+                        lastName: null,
+                        email: null,
+                        fallbackText: voiceTag[0]?.toUpperCase() || '?'
+                    };
+                };
 
                 // Function to determine message type based on original story messages
                 const determineMessageType = (voiceTag, content, voiceType) => {
@@ -627,13 +665,17 @@ export default function StoryCutStudio() {
                                 // Set preference: use explicit preference if provided, otherwise default based on message type
                                 const preference = explicitPreference || (originalMessageType === 'Audio Message' ? 'recorded' : 'text');
 
+                                // Get contributor data for avatars and fallbacks
+                                const contributorData = voiceType === 'contributor' ? getContributorAvatarData(voiceTag) : null;
+
                                 realBlocks.push({
                                     id: blockId++,
                                     type: 'voice',
                                     voiceTag: enhancedVoiceTag,
                                     content: content,
                                     voiceType: voiceType,
-                                    avatarUrl: voiceType === 'contributor' ? getContributorAvatar(voiceTag, loadedStoryMessages) : '/EMBERFAV.svg',
+                                    avatarUrl: voiceType === 'contributor' ? contributorData.avatarUrl : '/EMBERFAV.svg',
+                                    contributorData: contributorData, // Store full contributor data for avatar fallbacks
                                     messageType: originalMessageType, // SACRED: Original message type - never changes
                                     preference: preference, // Current playback preference - can change
                                     messageId: messageId // Store message ID for future reference
@@ -1253,7 +1295,7 @@ export default function StoryCutStudio() {
                     voiceTag: contribution.user_first_name,
                     content: contribution.content,
                     voiceType: 'contributor',
-                    avatarUrl: getContributorAvatar(contribution.user_first_name, storyMessages),
+                    avatarUrl: 'https://i.pravatar.cc/40?img=1',
                     messageType: contribution.has_audio ? 'Audio Message' : 'Text Response',
                     preference: contribution.has_audio ? 'recorded' : 'text'
                 };
@@ -1902,14 +1944,26 @@ export default function StoryCutStudio() {
                                                                         </button>
                                                                     </div>
                                                                     <div className="flex items-center gap-2">
-                                                                        <img
-                                                                            src={block.avatarUrl}
-                                                                            alt={block.voiceTag}
-                                                                            className="w-8 h-8 rounded-full object-cover"
-                                                                            onError={(e) => {
-                                                                                e.target.style.display = 'none';
-                                                                            }}
-                                                                        />
+                                                                        {block.voiceType === 'contributor' && block.contributorData ? (
+                                                                            <Avatar className="h-8 w-8">
+                                                                                <AvatarImage
+                                                                                    src={block.contributorData.avatarUrl}
+                                                                                    alt={`${block.contributorData.firstName || ''} ${block.contributorData.lastName || ''}`.trim() || block.voiceTag}
+                                                                                />
+                                                                                <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
+                                                                                    {block.contributorData.fallbackText}
+                                                                                </AvatarFallback>
+                                                                            </Avatar>
+                                                                        ) : (
+                                                                            <img
+                                                                                src={block.avatarUrl}
+                                                                                alt={block.voiceTag}
+                                                                                className="w-8 h-8 rounded-full object-cover"
+                                                                                onError={(e) => {
+                                                                                    e.target.style.display = 'none';
+                                                                                }}
+                                                                            />
+                                                                        )}
                                                                         <span className={`font-semibold ${textColor}`}>{block.voiceTag}</span>
                                                                     </div>
                                                                 </div>
