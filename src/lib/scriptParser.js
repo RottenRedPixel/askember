@@ -78,19 +78,13 @@ const parseLegacyVoiceLine = (line) => {
 const determineSacredVoiceType = (name) => {
     const lowerName = name.toLowerCase().trim();
 
-    console.log(`🔍 PARSER DEBUG: determineSacredVoiceType called with: "${name}" -> "${lowerName}"`);
-
     if (lowerName === 'ember voice' || lowerName === 'ember') {
-        console.log(`✅ PARSER DEBUG: Returning 'ember' for: "${name}"`);
         return 'ember';
     } else if (lowerName === 'narrator') {
-        console.log(`✅ PARSER DEBUG: Returning 'narrator' for: "${name}"`);
         return 'narrator';
     } else if (lowerName === 'media') {
-        console.log(`✅ PARSER DEBUG: Returning 'media' for: "${name}" - MEDIA FIX ACTIVE!`);
         return 'media';
     } else {
-        console.log(`✅ PARSER DEBUG: Returning 'contributor' for: "${name}"`);
         return 'contributor';
     }
 };
