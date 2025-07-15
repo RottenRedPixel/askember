@@ -616,14 +616,29 @@ export default function StoryCutStudio() {
                                 });
                             }
                         } else {
-                            // Match voice tags with optional preference and message ID: [voiceTag:preference:messageId] or [voiceTag:preference] or [voiceTag]
-                            const voiceMatch = trimmedLine.match(/^\[([^:\]]+)(?::([^:\]]+))?(?::([^:\]]+))?\]\s*(.+)$/);
-                            if (voiceMatch) {
-                                const voiceTag = voiceMatch[1].trim();
-                                const explicitPreference = voiceMatch[2]?.trim();
-                                const messageId = voiceMatch[3]?.trim();
-                                const content = voiceMatch[4].trim();
+                            // Parse voice line - check Sacred Format first, then legacy format
+                            let voiceTag, explicitPreference, messageId, content;
 
+                            // Check for Sacred Format first: [NAME | preference | ID] <content>
+                            const sacredMatch = trimmedLine.match(/^\[([^|]+)\|([^|]+)\|([^\]]*)\]\s*<(.+)>$/);
+                            if (sacredMatch) {
+                                voiceTag = sacredMatch[1].trim();
+                                explicitPreference = sacredMatch[2].trim();
+                                messageId = sacredMatch[3].trim() || null;
+                                content = sacredMatch[4].trim(); // Content already extracted from <content>
+                            } else {
+                                // Fallback to legacy format: [voiceTag:preference:messageId] content
+                                const voiceMatch = trimmedLine.match(/^\[([^:\]]+)(?::([^:\]]+))?(?::([^:\]]+))?\]\s*(.+)$/);
+                                if (voiceMatch) {
+                                    voiceTag = voiceMatch[1].trim();
+                                    explicitPreference = voiceMatch[2]?.trim();
+                                    messageId = voiceMatch[3]?.trim();
+                                    content = voiceMatch[4].trim();
+                                }
+                            }
+
+                            // If we successfully parsed either format, process the voice line
+                            if (voiceTag && content) {
                                 // Determine voice type and enhance display name
                                 let voiceType = 'contributor';
                                 let enhancedVoiceTag = voiceTag;
