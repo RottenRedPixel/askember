@@ -71,9 +71,8 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       }
     }
 
-    // Use attribution style with fallback voice
-    const narratedContent = `${voiceTag} said, "${audioContent}"`;
-    const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+    // Use clean content without attribution
+    const audioBlob = await textToSpeech(audioContent, fallbackVoiceId);
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
 
@@ -83,7 +82,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       url: audioUrl,
       blob: audioBlob,
       voiceTag,
-      content: narratedContent,
+      content: audioContent, // Use clean content
       fallbackVoice: fallbackVoiceName
     };
   } else if (userPreference === 'personal' && hasPersonalVoice) {
@@ -147,8 +146,8 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       }
     }
 
-    const narratedContent = `${voiceTag} said, "${audioData.message_content || content}"`;
-    const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+    // Use clean content without attribution
+    const audioBlob = await textToSpeech(audioContent, fallbackVoiceId);
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
 
@@ -158,7 +157,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       url: audioUrl,
       blob: audioBlob,
       voiceTag,
-      content: narratedContent,
+      content: audioContent, // Use clean content
       fallbackVoice: fallbackVoiceName
     };
   } else if (userPreference === 'personal' && !hasPersonalVoice) {
@@ -185,8 +184,8 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       throw new Error(`No voice available for text response fallback from ${voiceTag}`);
     }
 
-    const narratedContent = `${voiceTag} said, "${content}"`;
-    const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+    // Use clean content without attribution
+    const audioBlob = await textToSpeech(audioContent, fallbackVoiceId);
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
 
@@ -196,7 +195,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       url: audioUrl,
       blob: audioBlob,
       voiceTag,
-      content: narratedContent,
+      content: audioContent, // Use clean content
       fallbackVoice: fallbackVoiceName
     };
   } else {
@@ -220,8 +219,8 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
         throw new Error(`No voice available for text response fallback from ${voiceTag}`);
       }
 
-      const narratedContent = `${voiceTag} said, "${content}"`;
-      const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+      // Use clean content without attribution
+      const audioBlob = await textToSpeech(audioContent, fallbackVoiceId);
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
 
@@ -231,7 +230,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
         url: audioUrl,
         blob: audioBlob,
         voiceTag,
-        content: narratedContent,
+        content: audioContent, // Use clean content
         fallbackVoice: fallbackVoiceName
       };
     } else if (userPreference === 'recorded' && hasRecordedAudio) {
@@ -286,8 +285,8 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
         throw new Error(`No voice available for ultimate fallback from ${voiceTag}`);
       }
 
-      const narratedContent = `${voiceTag} said, "${audioData.message_content || content}"`;
-      const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+      // Use clean content without attribution
+      const audioBlob = await textToSpeech(audioContent, fallbackVoiceId);
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
 
@@ -297,7 +296,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
         url: audioUrl,
         blob: audioBlob,
         voiceTag,
-        content: narratedContent,
+        content: audioContent, // Use clean content
         fallbackVoice: fallbackVoiceName
       };
     }
@@ -603,8 +602,8 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
           throw new Error(`No voice available for contributor fallback: ${voiceTag}`);
         }
 
-        const narratedContent = `${voiceTag} said, "${audioContent}"`;
-        const audioBlob = await textToSpeech(narratedContent, fallbackVoiceId);
+        // Use clean content without attribution
+        const audioBlob = await textToSpeech(audioContent, fallbackVoiceId);
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
 
@@ -614,7 +613,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
           url: audioUrl,
           blob: audioBlob,
           voiceTag,
-          content: narratedContent,
+          content: audioContent, // Use clean content
           fallbackVoice: fallbackVoiceName
         };
       }
