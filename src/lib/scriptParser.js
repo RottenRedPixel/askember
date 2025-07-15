@@ -7,7 +7,7 @@ import { getEmberSupportingMedia } from '@/lib/database';
  */
 
 // Enhanced Sacred Format regex that handles flexible spacing around pipes
-const SACRED_FORMAT_REGEX = /\[([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^\]]+?)\]\s*<([^>]*)>/g;
+const SACRED_FORMAT_REGEX = /\[([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^\]]+?)\]\s*<([^>]*)>/;
 
 /**
  * Parse sacred format voice line: [NAME | preference | ID] <content>
@@ -15,11 +15,8 @@ const SACRED_FORMAT_REGEX = /\[([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^\]]+?)\]\s*<([
  * @returns {Object|null} Parsed sacred data or null if not sacred format
  */
 const parseSacredVoiceLine = (line) => {
-    // Reset regex for each use (global flag requires this)
-    SACRED_FORMAT_REGEX.lastIndex = 0;
-
     // Match sacred format with flexible spacing: [NAME | preference | ID] <content>
-    const sacredMatch = SACRED_FORMAT_REGEX.exec(line);
+    const sacredMatch = line.match(SACRED_FORMAT_REGEX);
     if (sacredMatch) {
         const name = sacredMatch[1].trim();
         const preference = sacredMatch[2].trim();
