@@ -622,6 +622,10 @@ export default function StoryCutStudio() {
                                 effect: null,
                                 duration: 0
                             });
+
+                            // ✅ CRITICAL: Skip voice processing for MEDIA blocks
+                            console.log('✅ DEBUG - MEDIA block processed, skipping voice parsing');
+                            continue; // Skip to next line, don't process as voice
                         }
 
                         // Check for HOLD and LOAD SCREEN blocks (still use double brackets)
@@ -1159,9 +1163,12 @@ export default function StoryCutStudio() {
 
                 case 'voice':
                     // Voice blocks use Sacred Format: [NAME | preference | contributionID] <content>
-                    const contributorName = block.contributorName || 'Unknown';
-                    const audioPreference = getAudioPreference(block.contributorId);
-                    const contributionId = block.contributionId || 'no-audio';
+                    const contributorName = block.contributorName || block.voiceTag || 'Unknown';
+
+                    // Get audio preference from the current state
+                    const blockKey = `${block.voiceTag || block.contributorName}-${block.id}`;
+                    const audioPreference = contributorAudioPreferences[blockKey] || block.preference || 'text';
+                    const contributionId = block.messageId || block.contributionId || 'no-audio';
 
                     console.log('🔍 DEBUG - Voice block generation:', {
                         blockId: block.id,
