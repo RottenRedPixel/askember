@@ -42,6 +42,8 @@ export function parseScriptSegments(script) {
 
             // Extract visual actions
             const visualActions = extractVisualActions(mediaContent);
+            console.log(`🔍 DEBUG: Media content: "${mediaContent}"`);
+            console.log(`🔍 DEBUG: Extracted visual actions:`, visualActions);
 
             // Create media segment
             const mediaSegment = {
@@ -52,7 +54,7 @@ export function parseScriptSegments(script) {
                 mediaName: parsedMedia.mediaName,
                 mediaPath: parsedMedia.mediaPath,
                 fallbackName: parsedMedia.fallbackName,
-                visualActions: visualActions.length,
+                visualActions: visualActions,
                 type: mediaType.toLowerCase(),
                 originalContent: mediaContent,
                 content: mediaContent,

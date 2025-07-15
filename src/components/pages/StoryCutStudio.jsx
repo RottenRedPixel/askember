@@ -132,8 +132,8 @@ export default function StoryCutStudio() {
 
                     if (!targetStoryCut) {
                         setError(`Story cut not found: ${storyCutId}`);
-                    return;
-                }
+                        return;
+                    }
 
                     console.log('✅ Loaded specific story cut:', targetStoryCut.title);
                 } else {
@@ -1571,7 +1571,7 @@ export default function StoryCutStudio() {
                                                                 <input
                                                                     type="checkbox"
                                                                     value="fade"
-                                                                    checked={selectedEffects[`effect-${block.id}`] && selectedEffects[`effect-${block.id}`].includes('fade')}
+                                                                    checked={selectedEffects[`effect-${block.id}`]?.includes('fade') || false}
                                                                     className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 rounded"
                                                                     onChange={(e) => {
                                                                         setSelectedEffects(prev => {
@@ -1598,7 +1598,7 @@ export default function StoryCutStudio() {
                                                                 <input
                                                                     type="checkbox"
                                                                     value="pan"
-                                                                    checked={selectedEffects[`effect-${block.id}`] && selectedEffects[`effect-${block.id}`].includes('pan')}
+                                                                    checked={selectedEffects[`effect-${block.id}`]?.includes('pan') || false}
                                                                     className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 rounded"
                                                                     onChange={(e) => {
                                                                         setSelectedEffects(prev => {
@@ -1625,7 +1625,7 @@ export default function StoryCutStudio() {
                                                                 <input
                                                                     type="checkbox"
                                                                     value="zoom"
-                                                                    checked={selectedEffects[`effect-${block.id}`] && selectedEffects[`effect-${block.id}`].includes('zoom')}
+                                                                    checked={selectedEffects[`effect-${block.id}`]?.includes('zoom') || false}
                                                                     className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 rounded"
                                                                     onChange={(e) => {
                                                                         setSelectedEffects(prev => {
@@ -2015,7 +2015,7 @@ export default function StoryCutStudio() {
                                                                 <input
                                                                     type="checkbox"
                                                                     value="fade"
-                                                                    checked={selectedEffects[`hold-${block.id}`] && selectedEffects[`hold-${block.id}`].includes('fade')}
+                                                                    checked={selectedEffects[`hold-${block.id}`]?.includes('fade') || false}
                                                                     className="w-4 h-4 text-gray-600 border-gray-300 focus:ring-gray-500 rounded"
                                                                     onChange={(e) => {
                                                                         setSelectedEffects(prev => {
@@ -2042,7 +2042,7 @@ export default function StoryCutStudio() {
                                                     </div>
 
                                                     {/* Hold Duration Slider - only show when fade is selected */}
-                                                    {selectedEffects[`hold-${block.id}`] && selectedEffects[`hold-${block.id}`].includes('fade') && (
+                                                    {selectedEffects[`hold-${block.id}`]?.includes('fade') && (
                                                         <div className="mt-3" style={{ marginLeft: '24px' }}>
                                                             <div className="flex items-center gap-4">
                                                                 <div className="flex-1 space-y-2">
@@ -2097,12 +2097,12 @@ export default function StoryCutStudio() {
                                                             {block.type === 'start' ? 'Story Start' : 'Story End'}
                                                         </span>
                                                     </div>
-                                        </>
+                                                </>
                                             )}
                                         </div>
-                        );
+                                    );
                                 })}
-                    </div>
+                            </div>
                         )}
 
                         {/* Action Buttons */}
@@ -2124,11 +2124,11 @@ export default function StoryCutStudio() {
                                 >
                                     {updating ? 'Updating...' : 'Update'}
                                 </Button>
+                            </div>
+                        )}
+
+
                     </div>
-                )}
-
-
-        </div>
                 ) : (
                     <div className="space-y-4">
                         {/* Code View Header */}

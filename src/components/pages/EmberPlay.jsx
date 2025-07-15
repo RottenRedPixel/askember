@@ -584,20 +584,7 @@ export default function EmberPlay() {
         mediaTimeoutsRef.current = [];
     };
 
-    // Helper function to get the correct CSS class for pan/zoom effects
-    const getEffectClass = (effect, effectType) => {
-        if (!effect) return '';
 
-        if (effectType === 'pan') {
-            const duration = Math.round(effect.duration || 1);
-            return `ember-pan-${effect.direction}-${duration}s`;
-        } else if (effectType === 'zoom') {
-            const duration = Math.round(effect.duration || 1);
-            return `ember-zoom-${effect.type}-${duration}s`;
-        }
-
-        return '';
-    };
 
     // Remove loading screen - show ember immediately while data loads in background
     // if (loading) {
@@ -658,21 +645,22 @@ export default function EmberPlay() {
                                     <img
                                         src={currentMediaImageUrl}
                                         alt={ember?.title || 'Ember'}
-                                        className={`absolute inset-0 w-full h-full object-cover ${currentFadeEffect
-                                            ? currentFadeEffect.type === 'in'
-                                                ? 'opacity-0 transition-opacity duration-1000 animate-fade-in'
-                                                : 'opacity-100 transition-opacity duration-1000'
-                                            : 'opacity-100 transition-opacity duration-1000'
-                                            } ${getEffectClass(currentZoomEffect, 'zoom')}`}
+                                        className="absolute inset-0 w-full h-full object-cover"
                                         style={{
                                             opacity: currentFadeEffect?.type === 'in' ? 0 : 1,
-                                            animation: currentFadeEffect?.type === 'in'
-                                                ? 'fadeIn 1s ease-in-out forwards'
-                                                : currentPanEffect
-                                                    ? `pan-${currentPanEffect.direction} ${currentPanEffect.duration}s ease-out forwards`
-                                                    : currentZoomEffect
-                                                        ? `zoom-${currentZoomEffect.type} ${currentZoomEffect.duration}s ease-out forwards`
-                                                        : 'none'
+                                            animation: (() => {
+                                                const animations = [];
+                                                if (currentFadeEffect?.type === 'in') {
+                                                    animations.push('fadeIn 1s ease-in-out forwards');
+                                                }
+                                                if (currentPanEffect) {
+                                                    animations.push(`pan-${currentPanEffect.direction} ${currentPanEffect.duration}s ease-out forwards`);
+                                                }
+                                                if (currentZoomEffect) {
+                                                    animations.push(`zoom-${currentZoomEffect.type} ${currentZoomEffect.duration}s ease-out forwards`);
+                                                }
+                                                return animations.join(', ') || 'none';
+                                            })()
                                         }}
                                     />
                                 )}
@@ -682,21 +670,22 @@ export default function EmberPlay() {
                                     <img
                                         src={ember.image_url}
                                         alt={ember?.title || 'Ember'}
-                                        className={`absolute inset-0 w-full h-full object-cover ${currentFadeEffect
-                                            ? currentFadeEffect.type === 'in'
-                                                ? 'opacity-0 transition-opacity duration-1000 animate-fade-in'
-                                                : 'opacity-100 transition-opacity duration-1000'
-                                            : 'opacity-100'
-                                            } ${getEffectClass(currentZoomEffect, 'zoom')}`}
+                                        className="absolute inset-0 w-full h-full object-cover"
                                         style={{
                                             opacity: currentFadeEffect?.type === 'in' ? 0 : 1,
-                                            animation: currentFadeEffect?.type === 'in'
-                                                ? 'fadeIn 1s ease-in-out forwards'
-                                                : currentPanEffect
-                                                    ? `pan-${currentPanEffect.direction} ${currentPanEffect.duration}s ease-out forwards`
-                                                    : currentZoomEffect
-                                                        ? `zoom-${currentZoomEffect.type} ${currentZoomEffect.duration}s ease-out forwards`
-                                                        : 'none'
+                                            animation: (() => {
+                                                const animations = [];
+                                                if (currentFadeEffect?.type === 'in') {
+                                                    animations.push('fadeIn 1s ease-in-out forwards');
+                                                }
+                                                if (currentPanEffect) {
+                                                    animations.push(`pan-${currentPanEffect.direction} ${currentPanEffect.duration}s ease-out forwards`);
+                                                }
+                                                if (currentZoomEffect) {
+                                                    animations.push(`zoom-${currentZoomEffect.type} ${currentZoomEffect.duration}s ease-out forwards`);
+                                                }
+                                                return animations.join(', ') || 'none';
+                                            })()
                                         }}
                                     />
                                 )}
@@ -918,21 +907,22 @@ export default function EmberPlay() {
                                     <img
                                         src={currentMediaImageUrl}
                                         alt={ember?.title || 'Ember'}
-                                        className={`absolute inset-0 w-full h-full object-cover ${currentFadeEffect
-                                            ? currentFadeEffect.type === 'in'
-                                                ? 'opacity-0 transition-opacity duration-1000 animate-fade-in'
-                                                : 'opacity-100 transition-opacity duration-1000'
-                                            : 'opacity-100 transition-opacity duration-1000'
-                                            } ${getEffectClass(currentZoomEffect, 'zoom')}`}
+                                        className="absolute inset-0 w-full h-full object-cover"
                                         style={{
                                             opacity: currentFadeEffect?.type === 'in' ? 0 : 1,
-                                            animation: currentFadeEffect?.type === 'in'
-                                                ? 'fadeIn 1s ease-in-out forwards'
-                                                : currentPanEffect
-                                                    ? `pan-${currentPanEffect.direction} ${currentPanEffect.duration}s ease-out forwards`
-                                                    : currentZoomEffect
-                                                        ? `zoom-${currentZoomEffect.type} ${currentZoomEffect.duration}s ease-out forwards`
-                                                        : 'none'
+                                            animation: (() => {
+                                                const animations = [];
+                                                if (currentFadeEffect?.type === 'in') {
+                                                    animations.push('fadeIn 1s ease-in-out forwards');
+                                                }
+                                                if (currentPanEffect) {
+                                                    animations.push(`pan-${currentPanEffect.direction} ${currentPanEffect.duration}s ease-out forwards`);
+                                                }
+                                                if (currentZoomEffect) {
+                                                    animations.push(`zoom-${currentZoomEffect.type} ${currentZoomEffect.duration}s ease-out forwards`);
+                                                }
+                                                return animations.join(', ') || 'none';
+                                            })()
                                         }}
                                     />
                                 )}
@@ -942,21 +932,22 @@ export default function EmberPlay() {
                                     <img
                                         src={ember.image_url}
                                         alt={ember?.title || 'Ember'}
-                                        className={`absolute inset-0 w-full h-full object-cover ${currentFadeEffect
-                                            ? currentFadeEffect.type === 'in'
-                                                ? 'opacity-0 transition-opacity duration-1000 animate-fade-in'
-                                                : 'opacity-100 transition-opacity duration-1000'
-                                            : 'opacity-100'
-                                            } ${getEffectClass(currentZoomEffect, 'zoom')}`}
+                                        className="absolute inset-0 w-full h-full object-cover"
                                         style={{
                                             opacity: currentFadeEffect?.type === 'in' ? 0 : 1,
-                                            animation: currentFadeEffect?.type === 'in'
-                                                ? 'fadeIn 1s ease-in-out forwards'
-                                                : currentPanEffect
-                                                    ? `pan-${currentPanEffect.direction} ${currentPanEffect.duration}s ease-out forwards`
-                                                    : currentZoomEffect
-                                                        ? `zoom-${currentZoomEffect.type} ${currentZoomEffect.duration}s ease-out forwards`
-                                                        : 'none'
+                                            animation: (() => {
+                                                const animations = [];
+                                                if (currentFadeEffect?.type === 'in') {
+                                                    animations.push('fadeIn 1s ease-in-out forwards');
+                                                }
+                                                if (currentPanEffect) {
+                                                    animations.push(`pan-${currentPanEffect.direction} ${currentPanEffect.duration}s ease-out forwards`);
+                                                }
+                                                if (currentZoomEffect) {
+                                                    animations.push(`zoom-${currentZoomEffect.type} ${currentZoomEffect.duration}s ease-out forwards`);
+                                                }
+                                                return animations.join(', ') || 'none';
+                                            })()
                                         }}
                                     />
                                 )}
