@@ -821,37 +821,37 @@ export default function EmberPlay() {
                                 </div>
                             )}
 
-                            {/* Bottom Section - Text Display Area - 35vh */}
-                            <div className="relative flex-1 h-[35vh] overflow-hidden">
-                                {/* Background for text area */}
-                                <div className="absolute inset-0 bg-black"></div>
+                            {/* Text Display - Positioned below progress bar */}
+                            <div className="mt-4 px-6">
+                                <div className="text-center max-w-md mx-auto">
+                                    {currentDisplayText && (
+                                        <div className="mb-4">
+                                            <p
+                                                key={textKey}
+                                                className="text-white text-xl font-bold leading-relaxed"
+                                                style={{
+                                                    animation: 'textFadeIn 0.5s ease-out forwards'
+                                                }}
+                                            >
+                                                {currentDisplayText}
+                                            </p>
+                                        </div>
+                                    )}
 
-                                {/* Text Display */}
-                                <div className="absolute inset-0 flex items-center justify-center p-6">
-                                    <div className="text-center max-w-md">
-                                        {currentDisplayText && (
-                                            <div className="mb-4">
-                                                <p
-                                                    key={textKey}
-                                                    className="text-white text-xl font-bold leading-relaxed"
-                                                    style={{
-                                                        animation: 'textFadeIn 0.5s ease-out forwards'
-                                                    }}
-                                                >
-                                                    {currentDisplayText}
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        {!isPlaying && !isGeneratingAudio && !currentDisplayText && (
-                                            <div className="text-center">
-                                                <p className="text-white text-lg leading-relaxed">
-                                                    Press play to start this Ember
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
+                                    {!isPlaying && !isGeneratingAudio && !currentDisplayText && (
+                                        <div className="text-center">
+                                            <p className="text-white text-lg font-bold leading-relaxed">
+                                                Press play to start this Ember
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
+                            </div>
+
+                            {/* Bottom Section - Black background area - flexible height */}
+                            <div className="relative flex-1 overflow-hidden">
+                                {/* Background for remaining area */}
+                                <div className="absolute inset-0 bg-black"></div>
 
                                 {/* End hold screen */}
                                 {showEndHold && (
@@ -1081,9 +1081,16 @@ export default function EmberPlay() {
                                 {/* Background for text area */}
                                 <div className="absolute inset-0 bg-black"></div>
 
-                                {/* Text Display */}
-                                <div className="absolute inset-0 flex items-center justify-center p-8">
-                                    <div className="text-center max-w-md">
+                                {/* Progress Bar - Near bottom of area */}
+                                {(isPlaying || showEndHold) && totalDuration > 0 && (
+                                    <div className="absolute bottom-20 left-0 right-0">
+                                        <ProgressBar />
+                                    </div>
+                                )}
+
+                                {/* Text Display - Positioned below progress bar */}
+                                <div className="absolute bottom-0 left-0 right-0 p-8">
+                                    <div className="text-center max-w-md mx-auto">
                                         {currentDisplayText && (
                                             <div className="mb-4">
                                                 <p
@@ -1100,7 +1107,7 @@ export default function EmberPlay() {
 
                                         {!isPlaying && !isGeneratingAudio && !currentDisplayText && (
                                             <div className="text-center">
-                                                <p className="text-white text-lg leading-relaxed">
+                                                <p className="text-white text-lg font-bold leading-relaxed">
                                                     Press play to start this Ember
                                                 </p>
                                             </div>
@@ -1124,13 +1131,6 @@ export default function EmberPlay() {
                                                 />
                                             </div>
                                         </div>
-                                    </div>
-                                )}
-
-                                {/* Progress Bar - At bottom of photo area */}
-                                {(isPlaying || showEndHold) && totalDuration > 0 && (
-                                    <div className="absolute bottom-2.5 left-0 right-0">
-                                        <ProgressBar />
                                     </div>
                                 )}
                             </div>
