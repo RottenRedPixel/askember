@@ -211,7 +211,7 @@ export default function StoryCutStudio() {
                 // Helper function to get contributor avatar data
                 const getContributorAvatarData = (voiceTag) => {
                     // Find contributor by first name (voice tag is typically the first name)
-                    const contributor = contributorData.find(c =>
+                    const contributor = contributors.find(c =>
                         c.first_name && c.first_name.toLowerCase() === voiceTag.toLowerCase().trim()
                     );
 
