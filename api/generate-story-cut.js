@@ -175,10 +175,7 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
         .join('\n\n');
     }
 
-    // 4. Closing HOLD segment using sacred format
-    const closingHold = '[[HOLD]] (COLOR:#000000,duration=4.0)';
-
-    // 5. Combine all elements into complete ember script
+    // 4. Combine all elements into complete ember script (no closing HOLD)
     const scriptParts = [];
 
     // Add ember image immediately (no black opening)
@@ -195,8 +192,7 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       scriptParts.push(additionalMediaElements);
     }
 
-    // End with closing hold
-    scriptParts.push(closingHold);
+    // Story ends naturally without HOLD block
 
     const emberScript = scriptParts.join('\n\n');
 
@@ -227,8 +223,7 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
     const isSacredFormat = aiScript.includes(' | ') && aiScript.includes('<') && aiScript.includes('>');
     console.log('🔍 API: Basic processing - Sacred format:', isSacredFormat);
 
-    // Basic processing with minimal sacred format
-    const closingHold = '[[HOLD]] (COLOR:#000000,duration=4.0)';
+    // Basic processing with minimal sacred format (no closing HOLD)
 
     // Process the script based on format
     let processedScript = aiScript;
@@ -246,7 +241,7 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
       });
     }
 
-    const scriptParts = [processedScript, closingHold];
+    const scriptParts = [processedScript];
     const emberScript = scriptParts.join('\n\n');
 
     console.log('✅ API: Basic sacred format script generated');
@@ -592,11 +587,11 @@ export default async function handler(req, res) {
               emergencyMediaElements = ''; // Empty - no media in the story
             }
 
-            const emergencyScriptParts = [`[[HOLD]] <COLOR:#000000,duration=2.0>`, generatedStoryCut.ai_script];
+            const emergencyScriptParts = [generatedStoryCut.ai_script];
             if (emergencyMediaElements) {
               emergencyScriptParts.push(emergencyMediaElements);
             }
-            emergencyScriptParts.push(`[[HOLD]] <COLOR:#000000,duration=4.0>`);
+            // Emergency script ends naturally without HOLD blocks
 
             generatedStoryCut.full_script = emergencyScriptParts.join('\n\n');
           }
@@ -617,11 +612,11 @@ export default async function handler(req, res) {
             emergencyMediaElements = ''; // Empty - no media in the story
           }
 
-          const emergencyScriptParts = [`[[HOLD]] <COLOR:#000000,duration=2.0>`, generatedStoryCut.ai_script];
+          const emergencyScriptParts = [generatedStoryCut.ai_script];
           if (emergencyMediaElements) {
             emergencyScriptParts.push(emergencyMediaElements);
           }
-          emergencyScriptParts.push(`[[HOLD]] <COLOR:#000000,duration=4.0>`);
+          // Emergency script ends naturally without HOLD blocks
 
           generatedStoryCut.full_script = emergencyScriptParts.join('\n\n');
         }

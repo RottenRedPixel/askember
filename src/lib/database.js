@@ -1119,21 +1119,16 @@ export const processAIScriptToEmberScript = async (aiScript, ember, emberId) => 
       })
       .join('\n\n');
 
-    // 4. Closing HOLD segment (4-second black fade-out)
-    const closingHold = '[[HOLD]] <COLOR:#000000,duration=4.0>';
-
-    // 5. Combine all elements into complete ember script - START WITH LOADING SCREEN
+    // 4. Combine all elements into complete ember script (no closing HOLD)
     const emberScript = [
-      emberPhotoMedia,   // Then ember image
-      processedVoiceLines,
-      closingHold
+      emberPhotoMedia,   // Start with ember image
+      processedVoiceLines  // Voice content ends naturally
     ].join('\n\n');
 
     console.log('✅ Ember script generated successfully');
     console.log('📝 Ember script preview:', emberScript.substring(0, 300) + '...');
 
-    // Count segments for logging
-    const holdSegments = (emberScript.match(/\[\[HOLD\]\]/g) || []).length;
+    // Count segments for logging (no HOLD blocks generated)
     const mediaSegments = (emberScript.match(/\[\[MEDIA\]\]/g) || []).length;
     const voiceSegments = (emberScript.match(/\[[^\[\]]+\]/g) || []).filter(match =>
       !match.includes('[[')
@@ -1141,9 +1136,9 @@ export const processAIScriptToEmberScript = async (aiScript, ember, emberId) => 
 
     console.log('📊 Ember script composition:', {
       mediaSegments,
-      holdSegments,
       voiceSegments,
-      totalLength: emberScript.length
+      totalLength: emberScript.length,
+      note: 'No HOLD blocks automatically generated'
     });
 
     return emberScript;
