@@ -744,6 +744,7 @@ export default function EmberDetail() {
         ember_voice_name: generatedStoryCut.ember_voice_name,
         narrator_voice_name: generatedStoryCut.narrator_voice_name,
         recordedAudio: generatedStoryCut.recordedAudio || {},
+        messageIdMap: generatedStoryCut.messageIdMap || {},
         voiceCasting: {
           emberVoice: voiceCasting.ember,
           narratorVoice: voiceCasting.narrator,

@@ -224,12 +224,33 @@ Create a {{duration}}-second story that weaves together the ember context and st
 CONTENT INSTRUCTIONS:
 - Target approximately {{word_count}} words of spoken content
 - Use ONLY authentic details from the ember context and story conversations
-- Incorporate direct quotes from selected contributors when available
+- **CRITICAL: For contributors, you MUST use their EXACT recorded quotes from contributor_quotes. DO NOT paraphrase, rewrite, or create new dialogue for real people.**
+- **ONLY ember voice and narrator voice content may be AI-generated.**
 - Assign appropriate content to ember voice vs narrator voice
 - Follow the narrative style provided in the style directive
 - If context is limited, focus on atmosphere and universal emotions rather than inventing specifics
 - Create content suitable for audio narration
 - Make the story personally meaningful while being accessible to listeners
+
+MULTIPLE VOICE FORMAT (Sacred Format):
+Each voice segment must follow this EXACT format with single spaces around pipes:
+[VOICE_TYPE | preference | contributionID] <content>
+
+Where:
+- VOICE_TYPE: "EMBER VOICE", "NARRATOR", or contributor first name (e.g., "Sarah", "Mike")
+- preference: "recorded" for contributors, voice name for AI voices
+- contributionID: Use actual message IDs from contributor_quotes for contributors, generate UUIDs for AI voices
+- content: Exact quote for contributors, AI-generated for ember/narrator
+
+**CRITICAL CONTRIBUTOR RULES:**
+1. **Use EXACT quotes from contributor_quotes - word-for-word, no changes**
+2. **Match each quote to its original message_id from contributor_quotes**
+3. **Format: [FirstName | recorded | actual_message_id] <exact_recorded_quote>**
+4. **Example: [Sarah | recorded | abc123-def456] <We had so much fun at the beach today.>**
+
+AI VOICE FORMAT:
+- Ember: [EMBER VOICE | {{ember_voice_name}} | generatedUUID] <AI generated content>
+- Narrator: [NARRATOR | {{narrator_voice_name}} | generatedUUID] <AI generated content>
 
 MULTIPLE CONTRIBUTIONS HANDLING:
 - When a contributor has made multiple contributions in the story circle, use DIFFERENT contributions for different voice blocks

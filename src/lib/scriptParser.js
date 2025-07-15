@@ -6,14 +6,20 @@ import { getEmberSupportingMedia } from '@/lib/database';
  * Extracted from EmberDetail.jsx to improve maintainability
  */
 
+// Enhanced Sacred Format regex that handles flexible spacing around pipes
+const SACRED_FORMAT_REGEX = /\[([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^\]]+?)\]\s*<([^>]*)>/g;
+
 /**
  * Parse sacred format voice line: [NAME | preference | ID] <content>
  * @param {string} line - Line to parse
  * @returns {Object|null} Parsed sacred data or null if not sacred format
  */
 const parseSacredVoiceLine = (line) => {
-    // Match sacred format: [NAME | preference | ID] <content>
-    const sacredMatch = line.match(/^\[([^|]+)\|([^|]+)\|([^\]]*)\]\s*<(.+)>$/);
+    // Reset regex for each use (global flag requires this)
+    SACRED_FORMAT_REGEX.lastIndex = 0;
+
+    // Match sacred format with flexible spacing: [NAME | preference | ID] <content>
+    const sacredMatch = SACRED_FORMAT_REGEX.exec(line);
     if (sacredMatch) {
         const name = sacredMatch[1].trim();
         const preference = sacredMatch[2].trim();
