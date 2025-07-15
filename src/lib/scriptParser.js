@@ -640,15 +640,29 @@ function extractInlineVoiceId(voiceTag) {
 
 /**
  * Extract preference and message ID from voice tag
- * @param {string} voiceTag - Voice tag like "Amado:recorded:msg_id" or "Sarah:text"
+ * @param {string} voiceTag - Voice tag like "Amado:recorded:uuid" or "Sarah:text" or "Amado:recorded:2025-07-13T18:14:36.186067+00:00"
  * @returns {Object} { preference, messageId }
  */
 const extractPreferenceAndMessageId = (voiceTag) => {
     const parts = voiceTag.split(':');
     if (parts.length >= 2) {
         const preference = parts[1];
-        const messageId = parts.length >= 3 ? parts[2] : null;
-        return { preference, messageId };
+        if (parts.length >= 3) {
+            const thirdPart = parts[2];
+            // Check if it's a UUID (contains hyphens and is 36 characters) or a timestamp (contains T and +)
+            if (thirdPart.includes('-') && thirdPart.length === 36 && !thirdPart.includes('T')) {
+                // It's a UUID message ID
+                return { preference, messageId: thirdPart };
+            } else if (thirdPart.includes('T') && thirdPart.includes('+')) {
+                // It's a timestamp - this is the old format, ignore it for now
+                console.log('⚠️ Found timestamp in voice tag instead of message ID:', thirdPart);
+                return { preference, messageId: null };
+            } else {
+                // Unknown format, treat as message ID
+                return { preference, messageId: thirdPart };
+            }
+        }
+        return { preference, messageId: null };
     }
     return { preference: null, messageId: null };
 };
