@@ -695,13 +695,13 @@ export default function StoryCutStudio() {
                                 let voiceType = 'contributor';
                                 let enhancedVoiceTag = voiceTag;
 
-                                                if (voiceTag.toLowerCase().includes('ember')) {
-                    voiceType = 'ember';
-                    enhancedVoiceTag = 'Ember Voice';
-                } else if (voiceTag.toLowerCase().includes('narrator')) {
-                    voiceType = 'narrator';
-                    enhancedVoiceTag = 'Narrator';
-                }
+                                if (voiceTag.toLowerCase().includes('ember')) {
+                                    voiceType = 'ember';
+                                    enhancedVoiceTag = 'Ember Voice';
+                                } else if (voiceTag.toLowerCase().includes('narrator')) {
+                                    voiceType = 'narrator';
+                                    enhancedVoiceTag = 'Narrator';
+                                }
 
                                 // NEW: Determine message type using direct message ID lookup when available
                                 let originalMessageType = 'Text Response'; // Default for non-contributors
@@ -1135,8 +1135,7 @@ export default function StoryCutStudio() {
 
             switch (block.type) {
                 case 'media':
-                    // Media blocks use new single bracket format: [MEDIA | id] <content>
-                    let mediaContent = '';
+                    // Media blocks use Sacred Format: [MEDIA | id] <media>
                     let mediaId = block.mediaId || 'generated';
 
                     console.log('🔍 DEBUG - MEDIA block generation:', {
@@ -1146,16 +1145,8 @@ export default function StoryCutStudio() {
                         mediaName: block.mediaName
                     });
 
-                    // Build base content
-                    if (block.mediaUrl) {
-                        mediaContent = `path="${block.mediaUrl}",fallback="${block.mediaName || 'ember_image'}"`;
-                    } else if (block.mediaId) {
-                        mediaContent = `id="${block.mediaId}"`;
-                    } else {
-                        mediaContent = `name="${block.mediaName}"`;
-                    }
-
-                    const mediaLine = `[MEDIA | ${mediaId}] <${mediaContent}>`;
+                    // Simplified Sacred Format content - ID contains the reference, content is simple
+                    const mediaLine = `[MEDIA | ${mediaId}] <media>`;
                     console.log('🔍 DEBUG - Generated MEDIA line:', mediaLine);
                     return mediaLine;
 
@@ -1392,7 +1383,8 @@ export default function StoryCutStudio() {
                     voiceType: 'contributor',
                     avatarUrl: 'https://i.pravatar.cc/40?img=1',
                     messageType: contribution.has_audio ? 'Audio Message' : 'Text Response',
-                    preference: contribution.has_audio ? 'recorded' : 'text'
+                    preference: contribution.has_audio ? 'recorded' : 'text',
+                    messageId: contribution.id || contribution.message_id || null
                 };
 
                 blocksToAdd.push(voiceBlock);
