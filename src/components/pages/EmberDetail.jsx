@@ -585,6 +585,7 @@ export default function EmberDetail() {
               contributor_name: message.user_first_name || 'Anonymous',
               user_id: message.user_id,
               content: message.content,
+              message_id: message.id, // Include message ID instead of timestamp
               timestamp: message.created_at
             });
           }
@@ -1940,7 +1941,7 @@ export default function EmberDetail() {
                                     className="p-1 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors duration-200"
                                     title="Delete story cut"
                                   >
-                                    <Trash size={18} />
+                                    <Trash size={24} />
                                   </button>
                                 )}
 
@@ -1953,7 +1954,7 @@ export default function EmberDetail() {
                                   className="p-1 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-full transition-colors duration-200"
                                   title="Open in Studio"
                                 >
-                                  <Sliders size={18} />
+                                  <Sliders size={24} />
                                 </button>
 
                                 {/* Make Primary Button - Always show for owner, blue when primary, grey when not */}
@@ -1972,7 +1973,7 @@ export default function EmberDetail() {
                                       }`}
                                     title={isPrimary ? "This is The One" : "Make This The One"}
                                   >
-                                    <Star size={18} />
+                                    <Star size={24} />
                                   </button>
                                 )}
 
@@ -1985,7 +1986,7 @@ export default function EmberDetail() {
                                   className="p-1 bg-green-100 hover:bg-green-200 text-green-600 rounded-full transition-colors duration-200"
                                   title="Play This Story Cut"
                                 >
-                                  <PlayCircle size={18} />
+                                  <PlayCircle size={24} />
                                 </button>
                               </div>
                             </div>

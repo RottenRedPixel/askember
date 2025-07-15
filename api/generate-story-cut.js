@@ -424,17 +424,27 @@ export default async function handler(req, res) {
 
     // NEW: Enhanced contributor quotes with message IDs
     let enhancedContributorQuotes = contributorQuotes;
-    if (contributorQuotes && storyMessages) {
+    if (contributorQuotes && contributorQuotes.length > 0) {
       enhancedContributorQuotes = contributorQuotes.map(quote => {
-        // Find the corresponding message ID for this quote
+        // Use message_id directly from the quote if available
+        if (quote.message_id) {
+          return {
+            contributor: quote.contributor_name,
+            content: quote.content,
+            message_id: quote.message_id
+          };
+        }
+
+        // Fallback: Find the corresponding message ID for this quote (legacy compatibility)
         const matchingMessage = storyMessages.find(msg =>
           msg.sender === 'user' &&
           msg.content === quote.content &&
-          msg.user_first_name === quote.contributor
+          msg.user_first_name === quote.contributor_name
         );
 
         return {
-          ...quote,
+          contributor: quote.contributor_name,
+          content: quote.content,
           message_id: matchingMessage?.id || null
         };
       });
