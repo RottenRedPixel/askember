@@ -559,11 +559,11 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       console.log(`✅ Content: "${messageData.content}"`);
 
       const audio = new Audio(messageData.audio_url);
-      return {
-        type: 'contributor_recorded',
-        audio,
+          return {
+            type: 'contributor_recorded',
+            audio,
         url: messageData.audio_url,
-        voiceTag,
+            voiceTag,
         content: messageData.content,
         userId: messageData.user_id,
         messageId: segment.contributionId,
