@@ -929,46 +929,43 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
           console.log(`🔍 Resolved media URL for "${segment.mediaPath || segment.mediaName || segment.mediaId}":`, resolvedMediaUrl);
 
           if (resolvedMediaUrl) {
-            // Extract all effects from the visual actions array
+            // Extract all effects directly from Sacred Format content  
             let fadeEffect = null;
             let panEffect = null;
             let zoomEffect = null;
             let hasLegacyZoomEffects = false;
 
-            // Process each visual action to extract effects
-            if (segment.visualActions && segment.visualActions.length > 0) {
-              for (const action of segment.visualActions) {
-                console.log(`🔍 Processing visual action: "${action}"`);
+            // Extract effects from Sacred Format content: <ZOOM-OUT:duration=3.5>
+            const contentForEffects = segment.content || '';
+            console.log(`🔍 Processing Sacred Format content for effects: "${contentForEffects}"`);
 
-                // Extract fade effects
-                if (action.includes('FADE-') && !fadeEffect) {
-                  fadeEffect = extractFadeFromAction(action);
-                  if (fadeEffect) {
-                    console.log(`🎬 Fade effect extracted: ${fadeEffect.type} - ${fadeEffect.duration}s`);
-                  }
-                }
-
-                // Extract pan effects
-                if (action.includes('PAN-') && !panEffect) {
-                  panEffect = extractPanFromAction(action);
-                  if (panEffect) {
-                    console.log(`🎬 Pan effect extracted: ${panEffect.direction} - ${panEffect.duration}s`);
-                  }
-                }
-
-                // Extract zoom effects
-                if (action.includes('ZOOM-') && !zoomEffect) {
-                  zoomEffect = extractZoomFromAction(action);
-                  if (zoomEffect) {
-                    console.log(`🎬 Zoom effect extracted: ${zoomEffect.type} - ${zoomEffect.duration}s`);
-                  }
-                }
-
-                // Check for legacy zoom effects
-                if (action.includes('Z-OUT:')) {
-                  hasLegacyZoomEffects = true;
-                }
+            // Extract fade effects directly from content
+            if (contentForEffects.includes('FADE-') && !fadeEffect) {
+              fadeEffect = extractFadeFromAction(contentForEffects);
+              if (fadeEffect) {
+                console.log(`🎬 Fade effect extracted from content: ${fadeEffect.type} - ${fadeEffect.duration}s`);
               }
+            }
+
+            // Extract pan effects directly from content
+            if (contentForEffects.includes('PAN-') && !panEffect) {
+              panEffect = extractPanFromAction(contentForEffects);
+              if (panEffect) {
+                console.log(`🎬 Pan effect extracted from content: ${panEffect.direction} - ${panEffect.duration}s`);
+              }
+            }
+
+            // Extract zoom effects directly from content
+            if (contentForEffects.includes('ZOOM-') && !zoomEffect) {
+              zoomEffect = extractZoomFromAction(contentForEffects);
+              if (zoomEffect) {
+                console.log(`🎬 Zoom effect extracted from content: ${zoomEffect.type} - ${zoomEffect.duration}s`);
+              }
+            }
+
+            // Check for legacy zoom effects
+            if (contentForEffects.includes('Z-OUT:')) {
+              hasLegacyZoomEffects = true;
             }
 
             // Apply legacy zoom effects (Z-OUT: system)
