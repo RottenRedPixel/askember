@@ -73,7 +73,7 @@ const parseLegacyVoiceLine = (line) => {
 /**
  * Determine voice type from sacred format name
  * @param {string} name - Name from sacred format
- * @returns {string} Voice type: 'ember', 'narrator', or 'contributor'
+ * @returns {string} Voice type: 'ember', 'narrator', 'media', or 'contributor'
  */
 const determineSacredVoiceType = (name) => {
     const lowerName = name.toLowerCase().trim();
@@ -82,6 +82,8 @@ const determineSacredVoiceType = (name) => {
         return 'ember';
     } else if (lowerName === 'narrator') {
         return 'narrator';
+    } else if (lowerName === 'media') {
+        return 'media';
     } else {
         return 'contributor';
     }
