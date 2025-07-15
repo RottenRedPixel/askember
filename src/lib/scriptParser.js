@@ -175,7 +175,42 @@ export function parseScriptSegments(script) {
         // Try to parse as sacred format first
         const sacredData = parseSacredVoiceLine(line);
         if (sacredData) {
-            // Create voice segment with sacred format data
+            // Special handling for MEDIA blocks in Sacred Format
+            if (sacredData.voiceType === 'media') {
+                // Parse media reference from the content
+                const parsedMedia = parseMediaReference(sacredData.content);
+
+                // Extract visual actions (if any)
+                const visualActions = extractVisualActions(sacredData.content);
+
+                // Create proper media segment structure
+                const mediaSegment = {
+                    line: line,
+                    finalContent: sacredData.content,
+                    mediaReference: parsedMedia.mediaReference || sacredData.content,
+                    mediaId: sacredData.contributionId, // Use the ID from Sacred Format
+                    mediaName: sacredData.preference, // Use the friendly name
+                    mediaPath: parsedMedia.mediaPath,
+                    fallbackName: parsedMedia.fallbackName || sacredData.preference,
+                    visualActions: visualActions,
+                    type: 'media',
+                    originalContent: sacredData.content,
+                    content: sacredData.content,
+                    voiceTag: sacredData.name,
+                    voiceType: 'media',
+                    voiceId: null,
+                    preference: sacredData.preference,
+                    speaker: null,
+                    visualActionsList: visualActions,
+                    format: 'sacred',
+                    sacredData: sacredData.sacredData
+                };
+
+                segments.push(mediaSegment);
+                return;
+            }
+
+            // Create voice segment with sacred format data (for non-MEDIA blocks)
             const voiceSegment = {
                 line: line,
                 finalContent: sacredData.content,
