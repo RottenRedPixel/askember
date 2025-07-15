@@ -460,22 +460,26 @@ export default async function handler(req, res) {
     const messageIdMap = new Map(); // NEW: Map message IDs to message data
     if (storyMessages && Array.isArray(storyMessages)) {
       storyMessages.forEach(msg => {
-        if (msg.sender === 'user' && msg.audio_url) {
-          recordedAudioMap.set(msg.user_id, {
-            audio_url: msg.audio_url,
-            audio_filename: msg.audio_filename,
-            audio_duration_seconds: msg.audio_duration_seconds,
-            user_first_name: msg.user_first_name,
-            message_content: msg.content
-          });
-          // NEW: Store message ID mapping
+        if (msg.sender === 'user') {
+          // Store in recordedAudioMap only if has audio (for backward compatibility)
+          if (msg.audio_url) {
+            recordedAudioMap.set(msg.user_id, {
+              audio_url: msg.audio_url,
+              audio_filename: msg.audio_filename,
+              audio_duration_seconds: msg.audio_duration_seconds,
+              user_first_name: msg.user_first_name,
+              message_content: msg.content
+            });
+          }
+
+          // Store ALL user messages in messageIdMap (with or without audio)
           messageIdMap.set(msg.id, {
             user_id: msg.user_id,
             user_first_name: msg.user_first_name,
             content: msg.content,
-            audio_url: msg.audio_url,
-            audio_filename: msg.audio_filename,
-            audio_duration_seconds: msg.audio_duration_seconds
+            audio_url: msg.audio_url || null,
+            audio_filename: msg.audio_filename || null,
+            audio_duration_seconds: msg.audio_duration_seconds || null
           });
         }
       });
@@ -514,6 +518,28 @@ export default async function handler(req, res) {
     console.log('🔍 API DEBUG - Voice casting contributors:', voiceCasting.contributors?.length || 0);
     console.log('🆔 API DEBUG - Enhanced contributor quotes with message IDs:', enhancedContributorQuotes?.length || 0);
     console.log('🆔 API DEBUG - Message ID map size:', messageIdMap.size);
+
+    // 🐛 DEBUG: Log enhanced contributor quotes details
+    console.log('🐛 API DEBUG - Enhanced contributor quotes details:');
+    if (enhancedContributorQuotes && enhancedContributorQuotes.length > 0) {
+      enhancedContributorQuotes.forEach((quote, index) => {
+        console.log(`  Quote ${index + 1}:`);
+        console.log(`    - Contributor: ${quote.contributor}`);
+        console.log(`    - Message ID: ${quote.message_id}`);
+        console.log(`    - Content: "${quote.content?.substring(0, 50)}..."`);
+      });
+    } else {
+      console.log('  No enhanced contributor quotes found');
+    }
+
+    // 🐛 DEBUG: Log messageIdMap details
+    console.log('🐛 API DEBUG - MessageIdMap contents:');
+    for (const [messageId, messageData] of messageIdMap.entries()) {
+      console.log(`  Message ID: ${messageId}`);
+      console.log(`    - User: ${messageData.user_first_name} (${messageData.user_id})`);
+      console.log(`    - Content: "${messageData.content?.substring(0, 50)}..."`);
+      console.log(`    - Audio URL: ${messageData.audio_url ? 'EXISTS' : 'MISSING'}`);
+    }
 
     // 🐛 ENHANCED DEBUG: Log all story messages details
     console.log('🐛 API DEBUG - All story messages:');
@@ -695,6 +721,52 @@ export default async function handler(req, res) {
       console.log('🔍 API DEBUG - Parsed generatedStoryCut:', generatedStoryCut);
       console.log('🔍 API DEBUG - ai_script field:', generatedStoryCut.ai_script);
       console.log('🔍 API DEBUG - ai_script length:', generatedStoryCut.ai_script?.length || 0);
+
+      // 🔧 FIX CONTRIBUTION IDS: Post-process script to use correct message IDs
+      console.log('🔧 API DEBUG - Starting contribution ID fix...');
+      if (generatedStoryCut.ai_script && enhancedContributorQuotes && enhancedContributorQuotes.length > 0) {
+        let correctedScript = generatedStoryCut.ai_script;
+
+        // Create content-to-messageId mapping
+        const contentToMessageIdMap = new Map();
+        enhancedContributorQuotes.forEach(quote => {
+          if (quote.message_id && quote.content) {
+            // Use first 30 chars of content as key for matching
+            const contentKey = quote.content.substring(0, 30).toLowerCase().trim();
+            contentToMessageIdMap.set(contentKey, quote.message_id);
+            console.log(`🔧 API DEBUG - Mapped content "${contentKey}" to message ID: ${quote.message_id}`);
+          }
+        });
+
+        // Find and replace contribution IDs in Sacred Format
+        const sacredFormatRegex = /\[([^|]+)\|([^|]+)\|([^\]]+)\]\s*<([^>]+)>/g;
+        correctedScript = correctedScript.replace(sacredFormatRegex, (match, name, preference, contributionId, content) => {
+          // Skip non-contributor entries (EMBER VOICE, NARRATOR, MEDIA)
+          if (name.includes('EMBER VOICE') || name.includes('NARRATOR') || name.includes('MEDIA')) {
+            return match;
+          }
+
+          // Try to find matching message ID by content
+          const contentKey = content.substring(0, 30).toLowerCase().trim();
+          const correctMessageId = contentToMessageIdMap.get(contentKey);
+
+          if (correctMessageId && correctMessageId !== contributionId) {
+            console.log(`🔧 API DEBUG - Fixed contribution ID for ${name}: ${contributionId} → ${correctMessageId}`);
+            return `[${name} | ${preference} | ${correctMessageId}] <${content}>`;
+          }
+
+          return match;
+        });
+
+        if (correctedScript !== generatedStoryCut.ai_script) {
+          console.log('🔧 API DEBUG - Script corrected with proper message IDs');
+          generatedStoryCut.ai_script = correctedScript;
+        } else {
+          console.log('🔧 API DEBUG - No contribution ID corrections needed');
+        }
+      } else {
+        console.log('🔧 API DEBUG - Skipping contribution ID fix (no script or quotes)');
+      }
 
       // 🔄 PROCESS AI SCRIPT TO EMBER SCRIPT
       if (generatedStoryCut.ai_script) {
