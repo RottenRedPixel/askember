@@ -452,142 +452,124 @@ export default function StoryCutStudio() {
 
                         // Voice IDs are now handled inline with voice lines
 
-                        // Match media tags
-                        const mediaMatch = trimmedLine.match(/^\[\[(MEDIA|HOLD|LOAD SCREEN)\]\]\s*(.*)$/);
+                        // Match media tags - New single bracket format: [MEDIA | id] <content>
+                        const mediaMatch = trimmedLine.match(/^\[MEDIA\s*\|\s*([^\]]+)\]\s*<(.+)>$/);
                         if (mediaMatch) {
-                            const mediaType = mediaMatch[1];
+                            const mediaId = mediaMatch[1].trim();
                             const content = mediaMatch[2].trim();
 
-                            if (mediaType === 'MEDIA') {
-                                // Extract media name, ID, or path
-                                console.log('🔍 Parsing MEDIA content:', content);
+                            console.log('🔍 Parsing MEDIA - ID:', mediaId, 'Content:', content);
 
-                                // Check for new path format first: <path="url",fallback="name">
-                                const pathMatch = content.match(/path="([^"]+)"(?:,fallback="([^"]+)")?/);
-                                // Check for ID format: <id=abc123>
-                                const idMatch = content.match(/id=([a-zA-Z0-9\-_]+)/);
-                                // Check for name format: <name="filename">
-                                const nameMatch = content.match(/name="([^"]+)"/);
+                            // Extract media name, ID, or path from content
+                            // Check for path format: path="url",fallback="name"
+                            const pathMatch = content.match(/path="([^"]+)"(?:,fallback="([^"]+)")?/);
+                            // Check for ID format: id="abc123"
+                            const idContentMatch = content.match(/id="([^"]+)"/);
+                            // Check for name format: name="filename"
+                            const nameMatch = content.match(/name="([^"]+)"/);
 
-                                let mediaName = 'Unknown Media';
-                                let mediaId = null;
-                                let mediaUrl = null;
+                            let mediaName = 'Unknown Media';
+                            let mediaUrl = null;
 
-                                if (pathMatch) {
-                                    mediaUrl = pathMatch[1];
-                                    mediaName = pathMatch[2] || 'Media';
-                                    console.log('🔍 Extracted media path:', mediaUrl, 'fallback:', mediaName);
-                                } else if (idMatch) {
-                                    mediaId = idMatch[1];
-                                    mediaName = 'Loading...'; // Will be replaced with actual display name
-                                    console.log('🔍 Extracted media ID:', mediaId);
-                                } else if (nameMatch) {
-                                    mediaName = nameMatch[1];
-                                    console.log('🔍 Extracted media name:', mediaName);
-                                }
+                            if (pathMatch) {
+                                mediaUrl = pathMatch[1];
+                                mediaName = pathMatch[2] || mediaId || 'Media';
+                                console.log('🔍 Extracted media path:', mediaUrl, 'fallback:', mediaName);
+                            } else if (idContentMatch) {
+                                mediaName = 'Loading...'; // Will be replaced with actual display name
+                                console.log('🔍 Extracted media from ID content:', idContentMatch[1]);
+                            } else if (nameMatch) {
+                                mediaName = nameMatch[1];
+                                console.log('🔍 Extracted media name:', mediaName);
+                            } else {
+                                // Use the media ID as fallback name
+                                mediaName = mediaId || 'Media';
+                                console.log('🔍 Using media ID as name fallback:', mediaName);
+                            }
 
-                                // Parse effects from the content
-                                const currentBlockId = blockId;
-                                const blockKey = `effect-${currentBlockId}`;
-                                const currentBlockEffects = [];
+                            // Parse effects from the content
+                            const currentBlockId = blockId;
+                            const blockKey = `effect-${currentBlockId}`;
+                            const currentBlockEffects = [];
 
-                                // Find all effect patterns like <FADE-IN:duration=3.0,PAN-LEFT:duration=4.0>
-                                const effectsMatch = content.match(/<([^>]+)>/g);
-                                if (effectsMatch) {
-                                    effectsMatch.forEach(effectMatch => {
-                                        const effectContent = effectMatch.slice(1, -1); // Remove < >
+                            // Find all effect patterns like <FADE-IN:duration=3.0,PAN-LEFT:duration=4.0>
+                            const effectsMatch = content.match(/<([^>]+)>/g);
+                            if (effectsMatch) {
+                                effectsMatch.forEach(effectMatch => {
+                                    const effectContent = effectMatch.slice(1, -1); // Remove < >
 
-                                        // Skip media references (id= or name=)
-                                        if (effectContent.startsWith('id=') || effectContent.startsWith('name=')) {
-                                            return;
+                                    // Skip media references (id= or name=)
+                                    if (effectContent.startsWith('id=') || effectContent.startsWith('name=')) {
+                                        return;
+                                    }
+
+                                    // Parse individual effects separated by commas
+                                    const effects = effectContent.split(',');
+                                    effects.forEach(effect => {
+                                        const trimmedEffect = effect.trim();
+
+                                        // Parse FADE effects: FADE-IN:duration=3.0 or FADE-OUT:duration=2.5
+                                        const fadeMatch = trimmedEffect.match(/FADE-(IN|OUT):duration=([0-9.]+)/);
+                                        if (fadeMatch) {
+                                            const [, direction, duration] = fadeMatch;
+                                            currentBlockEffects.push('fade');
+                                            initialDirections[`fade-${currentBlockId}`] = direction.toLowerCase();
+                                            initialDurations[`fade-${currentBlockId}`] = parseFloat(duration);
+                                            console.log(`🎬 Parsed FADE effect: ${direction} ${duration}s for block ${currentBlockId}`);
                                         }
 
-                                        // Parse individual effects separated by commas
-                                        const effects = effectContent.split(',');
-                                        effects.forEach(effect => {
-                                            const trimmedEffect = effect.trim();
+                                        // Parse PAN effects: PAN-LEFT:duration=4.0 or PAN-RIGHT:duration=3.5
+                                        const panMatch = trimmedEffect.match(/PAN-(LEFT|RIGHT):duration=([0-9.]+)/);
+                                        if (panMatch) {
+                                            const [, direction, duration] = panMatch;
+                                            currentBlockEffects.push('pan');
+                                            initialDirections[`pan-${currentBlockId}`] = direction.toLowerCase();
+                                            initialDurations[`pan-${currentBlockId}`] = parseFloat(duration);
+                                            console.log(`🎬 Parsed PAN effect: ${direction} ${duration}s for block ${currentBlockId}`);
+                                        }
 
-                                            // Parse FADE effects: FADE-IN:duration=3.0 or FADE-OUT:duration=2.5
-                                            const fadeMatch = trimmedEffect.match(/FADE-(IN|OUT):duration=([0-9.]+)/);
-                                            if (fadeMatch) {
-                                                const [, direction, duration] = fadeMatch;
-                                                currentBlockEffects.push('fade');
-                                                initialDirections[`fade-${currentBlockId}`] = direction.toLowerCase();
-                                                initialDurations[`fade-${currentBlockId}`] = parseFloat(duration);
-                                                console.log(`🎬 Parsed FADE effect: ${direction} ${duration}s for block ${currentBlockId}`);
-                                            }
-
-                                            // Parse PAN effects: PAN-LEFT:duration=4.0 or PAN-RIGHT:duration=3.5
-                                            const panMatch = trimmedEffect.match(/PAN-(LEFT|RIGHT):duration=([0-9.]+)/);
-                                            if (panMatch) {
-                                                const [, direction, duration] = panMatch;
-                                                currentBlockEffects.push('pan');
-                                                initialDirections[`pan-${currentBlockId}`] = direction.toLowerCase();
-                                                initialDurations[`pan-${currentBlockId}`] = parseFloat(duration);
-                                                console.log(`🎬 Parsed PAN effect: ${direction} ${duration}s for block ${currentBlockId}`);
-                                            }
-
-                                            // Parse ZOOM effects: ZOOM-IN:duration=3.5 or ZOOM-OUT:duration=2.0
-                                            const zoomMatch = trimmedEffect.match(/ZOOM-(IN|OUT):duration=([0-9.]+)/);
-                                            if (zoomMatch) {
-                                                const [, direction, duration] = zoomMatch;
-                                                currentBlockEffects.push('zoom');
-                                                initialDirections[`zoom-${currentBlockId}`] = direction.toLowerCase();
-                                                initialDurations[`zoom-${currentBlockId}`] = parseFloat(duration);
-                                                console.log(`🎬 Parsed ZOOM effect: ${direction} ${duration}s for block ${currentBlockId}`);
-                                            }
-                                        });
+                                        // Parse ZOOM effects: ZOOM-IN:duration=3.5 or ZOOM-OUT:duration=2.0
+                                        const zoomMatch = trimmedEffect.match(/ZOOM-(IN|OUT):duration=([0-9.]+)/);
+                                        if (zoomMatch) {
+                                            const [, direction, duration] = zoomMatch;
+                                            currentBlockEffects.push('zoom');
+                                            initialDirections[`zoom-${currentBlockId}`] = direction.toLowerCase();
+                                            initialDurations[`zoom-${currentBlockId}`] = parseFloat(duration);
+                                            console.log(`🎬 Parsed ZOOM effect: ${direction} ${duration}s for block ${currentBlockId}`);
+                                        }
                                     });
-                                }
-
-                                // Store parsed effects for this block
-                                if (currentBlockEffects.length > 0) {
-                                    initialEffects[blockKey] = currentBlockEffects;
-                                    console.log(`🎬 Stored effects for block ${currentBlockId}:`, currentBlockEffects);
-                                }
-
-                                realBlocks.push({
-                                    id: blockId++,
-                                    type: 'media',
-                                    mediaName: mediaName,
-                                    mediaId: mediaId,
-                                    mediaUrl: mediaUrl || 'https://picsum.photos/400/300?random=1', // Use parsed URL or fallback
-                                    effect: null,
-                                    duration: 0
                                 });
-                            } else if (mediaType === 'HOLD') {
+                            }
+
+                            // Store parsed effects for this block
+                            if (currentBlockEffects.length > 0) {
+                                initialEffects[blockKey] = currentBlockEffects;
+                                console.log(`🎬 Stored effects for block ${currentBlockId}:`, currentBlockEffects);
+                            }
+
+                            realBlocks.push({
+                                id: blockId++,
+                                type: 'media',
+                                mediaName: mediaName,
+                                mediaId: mediaId,
+                                mediaUrl: mediaUrl || 'https://picsum.photos/400/300?random=1', // Use parsed URL or fallback
+                                effect: null,
+                                duration: 0
+                            });
+                        }
+
+                        // Check for HOLD and LOAD SCREEN blocks (still use double brackets)
+                        const holdLoadMatch = trimmedLine.match(/^\[\[(HOLD|LOAD SCREEN)\]\]\s*(.*)$/);
+                        if (holdLoadMatch) {
+                            const blockType = holdLoadMatch[1];
+                            const content = holdLoadMatch[2].trim();
+
+                            if (blockType === 'HOLD') {
                                 // Extract color and duration
                                 const colorMatch = content.match(/COLOR:(#[0-9A-Fa-f]{6})/);
                                 const durationMatch = content.match(/duration=([\d.]+)/);
                                 const color = colorMatch ? colorMatch[1] : '#000000';
                                 const duration = durationMatch ? parseFloat(durationMatch[1]) : 4.0;
-
-                                // Parse HOLD fade direction and duration
-                                const currentBlockId = blockId;
-                                const fadeInMatch = content.match(/FADE-IN:duration=([\d.]+)/);
-                                const fadeOutMatch = content.match(/FADE-OUT:duration=([\d.]+)/);
-
-                                if (fadeInMatch || fadeOutMatch || durationMatch) {
-                                    // HOLD has fade enabled
-                                    const blockKey = `hold-${currentBlockId}`;
-                                    initialEffects[blockKey] = ['fade'];
-
-                                    // Set fade direction based on parsed content
-                                    if (fadeInMatch) {
-                                        initialDirections[`hold-fade-${currentBlockId}`] = 'in';
-                                        initialDurations[`hold-duration-${currentBlockId}`] = parseFloat(fadeInMatch[1]);
-                                        console.log(`🎬 Parsed HOLD fade-in: ${fadeInMatch[1]}s for block ${currentBlockId}`);
-                                    } else if (fadeOutMatch) {
-                                        initialDirections[`hold-fade-${currentBlockId}`] = 'out';
-                                        initialDurations[`hold-duration-${currentBlockId}`] = parseFloat(fadeOutMatch[1]);
-                                        console.log(`🎬 Parsed HOLD fade-out: ${fadeOutMatch[1]}s for block ${currentBlockId}`);
-                                    } else {
-                                        // Legacy format with just duration= (default to fade-in)
-                                        initialDirections[`hold-fade-${currentBlockId}`] = 'in';
-                                        initialDurations[`hold-duration-${currentBlockId}`] = duration;
-                                        console.log(`🎬 Parsed HOLD fade (legacy): ${duration}s for block ${currentBlockId}`);
-                                    }
-                                }
 
                                 realBlocks.push({
                                     id: blockId++,
@@ -596,8 +578,8 @@ export default function StoryCutStudio() {
                                     duration: duration,
                                     color: color
                                 });
-                            } else if (mediaType === 'LOAD SCREEN') {
-                                // Parse LOAD SCREEN attributes: message, duration, icon
+                            } else if (blockType === 'LOAD SCREEN') {
+                                // Parse LOAD SCREEN attributes
                                 const messageMatch = content.match(/message="([^"]+)"/);
                                 const durationMatch = content.match(/duration=([0-9.]+)/);
                                 const iconMatch = content.match(/icon="([^"]+)"/);
@@ -1044,14 +1026,17 @@ export default function StoryCutStudio() {
         const scriptLines = blocks.map(block => {
             switch (block.type) {
                 case 'media':
-                    // Media blocks use existing logic (unchanged)
-                    let mediaLine;
+                    // Media blocks use new single bracket format: [MEDIA | id] <content>
+                    let mediaContent = '';
+                    let mediaId = block.mediaId || 'generated';
+
+                    // Build base content
                     if (block.mediaUrl) {
-                        mediaLine = `[[MEDIA | ${block.mediaId || 'generated'}]] (path="${block.mediaUrl}",fallback="${block.mediaName || 'ember_image'}")`;
+                        mediaContent = `path="${block.mediaUrl}",fallback="${block.mediaName || 'ember_image'}"`;
                     } else if (block.mediaId) {
-                        mediaLine = `[[MEDIA | ${block.mediaId}]]`;
+                        mediaContent = `id="${block.mediaId}"`;
                     } else {
-                        mediaLine = `[[MEDIA | generated]] (name="${block.mediaName}")`;
+                        mediaContent = `name="${block.mediaName}"`;
                     }
 
                     // Build effects from current state
@@ -1075,10 +1060,12 @@ export default function StoryCutStudio() {
                         }
                     });
 
+                    // Combine content and effects
                     if (effectParts.length > 0) {
-                        mediaLine += ` (${effectParts.join(',')})`;
+                        mediaContent += `,${effectParts.join(',')}`;
                     }
 
+                    const mediaLine = `[MEDIA | ${mediaId}] <${mediaContent}>`;
                     return mediaLine;
 
                 case 'voice':
