@@ -21,6 +21,15 @@ const fadeInKeyframes = `
     }
   }
   
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  
   @keyframes textFadeIn {
     from {
       opacity: 0;
@@ -200,6 +209,7 @@ export default function EmberPlay() {
     useEffect(() => {
         const transforms = [];
         let opacity = 1;
+        let animation = null;
         let transitionDuration = '0.5s';
 
         // Handle pan effects
@@ -216,22 +226,30 @@ export default function EmberPlay() {
             transitionDuration = `${currentZoomEffect.duration || 3.5}s`;
         }
 
-        // Handle fade effects
+        // Handle fade effects - use CSS animation instead of transition
         if (currentFadeEffect) {
-            opacity = currentFadeEffect.type === 'in' ? 1 : 0; // Start invisible for fade-in
-            transitionDuration = `${currentFadeEffect.duration || 3.0}s`;
+            const duration = currentFadeEffect.duration || 3.0;
+            if (currentFadeEffect.type === 'in') {
+                // Fade in: start invisible, animate to visible
+                animation = `fadeIn ${duration}s ease-out forwards`;
+                opacity = 0; // Start invisible
+            } else {
+                // Fade out: start visible, animate to invisible  
+                animation = `fadeOut ${duration}s ease-out forwards`;
+                opacity = 1; // Start visible
+            }
         }
 
-        // Use the longest duration if multiple effects
+        // Use the longest duration if multiple effects (for non-fade transitions)
         const panDuration = currentPanEffect?.duration || 0;
         const zoomDuration = currentZoomEffect?.duration || 0;
-        const fadeDuration = currentFadeEffect?.duration || 0;
-        const maxDuration = Math.max(panDuration, zoomDuration, fadeDuration, 0.5);
+        const maxTransitionDuration = Math.max(panDuration, zoomDuration, 0.5);
 
         setCombinedEffectStyles({
             transform: transforms.length > 0 ? transforms.join(' ') : 'scale(1) translateX(0)',
             opacity: opacity,
-            transition: `transform ${maxDuration}s ease-out, opacity ${maxDuration}s ease-out`
+            animation: animation || 'none', // CSS animation for fade, or none to clear
+            transition: animation ? `transform ${maxTransitionDuration}s ease-out` : `transform ${maxTransitionDuration}s ease-out, opacity ${maxTransitionDuration}s ease-out` // Only transition non-fade properties when using animation
         });
 
         console.log('🎬 Combined effects applied:', {
@@ -239,8 +257,9 @@ export default function EmberPlay() {
             zoom: currentZoomEffect,
             fade: currentFadeEffect,
             finalTransform: transforms.join(' ') || 'scale(1) translateX(0)',
-            finalOpacity: opacity,
-            duration: maxDuration
+            opacity: opacity,
+            animation: animation,
+            maxDuration: Math.max(panDuration, zoomDuration, currentFadeEffect?.duration || 0, 0.5)
         });
     }, [currentPanEffect, currentZoomEffect, currentFadeEffect]);
 
