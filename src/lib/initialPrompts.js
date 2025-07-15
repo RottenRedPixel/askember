@@ -203,8 +203,8 @@ SACRED FORMAT RULES:
 VOICE TAG EXAMPLES - SACRED FORMAT:
 - Contributors: [Amado | recorded | 550e8400-e29b-41d4-a716-446655440000] <We went to Top Golf in Edison with Luca, Zia, and Joey.>
 - Contributors without audio: [Sarah | text | null] <I think this moment was really special for everyone.>
-- Ember Voice: [EMBER VOICE | text | null] <A sunny day at Topgolf, where smiles and swings abound.>
-- Narrator Voice: [NARRATOR | text | null] <The family gathered for a day of friendly competition.>
+- Ember Voice: [EMBER VOICE | {{ember_voice_name}} | {{ember_voice_id}}] <A sunny day at Topgolf, where smiles and swings abound.>
+- Narrator Voice: [NARRATOR | {{narrator_voice_name}} | {{narrator_voice_id}}] <The family gathered for a day of friendly competition.>
 
 SACRED DATA GUIDELINES:
 - NAME: Use actual first names for contributors (Amado, Sarah, etc.), "EMBER VOICE" for ember agent, "NARRATOR" for narrator agent
@@ -241,27 +241,27 @@ MULTIPLE CONTRIBUTIONS HANDLING:
 VOICE TAG NAMING:
 - Use [{{owner_first_name}} | preference | message_id] for the ember owner's actual quotes
 - Use [CONTRIBUTOR_FIRST_NAME | preference | message_id] with actual first names for contributors
-- Use [EMBER VOICE | text | null] for AI-generated ember voice content
-- Use [NARRATOR | text | null] for AI-generated narrator content
+- Use [EMBER VOICE | {{ember_voice_name}} | {{ember_voice_id}}] for AI-generated ember voice content
+- Use [NARRATOR | {{narrator_voice_name}} | {{narrator_voice_id}}] for AI-generated narrator content
 - Available contributor names are provided in the "Selected Contributors" section above
 - DO NOT use generic tags like [Owner] or [CONTRIBUTOR NAME] - always use actual first names
 
 SCRIPT FORMATTING - SACRED FORMAT:
 - Create scripts using the sacred format only
 - Use double line breaks between voice changes
-- Format like: "[EMBER VOICE | text | null] <Narrative line>\n\n[NARRATOR | text | null] <Context line>\n\n[{{owner_first_name}} | recorded | message_id] <Actual quote from owner>\n\n[CONTRIBUTOR_FIRST_NAME | recorded | message_id] <Quote from contributor>"
+- Format like: "[EMBER VOICE | {{ember_voice_name}} | {{ember_voice_id}}] <Narrative line>\n\n[NARRATOR | {{narrator_voice_name}} | {{narrator_voice_id}}] <Context line>\n\n[{{owner_first_name}} | recorded | message_id] <Actual quote from owner>\n\n[CONTRIBUTOR_FIRST_NAME | recorded | message_id] <Quote from contributor>"
 - Ember Voice and Narrator are for storytelling; Owner/Contributors are for actual quotes
 - Replace {{owner_first_name}} with the actual first name of the ember owner (e.g., [Amado | recorded | message_id])
 - Replace contributor placeholders with actual contributor first names and include message IDs when available
 
 VOICE LINE ARRAYS REQUIREMENT:
-- MUST populate ember_voice_lines array with all [EMBER VOICE | text | null] lines from the ai_script
-- MUST populate narrator_voice_lines array with all [NARRATOR | text | null] lines from the ai_script
+- MUST populate ember_voice_lines array with all [EMBER VOICE | {{ember_voice_name}} | {{ember_voice_id}}] lines from the ai_script
+- MUST populate narrator_voice_lines array with all [NARRATOR | {{narrator_voice_name}} | {{narrator_voice_id}}] lines from the ai_script
 - MUST populate owner_lines array with all [{{owner_first_name}} | preference | message_id] quotes from the ai_script
 - MUST populate contributor_lines array with all contributor quotes from the ai_script
 - Each array should contain the actual spoken text WITHOUT the voice tags (content from inside < >)
 - If a voice type has no lines, use an empty array []
-- Example: If ai_script contains "[EMBER VOICE | text | null] <A tense moment>\n\n[NARRATOR | text | null] <The game begins>", then:
+- Example: If ai_script contains "[EMBER VOICE | {{ember_voice_name}} | {{ember_voice_id}}] <A tense moment>\n\n[NARRATOR | {{narrator_voice_name}} | {{narrator_voice_id}}] <The game begins>", then:
   - ember_voice_lines: ["A tense moment"]
   - narrator_voice_lines: ["The game begins"]
 
@@ -272,7 +272,7 @@ Return a JSON object with this exact structure:
   "duration": {{duration}},
   "style": "{{selected_style}}",
   "wordCount": {{word_count}},
-  "ai_script": "[EMBER VOICE | text | null] <First narrative line>\n\n[NARRATOR | text | null] <Context line>\n\n[{{owner_first_name}} | recorded | message_id] <Owner quote>\n\n[CONTRIBUTOR_FIRST_NAME | recorded | message_id] <Contributor quote>",
+  "ai_script": "[EMBER VOICE | {{ember_voice_name}} | {{ember_voice_id}}] <First narrative line>\n\n[NARRATOR | {{narrator_voice_name}} | {{narrator_voice_id}}] <Context line>\n\n[{{owner_first_name}} | recorded | message_id] <Owner quote>\n\n[CONTRIBUTOR_FIRST_NAME | recorded | message_id] <Contributor quote>",
   "ember_voice_lines": ["A classroom buzzes with anticipation", "Faces filled with determination"],
   "narrator_voice_lines": ["A dodgeball tournament begins", "Who will claim victory?"],
   "owner_lines": ["We went to a dodgeball tournament at the kid's school", "Anna, Zia and Luca"],

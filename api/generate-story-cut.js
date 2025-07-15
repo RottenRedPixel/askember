@@ -162,14 +162,20 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
             contributionId = colonParts[2] || 'null';
           }
 
-          // Normalize voice names for sacred format
+          // Normalize voice names for sacred format and populate actual voice data
           if (sacredName.toLowerCase().includes('ember')) {
             sacredName = 'EMBER VOICE';
+            // Use actual ember voice data from voiceCasting
+            preference = voiceCasting.ember?.name || 'text';
+            contributionId = voiceCasting.ember?.voice_id || 'null';
           } else if (sacredName.toLowerCase().includes('narrator')) {
             sacredName = 'NARRATOR';
+            // Use actual narrator voice data from voiceCasting
+            preference = voiceCasting.narrator?.name || 'text';
+            contributionId = voiceCasting.narrator?.voice_id || 'null';
           }
 
-          // Build sacred format
+          // Build sacred format with actual voice data
           return `[${sacredName} | ${preference} | ${contributionId}] <${cleanContent}>`;
         })
         .join('\n\n');
@@ -216,7 +222,7 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
 
     if (!aiScript || aiScript.trim() === '') {
       console.error('❌ API: Basic processing - no script content available');
-      return '[EMBER VOICE | text | null] <No script content available>';
+      return '[EMBER VOICE | Selected Voice | null] <No script content available>';
     }
 
     // Check if AI script is already in sacred format
@@ -232,12 +238,21 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
       console.log('🔄 API: Basic processing - converting to sacred format');
       processedScript = aiScript.replace(/^\[([^\]]+)\]\s*(.+)$/gm, (match, voiceTag, content) => {
         let sacredName = voiceTag;
+        let preference = 'text';
+        let contributionId = 'null';
+
         if (sacredName.toLowerCase().includes('ember')) {
           sacredName = 'EMBER VOICE';
+          // Use actual ember voice data from voiceCasting
+          preference = voiceCasting.ember?.name || 'text';
+          contributionId = voiceCasting.ember?.voice_id || 'null';
         } else if (sacredName.toLowerCase().includes('narrator')) {
           sacredName = 'NARRATOR';
+          // Use actual narrator voice data from voiceCasting
+          preference = voiceCasting.narrator?.name || 'text';
+          contributionId = voiceCasting.narrator?.voice_id || 'null';
         }
-        return `[${sacredName} | text | null] <${content.trim()}>`;
+        return `[${sacredName} | ${preference} | ${contributionId}] <${content.trim()}>`;
       });
     }
 
@@ -250,7 +265,7 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
     return emberScript;
   } catch (error) {
     console.error('❌ API: Error in basic processing:', error);
-    return '[EMBER VOICE | text | null] <Error processing script>';
+    return '[EMBER VOICE | Selected Voice | null] <Error processing script>';
   }
 }
 
@@ -426,7 +441,9 @@ export default async function handler(req, res) {
       owner_first_name: ownerFirstName,
       selected_contributors: voiceCasting.contributors?.map(c => c.name).join(', ') || 'None',
       ember_voice_name: voiceCasting.ember?.name || 'Selected Voice',
+      ember_voice_id: voiceCasting.ember?.voice_id || 'null',
       narrator_voice_name: voiceCasting.narrator?.name || 'Selected Voice',
+      narrator_voice_id: voiceCasting.narrator?.voice_id || 'null',
       voice_casting_info: JSON.stringify(voiceCasting, null, 2),
       contributor_quotes: enhancedContributorQuotes ? JSON.stringify(enhancedContributorQuotes, null, 2) : 'No direct quotes available',
       selected_style: selectedStyle,
