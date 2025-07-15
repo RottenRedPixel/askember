@@ -151,19 +151,15 @@ const ModalContent = ({
               if (msg.sender === 'ember') return 'Ember AI';
               if (msg.isCurrentUser) return 'You';
               if (msg.userFirstName) {
-                console.log('🔍 Using userFirstName:', msg.userFirstName);
                 return msg.userFirstName;
               }
               // Fallback for current user if no userFirstName
               if (msg.isCurrentUser && userProfile?.first_name) {
-                console.log('🔍 Using userProfile.first_name:', userProfile.first_name);
                 return userProfile.first_name;
               }
               if (msg.isCurrentUser && user?.email) {
-                console.log('🔍 Using email prefix:', user.email.split('@')[0]);
                 return user.email.split('@')[0];
               }
-              console.log('🔍 Falling back to Anonymous User for:', msg);
               return 'Anonymous User';
             };
 
@@ -509,6 +505,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
   const [ttsAudioRef, setTtsAudioRef] = useState(null);
   const [isGeneratingTts, setIsGeneratingTts] = useState(null);
   const [userVoiceStatus, setUserVoiceStatus] = useState({});
+  const [forceRender, setForceRender] = useState(0);
 
   const mediaRecorderRef = useRef(null);
   const audioRef = useRef(null);
@@ -530,13 +527,18 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
       setUserVoiceStatus(prev => ({ ...prev, [userId]: hasVoice }));
       return hasVoice;
     } catch (error) {
-      console.error('Error checking user voice status:', error);
+      console.error(`Error checking voice status for ${userId}:`, error);
       setUserVoiceStatus(prev => ({ ...prev, [userId]: false }));
       return false;
     }
   };
 
-
+  // Force re-render when userVoiceStatus changes
+  useEffect(() => {
+    if (userVoiceStatus && Object.keys(userVoiceStatus).length > 0) {
+      setForceRender(prev => prev + 1);
+    }
+  }, [userVoiceStatus]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -716,8 +718,17 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
 
         // Check voice status for all users with messages
         const userIds = [...new Set(uiMessages.filter(msg => msg.sender === 'user').map(msg => msg.userId))];
+        console.log(`👥 [VOICE] Found user IDs in messages:`, userIds);
+        console.log(`👥 [VOICE] Message user details:`, uiMessages.filter(msg => msg.sender === 'user').map(msg => ({
+          userId: msg.userId,
+          userFirstName: msg.userFirstName,
+          userLastName: msg.userLastName,
+          messageId: msg.messageId
+        })));
+
         userIds.forEach(userId => {
           if (userId) {
+            console.log(`🔍 [VOICE] Checking voice status for userId: ${userId}`);
             checkUserVoiceStatus(userId);
           }
         });
@@ -1570,6 +1581,7 @@ export default function StoryModal({ isOpen, onClose, ember, question, onSubmit,
                 playTTSAudio={playTTSAudio}
                 ttsMessageId={ttsMessageId}
                 isGeneratingTts={isGeneratingTts}
+                userVoiceStatus={userVoiceStatus}
               />
               <audio ref={audioRef} style={{ display: 'none' }} />
             </div>
