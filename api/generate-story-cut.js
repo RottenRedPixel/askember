@@ -109,7 +109,7 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
           emberImage = `[MEDIA | ${firstMedia.id || 'generated'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
           console.log('✅ API DEBUG: Created emberImage with URL:', emberImage);
         } else if (firstMedia.id) {
-          emberImage = `[MEDIA | ${firstMedia.id}] <id="${firstMedia.id}">`;
+          emberImage = `[MEDIA | ${firstMedia.id}] <media>`;
           console.log('✅ API DEBUG: Created emberImage with ID only:', emberImage);
         } else {
           emberImage = `[MEDIA | generated] <name="${firstMedia.filename || firstMedia.name}">`;
@@ -134,7 +134,7 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
                 line = `[MEDIA | ${media.id || 'generated'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
                 console.log('✅ API DEBUG: Created additional MEDIA line with URL:', line);
               } else if (media.id) {
-                line = `[MEDIA | ${media.id}] <id="${media.id}">`;
+                line = `[MEDIA | ${media.id}] <media>`;
                 console.log('✅ API DEBUG: Created additional MEDIA line with ID:', line);
               } else {
                 line = `[MEDIA | generated] <name="${media.filename || media.name}">`;
@@ -174,7 +174,7 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
           emberImage = `[MEDIA | ${emberData.id || 'ember_main'}] <name="${emberData.original_filename}">`;
           console.log('✅ API DEBUG: Fallback 2 - Using emberData.original_filename:', emberImage);
         } else if (emberData.id) {
-          emberImage = `[MEDIA | ${emberData.id}] <id="${emberData.id}">`;
+          emberImage = `[MEDIA | ${emberData.id}] <media>`;
           console.log('✅ API DEBUG: Fallback 3 - Using emberData.id only:', emberImage);
         }
       }
@@ -318,7 +318,7 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
           emberImage = `[MEDIA | ${emberPhoto.id || 'ember_main'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
           console.log('✅ API DEBUG: Basic processing created ember image with URL:', emberImage);
         } else if (emberPhoto.id) {
-          emberImage = `[MEDIA | ${emberPhoto.id}] <id="${emberPhoto.id}">`;
+          emberImage = `[MEDIA | ${emberPhoto.id}] <media>`;
           console.log('✅ API DEBUG: Basic processing created ember image with ID:', emberImage);
         } else {
           emberImage = `[MEDIA | ember_basic] <name="${emberPhoto.filename || emberPhoto.name || 'ember_photo'}">`;
