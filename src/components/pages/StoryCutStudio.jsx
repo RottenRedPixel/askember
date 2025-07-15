@@ -1381,6 +1381,34 @@ export default function StoryCutStudio() {
                     duration: 0
                 };
 
+                // Apply same URL resolution as original MEDIA blocks
+                try {
+                    const { getEmberPhotos } = await import('@/lib/photos');
+                    const { getEmberSupportingMedia } = await import('@/lib/database');
+
+                    const [emberPhotos, supportingMedia] = await Promise.all([
+                        getEmberPhotos(id),
+                        getEmberSupportingMedia(id)
+                    ]);
+
+                    const photoMatch = emberPhotos.find(photo => photo.id === mediaBlock.mediaId);
+                    const mediaMatch = supportingMedia.find(media => media.id === mediaBlock.mediaId);
+
+                    if (photoMatch) {
+                        mediaBlock.mediaName = photoMatch.display_name || photoMatch.original_filename;
+                        mediaBlock.mediaUrl = photoMatch.storage_url;
+                        console.log('📸 Resolved added photo:', mediaBlock.mediaName, ':', mediaBlock.mediaUrl);
+                    } else if (mediaMatch) {
+                        mediaBlock.mediaName = mediaMatch.display_name || mediaMatch.file_name;
+                        mediaBlock.mediaUrl = mediaMatch.file_url;
+                        console.log('📸 Resolved added supporting media:', mediaBlock.mediaName, ':', mediaBlock.mediaUrl);
+                    } else {
+                        console.log('⚠️ No media found with ID for added block:', mediaBlock.mediaId);
+                    }
+                } catch (error) {
+                    console.error('❌ Failed to resolve media for added block', mediaBlock.mediaId, ':', error);
+                }
+
                 blocksToAdd.push(mediaBlock);
             }
 

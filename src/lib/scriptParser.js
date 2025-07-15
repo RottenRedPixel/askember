@@ -1004,7 +1004,10 @@ function removeDuplicateSegments(segments) {
             return;
         }
 
-        const key = `${segment.type}-${segment.voiceTag}-${segment.content}`;
+        // Include mediaId for MEDIA blocks to prevent false duplicates
+        const key = segment.type === 'media'
+            ? `${segment.type}-${segment.voiceTag}-${segment.content}-${segment.mediaId || segment.mediaName}`
+            : `${segment.type}-${segment.voiceTag}-${segment.content}`;
         // Remove excessive debug logging
         // console.log(`🔍 Checking segment ${index + 1}: Key="${key.substring(0, 50)}..."`);
 
