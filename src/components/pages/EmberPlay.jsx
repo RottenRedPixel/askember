@@ -189,6 +189,61 @@ export default function EmberPlay() {
     const progressIntervalRef = useRef(null);
     const mediaTimeoutsRef = useRef([]);
 
+    // Combined visual effects state for simultaneous effects
+    const [combinedEffectStyles, setCombinedEffectStyles] = useState({
+        transform: 'scale(1) translateX(0)',
+        opacity: 1,
+        transition: 'transform 0.5s ease-out, opacity 0.5s ease-out'
+    });
+
+    // Combine multiple visual effects into a single transform
+    useEffect(() => {
+        const transforms = [];
+        let opacity = 1;
+        let transitionDuration = '0.5s';
+
+        // Handle pan effects
+        if (currentPanEffect) {
+            const direction = currentPanEffect.direction === 'left' ? '-20%' : '20%';
+            transforms.push(`translateX(${direction})`);
+            transitionDuration = `${currentPanEffect.duration || 4.0}s`;
+        }
+
+        // Handle zoom effects  
+        if (currentZoomEffect) {
+            const scale = currentZoomEffect.type === 'in' ? '1.5' : '0.8';
+            transforms.push(`scale(${scale})`);
+            transitionDuration = `${currentZoomEffect.duration || 3.5}s`;
+        }
+
+        // Handle fade effects
+        if (currentFadeEffect) {
+            opacity = currentFadeEffect.type === 'in' ? 1 : 0; // Start invisible for fade-in
+            transitionDuration = `${currentFadeEffect.duration || 3.0}s`;
+        }
+
+        // Use the longest duration if multiple effects
+        const panDuration = currentPanEffect?.duration || 0;
+        const zoomDuration = currentZoomEffect?.duration || 0;
+        const fadeDuration = currentFadeEffect?.duration || 0;
+        const maxDuration = Math.max(panDuration, zoomDuration, fadeDuration, 0.5);
+
+        setCombinedEffectStyles({
+            transform: transforms.length > 0 ? transforms.join(' ') : 'scale(1) translateX(0)',
+            opacity: opacity,
+            transition: `transform ${maxDuration}s ease-out, opacity ${maxDuration}s ease-out`
+        });
+
+        console.log('🎬 Combined effects applied:', {
+            pan: currentPanEffect,
+            zoom: currentZoomEffect,
+            fade: currentFadeEffect,
+            finalTransform: transforms.join(' ') || 'scale(1) translateX(0)',
+            finalOpacity: opacity,
+            duration: maxDuration
+        });
+    }, [currentPanEffect, currentZoomEffect, currentFadeEffect]);
+
     // Track text changes to trigger fade-in animation
     useEffect(() => {
         if (currentDisplayText) {
@@ -646,22 +701,7 @@ export default function EmberPlay() {
                                         src={currentMediaImageUrl}
                                         alt={ember?.title || 'Ember'}
                                         className="absolute inset-0 w-full h-full object-cover"
-                                        style={{
-                                            opacity: currentFadeEffect?.type === 'in' ? 0 : 1,
-                                            animation: (() => {
-                                                const animations = [];
-                                                if (currentFadeEffect?.type === 'in') {
-                                                    animations.push('fadeIn 1s ease-in-out forwards');
-                                                }
-                                                if (currentPanEffect) {
-                                                    animations.push(`pan-${currentPanEffect.direction} ${currentPanEffect.duration}s ease-out forwards`);
-                                                }
-                                                if (currentZoomEffect) {
-                                                    animations.push(`zoom-${currentZoomEffect.type} ${currentZoomEffect.duration}s ease-out forwards`);
-                                                }
-                                                return animations.join(', ') || 'none';
-                                            })()
-                                        }}
+                                        style={combinedEffectStyles}
                                     />
                                 )}
 
@@ -671,22 +711,7 @@ export default function EmberPlay() {
                                         src={ember.image_url}
                                         alt={ember?.title || 'Ember'}
                                         className="absolute inset-0 w-full h-full object-cover"
-                                        style={{
-                                            opacity: currentFadeEffect?.type === 'in' ? 0 : 1,
-                                            animation: (() => {
-                                                const animations = [];
-                                                if (currentFadeEffect?.type === 'in') {
-                                                    animations.push('fadeIn 1s ease-in-out forwards');
-                                                }
-                                                if (currentPanEffect) {
-                                                    animations.push(`pan-${currentPanEffect.direction} ${currentPanEffect.duration}s ease-out forwards`);
-                                                }
-                                                if (currentZoomEffect) {
-                                                    animations.push(`zoom-${currentZoomEffect.type} ${currentZoomEffect.duration}s ease-out forwards`);
-                                                }
-                                                return animations.join(', ') || 'none';
-                                            })()
-                                        }}
+                                        style={combinedEffectStyles}
                                     />
                                 )}
 
@@ -908,22 +933,7 @@ export default function EmberPlay() {
                                         src={currentMediaImageUrl}
                                         alt={ember?.title || 'Ember'}
                                         className="absolute inset-0 w-full h-full object-cover"
-                                        style={{
-                                            opacity: currentFadeEffect?.type === 'in' ? 0 : 1,
-                                            animation: (() => {
-                                                const animations = [];
-                                                if (currentFadeEffect?.type === 'in') {
-                                                    animations.push('fadeIn 1s ease-in-out forwards');
-                                                }
-                                                if (currentPanEffect) {
-                                                    animations.push(`pan-${currentPanEffect.direction} ${currentPanEffect.duration}s ease-out forwards`);
-                                                }
-                                                if (currentZoomEffect) {
-                                                    animations.push(`zoom-${currentZoomEffect.type} ${currentZoomEffect.duration}s ease-out forwards`);
-                                                }
-                                                return animations.join(', ') || 'none';
-                                            })()
-                                        }}
+                                        style={combinedEffectStyles}
                                     />
                                 )}
 
@@ -933,22 +943,7 @@ export default function EmberPlay() {
                                         src={ember.image_url}
                                         alt={ember?.title || 'Ember'}
                                         className="absolute inset-0 w-full h-full object-cover"
-                                        style={{
-                                            opacity: currentFadeEffect?.type === 'in' ? 0 : 1,
-                                            animation: (() => {
-                                                const animations = [];
-                                                if (currentFadeEffect?.type === 'in') {
-                                                    animations.push('fadeIn 1s ease-in-out forwards');
-                                                }
-                                                if (currentPanEffect) {
-                                                    animations.push(`pan-${currentPanEffect.direction} ${currentPanEffect.duration}s ease-out forwards`);
-                                                }
-                                                if (currentZoomEffect) {
-                                                    animations.push(`zoom-${currentZoomEffect.type} ${currentZoomEffect.duration}s ease-out forwards`);
-                                                }
-                                                return animations.join(', ') || 'none';
-                                            })()
-                                        }}
+                                        style={combinedEffectStyles}
                                     />
                                 )}
 
