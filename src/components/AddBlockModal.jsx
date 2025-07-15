@@ -91,7 +91,7 @@ const ModalContent = ({
                     <div className="text-sm text-gray-500">No media files available</div>
                 </div>
             ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     {availableMedia.map((media) => (
                         <div
                             key={media.id}
@@ -167,7 +167,7 @@ const ModalContent = ({
                         <div className="text-sm text-gray-500">No contributions available</div>
                     </div>
                 ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                    <div className="space-y-2">
                         {storyMessages
                             .filter(msg => msg.sender === 'user')
                             .map((message) => (
