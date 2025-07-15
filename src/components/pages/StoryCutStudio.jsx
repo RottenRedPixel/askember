@@ -1363,6 +1363,34 @@ export default function StoryCutStudio() {
         }
     };
 
+    // Helper function to get contributor avatar data at component level
+    const getContributorAvatarData = (voiceTag) => {
+        // Find contributor by first name (voice tag is typically the first name)
+        const contributor = contributors.find(c =>
+            c.first_name && c.first_name.toLowerCase() === voiceTag.toLowerCase().trim()
+        );
+
+        if (contributor) {
+            console.log(`✅ Found contributor data for ${voiceTag}:`, contributor);
+            return {
+                avatarUrl: contributor.avatar_url || null,
+                firstName: contributor.first_name,
+                lastName: contributor.last_name,
+                email: contributor.email,
+                fallbackText: contributor.first_name?.[0] || contributor.last_name?.[0] || contributor.email?.[0]?.toUpperCase() || voiceTag[0]?.toUpperCase() || '?'
+            };
+        }
+
+        console.log(`⚠️ No contributor found for ${voiceTag}, using defaults`);
+        return {
+            avatarUrl: null, // Will fall back to placeholder in UI
+            firstName: voiceTag,
+            lastName: null,
+            email: null,
+            fallbackText: voiceTag[0]?.toUpperCase() || '?'
+        };
+    };
+
     // Handle adding a new media block
     const handleAddMediaBlock = async (selection) => {
         if (!selection || !user || !storyCut) return;
@@ -1431,13 +1459,17 @@ export default function StoryCutStudio() {
             selectedContributions.forEach(contribution => {
                 console.log('➕ Adding new voice block:', contribution.user_first_name, contribution.content.substring(0, 50));
 
+                // Get contributor data for real avatar
+                const contributorData = getContributorAvatarData(contribution.user_first_name);
+
                 const voiceBlock = {
                     id: currentBlockId++,
                     type: 'voice',
                     voiceTag: contribution.user_first_name,
                     content: contribution.content,
                     voiceType: 'contributor',
-                    avatarUrl: 'https://i.pravatar.cc/40?img=1',
+                    avatarUrl: contributorData.avatarUrl,
+                    contributorData: contributorData, // Store full contributor data for avatar fallbacks
                     messageType: contribution.has_audio ? 'Audio Message' : 'Text Response',
                     preference: contribution.has_audio ? 'recorded' : 'text',
                     messageId: contribution.id || contribution.message_id || null
