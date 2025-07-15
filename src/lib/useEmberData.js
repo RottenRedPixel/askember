@@ -465,9 +465,16 @@ export const useMediaForStory = (emberId) => {
             // Auto-select ember photo by default, but allow user to deselect
             const emberPhotoMedia = allMedia.filter(media => media.category === 'ember');
             if (emberPhotoMedia.length > 0) {
-                const defaultSelectedMedia = [emberPhotoMedia[0].id]; // Select the first ember photo
-                setSelectedMediaForStory(defaultSelectedMedia);
-                console.log(`📸 Auto-selected ember photo: ${emberPhotoMedia[0].name}`);
+                // ✅ ENHANCED: Only auto-select if nothing is currently selected
+                setSelectedMediaForStory(prev => {
+                    if (prev.length === 0) {
+                        console.log(`📸 Auto-selected ember photo: ${emberPhotoMedia[0].name}`);
+                        return [emberPhotoMedia[0].id]; // Select the first ember photo
+                    } else {
+                        console.log(`📸 Media already selected (${prev.length} items) - skipping auto-selection`);
+                        return prev; // Keep existing selection
+                    }
+                });
             } else {
                 // No ember photos found - don't auto-select anything
                 setSelectedMediaForStory([]);

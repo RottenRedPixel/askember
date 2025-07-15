@@ -1090,8 +1090,8 @@ export const processAIScriptToEmberScript = async (aiScript, ember, emberId) => 
     // 1. Remove loading screen generation - loading controlled by actual preparation time
     // The system already handles loading via isGeneratingAudio state
 
-    // 2. Ember photo as MEDIA element (start immediately with ember image)
-    const emberPhotoMedia = `[[MEDIA]] <name="${ember.original_filename || 'ember_photo.jpg'}">`;
+    // 2. Ember photo as MEDIA element (start immediately with ember image) - NEW FORMAT
+    const emberPhotoMedia = `[MEDIA | ${ember.id || 'ember_main'}] <name="${ember.original_filename || 'ember_photo.jpg'}">`;
 
     // 3. Process voice lines from AI script - clean format
     const processedVoiceLines = aiScript

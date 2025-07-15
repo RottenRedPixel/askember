@@ -452,13 +452,53 @@ export default function StoryCutStudio() {
 
                         // Voice IDs are now handled inline with voice lines
 
-                        // Match media tags - New single bracket format: [MEDIA | id] <content>
-                        const mediaMatch = trimmedLine.match(/^\[MEDIA\s*\|\s*([^\]]+)\]\s*<(.+)>$/);
-                        if (mediaMatch) {
-                            const mediaId = mediaMatch[1].trim();
-                            const content = mediaMatch[2].trim();
+                        // Enhanced MEDIA parsing - Handle multiple format variations
+                        let mediaMatch = null;
+                        let mediaId = null;
+                        let content = null;
+                        let formatType = null;
 
-                            console.log('🔍 Parsing MEDIA - ID:', mediaId, 'Content:', content);
+                        // 1. New format: [MEDIA | id] <content>
+                        mediaMatch = trimmedLine.match(/^\[MEDIA\s*\|\s*([^\]]+)\]\s*<(.+)>$/);
+                        if (mediaMatch) {
+                            mediaId = mediaMatch[1].trim();
+                            content = mediaMatch[2].trim();
+                            formatType = 'new_single_bracket';
+                        }
+
+                        // 2. Old format: [[MEDIA | id]] (content)
+                        if (!mediaMatch) {
+                            mediaMatch = trimmedLine.match(/^\[\[MEDIA\s*\|\s*([^\]]+)\]\]\s*\((.+)\)$/);
+                            if (mediaMatch) {
+                                mediaId = mediaMatch[1].trim();
+                                content = mediaMatch[2].trim();
+                                formatType = 'old_double_bracket';
+                            }
+                        }
+
+                        // 3. Legacy format: [[MEDIA]] <content>
+                        if (!mediaMatch) {
+                            mediaMatch = trimmedLine.match(/^\[\[MEDIA\]\]\s*<(.+)>$/);
+                            if (mediaMatch) {
+                                mediaId = 'legacy';
+                                content = mediaMatch[1].trim();
+                                formatType = 'legacy_no_id';
+                            }
+                        }
+
+                        // 4. Malformed Sacred format: [MEDIA | id | extra | stuff] <content>
+                        if (!mediaMatch) {
+                            mediaMatch = trimmedLine.match(/^\[MEDIA\s*\|([^|]+)\|[^\]]*\]\s*<(.+)>$/);
+                            if (mediaMatch) {
+                                mediaId = mediaMatch[1].trim();
+                                content = mediaMatch[2].trim();
+                                formatType = 'malformed_sacred';
+                                console.warn('🚨 Detected malformed MEDIA Sacred Format, auto-correcting');
+                            }
+                        }
+
+                        if (mediaMatch) {
+                            console.log(`📸 Parsed MEDIA block - Format: ${formatType}, ID: ${mediaId}, Content: ${content}`);
 
                             // Extract media name, ID, or path from content
                             // Check for path format: path="url",fallback="name"
@@ -806,8 +846,23 @@ export default function StoryCutStudio() {
     useEffect(() => {
         if (!blocks || blocks.length === 0 || !storyCut || !user) return;
 
-        // Don't auto-generate if the script appears to be manually edited
+        // ✅ ENHANCED: Check for existing MEDIA blocks to prevent duplication
+        const existingMediaBlocks = blocks.filter(b => b.type === 'media');
         const storedScript = storyCut.full_script?.trim() || '';
+
+        console.log('🔍 Auto-generation check:', {
+            totalBlocks: blocks.length,
+            mediaBlocks: existingMediaBlocks.length,
+            scriptLength: storedScript.length
+        });
+
+        // Don't auto-generate if multiple MEDIA blocks exist (likely duplicates)
+        if (existingMediaBlocks.length > 1) {
+            console.log('⚠️ Multiple MEDIA blocks detected - skipping auto-generation to prevent duplicates');
+            return;
+        }
+
+        // Don't auto-generate if the script appears to be manually edited
         const hasManualFormatting = storedScript.includes('\n\n\n') || // Extra spacing
             storedScript.includes('  ') || // Extra spaces
             /[a-z]\s*\[/.test(storedScript) || // Text before voice tags
