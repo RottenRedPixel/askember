@@ -114,6 +114,26 @@ export default function StoryCutStudio() {
         message, setMessage
     } = uiState;
 
+    // Helper function to get contributor avatar from story messages
+    const getContributorAvatar = (contributorName, storyMessages) => {
+        if (!storyMessages || storyMessages.length === 0) {
+            return 'https://i.pravatar.cc/40?img=1'; // Fallback
+        }
+
+        // Find a message from this contributor to get their avatar
+        const contributorMessage = storyMessages.find(msg =>
+            msg.sender === 'user' &&
+            msg.user_first_name === contributorName
+        );
+
+        if (contributorMessage && contributorMessage.user_avatar_url) {
+            return contributorMessage.user_avatar_url;
+        }
+
+        // Fallback to placeholder
+        return 'https://i.pravatar.cc/40?img=1';
+    };
+
     // Load real story cut data
     useEffect(() => {
         const loadStoryCut = async () => {
@@ -613,7 +633,7 @@ export default function StoryCutStudio() {
                                     voiceTag: enhancedVoiceTag,
                                     content: content,
                                     voiceType: voiceType,
-                                    avatarUrl: voiceType === 'contributor' ? 'https://i.pravatar.cc/40?img=1' : '/EMBERFAV.svg',
+                                    avatarUrl: voiceType === 'contributor' ? getContributorAvatar(voiceTag, loadedStoryMessages) : '/EMBERFAV.svg',
                                     messageType: originalMessageType, // SACRED: Original message type - never changes
                                     preference: preference, // Current playback preference - can change
                                     messageId: messageId // Store message ID for future reference
@@ -1233,7 +1253,7 @@ export default function StoryCutStudio() {
                     voiceTag: contribution.user_first_name,
                     content: contribution.content,
                     voiceType: 'contributor',
-                    avatarUrl: 'https://i.pravatar.cc/40?img=1',
+                    avatarUrl: getContributorAvatar(contribution.user_first_name, storyMessages),
                     messageType: contribution.has_audio ? 'Audio Message' : 'Text Response',
                     preference: contribution.has_audio ? 'recorded' : 'text'
                 };
