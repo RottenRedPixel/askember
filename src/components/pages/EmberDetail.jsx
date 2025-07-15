@@ -941,7 +941,7 @@ export default function EmberDetail() {
 
       console.log('💾 Saving script...');
       console.log('🔍 Edited script content (first 500 chars):', editedScript.trim().substring(0, 500));
-      
+
       // NEW: Check if script uses sacred format
       const { isSacredFormat } = await import('@/lib/scriptParser');
       const isUsingNewFormat = isSacredFormat(editedScript);
@@ -949,10 +949,10 @@ export default function EmberDetail() {
 
       // NEW: Basic sacred format validation
       if (isUsingNewFormat) {
-        const sacredLines = editedScript.split('\n').filter(line => 
+        const sacredLines = editedScript.split('\n').filter(line =>
           line.trim().startsWith('[') && !line.trim().startsWith('[[')
         );
-        
+
         let hasValidationErrors = false;
         const validationErrors = [];
 
@@ -990,13 +990,24 @@ export default function EmberDetail() {
         console.log(`  🚨 HOLD ${index + 1}: "${holdLine}"`);
       });
 
-      // Import the update function
+      // Import the update function and script reconstruction
       const { updateStoryCut } = await import('@/lib/database');
+      const { reconstructScript } = await import('@/lib/scriptParser');
 
-      // Update the story cut with the new script
+      // Reconstruct the original format to preserve metadata (voice IDs, preferences, etc.)
+      const reconstructedScript = reconstructScript(
+        editedScript.trim(),
+        selectedStoryCut.full_script,
+        selectedStoryCut
+      );
+
+      console.log('🔧 Reconstructed script preview:', reconstructedScript.substring(0, 200));
+      console.log('🔧 Original metadata preserved in reconstructed script');
+
+      // Update the story cut with the reconstructed script (preserves metadata)
       const updatedStoryCut = await updateStoryCut(
         selectedStoryCut.id,
-        { full_script: editedScript.trim() },
+        { full_script: reconstructedScript },
         user.id
       );
 
@@ -1012,10 +1023,10 @@ export default function EmberDetail() {
 
       console.log('✅ Script saved successfully');
 
-      // Update the local state with the actual saved script
+      // Update the local state with the reconstructed script (with preserved metadata)
       const updatedStoryCutWithScript = {
         ...updatedStoryCut,
-        full_script: editedScript.trim() // Ensure we use the edited script
+        full_script: reconstructedScript // Use reconstructed script with metadata
       };
 
       console.log('🔄 Updating selectedStoryCut with (first 500 chars):', updatedStoryCutWithScript.full_script.substring(0, 500));
@@ -1032,18 +1043,18 @@ export default function EmberDetail() {
       setStoryCuts(prev =>
         prev.map(cut =>
           cut.id === selectedStoryCut.id
-            ? { ...cut, full_script: editedScript.trim() }
+            ? { ...cut, full_script: reconstructedScript } // Use reconstructed script
             : cut
         )
       );
 
       // Exit editing mode
       setIsEditingScript(false);
-      setMessage({ 
-        type: 'success', 
-        text: isUsingNewFormat 
-          ? 'Sacred format script updated successfully!' 
-          : 'Script updated successfully!' 
+      setMessage({
+        type: 'success',
+        text: isUsingNewFormat
+          ? 'Sacred format script updated successfully!'
+          : 'Script updated successfully!'
       });
 
       // Refresh story cuts to ensure we have the latest data

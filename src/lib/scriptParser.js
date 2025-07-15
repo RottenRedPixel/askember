@@ -588,20 +588,17 @@ export const resolveMediaReference = async (segment, emberId) => {
 };
 
 /**
- * Format script for display - simplified for ember script format
+ * Format script for display - simplified for ember script format with UI-friendly formatting
  * @param {string} script - Script to format
  * @param {Object} ember - Ember object with ID
  * @param {Object} storyCut - Story cut object
- * @returns {Promise<string>} Formatted script
+ * @returns {Promise<string>} Formatted script with clean display format
  */
 export const formatScriptForDisplay = async (script, ember, storyCut) => {
     if (!script) return '';
 
-    console.log('🎨 formatScriptForDisplay called (simplified)');
+    console.log('🎨 formatScriptForDisplay called (UI-friendly mode)');
     console.log('🎨 Script preview (first 200 chars):', script.substring(0, 200));
-
-    // Ember script is already properly formatted, just resolve media display names
-    console.log('📝 Using ember script format (already processed)...');
 
     // Get all media for this ember to resolve display names
     try {
@@ -610,7 +607,7 @@ export const formatScriptForDisplay = async (script, ember, storyCut) => {
             getEmberSupportingMedia(ember.id)
         ]);
 
-        // Simple text replacement for media display names
+        // Start with media ID resolution (existing functionality)
         let displayScript = script;
 
         // Replace media ID references with display names
@@ -638,14 +635,167 @@ export const formatScriptForDisplay = async (script, ember, storyCut) => {
             return match; // Return unchanged if no match
         });
 
-        console.log('✅ Display script formatting complete');
-        return displayScript;
+        // NEW: UI-friendly formatting for voice lines
+        console.log('🎨 Applying UI-friendly voice line formatting...');
+
+        const lines = displayScript.split('\n');
+        const formattedLines = lines.map(line => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) return line;
+
+            // Handle sacred format voice lines: [NAME | preference | ID] <content>
+            const sacredMatch = trimmedLine.match(/^(\[([^|]+)\|([^|]*)\|([^\]]*)\])\s*<(.+)>$/);
+            if (sacredMatch) {
+                const [fullMatch, fullVoiceTag, name, preference, messageId, content] = sacredMatch;
+
+                // Hide technical metadata for contributors with recordings
+                if (preference === 'recorded' && messageId && messageId !== 'null') {
+                    console.log(`🎨 Hiding technical metadata for contributor: ${name}`);
+                    // Show clean format: [Name] content (no pipes, no IDs, no brackets)
+                    return `[${name.trim()}] ${content}`;
+                } else {
+                    // For EMBER VOICE, NARRATOR, or contributors without recordings, show clean format
+                    return `[${name.trim()}] ${content}`;
+                }
+            }
+
+            // Handle legacy format voice lines: [NAME] content or [NAME] <content>
+            const legacyMatch = trimmedLine.match(/^(\[[^\]]+\])\s*<?([^>]+)>?$/);
+            if (legacyMatch) {
+                const [fullMatch, voiceTag, content] = legacyMatch;
+                // Remove any angle brackets and clean up
+                return `${voiceTag} ${content.trim()}`;
+            }
+
+            // Handle media and other special blocks (keep as-is)
+            if (trimmedLine.startsWith('[[') && trimmedLine.includes(']]')) {
+                return line; // Keep media/hold blocks unchanged
+            }
+
+            // Return line unchanged if no patterns match
+            return line;
+        });
+
+        const userFriendlyScript = formattedLines.join('\n');
+
+        console.log('✅ UI-friendly script formatting complete');
+        console.log('🎨 Sample output (first 200 chars):', userFriendlyScript.substring(0, 200));
+
+        return userFriendlyScript;
 
     } catch (error) {
         console.error('❌ Error formatting script for display:', error);
         // Fallback: return script as-is
         return script;
     }
+};
+
+/**
+ * Reconstruct original script format from user-friendly edited script
+ * @param {string} editedScript - User-friendly script that may have been edited
+ * @param {string} originalScript - Original script with full metadata
+ * @param {Object} storyCut - Story cut object for context
+ * @returns {string} Reconstructed script with proper sacred format
+ */
+export const reconstructScript = (editedScript, originalScript, storyCut = null) => {
+    if (!editedScript || !originalScript) return editedScript || originalScript || '';
+
+    console.log('🔧 Reconstructing script from user-friendly format...');
+    console.log('🔧 Edited script preview:', editedScript.substring(0, 200));
+    console.log('🔧 Original script preview:', originalScript.substring(0, 200));
+
+    // Parse original script to extract metadata mapping
+    const originalLines = originalScript.split('\n');
+    const metadataMap = new Map();
+
+    originalLines.forEach(line => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) return;
+
+        // Extract metadata from sacred format lines
+        const sacredMatch = trimmedLine.match(/^(\[([^|]+)\|([^|]*)\|([^\]]*)\])\s*<(.+)>$/);
+        if (sacredMatch) {
+            const [, fullVoiceTag, name, preference, messageId, content] = sacredMatch;
+
+            // Use content as key to find matching edited lines
+            const contentKey = content.trim().toLowerCase();
+            metadataMap.set(contentKey, {
+                name: name.trim(),
+                preference: preference.trim(),
+                messageId: messageId.trim(),
+                fullVoiceTag,
+                originalLine: trimmedLine
+            });
+
+            // Also map by name for simpler matching
+            const nameKey = `[${name.trim()}]`.toLowerCase();
+            if (!metadataMap.has(nameKey)) {
+                metadataMap.set(nameKey, {
+                    name: name.trim(),
+                    preference: preference.trim(),
+                    messageId: messageId.trim(),
+                    fullVoiceTag,
+                    originalLine: trimmedLine
+                });
+            }
+        }
+    });
+
+    // Reconstruct script from edited version
+    const editedLines = editedScript.split('\n');
+    const reconstructedLines = editedLines.map(line => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) return line;
+
+        // Check if this is a voice line in simple format: [Name] content
+        const simpleVoiceMatch = trimmedLine.match(/^(\[([^\]]+)\])\s*(.+)$/);
+        if (simpleVoiceMatch) {
+            const [, voiceTag, name, content] = simpleVoiceMatch;
+
+            // Try to find metadata for this voice line
+            const nameKey = voiceTag.toLowerCase();
+            const contentKey = content.trim().toLowerCase();
+
+            // First try to match by content
+            let metadata = null;
+            for (const [key, meta] of metadataMap.entries()) {
+                if (key.includes(contentKey.substring(0, 30)) || contentKey.includes(key.substring(0, 30))) {
+                    metadata = meta;
+                    break;
+                }
+            }
+
+            // If no content match, try by name
+            if (!metadata) {
+                metadata = metadataMap.get(nameKey);
+            }
+
+            if (metadata) {
+                // Reconstruct sacred format with original metadata
+                console.log(`🔧 Reconstructing sacred format for [${name}]: ${metadata.preference} | ${metadata.messageId}`);
+                return `[${metadata.name} | ${metadata.preference} | ${metadata.messageId}] <${content}>`;
+            } else {
+                // No metadata found, create basic sacred format
+                console.log(`🔧 No metadata found for [${name}], creating basic sacred format`);
+                return `[${name} | text | null] <${content}>`;
+            }
+        }
+
+        // For media and other special blocks, keep unchanged
+        if (trimmedLine.startsWith('[[') || !trimmedLine.startsWith('[')) {
+            return line;
+        }
+
+        // Return unchanged if no patterns match
+        return line;
+    });
+
+    const reconstructedScript = reconstructedLines.join('\n');
+
+    console.log('✅ Script reconstruction complete');
+    console.log('🔧 Reconstructed preview:', reconstructedScript.substring(0, 200));
+
+    return reconstructedScript;
 };
 
 // Helper function to parse media references

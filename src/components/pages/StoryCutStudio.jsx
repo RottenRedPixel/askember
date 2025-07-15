@@ -1003,15 +1003,15 @@ export default function StoryCutStudio() {
                     }
 
                     return mediaLine;
-                    
+
                 case 'voice':
                     // NEW: Generate SACRED FORMAT for voice blocks
                     const blockKey = `${block.voiceTag}-${block.id}`;
                     const preference = contributorAudioPreferences[blockKey] || block.preference || 'text';
-                    
+
                     // Extract the clean voice name (remove any embedded voice names for sacred format)
                     let cleanVoiceName = block.voiceTag;
-                    
+
                     // Handle enhanced voice tags like "Ember Voice (Lily)" -> "EMBER VOICE"
                     if (block.voiceType === 'ember') {
                         cleanVoiceName = 'EMBER VOICE';
@@ -1021,13 +1021,13 @@ export default function StoryCutStudio() {
                         // For contributors, extract just the first name
                         cleanVoiceName = cleanVoiceName.replace(/\s*\([^)]*\)/, '').trim();
                     }
-                    
+
                     // Use existing message ID if available, otherwise null
                     const contributionId = block.messageId || 'null';
-                    
+
                     // Build SACRED FORMAT: [NAME | preference | contributionID] <content>
                     return `[${cleanVoiceName} | ${preference} | ${contributionId}] <${block.content}>`;
-                    
+
                 case 'hold':
                     // Hold blocks use existing logic but with new format
                     const holdEffects = selectedEffects[`hold-${block.id}`] || [];
@@ -1041,10 +1041,10 @@ export default function StoryCutStudio() {
                     }
 
                     return `[[HOLD]] (${holdAttributes})`;
-                    
+
                 case 'loadscreen':
                     return `[[LOAD SCREEN]] (message="${block.message}",duration=${block.duration},icon="${block.icon}")`;
-                    
+
                 case 'start':
                     return ''; // Start blocks don't generate script content
                 case 'end':
@@ -1094,23 +1094,28 @@ export default function StoryCutStudio() {
     };
 
     // Script editing handlers
-    const handleEditScript = () => {
+    const handleEditScript = async () => {
         console.log('🔍 DEBUG - handleEditScript called');
         console.log('🔍 DEBUG - storyCut:', storyCut);
         console.log('🔍 DEBUG - storyCut?.full_script:', storyCut?.full_script);
-        console.log('🔍 DEBUG - typeof storyCut?.full_script:', typeof storyCut?.full_script);
 
-        const scriptContent = storyCut?.full_script || '';
-        console.log('🔍 DEBUG - scriptContent to set:', scriptContent);
-        console.log('🔍 DEBUG - scriptContent length:', scriptContent.length);
+        try {
+            // Load user-friendly formatted script for editing
+            const { formatScriptForDisplay } = await import('@/lib/scriptParser');
+            const formattedScript = await formatScriptForDisplay(storyCut?.full_script || '', ember, storyCut);
 
-        setEditedScript(scriptContent);
-        setIsEditingScript(true);
+            console.log('🎨 StoryCutStudio: Loading user-friendly script for editing');
+            console.log('🎨 Formatted script preview:', formattedScript.substring(0, 200));
 
-        // Double-check the state after setting
-        setTimeout(() => {
-            console.log('🔍 DEBUG - editedScript after setState:', editedScript);
-        }, 100);
+            setEditedScript(formattedScript);
+            setIsEditingScript(true);
+        } catch (error) {
+            console.error('❌ Error formatting script for editing:', error);
+            // Fallback to raw script
+            const scriptContent = storyCut?.full_script || '';
+            setEditedScript(scriptContent);
+            setIsEditingScript(true);
+        }
     };
 
     const handleCancelScriptEdit = () => {
@@ -1127,17 +1132,30 @@ export default function StoryCutStudio() {
 
             console.log('🔄 Saving edited script...');
 
-            // Update the story cut in the database
+            // Import script reconstruction function
+            const { reconstructScript } = await import('@/lib/scriptParser');
+
+            // Reconstruct the original format to preserve metadata (voice IDs, preferences, etc.)
+            const reconstructedScript = reconstructScript(
+                editedScript.trim(),
+                storyCut.full_script,
+                storyCut
+            );
+
+            console.log('🔧 StoryCutStudio: Reconstructed script preview:', reconstructedScript.substring(0, 200));
+            console.log('🔧 StoryCutStudio: Original metadata preserved in reconstructed script');
+
+            // Update the story cut in the database with reconstructed script
             await updateStoryCut(storyCut.id, {
-                full_script: editedScript.trim()
+                full_script: reconstructedScript
             }, user.id);
 
             console.log('✅ Script updated successfully');
 
-            // Update the local state
+            // Update the local state with reconstructed script
             setStoryCut(prev => ({
                 ...prev,
-                full_script: editedScript.trim()
+                full_script: reconstructedScript
             }));
 
             // Exit edit mode
@@ -2179,7 +2197,7 @@ export default function StoryCutStudio() {
                             </div>
                             {!isEditingScript && (
                                 <Button
-                                    onClick={() => setIsEditingScript(true)}
+                                    onClick={handleEditScript}
                                     size="sm"
                                     variant="outline"
                                     className="flex items-center gap-2"
@@ -2226,6 +2244,40 @@ export default function StoryCutStudio() {
                                         {(() => {
                                             console.log('🔍 DEBUG - View mode rendering, storyCut?.full_script:', storyCut?.full_script);
                                             console.log('🔍 DEBUG - View mode script length:', storyCut?.full_script?.length);
+
+                                            // Show user-friendly format (no technical metadata)
+                                            if (storyCut?.full_script && ember) {
+                                                // Use the same formatScriptForDisplay as other components for consistency
+                                                const { formatScriptForDisplay } = require('@/lib/scriptParser');
+                                                formatScriptForDisplay(storyCut.full_script, ember, storyCut)
+                                                    .then(formatted => {
+                                                        console.log('🎨 StoryCutStudio: Formatted script for display');
+                                                        // Update display by re-rendering component (trigger state update)
+                                                        if (window.forceStoryCutStudioUpdate) {
+                                                            window.forceStoryCutStudioUpdate(formatted);
+                                                        }
+                                                    })
+                                                    .catch(err => console.error('Error formatting script:', err));
+
+                                                // For immediate display, show a simplified version
+                                                return storyCut.full_script
+                                                    .split('\n')
+                                                    .map(line => {
+                                                        // Quick transform for immediate display
+                                                        const sacredMatch = line.match(/^(\[([^|]+)\|([^|]*)\|([^\]]*)\])\s*<(.+)>$/);
+                                                        if (sacredMatch) {
+                                                            const [, , name, preference, messageId, content] = sacredMatch;
+                                                            if (preference === 'recorded' && messageId && messageId !== 'null') {
+                                                                return `[${name.trim()}] ${content}`;
+                                                            } else {
+                                                                return `[${name.trim()}] ${content}`;
+                                                            }
+                                                        }
+                                                        return line;
+                                                    })
+                                                    .join('\n');
+                                            }
+
                                             return storyCut?.full_script || 'Loading script...';
                                         })()}
                                     </pre>
