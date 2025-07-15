@@ -247,6 +247,13 @@ const ModalContent = ({
             {/* Action buttons */}
             <div className="flex items-center gap-3 pt-4">
                 <Button
+                    onClick={onClose}
+                    variant="outline"
+                    className="flex-1"
+                >
+                    Cancel
+                </Button>
+                <Button
                     onClick={onAddBlock}
                     disabled={!selectedMedia && selectedContributions.length === 0}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
@@ -255,13 +262,6 @@ const ModalContent = ({
                     Add {selectedMedia && selectedContributions.length > 0 ? 'Blocks' :
                         selectedMedia ? 'Media Block' :
                             selectedContributions.length > 0 ? `${selectedContributions.length} Voice Block${selectedContributions.length > 1 ? 's' : ''}` : 'Block'}
-                </Button>
-                <Button
-                    onClick={onClose}
-                    variant="outline"
-                    className="flex-1"
-                >
-                    Cancel
                 </Button>
             </div>
         </div>

@@ -1207,7 +1207,7 @@ export default function StoryCutStudio() {
                     newEffectDurations[`pan-${block.id}`] = 4.0;
                     newEffectDurations[`zoom-${block.id}`] = 3.5;
 
-                    newSelectedEffects[`effect-${block.id}`] = ['fade'];
+                    newSelectedEffects[`effect-${block.id}`] = [];
                 }
                 // Voice blocks don't need effects initialization
             });
