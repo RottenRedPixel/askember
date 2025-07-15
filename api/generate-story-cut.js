@@ -106,13 +106,16 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
         if (firstMedia.file_url || firstMedia.storage_url) {
           const mediaUrl = firstMedia.file_url || firstMedia.storage_url;
           const fallbackName = firstMedia.display_name || firstMedia.filename || firstMedia.name || 'media';
-          emberImage = `[MEDIA | ${firstMedia.id || 'generated'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
+          const friendlyName = firstMedia.display_name || firstMedia.filename || firstMedia.name || 'ember image';
+          emberImage = `[MEDIA | ${friendlyName} | ${firstMedia.id || 'generated'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
           console.log('✅ API DEBUG: Created emberImage with URL:', emberImage);
         } else if (firstMedia.id) {
-          emberImage = `[MEDIA | ${firstMedia.id}] <media>`;
+          const friendlyName = firstMedia.display_name || firstMedia.filename || firstMedia.name || 'ember image';
+          emberImage = `[MEDIA | ${friendlyName} | ${firstMedia.id}] <media>`;
           console.log('✅ API DEBUG: Created emberImage with ID only:', emberImage);
         } else {
-          emberImage = `[MEDIA | generated] <name="${firstMedia.filename || firstMedia.name}">`;
+          const friendlyName = firstMedia.filename || firstMedia.name || 'media';
+          emberImage = `[MEDIA | ${friendlyName} | generated] <name="${firstMedia.filename || firstMedia.name}">`;
           console.log('✅ API DEBUG: Created emberImage with name only:', emberImage);
         }
 
@@ -131,13 +134,16 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
               if (media.file_url || media.storage_url) {
                 const mediaUrl = media.file_url || media.storage_url;
                 const fallbackName = media.display_name || media.filename || media.name || 'media';
-                line = `[MEDIA | ${media.id || 'generated'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
+                const friendlyName = media.display_name || media.filename || media.name || 'media';
+                line = `[MEDIA | ${friendlyName} | ${media.id || 'generated'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
                 console.log('✅ API DEBUG: Created additional MEDIA line with URL:', line);
               } else if (media.id) {
-                line = `[MEDIA | ${media.id}] <media>`;
+                const friendlyName = media.display_name || media.filename || media.name || 'media';
+                line = `[MEDIA | ${friendlyName} | ${media.id}] <media>`;
                 console.log('✅ API DEBUG: Created additional MEDIA line with ID:', line);
               } else {
-                line = `[MEDIA | generated] <name="${media.filename || media.name}">`;
+                const friendlyName = media.filename || media.name || 'media';
+                line = `[MEDIA | ${friendlyName} | generated] <name="${media.filename || media.name}">`;
                 console.log('✅ API DEBUG: Created additional MEDIA line with name:', line);
               }
               return line;
@@ -153,7 +159,7 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       console.log('🔍 API DEBUG: emberData.original_filename:', emberData?.original_filename);
 
       if (emberData && emberData.original_filename) {
-        emberImage = `[MEDIA | ember_image] <name="${emberData.original_filename}">`;
+        emberImage = `[MEDIA | ember image | ember_image] <name="${emberData.original_filename}">`;
         console.log('✅ API DEBUG: Created fallback emberImage:', emberImage);
       } else {
         console.log('❌ API DEBUG: No fallback ember image could be created');
@@ -168,20 +174,20 @@ function processAIScriptToEmberScriptAPI(aiScript, emberData, selectedMedia = []
       // Try multiple fallback strategies
       if (emberData) {
         if (emberData.storage_url) {
-          emberImage = `[MEDIA | ${emberData.id || 'ember_main'}] <path="${emberData.storage_url}",fallback="ember_photo">`;
+          emberImage = `[MEDIA | ember image | ${emberData.id || 'ember_main'}] <path="${emberData.storage_url}",fallback="ember_photo">`;
           console.log('✅ API DEBUG: Fallback 1 - Using emberData.storage_url:', emberImage);
         } else if (emberData.original_filename) {
-          emberImage = `[MEDIA | ${emberData.id || 'ember_main'}] <name="${emberData.original_filename}">`;
+          emberImage = `[MEDIA | ember image | ${emberData.id || 'ember_main'}] <name="${emberData.original_filename}">`;
           console.log('✅ API DEBUG: Fallback 2 - Using emberData.original_filename:', emberImage);
         } else if (emberData.id) {
-          emberImage = `[MEDIA | ${emberData.id}] <media>`;
+          emberImage = `[MEDIA | ember image | ${emberData.id}] <media>`;
           console.log('✅ API DEBUG: Fallback 3 - Using emberData.id only:', emberImage);
         }
       }
 
       // Ultimate fallback - create a placeholder ember image reference
       if (!emberImage) {
-        emberImage = `[MEDIA | ember_photo] <name="ember_image">`;
+        emberImage = `[MEDIA | ember image | ember_photo] <name="ember_image">`;
         console.log('✅ API DEBUG: Ultimate fallback - Generic ember image:', emberImage);
       }
     } else {
@@ -315,13 +321,16 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
         if (emberPhoto.file_url || emberPhoto.storage_url) {
           const mediaUrl = emberPhoto.file_url || emberPhoto.storage_url;
           const fallbackName = emberPhoto.display_name || emberPhoto.filename || emberPhoto.name || 'ember_photo';
-          emberImage = `[MEDIA | ${emberPhoto.id || 'ember_main'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
+          const friendlyName = emberPhoto.display_name || emberPhoto.filename || emberPhoto.name || 'ember image';
+          emberImage = `[MEDIA | ${friendlyName} | ${emberPhoto.id || 'ember_main'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
           console.log('✅ API DEBUG: Basic processing created ember image with URL:', emberImage);
         } else if (emberPhoto.id) {
-          emberImage = `[MEDIA | ${emberPhoto.id}] <media>`;
+          const friendlyName = emberPhoto.display_name || emberPhoto.filename || emberPhoto.name || 'ember image';
+          emberImage = `[MEDIA | ${friendlyName} | ${emberPhoto.id}] <media>`;
           console.log('✅ API DEBUG: Basic processing created ember image with ID:', emberImage);
         } else {
-          emberImage = `[MEDIA | ember_basic] <name="${emberPhoto.filename || emberPhoto.name || 'ember_photo'}">`;
+          const friendlyName = emberPhoto.filename || emberPhoto.name || 'ember image';
+          emberImage = `[MEDIA | ${friendlyName} | ember_basic] <name="${emberPhoto.filename || emberPhoto.name || 'ember_photo'}">`;
           console.log('✅ API DEBUG: Basic processing created ember image with name:', emberImage);
         }
       }
@@ -329,7 +338,7 @@ function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCa
 
     // Ultimate fallback for basic processing
     if (!emberImage) {
-      emberImage = `[MEDIA | ember_fallback] <name="ember_image">`;
+      emberImage = `[MEDIA | ember image | ember_fallback] <name="ember_image">`;
       console.log('✅ API DEBUG: Basic processing using ultimate fallback ember image');
     }
 
@@ -802,7 +811,10 @@ export default async function handler(req, res) {
             if (selectedMedia && selectedMedia.length > 0) {
               console.log('🔄 Emergency fallback using selected media:', selectedMedia.map(m => m.name));
               emergencyMediaElements = selectedMedia
-                .map(media => `[MEDIA | ${media.id || 'emergency'}] <name="${media.filename || media.name}">`)
+                .map(media => {
+                  const friendlyName = media.filename || media.name || 'media';
+                  return `[MEDIA | ${friendlyName} | ${media.id || 'emergency'}] <name="${media.filename || media.name}">`;
+                })
                 .join('\n\n');
             } else {
               console.log('🔄 Emergency fallback - no media selected, creating story without media');
@@ -827,7 +839,10 @@ export default async function handler(req, res) {
           if (selectedMedia && selectedMedia.length > 0) {
             console.log('🔄 Emergency fallback using selected media:', selectedMedia.map(m => m.name));
             emergencyMediaElements = selectedMedia
-              .map(media => `[MEDIA | ${media.id || 'emergency'}] <name="${media.filename || media.name}">`)
+              .map(media => {
+                const friendlyName = media.filename || media.name || 'media';
+                return `[MEDIA | ${friendlyName} | ${media.id || 'emergency'}] <name="${media.filename || media.name}">`;
+              })
               .join('\n\n');
           } else {
             console.log('🔄 Emergency fallback - no media selected, creating story without media');
