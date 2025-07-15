@@ -735,7 +735,30 @@ export default function StoryCutStudio() {
                                 const preference = explicitPreference || (originalMessageType === 'Audio Message' ? 'recorded' : 'text');
 
                                 // Get contributor data for avatars and fallbacks
-                                const contributorData = voiceType === 'contributor' ? getContributorAvatarData(voiceTag) : null;
+                                let contributorData = null;
+                                if (voiceType === 'contributor') {
+                                    // First try to get avatar data using messageId from storyMessages (same as AddBlockModal)
+                                    if (messageId && loadedStoryMessages && loadedStoryMessages.length > 0) {
+                                        const foundMessage = loadedStoryMessages.find(msg => msg.id === messageId);
+                                        if (foundMessage) {
+                                            console.log(`✅ Found message data for ${voiceTag} using messageId ${messageId}:`, foundMessage);
+                                            contributorData = {
+                                                avatarUrl: foundMessage.avatar_url || foundMessage.user_avatar_url || null,
+                                                firstName: foundMessage.user_first_name || voiceTag,
+                                                lastName: foundMessage.user_last_name || null,
+                                                email: foundMessage.user_email || null,
+                                                fallbackText: foundMessage.user_first_name?.[0] || foundMessage.user_last_name?.[0] || foundMessage.user_email?.[0]?.toUpperCase() || voiceTag[0]?.toUpperCase() || '?'
+                                            };
+                                        } else {
+                                            console.log(`⚠️ No message found with messageId ${messageId} for ${voiceTag}, falling back to name matching`);
+                                        }
+                                    }
+
+                                    // Fall back to name-based matching if messageId lookup failed
+                                    if (!contributorData) {
+                                        contributorData = getContributorAvatarData(voiceTag);
+                                    }
+                                }
 
                                 realBlocks.push({
                                     id: blockId++,
@@ -1363,7 +1386,7 @@ export default function StoryCutStudio() {
         }
     };
 
-    // Helper function to get contributor avatar data at component level
+    // Helper function to get contributor avatar data at component level (fallback method)
     const getContributorAvatarData = (voiceTag) => {
         // Find contributor by first name (voice tag is typically the first name)
         const contributor = contributors.find(c =>
@@ -1371,7 +1394,7 @@ export default function StoryCutStudio() {
         );
 
         if (contributor) {
-            console.log(`✅ Found contributor data for ${voiceTag}:`, contributor);
+            console.log(`✅ Found contributor data for ${voiceTag} via name matching:`, contributor);
             return {
                 avatarUrl: contributor.avatar_url || null,
                 firstName: contributor.first_name,
@@ -1381,9 +1404,9 @@ export default function StoryCutStudio() {
             };
         }
 
-        console.log(`⚠️ No contributor found for ${voiceTag}, using defaults`);
+        console.log(`⚠️ No contributor found for ${voiceTag} via name matching, using defaults`);
         return {
-            avatarUrl: null, // Will fall back to placeholder in UI
+            avatarUrl: null, // Will fall back to UI placeholder handling
             firstName: voiceTag,
             lastName: null,
             email: null,
