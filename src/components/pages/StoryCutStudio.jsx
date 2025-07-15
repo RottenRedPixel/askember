@@ -558,11 +558,13 @@ export default function StoryCutStudio() {
                                 });
                             }
                         } else {
-                            // Match voice tags with optional preference: [voiceTag:preference] or [voiceTag]
-                            const voiceMatch = trimmedLine.match(/^\[([^:\]]+)(?::([^:\]]+))?\]\s*(.+)$/);
+                            // Match voice tags with optional preference and message ID: [voiceTag:preference:messageId] or [voiceTag:preference] or [voiceTag]
+                            const voiceMatch = trimmedLine.match(/^\[([^:\]]+)(?::([^:\]]+))?(?::([^:\]]+))?\]\s*(.+)$/);
                             if (voiceMatch) {
                                 const voiceTag = voiceMatch[1].trim();
-                                const content = voiceMatch[3].trim();
+                                const explicitPreference = voiceMatch[2]?.trim();
+                                const messageId = voiceMatch[3]?.trim();
+                                const content = voiceMatch[4].trim();
 
                                 // Determine voice type and enhance display name
                                 let voiceType = 'contributor';
@@ -578,11 +580,31 @@ export default function StoryCutStudio() {
                                     enhancedVoiceTag = `Narrator (${narratorVoiceName})`;
                                 }
 
-                                // Determine the ORIGINAL message type (what contributor actually submitted)
-                                const originalMessageType = determineMessageType(voiceTag, content, voiceType);
+                                // NEW: Determine message type using direct message ID lookup when available
+                                let originalMessageType = 'Text Response'; // Default for non-contributors
+
+                                if (voiceType === 'contributor') {
+                                    if (messageId && loadedStoryMessages && loadedStoryMessages.length > 0) {
+                                        // Direct lookup using message ID - 100% accurate!
+                                        const exactMessage = loadedStoryMessages.find(msg => msg.id === messageId);
+                                        if (exactMessage) {
+                                            originalMessageType = exactMessage.has_audio || exactMessage.audio_url ? 'Audio Message' : 'Text Response';
+                                            console.log(`🎯 DIRECT MESSAGE LOOKUP: ${voiceTag} message ${messageId} -> ${originalMessageType}`);
+                                        } else {
+                                            console.log(`⚠️ Message ID ${messageId} not found, falling back to fuzzy matching for ${voiceTag}`);
+                                            // Fallback to fuzzy matching if message ID not found
+                                            originalMessageType = determineMessageType(voiceTag, content, voiceType);
+                                        }
+                                    } else {
+                                        // Fallback to fuzzy matching when no message ID available
+                                        console.log(`📝 No message ID available for ${voiceTag}, using fuzzy matching`);
+                                        originalMessageType = determineMessageType(voiceTag, content, voiceType);
+                                    }
+                                } else {
+                                    originalMessageType = 'AI Voice';
+                                }
 
                                 // Set preference: use explicit preference if provided, otherwise default based on message type
-                                const explicitPreference = voiceMatch[2]?.trim();
                                 const preference = explicitPreference || (originalMessageType === 'Audio Message' ? 'recorded' : 'text');
 
                                 realBlocks.push({
@@ -593,7 +615,8 @@ export default function StoryCutStudio() {
                                     voiceType: voiceType,
                                     avatarUrl: voiceType === 'contributor' ? 'https://i.pravatar.cc/40?img=1' : '/EMBERFAV.svg',
                                     messageType: originalMessageType, // SACRED: Original message type - never changes
-                                    preference: preference // Current playback preference - can change
+                                    preference: preference, // Current playback preference - can change
+                                    messageId: messageId // Store message ID for future reference
                                 });
                             }
                         }
