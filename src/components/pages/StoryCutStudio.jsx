@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { FilmSlate, PencilSimple } from 'phosphor-react';
-import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber, getStoryCutsForEmber } from '@/lib/database';
+import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber, getStoryCutsForEmber, getUserVoiceModel } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import { formatDuration } from '@/lib/dateUtils';
@@ -1501,8 +1501,20 @@ export default function StoryCutStudio() {
             }
 
             // Add voice blocks from contributions
-            selectedContributions.forEach(contribution => {
+            for (const contribution of selectedContributions) {
                 console.log('➕ Adding new voice block:', contribution.user_first_name, contribution.content.substring(0, 50));
+
+                // Check for voice model BEFORE creating block
+                let hasVoiceModel = false;
+                if (contribution.user_id) {
+                    try {
+                        const userVoiceModel = await getUserVoiceModel(contribution.user_id);
+                        hasVoiceModel = !!(userVoiceModel && userVoiceModel.elevenlabs_voice_id);
+                        console.log(`🎤 Voice model check for ${contribution.user_first_name}: ${hasVoiceModel ? 'available' : 'not available'}`);
+                    } catch (error) {
+                        console.warn(`Failed to check voice model for ${contribution.user_first_name}:`, error);
+                    }
+                }
 
                 // Get contributor data for real avatar
                 const contributorData = getContributorAvatarData(contribution.user_first_name);
@@ -1517,11 +1529,12 @@ export default function StoryCutStudio() {
                     contributorData: contributorData, // Store full contributor data for avatar fallbacks
                     messageType: contribution.has_audio ? 'Audio Message' : 'Text Response',
                     preference: contribution.has_audio ? 'recorded' : 'text',
-                    messageId: contribution.id || contribution.message_id || null
+                    messageId: contribution.id || contribution.message_id || null,
+                    hasVoiceModel: hasVoiceModel // Store voice model availability
                 };
 
                 blocksToAdd.push(voiceBlock);
-            });
+            }
 
             // Insert all new blocks at once
             newBlocks.splice(insertIndex, 0, ...blocksToAdd);
@@ -2322,25 +2335,28 @@ export default function StoryCutStudio() {
                                                                             <span className="text-sm text-green-700">Recorded</span>
                                                                         </label>
                                                                     )}
-                                                                    <label className="flex items-center gap-2 cursor-pointer">
-                                                                        <input
-                                                                            type="radio"
-                                                                            name={`audio-${block.id}`}
-                                                                            value="synth"
-                                                                            checked={contributorAudioPreferences[blockKey] === 'synth'}
-                                                                            onChange={(e) => {
-                                                                                if (e.target.checked) {
-                                                                                    setContributorAudioPreferences(prev => ({
-                                                                                        ...prev,
-                                                                                        [blockKey]: 'synth'
-                                                                                    }));
-                                                                                    console.log(`🎤 Set ${blockKey} to use synth voice (DATABASE PERSISTENT)`);
-                                                                                }
-                                                                            }}
-                                                                            className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
-                                                                        />
-                                                                        <span className="text-sm text-green-700">Synth</span>
-                                                                    </label>
+                                                                    {/* Only show Synth option if contributor has voice model (or if hasVoiceModel is undefined for backward compatibility) */}
+                                                                    {(block.hasVoiceModel === true || block.hasVoiceModel === undefined) && (
+                                                                        <label className="flex items-center gap-2 cursor-pointer">
+                                                                            <input
+                                                                                type="radio"
+                                                                                name={`audio-${block.id}`}
+                                                                                value="synth"
+                                                                                checked={contributorAudioPreferences[blockKey] === 'synth'}
+                                                                                onChange={(e) => {
+                                                                                    if (e.target.checked) {
+                                                                                        setContributorAudioPreferences(prev => ({
+                                                                                            ...prev,
+                                                                                            [blockKey]: 'synth'
+                                                                                        }));
+                                                                                        console.log(`🎤 Set ${blockKey} to use synth voice (DATABASE PERSISTENT)`);
+                                                                                    }
+                                                                                }}
+                                                                                className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
+                                                                            />
+                                                                            <span className="text-sm text-green-700">Synth</span>
+                                                                        </label>
+                                                                    )}
                                                                     <label className="flex items-center gap-2 cursor-pointer">
                                                                         <input
                                                                             type="radio"
