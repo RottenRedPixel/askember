@@ -631,7 +631,7 @@ export const resolveMediaReference = async (segment, emberId) => {
             console.warn('📸 Media access restricted (likely public user on shared ember):', accessError.message);
             console.log('🌍 Attempting to get main ember image as fallback...');
 
-            // Try to get the main ember image as fallback
+            // Try to get the main ember image as fallback using public access method
             try {
                 const { getEmber } = await import('./database');
                 const emberData = await getEmber(emberId);
@@ -640,10 +640,29 @@ export const resolveMediaReference = async (segment, emberId) => {
                     return emberData.image_url;
                 }
             } catch (emberError) {
-                console.error('❌ Could not get ember data for fallback:', emberError);
+                console.error('❌ Could not get ember data for fallback, trying alternative approach:', emberError);
+
+                // Alternative: try to extract image from existing ember context
+                // This will work if ember data was already loaded in useEmberData
+                try {
+                    // Check if ember data is available in global context or localStorage
+                    if (typeof window !== 'undefined') {
+                        const emberCache = sessionStorage.getItem(`ember_${emberId}`);
+                        if (emberCache) {
+                            const cachedEmber = JSON.parse(emberCache);
+                            if (cachedEmber?.image_url) {
+                                console.log('✅ Using cached ember image as media fallback');
+                                return cachedEmber.image_url;
+                            }
+                        }
+                    }
+                } catch (cacheError) {
+                    console.error('❌ Could not get cached ember data:', cacheError);
+                }
             }
 
             // Return null if all fallbacks fail
+            console.warn('⚠️ All fallback attempts failed - no media will be displayed');
             return null;
         }
 

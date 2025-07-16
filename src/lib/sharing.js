@@ -17,37 +17,49 @@ export async function getEmberWithSharing(emberId) {
 
     console.log('Participants from function:', participants);
 
+    let owner = null;
+    let shares = [];
+    let permission = 'none';
+
     if (participantsError) {
-      console.log('Error fetching participants:', participantsError);
-    }
-
-    // Separate owner and shared users
-    const owner = participants?.find(p => p.is_owner) || null;
-    const shares = participants?.filter(p => !p.is_owner).map(p => ({
-      id: p.id,
-      shared_with_email: p.email,
-      permission_level: p.role,
-      shared_user: {
+      console.log('Error fetching participants (likely public user on shared ember):', participantsError);
+      // For public users, we can't get sharing data due to RLS restrictions
+      // Return basic ember data without sharing information
+    } else {
+      // Separate owner and shared users
+      owner = participants?.find(p => p.is_owner) || null;
+      shares = participants?.filter(p => !p.is_owner).map(p => ({
         id: p.id,
-        user_id: p.user_id,
-        first_name: p.first_name,
-        last_name: p.last_name,
-        avatar_url: p.avatar_url,
-        email: p.email
+        shared_with_email: p.email,
+        permission_level: p.role,
+        shared_user: {
+          id: p.id,
+          user_id: p.user_id,
+          first_name: p.first_name,
+          last_name: p.last_name,
+          avatar_url: p.avatar_url,
+          email: p.email
+        }
+      })) || [];
+
+      // Get user's permission level
+      const { data: userPermission, error: permissionError } = await supabase
+        .rpc('get_ember_permission', { ember_uuid: emberId });
+
+      if (permissionError) {
+        console.log('Error fetching user permission (likely public user):', permissionError);
+        // Default to 'view' permission for public users
+        permission = 'view';
+      } else {
+        permission = userPermission || 'none';
       }
-    })) || [];
-
-    // Get user's permission level
-    const { data: permission, error: permissionError } = await supabase
-      .rpc('get_ember_permission', { ember_uuid: emberId });
-
-    if (permissionError) throw permissionError;
+    }
 
     return {
       ...ember,
       owner: owner,
       shares: shares,
-      userPermission: permission || 'none'
+      userPermission: permission
     };
   } catch (error) {
     console.error('Error fetching ember with sharing:', error);
