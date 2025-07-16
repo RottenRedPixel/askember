@@ -212,6 +212,7 @@ export default function EmberPlay() {
     const [showEndLogo, setShowEndLogo] = useState(false);
     const [showEndText, setShowEndText] = useState(false);
     const [taggedPeople, setTaggedPeople] = useState([]); // For zoom target person lookup
+    const [zoomAnimationPhase, setZoomAnimationPhase] = useState('idle'); // 'idle', 'starting', 'animating'
 
     // Playback control refs
     const playbackStoppedRef = useRef(false);
@@ -239,9 +240,18 @@ export default function EmberPlay() {
             transitionDuration = `${currentPanEffect.duration}s`;
         }
 
-        // Handle zoom effects  
+        // Handle zoom effects with animation phases
         if (currentZoomEffect && currentZoomEffect.scale && currentZoomEffect.duration) {
-            transforms.push(`scale(${currentZoomEffect.scale})`);
+            let finalScale = currentZoomEffect.scale;
+            
+            // For zoom-out, if scale > 1, invert it to create zoom-out effect
+            if (currentZoomEffect.type === 'out' && finalScale > 1) {
+                finalScale = 1 / finalScale;
+            }
+            
+            // Use animation phase to control zoom progression
+            const currentScale = zoomAnimationPhase === 'starting' ? 1 : finalScale;
+            transforms.push(`scale(${currentScale})`);
             transitionDuration = `${currentZoomEffect.duration}s`;
         }
 
@@ -338,6 +348,24 @@ export default function EmberPlay() {
             setTextKey(prev => prev + 1);
         }
     }, [currentDisplayText]);
+
+    // Handle zoom animation phases for smooth zoom effects
+    useEffect(() => {
+        if (currentZoomEffect && currentZoomEffect.scale && currentZoomEffect.duration) {
+            // Start zoom animation
+            setZoomAnimationPhase('starting');
+            
+            // After a brief delay, trigger the actual zoom animation
+            const timer = setTimeout(() => {
+                setZoomAnimationPhase('animating');
+            }, 50); // Short delay to ensure starting state is applied first
+            
+            return () => clearTimeout(timer);
+        } else {
+            // Reset animation phase when no zoom effect
+            setZoomAnimationPhase('idle');
+        }
+    }, [currentZoomEffect]);
 
     // Handle end screen animation sequence
     useEffect(() => {

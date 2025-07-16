@@ -2189,7 +2189,7 @@ export default function StoryCutStudio() {
                                                                             type="range"
                                                                             min="0"
                                                                             max="30"
-                                                                            step="0.1"
+                                                                            step="0.5"
                                                                             value={effectDurations[`fade-${block.id}`] || 3.0}
                                                                             onChange={(e) => {
                                                                                 setEffectDurations(prev => ({
@@ -2232,7 +2232,7 @@ export default function StoryCutStudio() {
                                                                             type="range"
                                                                             min="0"
                                                                             max="30"
-                                                                            step="0.1"
+                                                                            step="0.5"
                                                                             value={effectDurations[`pan-${block.id}`] || 4.0}
                                                                             onChange={(e) => {
                                                                                 setEffectDurations(prev => ({
@@ -2299,7 +2299,7 @@ export default function StoryCutStudio() {
                                                                             type="range"
                                                                             min="0"
                                                                             max="30"
-                                                                            step="0.1"
+                                                                            step="0.5"
                                                                             value={effectDurations[`zoom-${block.id}`] || 3.5}
                                                                             onChange={(e) => {
                                                                                 setEffectDurations(prev => ({
@@ -2342,7 +2342,7 @@ export default function StoryCutStudio() {
                                                                             type="range"
                                                                             min="0.5"
                                                                             max="5.0"
-                                                                            step="0.1"
+                                                                            step="0.5"
                                                                             value={effectScales[`zoom-${block.id}`] || 1.5}
                                                                             onChange={(e) => {
                                                                                 setEffectScales(prev => ({
@@ -2875,7 +2875,7 @@ export default function StoryCutStudio() {
                                                     style={{
                                                         backgroundImage: `url(${currentMediaImageUrl})`,
                                                         backgroundColor: currentMediaColor || '#000000',
-                                                        transform: `scale(${currentZoomScale})`,
+                                                        transform: `scale(${typeof currentZoomScale === 'object' ? currentZoomScale.end : currentZoomScale})`,
                                                         opacity: currentVoiceTransparency
                                                     }}
                                                 />
