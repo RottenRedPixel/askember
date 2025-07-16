@@ -435,6 +435,8 @@ export default function StoryCutStudio() {
                 const initialEffects = {};
                 const initialDirections = {};
                 const initialDurations = {};
+                const initialDistances = {};
+                const initialScales = {};
 
                 // Parse voice declarations and override story cut voice names
                 let embedVoiceNames = {
@@ -591,24 +593,30 @@ export default function StoryCutStudio() {
                                         console.log(`🎬 Parsed FADE effect: ${direction} ${duration}s for block ${currentBlockId}`);
                                     }
 
-                                    // Parse PAN effects: PAN-LEFT:duration=4.0 or PAN-RIGHT:duration=3.5
-                                    const panMatch = trimmedEffect.match(/PAN-(LEFT|RIGHT):duration=([0-9.]+)/);
+                                    // Parse PAN effects: PAN-LEFT:distance=25%:duration=4.0 or PAN-RIGHT:duration=3.5 (legacy)
+                                    const panMatch = trimmedEffect.match(/PAN-(LEFT|RIGHT)(?::distance=([0-9]+)%)?:duration=([0-9.]+)/);
                                     if (panMatch) {
-                                        const [, direction, duration] = panMatch;
+                                        const [, direction, distance, duration] = panMatch;
                                         currentBlockEffects.push('pan');
                                         initialDirections[`pan-${currentBlockId}`] = direction.toLowerCase();
                                         initialDurations[`pan-${currentBlockId}`] = parseFloat(duration);
-                                        console.log(`🎬 Parsed PAN effect: ${direction} ${duration}s for block ${currentBlockId}`);
+                                        if (distance) {
+                                            initialDistances[`pan-${currentBlockId}`] = parseInt(distance);
+                                        }
+                                        console.log(`🎬 Parsed PAN effect: ${direction} ${distance ? distance + '%' : 'default'} ${duration}s for block ${currentBlockId}`);
                                     }
 
-                                    // Parse ZOOM effects: ZOOM-IN:duration=3.5 or ZOOM-OUT:duration=2.0
-                                    const zoomMatch = trimmedEffect.match(/ZOOM-(IN|OUT):duration=([0-9.]+)/);
+                                    // Parse ZOOM effects: ZOOM-IN:scale=1.5:duration=3.5 or ZOOM-OUT:duration=2.0 (legacy)
+                                    const zoomMatch = trimmedEffect.match(/ZOOM-(IN|OUT)(?::scale=([0-9.]+))?:duration=([0-9.]+)/);
                                     if (zoomMatch) {
-                                        const [, direction, duration] = zoomMatch;
+                                        const [, direction, scale, duration] = zoomMatch;
                                         currentBlockEffects.push('zoom');
                                         initialDirections[`zoom-${currentBlockId}`] = direction.toLowerCase();
                                         initialDurations[`zoom-${currentBlockId}`] = parseFloat(duration);
-                                        console.log(`🎬 Parsed ZOOM effect: ${direction} ${duration}s for block ${currentBlockId}`);
+                                        if (scale) {
+                                            initialScales[`zoom-${currentBlockId}`] = parseFloat(scale);
+                                        }
+                                        console.log(`🎬 Parsed ZOOM effect: ${direction} ${scale ? scale + 'x' : 'default'} ${duration}s for block ${currentBlockId}`);
                                     }
                                 });
                             }
@@ -874,10 +882,20 @@ export default function StoryCutStudio() {
                     if (!initialDurations[`zoom-${block.id}`]) {
                         initialDurations[`zoom-${block.id}`] = 3.5;
                     }
+
+                    // Set default distances and scales (only if not already set)
+                    if (!initialDistances[`pan-${block.id}`]) {
+                        initialDistances[`pan-${block.id}`] = 25;
+                    }
+                    if (!initialScales[`zoom-${block.id}`]) {
+                        initialScales[`zoom-${block.id}`] = 1.5;
+                    }
                 });
                 setSelectedEffects(initialEffects);
                 setEffectDirections(initialDirections);
                 setEffectDurations(initialDurations);
+                setEffectDistances(initialDistances);
+                setEffectScales(initialScales);
 
             } catch (err) {
                 console.error('Failed to load story cut:', err);
@@ -1514,6 +1532,8 @@ export default function StoryCutStudio() {
             // Initialize effects state for all new blocks
             const newEffectDirections = {};
             const newEffectDurations = {};
+            const newEffectDistances = {};
+            const newEffectScales = {};
             const newSelectedEffects = {};
 
             blocksToAdd.forEach(block => {
@@ -1527,6 +1547,9 @@ export default function StoryCutStudio() {
                     newEffectDurations[`pan-${block.id}`] = 4.0;
                     newEffectDurations[`zoom-${block.id}`] = 3.5;
 
+                    newEffectDistances[`pan-${block.id}`] = 25;
+                    newEffectScales[`zoom-${block.id}`] = 1.5;
+
                     newSelectedEffects[`effect-${block.id}`] = [];
                 }
                 // Voice blocks don't need effects initialization
@@ -1534,6 +1557,8 @@ export default function StoryCutStudio() {
 
             setEffectDirections(prev => ({ ...prev, ...newEffectDirections }));
             setEffectDurations(prev => ({ ...prev, ...newEffectDurations }));
+            setEffectDistances(prev => ({ ...prev, ...newEffectDistances }));
+            setEffectScales(prev => ({ ...prev, ...newEffectScales }));
             setSelectedEffects(prev => ({ ...prev, ...newSelectedEffects }));
 
             console.log('✅ Effects state initialized for new blocks');
