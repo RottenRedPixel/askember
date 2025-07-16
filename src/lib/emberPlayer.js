@@ -388,80 +388,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
 
   try {
     if (type === 'contributor') {
-      // NEW: Prioritize sacred format contributionId for 100% reliable matching
-      if (segment.contributionId && segment.contributionId !== 'null' && storyCut.metadata?.messageIdMap) {
-        const messageData = storyCut.metadata.messageIdMap[segment.contributionId];
-
-        if (messageData) {
-          console.log(`🆔 SACRED FORMAT: Direct message ID match using contributionId ${segment.contributionId}`);
-          console.log(`🆔 Message data:`, messageData);
-
-          // Check if we have recorded audio for this message
-          const hasRecordedAudio = !!(messageData.audio_url);
-
-          if (hasRecordedAudio) {
-            console.log(`🎯 RECORDED AUDIO FOUND via sacred contributionId: Using recorded audio`);
-            console.log(`🎯 Audio URL: ${messageData.audio_url}`);
-            console.log(`🎯 Content: "${messageData.content}"`);
-
-            const audio = new Audio(messageData.audio_url);
-            return {
-              type: 'contributor_recorded',
-              audio,
-              url: messageData.audio_url,
-              voiceTag,
-              content: messageData.content,
-              userId: messageData.user_id,
-              messageId: segment.contributionId,
-              source: 'sacred_format'
-            };
-          } else {
-            console.log(`⚠️ Sacred contributionId found but no recorded audio - using fallback`);
-          }
-        } else {
-          console.log(`⚠️ Sacred contributionId ${segment.contributionId} not found in messageIdMap`);
-          console.log(`⚠️ Available message IDs:`, Object.keys(storyCut.metadata?.messageIdMap || {}));
-        }
-      }
-
-      // FALLBACK: Legacy message ID lookup (backward compatibility)
-      if (segment.messageId && segment.messageId !== segment.contributionId && storyCut.metadata?.messageIdMap && storyCut.metadata.messageIdMap[segment.messageId]) {
-        const messageData = storyCut.metadata.messageIdMap[segment.messageId];
-        console.log(`🆔 LEGACY FORMAT: Using legacy messageId ${segment.messageId} for ${voiceTag}`);
-        console.log(`🆔 Message data:`, messageData);
-
-        // Check if we have recorded audio for this message
-        const hasRecordedAudio = !!(messageData.audio_url);
-
-        if (hasRecordedAudio) {
-          console.log(`🎯 RECORDED AUDIO FOUND via legacy messageId: Using recorded audio`);
-          console.log(`🎯 Audio URL: ${messageData.audio_url}`);
-          console.log(`🎯 Content: "${messageData.content}"`);
-
-          const audio = new Audio(messageData.audio_url);
-          return {
-            type: 'contributor_recorded',
-            audio,
-            url: messageData.audio_url,
-            voiceTag,
-            content: messageData.content,
-            userId: messageData.user_id,
-            messageId: segment.messageId,
-            source: 'legacy_format'
-          };
-        } else {
-          console.log(`⚠️ Legacy messageId found but no recorded audio - using user fallback`);
-          // Continue with user-based fallback logic below
-        }
-      } else if (segment.messageId || segment.contributionId) {
-        const idToCheck = segment.contributionId || segment.messageId;
-        console.log(`⚠️ Message ID ${idToCheck} not found in messageIdMap - using fallback matching`);
-        console.log(`⚠️ Available message IDs:`, Object.keys(storyCut.metadata?.messageIdMap || {}));
-      } else {
-        console.log(`ℹ️ No contribution/message ID in segment - using traditional matching`);
-      }
-
-      // Check per-message preference for this content
+      // Check per-message preference for this content FIRST
       let userPreference = 'recorded'; // default
       let foundStudioPreference = false;
 
@@ -520,55 +447,115 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       console.log(`🎤 User preference for "${audioContent.substring(0, 30)}...": ${userPreference}`);
       console.log(`🔍 All available preferences:`, window.messageAudioPreferences);
 
-      // 🚨 CLEAN FAILURE MODE: Only use Sacred Format matching - no fallbacks
-      console.log(`🆔 SACRED FORMAT ONLY: Looking for contributionId ${segment.contributionId} for ${voiceTag}`);
+      // Only look for recorded audio if user preference is 'recorded'
+      if (userPreference === 'recorded') {
+        // NEW: Prioritize sacred format contributionId for 100% reliable matching
+        if (segment.contributionId && segment.contributionId !== 'null' && storyCut.metadata?.messageIdMap) {
+          const messageData = storyCut.metadata.messageIdMap[segment.contributionId];
+
+          if (messageData) {
+            console.log(`🆔 SACRED FORMAT: Direct message ID match using contributionId ${segment.contributionId}`);
+            console.log(`🆔 Message data:`, messageData);
+
+            // Check if we have recorded audio for this message
+            const hasRecordedAudio = !!(messageData.audio_url);
+
+            if (hasRecordedAudio) {
+              console.log(`🎯 RECORDED AUDIO FOUND via sacred contributionId: Using recorded audio`);
+              console.log(`🎯 Audio URL: ${messageData.audio_url}`);
+              console.log(`🎯 Content: "${messageData.content}"`);
+
+              const audio = new Audio(messageData.audio_url);
+              return {
+                type: 'contributor_recorded',
+                audio,
+                url: messageData.audio_url,
+                voiceTag,
+                content: messageData.content,
+                userId: messageData.user_id,
+                messageId: segment.contributionId,
+                source: 'sacred_format'
+              };
+            } else {
+              console.log(`⚠️ Sacred contributionId found but no recorded audio - using fallback`);
+            }
+          } else {
+            console.log(`⚠️ Sacred contributionId ${segment.contributionId} not found in messageIdMap`);
+            console.log(`⚠️ Available message IDs:`, Object.keys(storyCut.metadata?.messageIdMap || {}));
+          }
+        }
+
+        // FALLBACK: Legacy message ID lookup (backward compatibility)
+        if (segment.messageId && segment.messageId !== segment.contributionId && storyCut.metadata?.messageIdMap && storyCut.metadata.messageIdMap[segment.messageId]) {
+          const messageData = storyCut.metadata.messageIdMap[segment.messageId];
+          console.log(`🆔 LEGACY FORMAT: Using legacy messageId ${segment.messageId} for ${voiceTag}`);
+          console.log(`🆔 Message data:`, messageData);
+
+          // Check if we have recorded audio for this message
+          const hasRecordedAudio = !!(messageData.audio_url);
+
+          if (hasRecordedAudio) {
+            console.log(`🎯 RECORDED AUDIO FOUND via legacy messageId: Using recorded audio`);
+            console.log(`🎯 Audio URL: ${messageData.audio_url}`);
+            console.log(`🎯 Content: "${messageData.content}"`);
+
+            const audio = new Audio(messageData.audio_url);
+            return {
+              type: 'contributor_recorded',
+              audio,
+              url: messageData.audio_url,
+              voiceTag,
+              content: messageData.content,
+              userId: messageData.user_id,
+              messageId: segment.messageId,
+              source: 'legacy_format'
+            };
+          } else {
+            console.log(`⚠️ Legacy messageId found but no recorded audio - using user fallback`);
+            // Continue with user-based fallback logic below
+          }
+        } else if (segment.messageId || segment.contributionId) {
+          const idToCheck = segment.contributionId || segment.messageId;
+          console.log(`⚠️ Message ID ${idToCheck} not found in messageIdMap - using fallback matching`);
+          console.log(`⚠️ Available message IDs:`, Object.keys(storyCut.metadata?.messageIdMap || {}));
+        } else {
+          console.log(`ℹ️ No contribution/message ID in segment - using traditional matching`);
+        }
+      }
+
+      // Use the existing sophisticated contributor audio generation logic
+      console.log(`🎯 Using handleContributorAudioGeneration with preference: ${userPreference}`);
       
-      // If no contribution ID, fail immediately
-      if (!segment.contributionId || segment.contributionId === 'null') {
-        console.error(`❌ CLEAN FAILURE: No contributionId in segment for ${voiceTag}`);
-        console.error(`❌ Segment:`, segment);
-        return null;
+      // Get recorded audio data if available (for handleContributorAudioGeneration)
+      let audioData = null;
+      let hasRecordedAudio = false;
+      
+      if (segment.contributionId && storyCut.metadata?.messageIdMap) {
+        const messageData = storyCut.metadata.messageIdMap[segment.contributionId];
+        if (messageData && messageData.audio_url) {
+          audioData = messageData;
+          hasRecordedAudio = true;
+          console.log(`🎙️ Found recorded audio for contribution ${segment.contributionId}`);
+        }
       }
 
-      // If no messageIdMap, fail immediately  
-      if (!storyCut.metadata?.messageIdMap) {
-        console.error(`❌ CLEAN FAILURE: No messageIdMap available for ${voiceTag}`);
-        console.error(`❌ StoryCut metadata:`, storyCut.metadata);
-        return null;
-      }
+      // TODO: Check for personal voice model (placeholder for now)
+      let hasPersonalVoice = false;
+      let userVoiceModel = null;
 
-      // Try to find the exact message by contribution ID
-      const messageData = storyCut.metadata.messageIdMap[segment.contributionId];
-      if (!messageData) {
-        console.error(`❌ CLEAN FAILURE: contributionId ${segment.contributionId} not found in messageIdMap for ${voiceTag}`);
-        console.error(`❌ Available message IDs:`, Object.keys(storyCut.metadata.messageIdMap));
-        console.error(`❌ Segment content: "${audioContent}"`);
-        return null;
-      }
-
-      // Check if message has recorded audio
-      if (!messageData.audio_url) {
-        console.error(`❌ CLEAN FAILURE: Message found but no audio_url for ${voiceTag}`);
-        console.error(`❌ Message data:`, messageData);
-        return null;
-      }
-
-      // SUCCESS: Use exact Sacred Format match
-      console.log(`✅ SACRED FORMAT SUCCESS: Using exact match for ${voiceTag}`);
-      console.log(`✅ Audio URL: ${messageData.audio_url}`);
-      console.log(`✅ Content: "${messageData.content}"`);
-
-      const audio = new Audio(messageData.audio_url);
-          return {
-            type: 'contributor_recorded',
-            audio,
-        url: messageData.audio_url,
-            voiceTag,
-        content: messageData.content,
-        userId: messageData.user_id,
-        messageId: segment.contributionId,
-        source: 'sacred_format_clean'
-      };
+      // Call the sophisticated contributor audio generation function
+      return await handleContributorAudioGeneration(
+        userPreference,
+        hasRecordedAudio,
+        hasPersonalVoice,
+        audioData,
+        userVoiceModel,
+        storyCut,
+        voiceTag,
+        audioContent,
+        content,
+        segment
+      );
     } else if (type === 'ember') {
       // EMBER VOICE
       console.log(`🔥 Generating EMBER voice audio: "${audioContent}"`);
@@ -942,7 +929,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
             // Extract fade effects directly from content
             if (contentForEffects.includes('FADE-') && !fadeEffect) {
               fadeEffect = extractFadeFromAction(contentForEffects);
-                  if (fadeEffect) {
+              if (fadeEffect) {
                 console.log(`🎬 Fade effect extracted from content: ${fadeEffect.type} - ${fadeEffect.duration}s`);
               }
             }
@@ -950,7 +937,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
             // Extract pan effects directly from content
             if (contentForEffects.includes('PAN-') && !panEffect) {
               panEffect = extractPanFromAction(contentForEffects);
-                  if (panEffect) {
+              if (panEffect) {
                 console.log(`🎬 Pan effect extracted from content: ${panEffect.direction} - ${panEffect.duration}s`);
               }
             }
@@ -958,14 +945,14 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
             // Extract zoom effects directly from content
             if (contentForEffects.includes('ZOOM-') && !zoomEffect) {
               zoomEffect = extractZoomFromAction(contentForEffects);
-                  if (zoomEffect) {
+              if (zoomEffect) {
                 console.log(`🎬 Zoom effect extracted from content: ${zoomEffect.type} - ${zoomEffect.duration}s`);
-                  }
-                }
+              }
+            }
 
-                // Check for legacy zoom effects
+            // Check for legacy zoom effects
             if (contentForEffects.includes('Z-OUT:')) {
-                  hasLegacyZoomEffects = true;
+              hasLegacyZoomEffects = true;
             }
 
             // Apply legacy zoom effects (Z-OUT: system)
