@@ -541,9 +541,44 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         }
       }
 
-      // TODO: Check for personal voice model (placeholder for now)
+      // Check for personal voice model
       let hasPersonalVoice = false;
       let userVoiceModel = null;
+      
+      // Try to get user ID from contribution data
+      let userId = null;
+      if (audioData && audioData.user_id) {
+        userId = audioData.user_id;
+      } else if (segment.contributionId && storyCut.metadata?.messageIdMap) {
+        const messageData = storyCut.metadata.messageIdMap[segment.contributionId];
+        if (messageData && messageData.user_id) {
+          userId = messageData.user_id;
+        }
+      }
+      
+      // Look up voice model if we have a user ID
+      if (userId) {
+        try {
+          userVoiceModel = await getUserVoiceModel(userId);
+          hasPersonalVoice = !!(userVoiceModel && userVoiceModel.elevenlabs_voice_id);
+          
+          if (hasPersonalVoice) {
+            console.log(`🎤 Found personal voice model for ${voiceTag}:`, {
+              userId,
+              voiceId: userVoiceModel.elevenlabs_voice_id,
+              voiceName: userVoiceModel.elevenlabs_voice_name
+            });
+          } else {
+            console.log(`⚠️ No personal voice model found for ${voiceTag} (userId: ${userId})`);
+          }
+        } catch (error) {
+          console.error(`❌ Error looking up voice model for ${voiceTag}:`, error);
+          hasPersonalVoice = false;
+          userVoiceModel = null;
+        }
+      } else {
+        console.log(`⚠️ No user ID found for ${voiceTag} - cannot check for personal voice model`);
+      }
 
       // Call the sophisticated contributor audio generation function
       return await handleContributorAudioGeneration(
