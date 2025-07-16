@@ -842,6 +842,48 @@ export default function StoryCutStudio() {
                     }
                 }
 
+                // Add voice model checking for existing contributor blocks
+                for (const block of realBlocks) {
+                    if (block.type === 'voice' && block.voiceType === 'contributor') {
+                        let userId = null;
+                        
+                        // Try to get user ID from message data first
+                        if (block.messageId && loadedStoryMessages && loadedStoryMessages.length > 0) {
+                            const foundMessage = loadedStoryMessages.find(msg => msg.id === block.messageId);
+                            if (foundMessage) {
+                                userId = foundMessage.user_id;
+                                console.log(`🔍 Found user ID ${userId} for ${block.voiceTag} via messageId ${block.messageId}`);
+                            }
+                        }
+                        
+                        // Fallback: try to find user ID by matching contributor name
+                        if (!userId && loadedStoryMessages && loadedStoryMessages.length > 0) {
+                            const nameMatch = loadedStoryMessages.find(msg => 
+                                msg.user_first_name && msg.user_first_name.toLowerCase() === block.voiceTag.toLowerCase()
+                            );
+                            if (nameMatch) {
+                                userId = nameMatch.user_id;
+                                console.log(`🔍 Found user ID ${userId} for ${block.voiceTag} via name matching`);
+                            }
+                        }
+                        
+                        // Check voice model if we found a user ID
+                        if (userId) {
+                            try {
+                                const userVoiceModel = await getUserVoiceModel(userId);
+                                block.hasVoiceModel = !!(userVoiceModel && userVoiceModel.elevenlabs_voice_id);
+                                console.log(`🎤 Voice model check for ${block.voiceTag}: ${block.hasVoiceModel ? 'available' : 'not available'}`);
+                            } catch (error) {
+                                console.warn(`Failed to check voice model for ${block.voiceTag}:`, error);
+                                block.hasVoiceModel = false;
+                            }
+                        } else {
+                            console.warn(`No user ID found for ${block.voiceTag}, defaulting hasVoiceModel to false`);
+                            block.hasVoiceModel = false;
+                        }
+                    }
+                }
+
                 setBlocks(realBlocks);
 
                 // Initialize selected effects for blocks that have effects by default
