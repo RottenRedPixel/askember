@@ -924,8 +924,10 @@ export default function EmberPlay() {
                                             </div>
                                         ))}
 
-                                        {/* Horizontal divider */}
-                                        <div className="h-px w-6 bg-gray-300 my-1"></div>
+                                        {/* Horizontal divider - Only show if there are avatars above */}
+                                        {(ember?.owner || sharedUsers.length > 0) && (
+                                            <div className="h-px w-6 bg-gray-300 my-1"></div>
+                                        )}
 
                                         {/* Play/Stop Button - toggles between play and stop */}
                                         <button
@@ -1156,8 +1158,10 @@ export default function EmberPlay() {
                                             </div>
                                         ))}
 
-                                        {/* Horizontal divider */}
-                                        <div className="h-px w-6 bg-gray-300 my-1"></div>
+                                        {/* Horizontal divider - Only show if there are avatars above */}
+                                        {(ember?.owner || sharedUsers.length > 0) && (
+                                            <div className="h-px w-6 bg-gray-300 my-1"></div>
+                                        )}
 
                                         {/* Play/Stop Button - toggles between play and stop */}
                                         <button

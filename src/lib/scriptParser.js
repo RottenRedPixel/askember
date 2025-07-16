@@ -497,7 +497,7 @@ export const extractZoomFromAction = (action) => {
         const scale = parseFloat(zoomInMatch[1]);
         const duration = parseFloat(zoomInMatch[2]);
         const targetString = zoomInMatch[3];
-        
+
         const result = {
             type: 'in',
             direction: 'in',
@@ -505,7 +505,7 @@ export const extractZoomFromAction = (action) => {
             duration: duration,
             target: null // Default to center/null
         };
-        
+
         // Parse target information if present
         if (targetString) {
             if (targetString.startsWith('person:')) {
@@ -523,7 +523,7 @@ export const extractZoomFromAction = (action) => {
                 }
             }
         }
-        
+
         return result;
     }
 
@@ -533,7 +533,7 @@ export const extractZoomFromAction = (action) => {
         const scale = parseFloat(zoomOutMatch[1]);
         const duration = parseFloat(zoomOutMatch[2]);
         const targetString = zoomOutMatch[3];
-        
+
         const result = {
             type: 'out',
             direction: 'out',
@@ -541,7 +541,7 @@ export const extractZoomFromAction = (action) => {
             duration: duration,
             target: null // Default to center/null
         };
-        
+
         // Parse target information if present
         if (targetString) {
             if (targetString.startsWith('person:')) {
@@ -559,7 +559,7 @@ export const extractZoomFromAction = (action) => {
                 }
             }
         }
-        
+
         return result;
     }
 
@@ -617,10 +617,35 @@ export const resolveMediaReference = async (segment, emberId) => {
         }
 
         // Get all available media for this ember (legacy format)
-        const [emberPhotos, supportingMedia] = await Promise.all([
-            getEmberPhotos(emberId),
-            getEmberSupportingMedia(emberId)
-        ]);
+        let emberPhotos = [];
+        let supportingMedia = [];
+
+        try {
+            // Try to fetch photos and supporting media
+            [emberPhotos, supportingMedia] = await Promise.all([
+                getEmberPhotos(emberId),
+                getEmberSupportingMedia(emberId)
+            ]);
+        } catch (accessError) {
+            // For shared embers accessed by public users, these queries will fail due to RLS
+            console.warn('📸 Media access restricted (likely public user on shared ember):', accessError.message);
+            console.log('🌍 Attempting to get main ember image as fallback...');
+
+            // Try to get the main ember image as fallback
+            try {
+                const { getEmber } = await import('./database');
+                const emberData = await getEmber(emberId);
+                if (emberData?.image_url) {
+                    console.log('✅ Using main ember image as media fallback for shared ember');
+                    return emberData.image_url;
+                }
+            } catch (emberError) {
+                console.error('❌ Could not get ember data for fallback:', emberError);
+            }
+
+            // Return null if all fallbacks fail
+            return null;
+        }
 
         console.log(`🔍 Resolving media reference: ${segment.mediaId || segment.mediaName}`);
         console.log(`📸 Available photos: ${emberPhotos.length}`);

@@ -184,10 +184,38 @@ export const useEmber = (id, userProfile = null) => {
                     setUserPermission('none');
                 }
             } else {
-                // For public/unauthenticated users, set default values
-                console.log('🌍 Public user - skipping sharing data fetch');
-                setSharedUsers([]);
-                setUserPermission('public');
+                // For public/unauthenticated users, still try to fetch sharing data for avatars
+                console.log('🌍 Public user - fetching sharing data for avatar display...');
+                try {
+                    const sharingData = await getEmberWithSharing(id);
+                    console.log('🌍 Public sharing data:', sharingData);
+
+                    // Set permission as public
+                    setUserPermission('public');
+
+                    if (sharingData.shares && sharingData.shares.length > 0) {
+                        // Extract shared users with their profile information for avatar display
+                        const invitedUsers = sharingData.shares
+                            .filter(share => share.shared_user && share.shared_user.user_id)
+                            .map(share => ({
+                                id: share.shared_user.id,
+                                user_id: share.shared_user.user_id,
+                                first_name: share.shared_user.first_name,
+                                last_name: share.shared_user.last_name,
+                                avatar_url: share.shared_user.avatar_url,
+                                email: share.shared_with_email,
+                                permission_level: share.permission_level
+                            }));
+                        setSharedUsers(invitedUsers);
+                        console.log('🌍 Public invited users for avatar display:', invitedUsers);
+                    } else {
+                        setSharedUsers([]);
+                    }
+                } catch (sharingError) {
+                    console.warn('🌍 Could not fetch sharing data for public user (avatars will not show):', sharingError);
+                    setSharedUsers([]);
+                    setUserPermission('public');
+                }
             }
         } catch (err) {
             console.error('Error fetching ember:', err);
