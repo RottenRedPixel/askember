@@ -11,12 +11,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Users, X, Plus, Edit2, Trash2, UserCheck, Eye, Brain } from 'lucide-react';
 import { UsersThree } from 'phosphor-react';
-import { 
-  getEmberTaggedPeople, 
-  addTaggedPerson, 
-  updateTaggedPerson, 
+import {
+  getEmberTaggedPeople,
+  addTaggedPerson,
+  updateTaggedPerson,
   deleteTaggedPerson,
-  getPotentialContributorMatches 
+  getPotentialContributorMatches
 } from '@/lib/database';
 
 // Custom hook to detect mobile devices
@@ -75,12 +75,12 @@ const ModalContent = ({
 
       {/* Message */}
       {message && (
-        <Alert className={`${message.type === 'error' ? 'border-red-200 bg-red-50' : 
-                              message.type === 'success' ? 'border-green-200 bg-green-50' : 
-                              'border-blue-200 bg-blue-50'}`}>
-          <AlertDescription className={`${message.type === 'error' ? 'text-red-800' : 
-                                            message.type === 'success' ? 'text-green-800' : 
-                                            'text-blue-800'}`}>
+        <Alert className={`${message.type === 'error' ? 'border-red-200 bg-red-50' :
+          message.type === 'success' ? 'border-green-200 bg-green-50' :
+            'border-blue-200 bg-blue-50'}`}>
+          <AlertDescription className={`${message.type === 'error' ? 'text-red-800' :
+            message.type === 'success' ? 'text-green-800' :
+              'text-blue-800'}`}>
             {message.text}
           </AlertDescription>
         </Alert>
@@ -146,14 +146,14 @@ const ModalContent = ({
           <CardContent className="p-6">
             {mainImageUrl ? (
               <div className="relative inline-block w-full">
-                              <img
-                ref={imageRef}
-                src={mainImageUrl}
-                alt="Ember"
-                onLoad={handleImageLoad}
-                crossOrigin="anonymous"
-                className="max-w-full h-auto rounded-lg mx-auto block"
-              />
+                <img
+                  ref={imageRef}
+                  src={mainImageUrl}
+                  alt="Ember"
+                  onLoad={handleImageLoad}
+                  crossOrigin="anonymous"
+                  className="max-w-full h-auto rounded-lg mx-auto block"
+                />
                 <canvas
                   ref={canvasRef}
                   onClick={handleCanvasClick}
@@ -222,8 +222,8 @@ const ModalContent = ({
                   <Plus className="w-4 h-4 mr-1" />
                   Add Tag
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setShowTagForm(false);
                     setSelectedFace(null);
@@ -254,9 +254,8 @@ const ModalContent = ({
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Users className="w-4 h-4 text-gray-400" />
-                      <div className={`w-2 h-2 rounded-full ${
-                        person.face_coordinates?.type === 'manual' ? 'bg-orange-600' : 'bg-blue-600'
-                      }`} title={person.face_coordinates?.type === 'manual' ? 'Manual tag' : 'Auto-detected'} />
+                      <div className={`w-2 h-2 rounded-full ${person.face_coordinates?.type === 'manual' ? 'bg-orange-600' : 'bg-blue-600'
+                        }`} title={person.face_coordinates?.type === 'manual' ? 'Manual tag' : 'Auto-detected'} />
                     </div>
                     <span className="font-medium truncate">{person.person_name}</span>
                     {person.contributor_email && (
@@ -316,20 +315,20 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
   const [potentialMatches, setPotentialMatches] = useState([]);
   const [taggingMode, setTaggingMode] = useState('auto'); // 'auto' or 'manual'
   const [manualTags, setManualTags] = useState([]); // Store manually placed tags
-  
+
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   // Load face detection models
   const loadModels = useCallback(async () => {
     if (isModelLoaded) return;
-    
+
     try {
       setIsLoading(true);
       setMessage({ type: 'info', text: 'Loading face detection models...' });
-      
+
       const MODEL_URL = '/models';
       await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-      
+
       setIsModelLoaded(true);
       setMessage({ type: 'success', text: 'Face detection ready!' });
     } catch (error) {
@@ -343,7 +342,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
   // Load tagged people from database
   const loadTaggedPeople = useCallback(async () => {
     if (!ember?.id) return;
-    
+
     try {
       const people = await getEmberTaggedPeople(ember.id);
       setTaggedPeople(people);
@@ -373,11 +372,11 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
         // If CORS error, try fetching as blob first
         if (corsError.message && corsError.message.includes('tainted')) {
           setMessage({ type: 'info', text: 'Retrying with alternative method...' });
-          
+
           const response = await fetch(imageRef.current.src);
           const blob = await response.blob();
           const blobUrl = URL.createObjectURL(blob);
-          
+
           // Create a new image element with the blob URL
           const newImg = new Image();
           newImg.crossOrigin = 'anonymous';
@@ -386,12 +385,12 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
             newImg.onerror = reject;
             newImg.src = blobUrl;
           });
-          
+
           detections = await faceapi.detectAllFaces(
             newImg,
             new faceapi.TinyFaceDetectorOptions()
           );
-          
+
           // Clean up blob URL
           URL.revokeObjectURL(blobUrl);
         } else {
@@ -408,7 +407,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
 
       faceapi.matchDimensions(canvas, displaySize);
       const resizedDetections = faceapi.resizeResults(detections, displaySize);
-      
+
       // Clear previous drawings
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -420,7 +419,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
       // Draw auto-detected face circles
       resizedDetections.forEach((detection, index) => {
         const { x, y, width, height } = detection.box;
-        
+
         // Check if this face is already tagged (convert stored natural coords to display coords)
         const isTagged = taggedPeople.some(person => {
           const coords = person.face_coordinates;
@@ -433,10 +432,10 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
         // Draw circle around face
         ctx.beginPath();
         ctx.ellipse(
-          x + width / 2, 
-          y + height / 2, 
-          width / 2 + 10, 
-          height / 2 + 10, 
+          x + width / 2,
+          y + height / 2,
+          width / 2 + 10,
+          height / 2 + 10,
           0, 0, 2 * Math.PI
         );
         ctx.strokeStyle = isTagged ? '#10b981' : '#3b82f6'; // green if tagged, blue if not
@@ -462,7 +461,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
         // Scale stored coordinates to current display size
         const x = coords.x * scaleX;
         const y = coords.y * scaleY;
-        
+
         // Check if this manual tag is already in database (both coords are in display scale now)
         const isTagged = taggedPeople.some(person => {
           if (person.face_coordinates.type !== 'manual') return false;
@@ -509,19 +508,19 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
       });
 
       setDetectedFaces(resizedDetections);
-      setMessage({ 
-        type: 'success', 
-        text: `${resizedDetections.length} face(s) detected. ${taggingMode === 'auto' ? 'Click on blue circles to tag people.' : 'Switch to Manual mode to place tags anywhere.'}` 
+      setMessage({
+        type: 'success',
+        text: `${resizedDetections.length} face(s) detected. ${taggingMode === 'auto' ? 'Click on blue circles to tag people.' : 'Switch to Manual mode to place tags anywhere.'}`
       });
 
     } catch (error) {
       console.error('Error detecting faces:', error);
-      
+
       // Handle CORS/tainted canvas errors specifically
       if (error.message && error.message.includes('tainted') || error.name === 'SecurityError') {
-        setMessage({ 
-          type: 'error', 
-          text: 'Image access blocked by browser security. Please try refreshing the page or contact support.' 
+        setMessage({
+          type: 'error',
+          text: 'Image access blocked by browser security. Please try refreshing the page or contact support.'
         });
       } else {
         setMessage({ type: 'error', text: 'Failed to detect faces. Please try again.' });
@@ -557,8 +556,8 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
           if (coords.type !== 'auto') return false;
           const storedDisplayX = coords.x / scaleX;
           const storedDisplayY = coords.y / scaleY;
-          return Math.abs(storedDisplayX - clickedFace.box.x) < 20 && 
-                 Math.abs(storedDisplayY - clickedFace.box.y) < 20;
+          return Math.abs(storedDisplayX - clickedFace.box.x) < 20 &&
+            Math.abs(storedDisplayY - clickedFace.box.y) < 20;
         });
 
         if (existingTag) {
@@ -573,7 +572,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
       }
     } else {
       // Manual mode: allow clicking anywhere to place a tag
-      
+
       // First check if we clicked on an existing manual tag
       const allManualTags = [
         ...manualTags,
@@ -593,9 +592,9 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
         // Check if this manual tag is already in the database
         const existingTag = taggedPeople.find(person => {
           const coords = person.face_coordinates;
-          return coords.type === 'manual' && 
-                 Math.abs(coords.x - clickX) < 20 && 
-                 Math.abs(coords.y - clickY) < 20;
+          return coords.type === 'manual' &&
+            Math.abs(coords.x - clickX) < 20 &&
+            Math.abs(coords.y - clickY) < 20;
         });
 
         if (existingTag) {
@@ -617,7 +616,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
         // Place a new manual tag (store in natural coordinates)
         const naturalX = clickX * scaleX;
         const naturalY = clickY * scaleY;
-        
+
         const newManualTag = {
           x: naturalX,
           y: naturalY,
@@ -625,7 +624,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
         };
 
         setManualTags(prev => [...prev, newManualTag]);
-        
+
         // Immediately draw the new manual tag circle
         const ctx = canvas.getContext('2d');
         ctx.beginPath();
@@ -645,7 +644,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
         ctx.font = '14px Arial';
         ctx.textAlign = 'center';
         ctx.fillText('+', clickX, clickY + 5);
-        
+
         // Also set it as selected face for tagging (keep display coordinates for UI)
         setSelectedFace({
           box: { x: clickX - 25, y: clickY - 25, width: 50, height: 50 },
@@ -680,7 +679,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
 
       // Prepare face coordinates based on whether it's auto-detected or manual
       let faceCoordinates;
-      
+
       if (selectedFace.isManual) {
         // Manual tag coordinates (already in natural dimensions)
         faceCoordinates = {
@@ -700,24 +699,24 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
           type: 'auto'
         };
       }
-      
+
       setIsLoading(true);
 
       // If this is a manual tag, remove it from the temporary manual tags array
       if (selectedFace.isManual) {
-        setManualTags(prev => prev.filter(tag => 
-          Math.abs(tag.x - selectedFace.coordinates.x) > 5 || 
+        setManualTags(prev => prev.filter(tag =>
+          Math.abs(tag.x - selectedFace.coordinates.x) > 5 ||
           Math.abs(tag.y - selectedFace.coordinates.y) > 5
         ));
       }
 
       await addTaggedPerson(ember.id, tagName.trim(), faceCoordinates);
-      
+
       setMessage({ type: 'success', text: `Tagged "${tagName}" successfully!` });
       setShowTagForm(false);
       setSelectedFace(null);
       setTagName('');
-      
+
       // Reload tagged people and re-detect faces
       await loadTaggedPeople();
       setTimeout(() => {
@@ -725,7 +724,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
           detectFaces();
         }
       }, 100);
-      
+
       // Notify parent component
       if (onUpdate) onUpdate();
 
@@ -742,9 +741,9 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
     try {
       setIsLoading(true);
       await deleteTaggedPerson(tagId);
-      
+
       setMessage({ type: 'success', text: 'Tag deleted successfully!' });
-      
+
       // Reload tagged people and re-detect faces
       await loadTaggedPeople();
       setTimeout(() => {
@@ -752,7 +751,7 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
           detectFaces();
         }
       }, 100);
-      
+
       // Notify parent component
       if (onUpdate) onUpdate();
 
@@ -835,6 +834,19 @@ const TaggedPeopleModal = ({ ember, isOpen, onClose, onUpdate }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taggingMode, isModelLoaded]);
+
+  // Redraw canvas when tagged people are loaded to show existing tags
+  useEffect(() => {
+    if (isModelLoaded && imageRef.current?.complete && !isDetectingRef.current && taggedPeople.length > 0) {
+      const timer = setTimeout(() => {
+        if (!isDetectingRef.current) {
+          detectFaces();
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taggedPeople, isModelLoaded]);
 
   if (!ember) return null;
 
