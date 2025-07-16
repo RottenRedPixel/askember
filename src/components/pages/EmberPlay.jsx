@@ -6,7 +6,7 @@ import { PlayCircle, X, Gear } from 'phosphor-react';
 import { useEmberData } from '@/lib/useEmberData';
 import { useUIState } from '@/lib/useUIState';
 import { autoTriggerImageAnalysis, autoTriggerExifProcessing, autoTriggerLocationProcessing, handlePlay as handleMediaPlay, handlePlaybackComplete as handleMediaPlaybackComplete, handleExitPlay as handleMediaExitPlay } from '@/lib/mediaHandlers';
-import { debugRecordedAudio, generateSegmentAudio, playMultiVoiceAudio } from '@/lib/emberPlayer';
+import { debugRecordedAudio, generateSegmentAudio, playMultiVoiceAudio, stopMultiVoiceAudio } from '@/lib/emberPlayer';
 import { parseScriptSegments } from '@/lib/scriptParser';
 import { getEmberTaggedPeople } from '@/lib/database';
 import useStore from '@/store';
@@ -508,6 +508,41 @@ export default function EmberPlay() {
         setShowFullscreenPlay(true);
     }, [setShowFullscreenPlay]);
 
+    // Cleanup all audio when component unmounts or user leaves the view
+    useEffect(() => {
+        return () => {
+            console.log('🧹 EmberPlay: Component unmounting, cleaning up timeline...');
+            // Use the timeline stop function to ensure all audio is stopped
+            stopMultiVoiceAudio({
+                setIsGeneratingAudio,
+                setIsPlaying,
+                setActiveAudioSegments,
+                playbackStoppedRef,
+                setCurrentVoiceType,
+                setCurrentVoiceTransparency,
+                setCurrentMediaColor,
+                setCurrentZoomScale,
+                setCurrentMediaImageUrl,
+                setCurrentLoadingState,
+                setCurrentLoadingMessage,
+                setCurrentLoadingIcon,
+                setCurrentFadeEffect,
+                setCurrentPanEffect,
+                setCurrentZoomEffect,
+                setCurrentDisplayText,
+                setCurrentVoiceTag,
+                setCurrentSentenceIndex,
+                setCurrentSegmentSentences,
+                setSentenceTimeouts,
+                sentenceTimeouts,
+                setMediaTimeouts,
+                mediaTimeouts,
+                mediaTimeoutsRef,
+                stopSmoothProgress
+            });
+        };
+    }, []); // Empty dependency array - only runs on unmount
+
     // Calculate total duration when story cut is available
     useEffect(() => {
         if (primaryStoryCut && primaryStoryCut.full_script) {
@@ -626,87 +661,48 @@ export default function EmberPlay() {
     };
 
     const handleStop = () => {
-        console.log('🛑 Stop button pressed - immediately stopping all audio...');
+        console.log('🛑 Stop button pressed - using timeline stop mechanism...');
 
-        // CRITICAL: Set stop flag FIRST to prevent any new audio from starting
-        playbackStoppedRef.current = true;
+        // Use the new timeline-integrated stop function
+        stopMultiVoiceAudio({
+            setIsGeneratingAudio,
+            setIsPlaying,
+            setActiveAudioSegments,
+            playbackStoppedRef,
+            setCurrentVoiceType,
+            setCurrentVoiceTransparency,
+            setCurrentMediaColor,
+            setCurrentZoomScale,
+            setCurrentMediaImageUrl,
+            setCurrentLoadingState,
+            setCurrentLoadingMessage,
+            setCurrentLoadingIcon,
+            setCurrentFadeEffect,
+            setCurrentPanEffect,
+            setCurrentZoomEffect,
+            setCurrentDisplayText,
+            setCurrentVoiceTag,
+            setCurrentSentenceIndex,
+            setCurrentSegmentSentences,
+            setSentenceTimeouts,
+            sentenceTimeouts,
+            setMediaTimeouts,
+            mediaTimeouts,
+            mediaTimeoutsRef,
+            stopSmoothProgress
+        });
 
-        // Stop the main current audio if it exists
-        if (currentAudio) {
-            console.log('🛑 Stopping current audio...');
-            try {
-                currentAudio.pause();
-                currentAudio.currentTime = 0;
-                // Remove event listeners to prevent any delayed callbacks
-                currentAudio.onended = null;
-                currentAudio.onerror = null;
-                currentAudio.onloadeddata = null;
-                currentAudio.oncanplay = null;
-            } catch (error) {
-                console.warn('⚠️ Error stopping current audio:', error);
-            }
-        }
-
-        // Stop ALL active audio segments (multi-voice system)
-        if (activeAudioSegments && activeAudioSegments.length > 0) {
-            console.log(`🛑 Stopping ${activeAudioSegments.length} active audio segments...`);
-            activeAudioSegments.forEach((audioSegment, index) => {
-                if (audioSegment && audioSegment.audio) {
-                    try {
-                        audioSegment.audio.pause();
-                        audioSegment.audio.currentTime = 0;
-                        // Remove event listeners to prevent any delayed callbacks
-                        audioSegment.audio.onended = null;
-                        audioSegment.audio.onerror = null;
-                        audioSegment.audio.onloadeddata = null;
-                        audioSegment.audio.oncanplay = null;
-                        console.log(`✅ Stopped audio segment ${index + 1}: [${audioSegment.voiceTag}]`);
-                    } catch (error) {
-                        console.warn(`⚠️ Error stopping audio segment ${index + 1}:`, error);
-                    }
-                }
-            });
-        }
-
-        // Update state immediately
-        setIsPlaying(false);
+        // Additional EmberPlay-specific cleanup
         setCurrentlyPlayingStoryCut(null);
         setCurrentAudio(null);
-
-        // Clear all timeouts immediately
-        sentenceTimeouts.forEach(timeout => clearTimeout(timeout));
-        setSentenceTimeouts([]);
-        mediaTimeouts.forEach(timeout => clearTimeout(timeout));
-        setMediaTimeouts([]);
-        mediaTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
-        mediaTimeoutsRef.current = [];
-
-        // Reset visual states immediately
-        setCurrentDisplayText('');
-        setCurrentVoiceTag('');
-        setCurrentMediaColor(null);
-        setCurrentMediaImageUrl(null);
-        setCurrentZoomScale(1);
-        setCurrentVoiceType(null);
-        setCurrentVoiceTransparency(0);
-        setCurrentLoadingState(false);
-        setCurrentLoadingMessage('');
-        setCurrentLoadingIcon('default');
-        setCurrentSentenceIndex(0);
-        setCurrentSegmentSentences([]);
-        setActiveAudioSegments([]);
-        setCurrentFadeEffect(null);
-        setCurrentPanEffect(null);
-        setCurrentZoomEffect(null);
         setShowEndHold(false);
 
         // Reset progress tracking
         setCurrentProgress(0);
         setCurrentTimelineStep(0);
         setCurrentSegmentStartTime(0);
-        stopSmoothProgress();
 
-        console.log('✅ All audio stopped immediately');
+        console.log('✅ Timeline stop completed');
     };
 
     const handleExitPlay = () => {
