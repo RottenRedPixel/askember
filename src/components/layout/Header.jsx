@@ -6,14 +6,14 @@ import VersionDisplay from '@/components/VersionDisplay';
 
 export default function Header() {
   const { user, userProfile, logout } = useStore();
-  
+
   // Check if user is admin
   const isAdmin = userProfile?.role === 'super_admin' || userProfile?.role === 'admin';
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
-  
+
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -21,24 +21,24 @@ export default function Header() {
         setIsUserMenuOpen(false);
       }
     };
-    
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-  
+
   // Helper function to determine if a link is active
   const isActive = (path) => location.pathname === path;
-  
 
-  
+
+
   // Helper function to get link classes based on active state
   const getLinkClasses = (path, baseClasses = "px-4 py-2 font-medium transition-colors border-b-2") => {
-    const activeClasses = isActive(path) 
-      ? "text-blue-600 bg-blue-50 border-blue-600" 
+    const activeClasses = isActive(path)
+      ? "text-blue-600 bg-blue-50 border-blue-600"
       : "text-gray-700 hover:text-blue-600 border-transparent";
     return `${baseClasses} ${activeClasses}`;
   };
-  
+
   // Mobile link classes
   const getMobileLinkClasses = (path) => {
     const activeClasses = isActive(path)
@@ -46,12 +46,12 @@ export default function Header() {
       : "text-gray-700 hover:text-blue-600 hover:bg-gray-50";
     return `block px-4 py-3 font-medium transition-colors ${activeClasses}`;
   };
-  
+
   // Close mobile menu when clicking a link
   const handleMobileLinkClick = () => {
     setIsMobileMenuOpen(false);
   };
-  
+
   // Helper function to get user initials
   const getUserInitials = (email) => {
     if (!email) return 'U';
@@ -69,7 +69,8 @@ export default function Header() {
         <div className="hidden md:flex justify-between items-center">
           {/* Left side - Brand */}
           <div className="flex items-center gap-4">
-            <Link to="/" className="text-2xl font-bold text-gray-900">
+            <Link to="/" className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+              <img src="/EMBERFAV.svg" alt="Ember" className="w-8 h-8" />
               ember<span className="text-gray-200">.ai</span>
             </Link>
             {/* Discrete version display for non-logged-in users */}
@@ -77,33 +78,33 @@ export default function Header() {
               <VersionDisplay mobile={false} />
             )}
           </div>
-          
+
           {/* Right side - Navigation and User */}
           <div className="flex items-center gap-8">
             <div className="flex gap-8">
-              <Link 
-                to="/" 
+              <Link
+                to="/"
                 className={getLinkClasses("/")}
               >
                 About
               </Link>
-              <Link 
-                to="/create" 
+              <Link
+                to="/create"
                 className={getLinkClasses("/create")}
               >
                 Create
               </Link>
               {user && (
-                <Link 
-                  to="/embers" 
+                <Link
+                  to="/embers"
                   className={getLinkClasses("/embers")}
                 >
                   Embers
                 </Link>
               )}
               {isAdmin && (
-                <Link 
-                  to="/admin" 
+                <Link
+                  to="/admin"
                   className={getLinkClasses("/admin")}
                 >
                   Admin
@@ -111,7 +112,7 @@ export default function Header() {
               )}
 
             </div>
-            
+
             <div className="flex items-center gap-4">
               {user ? (
                 <div className="relative" ref={userMenuRef}>
@@ -126,7 +127,7 @@ export default function Header() {
                       </AvatarFallback>
                     </Avatar>
                   </button>
-                  
+
                   {/* User dropdown menu */}
                   {isUserMenuOpen && (
                     <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
@@ -147,7 +148,7 @@ export default function Header() {
                         >
                           Logout
                         </button>
-                        
+
                         {/* Version info in user menu */}
                         <div className="border-t border-gray-100 pt-2">
                           <div className="px-4 py-2">
@@ -159,8 +160,8 @@ export default function Header() {
                   )}
                 </div>
               ) : (
-                <Link 
-                  to="/login" 
+                <Link
+                  to="/login"
                   className={getLinkClasses("/login")}
                 >
                   Login
@@ -173,10 +174,11 @@ export default function Header() {
         {/* Mobile Navigation */}
         <div className="md:hidden">
           <div className="flex justify-between items-center">
-            <Link to="/" className="text-2xl font-bold text-gray-900">
+            <Link to="/" className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+              <img src="/EMBERFAV.svg" alt="Ember" className="w-8 h-8" />
               ember<span className="text-gray-200">.ai</span>
             </Link>
-            
+
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2 text-gray-600 hover:text-gray-900 focus:outline-none"
@@ -196,23 +198,23 @@ export default function Header() {
           {isMobileMenuOpen && (
             <div className="mt-4 border-t border-gray-200 bg-white shadow-lg rounded-lg">
               <div className="py-2">
-                <Link 
-                  to="/" 
+                <Link
+                  to="/"
                   className={getMobileLinkClasses("/")}
                   onClick={handleMobileLinkClick}
                 >
                   About
                 </Link>
-                <Link 
-                  to="/create" 
+                <Link
+                  to="/create"
                   className={getMobileLinkClasses("/create")}
                   onClick={handleMobileLinkClick}
                 >
                   Create
                 </Link>
                 {user && (
-                  <Link 
-                    to="/embers" 
+                  <Link
+                    to="/embers"
                     className={getMobileLinkClasses("/embers")}
                     onClick={handleMobileLinkClick}
                   >
@@ -220,15 +222,15 @@ export default function Header() {
                   </Link>
                 )}
                 {isAdmin && (
-                  <Link 
-                    to="/admin" 
+                  <Link
+                    to="/admin"
                     className={getMobileLinkClasses("/admin")}
                     onClick={handleMobileLinkClick}
                   >
                     Admin
                   </Link>
                 )}
-                
+
                 <div className="border-t border-gray-200 mt-2 pt-2">
                   {user ? (
                     <div className="px-4 py-3">
@@ -260,8 +262,8 @@ export default function Header() {
                       </div>
                     </div>
                   ) : (
-                    <Link 
-                      to="/login" 
+                    <Link
+                      to="/login"
                       className={getMobileLinkClasses("/login")}
                       onClick={handleMobileLinkClick}
                     >
@@ -269,7 +271,7 @@ export default function Header() {
                     </Link>
                   )}
                 </div>
-                
+
                 {/* Version Display - Discrete at bottom */}
                 <VersionDisplay mobile={true} />
               </div>

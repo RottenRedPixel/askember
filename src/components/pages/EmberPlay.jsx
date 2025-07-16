@@ -243,12 +243,12 @@ export default function EmberPlay() {
         // Handle zoom effects with animation phases
         if (currentZoomEffect && currentZoomEffect.scale && currentZoomEffect.duration) {
             let finalScale = currentZoomEffect.scale;
-            
+
             // For zoom-out, if scale > 1, invert it to create zoom-out effect
             if (currentZoomEffect.type === 'out' && finalScale > 1) {
                 finalScale = 1 / finalScale;
             }
-            
+
             // Use animation phase to control zoom progression
             const currentScale = zoomAnimationPhase === 'starting' ? 1 : finalScale;
             transforms.push(`scale(${currentScale})`);
@@ -309,7 +309,7 @@ export default function EmberPlay() {
                 const imageUrl = currentMediaImageUrl || ember?.image_url;
                 if (imageUrl) {
                     const mediaElement = document.querySelector('img[src*="' + imageUrl.split('/').pop() + '"]');
-                    if (mediaElement && mediaElement.naturalWidth && mediaElement.naturalHeight && 
+                    if (mediaElement && mediaElement.naturalWidth && mediaElement.naturalHeight &&
                         coords.x >= 0 && coords.y >= 0 && coords.x <= mediaElement.naturalWidth && coords.y <= mediaElement.naturalHeight) {
                         // Convert pixel coordinates to percentage for transform-origin
                         const originX = (coords.x / mediaElement.naturalWidth) * 100;
@@ -354,12 +354,12 @@ export default function EmberPlay() {
         if (currentZoomEffect && currentZoomEffect.scale && currentZoomEffect.duration) {
             // Start zoom animation
             setZoomAnimationPhase('starting');
-            
+
             // After a brief delay, trigger the actual zoom animation
             const timer = setTimeout(() => {
                 setZoomAnimationPhase('animating');
             }, 50); // Short delay to ensure starting state is applied first
-            
+
             return () => clearTimeout(timer);
         } else {
             // Reset animation phase when no zoom effect
@@ -881,7 +881,7 @@ export default function EmberPlay() {
                                         </button>
 
                                         {/* Horizontal Divider */}
-                                        <div className="w-4 h-px bg-gray-400 my-1"></div>
+                                        <div className="h-px w-6 bg-gray-300 my-1"></div>
 
                                         {/* Owner Avatar - Always at the top of the stack */}
                                         {ember?.owner && (
@@ -1113,7 +1113,7 @@ export default function EmberPlay() {
                                         </button>
 
                                         {/* Horizontal Divider */}
-                                        <div className="w-4 h-px bg-gray-400 my-1"></div>
+                                        <div className="h-px w-6 bg-gray-300 my-1"></div>
 
                                         {/* Owner Avatar - Always at the top of the stack */}
                                         {ember?.owner && (
