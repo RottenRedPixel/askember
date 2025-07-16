@@ -26,6 +26,8 @@ export default function StoryCutStudio() {
     const [selectedEffects, setSelectedEffects] = useState({}); // Track selected checkboxes (can be multiple per block)
     const [effectDirections, setEffectDirections] = useState({}); // Track effect directions (in/out, left/right)
     const [effectDurations, setEffectDurations] = useState({}); // Track effect duration values from sliders
+    const [effectDistances, setEffectDistances] = useState({}); // Track pan distances  
+    const [effectScales, setEffectScales] = useState({}); // Track zoom scales
 
     // Real story cut data
     const [storyCut, setStoryCut] = useState(null);
@@ -1186,13 +1188,15 @@ export default function StoryCutStudio() {
                     if (blockEffects.includes('pan')) {
                         const direction = effectDirections[`pan-${block.id}`] || 'left';
                         const duration = effectDurations[`pan-${block.id}`] || 4.0;
-                        effectsArray.push(`PAN-${direction.toUpperCase()}:duration=${duration}`);
+                        const distance = effectDistances[`pan-${block.id}`] || 25;
+                        effectsArray.push(`PAN-${direction.toUpperCase()}:distance=${distance}%:duration=${duration}`);
                     }
 
                     if (blockEffects.includes('zoom')) {
                         const direction = effectDirections[`zoom-${block.id}`] || 'in';
                         const duration = effectDurations[`zoom-${block.id}`] || 3.5;
-                        effectsArray.push(`ZOOM-${direction.toUpperCase()}:duration=${duration}`);
+                        const scale = effectScales[`zoom-${block.id}`] || 1.5;
+                        effectsArray.push(`ZOOM-${direction.toUpperCase()}:scale=${scale}:duration=${duration}`);
                     }
 
                     // Join effects with commas, fallback to 'media' if no effects
@@ -2056,6 +2060,30 @@ export default function StoryCutStudio() {
                                                                     </div>
                                                                 </div>
                                                             )}
+                                                            {selectedEffects[`effect-${block.id}`].includes('pan') && (
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="flex-1 space-y-2">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="text-sm text-blue-700">Pan Distance</span>
+                                                                            <span className="text-sm text-blue-700">{effectDistances[`pan-${block.id}`] || 25}%</span>
+                                                                        </div>
+                                                                        <input
+                                                                            type="range"
+                                                                            min="10"
+                                                                            max="50"
+                                                                            step="1"
+                                                                            value={effectDistances[`pan-${block.id}`] || 25}
+                                                                            onChange={(e) => {
+                                                                                setEffectDistances(prev => ({
+                                                                                    ...prev,
+                                                                                    [`pan-${block.id}`]: parseInt(e.target.value)
+                                                                                }));
+                                                                            }}
+                                                                            className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                             {selectedEffects[`effect-${block.id}`].includes('zoom') && (
                                                                 <div className="flex items-center gap-4">
                                                                     <div className="flex-1 space-y-2">
@@ -2096,6 +2124,30 @@ export default function StoryCutStudio() {
                                                                                 : 'translate-x-0.5'
                                                                                 }`} />
                                                                         </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {selectedEffects[`effect-${block.id}`].includes('zoom') && (
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="flex-1 space-y-2">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="text-sm text-blue-700">Zoom Scale</span>
+                                                                            <span className="text-sm text-blue-700">{effectScales[`zoom-${block.id}`] || 1.5}x</span>
+                                                                        </div>
+                                                                        <input
+                                                                            type="range"
+                                                                            min="0.5"
+                                                                            max="3.0"
+                                                                            step="0.1"
+                                                                            value={effectScales[`zoom-${block.id}`] || 1.5}
+                                                                            onChange={(e) => {
+                                                                                setEffectScales(prev => ({
+                                                                                    ...prev,
+                                                                                    [`zoom-${block.id}`]: parseFloat(e.target.value)
+                                                                                }));
+                                                                            }}
+                                                                            className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                                                                        />
                                                                     </div>
                                                                 </div>
                                                             )}

@@ -213,22 +213,21 @@ export default function EmberPlay() {
         let transitionDuration = '0.5s';
 
         // Handle pan effects
-        if (currentPanEffect) {
-            const direction = currentPanEffect.direction === 'left' ? '-20%' : '20%';
-            transforms.push(`translateX(${direction})`);
-            transitionDuration = `${currentPanEffect.duration || 4.0}s`;
+        if (currentPanEffect && currentPanEffect.distance && currentPanEffect.duration) {
+            const direction = currentPanEffect.direction === 'left' ? '-' : '';
+            transforms.push(`translateX(${direction}${currentPanEffect.distance}%)`);
+            transitionDuration = `${currentPanEffect.duration}s`;
         }
 
         // Handle zoom effects  
-        if (currentZoomEffect) {
-            const scale = currentZoomEffect.type === 'in' ? '1.5' : '0.8';
-            transforms.push(`scale(${scale})`);
-            transitionDuration = `${currentZoomEffect.duration || 3.5}s`;
+        if (currentZoomEffect && currentZoomEffect.scale && currentZoomEffect.duration) {
+            transforms.push(`scale(${currentZoomEffect.scale})`);
+            transitionDuration = `${currentZoomEffect.duration}s`;
         }
 
         // Handle fade effects - use CSS animation instead of transition
-        if (currentFadeEffect) {
-            const duration = currentFadeEffect.duration || 3.0;
+        if (currentFadeEffect && currentFadeEffect.duration) {
+            const duration = currentFadeEffect.duration;
             if (currentFadeEffect.type === 'in') {
                 // Fade in: start invisible, animate to visible
                 animation = `fadeIn ${duration}s ease-out forwards`;

@@ -453,67 +453,71 @@ export const extractFadeFromAction = (action) => {
 /**
  * Helper function to extract pan values from PAN-LEFT/PAN-RIGHT actions
  * @param {string} action - Action string to parse
- * @returns {Object|null} Object with pan direction and duration, or null if no pan
+ * @returns {Object|null} Object with pan direction, distance, and duration, or null if incomplete
  */
 export const extractPanFromAction = (action) => {
-    // Check for PAN-LEFT with duration
-    const panLeftMatch = action.match(/PAN-LEFT:duration=([0-9.]+)/);
+    // Check for PAN-LEFT with distance and duration
+    const panLeftMatch = action.match(/PAN-LEFT:distance=([0-9]+)%:duration=([0-9.]+)/);
     if (panLeftMatch) {
-        const duration = parseFloat(panLeftMatch[1]);
+        const distance = parseInt(panLeftMatch[1]);
+        const duration = parseFloat(panLeftMatch[2]);
         return {
             type: 'left',
-            duration: duration, // Use exact duration from slider
-            direction: 'left'
+            direction: 'left',
+            distance: distance, // Actual distance value from slider
+            duration: duration
         };
     }
 
-    // Check for PAN-RIGHT with duration
-    const panRightMatch = action.match(/PAN-RIGHT:duration=([0-9.]+)/);
+    // Check for PAN-RIGHT with distance and duration
+    const panRightMatch = action.match(/PAN-RIGHT:distance=([0-9]+)%:duration=([0-9.]+)/);
     if (panRightMatch) {
-        const duration = parseFloat(panRightMatch[1]);
+        const distance = parseInt(panRightMatch[1]);
+        const duration = parseFloat(panRightMatch[2]);
         return {
             type: 'right',
-            duration: duration, // Use exact duration from slider
-            direction: 'right'
+            direction: 'right',
+            distance: distance, // Actual distance value from slider
+            duration: duration
         };
     }
 
-    return null; // No pan effect found
+    return null; // No complete pan effect found
 };
 
 /**
  * Helper function to extract zoom values from ZOOM-IN/ZOOM-OUT actions
  * @param {string} action - Action string to parse
- * @returns {Object|null} Object with zoom type and duration, or null if no zoom
+ * @returns {Object|null} Object with zoom type, scale, and duration, or null if incomplete
  */
 export const extractZoomFromAction = (action) => {
-    // Check for ZOOM-IN with duration
-    const zoomInMatch = action.match(/ZOOM-IN:duration=([0-9.]+)/);
+    // Check for ZOOM-IN with scale and duration
+    const zoomInMatch = action.match(/ZOOM-IN:scale=([0-9.]+):duration=([0-9.]+)/);
     if (zoomInMatch) {
-        const duration = parseFloat(zoomInMatch[1]);
+        const scale = parseFloat(zoomInMatch[1]);
+        const duration = parseFloat(zoomInMatch[2]);
         return {
             type: 'in',
-            duration: duration, // Use exact duration from slider
             direction: 'in',
-            startScale: 1,
-            endScale: 1.5
+            scale: scale, // Actual scale value from slider
+            duration: duration
         };
     }
 
-    // Check for ZOOM-OUT with duration
-    const zoomOutMatch = action.match(/ZOOM-OUT:duration=([0-9.]+)/);
+    // Check for ZOOM-OUT with scale and duration
+    const zoomOutMatch = action.match(/ZOOM-OUT:scale=([0-9.]+):duration=([0-9.]+)/);
     if (zoomOutMatch) {
-        const duration = parseFloat(zoomOutMatch[1]);
+        const scale = parseFloat(zoomOutMatch[1]);
+        const duration = parseFloat(zoomOutMatch[2]);
         return {
             type: 'out',
-            duration: duration, // Use exact duration from slider
             direction: 'out',
-            startScale: 1,
-            endScale: 0.7
+            scale: scale, // Actual scale value from slider
+            duration: duration
         };
     }
 
-    return null; // No zoom effect found
+    return null; // No complete zoom effect found
 };
 
 /**
