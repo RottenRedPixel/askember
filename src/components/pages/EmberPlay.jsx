@@ -8,6 +8,7 @@ import { useUIState } from '@/lib/useUIState';
 import { autoTriggerImageAnalysis, autoTriggerExifProcessing, autoTriggerLocationProcessing, handlePlay as handleMediaPlay, handlePlaybackComplete as handleMediaPlaybackComplete, handleExitPlay as handleMediaExitPlay } from '@/lib/mediaHandlers';
 import { debugRecordedAudio, generateSegmentAudio, playMultiVoiceAudio } from '@/lib/emberPlayer';
 import { parseScriptSegments } from '@/lib/scriptParser';
+import { getEmberTaggedPeople } from '@/lib/database';
 import useStore from '@/store';
 
 // CSS keyframes for fade-in animation
@@ -98,6 +99,24 @@ export default function EmberPlay() {
             return () => clearTimeout(timer);
         }
     }, [id]); // Only depend on ID to avoid infinite loops
+
+    // Load tagged people for zoom target resolution
+    useEffect(() => {
+        if (id) {
+            const loadTaggedPeople = async () => {
+                try {
+                    console.log('👤 EmberPlay: Loading tagged people for zoom targets...');
+                    const people = await getEmberTaggedPeople(id);
+                    setTaggedPeople(people || []);
+                    console.log('✅ EmberPlay: Loaded tagged people:', people?.length || 0);
+                } catch (error) {
+                    console.warn('⚠️ EmberPlay: Could not load tagged people:', error);
+                    setTaggedPeople([]);
+                }
+            };
+            loadTaggedPeople();
+        }
+    }, [id]);
 
     // Listen for script updates from StoryCutStudio
     useEffect(() => {
@@ -192,6 +211,7 @@ export default function EmberPlay() {
     const [textKey, setTextKey] = useState(0); // For triggering text animation
     const [showEndLogo, setShowEndLogo] = useState(false);
     const [showEndText, setShowEndText] = useState(false);
+    const [taggedPeople, setTaggedPeople] = useState([]); // For zoom target person lookup
 
     // Playback control refs
     const playbackStoppedRef = useRef(false);
@@ -244,8 +264,58 @@ export default function EmberPlay() {
         const zoomDuration = currentZoomEffect?.duration || 0;
         const maxTransitionDuration = Math.max(panDuration, zoomDuration, 0.5);
 
+        // Calculate transform-origin for zoom targets
+        let transformOrigin = 'center center'; // Default to center
+        if (currentZoomEffect && currentZoomEffect.target) {
+            const target = currentZoomEffect.target;
+
+            if (target.type === 'person' && target.personId) {
+                // Find the tagged person by ID
+                const person = taggedPeople.find(p => p.id === target.personId);
+                if (person && person.face_coordinates) {
+                    const coords = person.face_coordinates;
+                    // Get the current media element to calculate natural dimensions
+                    // Look for any img element that has the combined effects styles applied
+                    const imageUrl = currentMediaImageUrl || ember?.image_url;
+                    if (imageUrl) {
+                        const mediaElement = document.querySelector('img[src*="' + imageUrl.split('/').pop() + '"]');
+                        if (mediaElement && mediaElement.naturalWidth && mediaElement.naturalHeight &&
+                            coords.x >= 0 && coords.y >= 0 && coords.x <= mediaElement.naturalWidth && coords.y <= mediaElement.naturalHeight) {
+                            // Convert pixel coordinates to percentage for transform-origin
+                            const originX = (coords.x / mediaElement.naturalWidth) * 100;
+                            const originY = (coords.y / mediaElement.naturalHeight) * 100;
+                            transformOrigin = `${originX}% ${originY}%`;
+                            console.log(`🎯 Zoom target: Person "${person.person_name}" at (${Math.round(originX)}%, ${Math.round(originY)}%)`);
+                        } else {
+                            console.warn(`⚠️ Could not resolve zoom target for person "${person.person_name}" - using center`);
+                        }
+                    }
+                }
+            } else if (target.type === 'custom' && target.coordinates) {
+                // Use custom pixel coordinates
+                const coords = target.coordinates;
+                // Get the current media element to calculate natural dimensions
+                // Look for any img element that has the combined effects styles applied
+                const imageUrl = currentMediaImageUrl || ember?.image_url;
+                if (imageUrl) {
+                    const mediaElement = document.querySelector('img[src*="' + imageUrl.split('/').pop() + '"]');
+                    if (mediaElement && mediaElement.naturalWidth && mediaElement.naturalHeight && 
+                        coords.x >= 0 && coords.y >= 0 && coords.x <= mediaElement.naturalWidth && coords.y <= mediaElement.naturalHeight) {
+                        // Convert pixel coordinates to percentage for transform-origin
+                        const originX = (coords.x / mediaElement.naturalWidth) * 100;
+                        const originY = (coords.y / mediaElement.naturalHeight) * 100;
+                        transformOrigin = `${originX}% ${originY}%`;
+                        console.log(`🎯 Zoom target: Custom point at (${Math.round(originX)}%, ${Math.round(originY)}%)`);
+                    } else {
+                        console.warn(`⚠️ Could not resolve custom zoom target at (${coords.x}, ${coords.y}) - using center`);
+                    }
+                }
+            }
+        }
+
         setCombinedEffectStyles({
             transform: transforms.length > 0 ? transforms.join(' ') : 'scale(1) translateX(0)',
+            transformOrigin: transformOrigin,
             opacity: opacity,
             animation: animation || 'none', // CSS animation for fade, or none to clear
             transition: animation ? `transform ${maxTransitionDuration}s ease-out` : `transform ${maxTransitionDuration}s ease-out, opacity ${maxTransitionDuration}s ease-out` // Only transition non-fade properties when using animation
@@ -260,7 +330,7 @@ export default function EmberPlay() {
             animation: animation,
             maxDuration: Math.max(panDuration, zoomDuration, currentFadeEffect?.duration || 0, 0.5)
         });
-    }, [currentPanEffect, currentZoomEffect, currentFadeEffect]);
+    }, [currentPanEffect, currentZoomEffect, currentFadeEffect, taggedPeople, currentMediaImageUrl, ember?.image_url]);
 
     // Track text changes to trigger fade-in animation
     useEffect(() => {

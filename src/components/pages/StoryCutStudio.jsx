@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { FilmSlate, PencilSimple } from 'phosphor-react';
-import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber, getStoryCutsForEmber, getUserVoiceModel } from '@/lib/database';
+import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber, getStoryCutsForEmber, getUserVoiceModel, getEmberTaggedPeople } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import { formatDuration } from '@/lib/dateUtils';
@@ -15,6 +15,54 @@ import { handlePlay as handleMediaPlay, handlePlaybackComplete as handleMediaPla
 import useStore from '@/store';
 import { useUIState } from '@/lib/useUIState';
 import AddBlockModal from '@/components/AddBlockModal';
+import ZoomTargetModal from '@/components/ZoomTargetModal';
+
+// Smart function to split effects by commas while preserving custom coordinates
+function smartSplitEffects(content) {
+    const effects = [];
+    let current = '';
+    let insideTarget = false;
+
+    for (let i = 0; i < content.length; i++) {
+        const char = content[i];
+
+        // Check if we're entering a target parameter
+        if (content.substr(i, 7) === 'target=') {
+            insideTarget = true;
+            current += char;
+        }
+        // Check if we're at a comma
+        else if (char === ',') {
+            if (insideTarget) {
+                // Inside target parameter, this comma is part of coordinates
+                current += char;
+                // Check if we're at the end of the target parameter (next effect starts)
+                const remaining = content.substr(i + 1);
+                if (remaining.match(/^\s*(FADE-|PAN-|ZOOM-)/)) {
+                    insideTarget = false;
+                }
+            } else {
+                // Normal comma separation between effects
+                if (current.trim()) {
+                    effects.push(current.trim());
+                }
+                current = '';
+            }
+        }
+        // Any other character
+        else {
+            current += char;
+        }
+    }
+
+    // Add the last effect
+    if (current.trim()) {
+        effects.push(current.trim());
+    }
+
+    console.log(`🎯 Smart split effects: "${content}" → `, effects);
+    return effects;
+}
 
 export default function StoryCutStudio() {
     const { id, storyCutId } = useParams(); // id is ember ID, storyCutId is story cut ID
@@ -28,6 +76,10 @@ export default function StoryCutStudio() {
     const [effectDurations, setEffectDurations] = useState({}); // Track effect duration values from sliders
     const [effectDistances, setEffectDistances] = useState({}); // Track pan distances  
     const [effectScales, setEffectScales] = useState({}); // Track zoom scales
+    const [effectTargets, setEffectTargets] = useState({}); // Track zoom targets (center, person, custom)
+    const [showZoomTargetModal, setShowZoomTargetModal] = useState(false);
+    const [selectedZoomBlock, setSelectedZoomBlock] = useState(null);
+    const [taggedPeople, setTaggedPeople] = useState([]); // Tagged people for target selection
 
     // Real story cut data
     const [storyCut, setStoryCut] = useState(null);
@@ -437,6 +489,7 @@ export default function StoryCutStudio() {
                 const initialDurations = {};
                 const initialDistances = {};
                 const initialScales = {};
+                const initialTargets = {};
 
                 // Parse voice declarations and override story cut voice names
                 let embedVoiceNames = {
@@ -578,8 +631,8 @@ export default function StoryCutStudio() {
                             if (!content.startsWith('id=') && !content.startsWith('name=') && content !== 'media') {
                                 console.log(`🎬 Parsing effects from content: "${content}" for block ${currentBlockId}`);
 
-                                // Parse individual effects separated by commas - content already extracted from angle brackets
-                                const effects = content.split(',');
+                                // Parse individual effects separated by commas - smart splitting to preserve custom coordinates
+                                const effects = smartSplitEffects(content);
                                 effects.forEach(effect => {
                                     const trimmedEffect = effect.trim();
 
@@ -606,17 +659,41 @@ export default function StoryCutStudio() {
                                         console.log(`🎬 Parsed PAN effect: ${direction} ${distance ? distance + '%' : 'default'} ${duration}s for block ${currentBlockId}`);
                                     }
 
-                                    // Parse ZOOM effects: ZOOM-IN:scale=1.5:duration=3.5 or ZOOM-OUT:duration=2.0 (legacy)
-                                    const zoomMatch = trimmedEffect.match(/ZOOM-(IN|OUT)(?::scale=([0-9.]+))?:duration=([0-9.]+)/);
+                                    // Parse ZOOM effects: ZOOM-IN:scale=1.5:duration=3.5:target=person:123 or ZOOM-OUT:duration=2.0 (legacy)
+                                    const zoomMatch = trimmedEffect.match(/ZOOM-(IN|OUT)(?::scale=([0-9.]+))?:duration=([0-9.]+)(?::target=(.*))?$/);
                                     if (zoomMatch) {
-                                        const [, direction, scale, duration] = zoomMatch;
+                                        const [, direction, scale, duration, target] = zoomMatch;
                                         currentBlockEffects.push('zoom');
                                         initialDirections[`zoom-${currentBlockId}`] = direction.toLowerCase();
                                         initialDurations[`zoom-${currentBlockId}`] = parseFloat(duration);
                                         if (scale) {
                                             initialScales[`zoom-${currentBlockId}`] = parseFloat(scale);
                                         }
-                                        console.log(`🎬 Parsed ZOOM effect: ${direction} ${scale ? scale + 'x' : 'default'} ${duration}s for block ${currentBlockId}`);
+
+                                        // Parse target information
+                                        if (target) {
+                                            if (target.startsWith('person:')) {
+                                                const personId = target.replace('person:', '');
+                                                initialTargets[`zoom-${currentBlockId}`] = { type: 'person', personId };
+                                                console.log(`🎯 Parsed zoom target for block ${currentBlockId}: person ${personId}`);
+                                            } else if (target.startsWith('custom:')) {
+                                                const coords = target.replace('custom:', '').split(',');
+                                                console.log(`🎯 Parsing custom coordinates: raw="${target}", coords=`, coords);
+                                                if (coords.length === 2) {
+                                                    // Parse pixel coordinates (same as tagged people system)
+                                                    const parsedCoords = { x: parseInt(coords[0]), y: parseInt(coords[1]) };
+                                                    initialTargets[`zoom-${currentBlockId}`] = {
+                                                        type: 'custom',
+                                                        coordinates: parsedCoords
+                                                    };
+                                                    console.log(`🎯 Parsed zoom target for block ${currentBlockId}: custom`, parsedCoords);
+                                                } else {
+                                                    console.warn(`🎯 Invalid custom coordinates format: ${coords.length} parts instead of 2`);
+                                                }
+                                            }
+                                        }
+
+                                        console.log(`🎬 Parsed ZOOM effect: ${direction} ${scale ? scale + 'x' : 'default'} ${duration}s${target ? ' target=' + target : ''} for block ${currentBlockId}`);
                                     }
                                 });
                             }
@@ -846,7 +923,7 @@ export default function StoryCutStudio() {
                 for (const block of realBlocks) {
                     if (block.type === 'voice' && block.voiceType === 'contributor') {
                         let userId = null;
-                        
+
                         // Try to get user ID from message data first
                         if (block.messageId && loadedStoryMessages && loadedStoryMessages.length > 0) {
                             const foundMessage = loadedStoryMessages.find(msg => msg.id === block.messageId);
@@ -855,10 +932,10 @@ export default function StoryCutStudio() {
                                 console.log(`🔍 Found user ID ${userId} for ${block.voiceTag} via messageId ${block.messageId}`);
                             }
                         }
-                        
+
                         // Fallback: try to find user ID by matching contributor name
                         if (!userId && loadedStoryMessages && loadedStoryMessages.length > 0) {
-                            const nameMatch = loadedStoryMessages.find(msg => 
+                            const nameMatch = loadedStoryMessages.find(msg =>
                                 msg.user_first_name && msg.user_first_name.toLowerCase() === block.voiceTag.toLowerCase()
                             );
                             if (nameMatch) {
@@ -866,7 +943,7 @@ export default function StoryCutStudio() {
                                 console.log(`🔍 Found user ID ${userId} for ${block.voiceTag} via name matching`);
                             }
                         }
-                        
+
                         // Check voice model if we found a user ID
                         if (userId) {
                             try {
@@ -938,6 +1015,18 @@ export default function StoryCutStudio() {
                 setEffectDurations(initialDurations);
                 setEffectDistances(initialDistances);
                 setEffectScales(initialScales);
+                setEffectTargets(initialTargets);
+
+                // Load tagged people for zoom target selection
+                console.log('👤 Loading tagged people for zoom targets...');
+                try {
+                    const people = await getEmberTaggedPeople(id);
+                    setTaggedPeople(people || []);
+                    console.log('✅ Loaded tagged people:', people?.length || 0);
+                } catch (taggedError) {
+                    console.warn('⚠️ Could not load tagged people:', taggedError);
+                    setTaggedPeople([]);
+                }
 
             } catch (err) {
                 console.error('Failed to load story cut:', err);
@@ -1256,7 +1345,21 @@ export default function StoryCutStudio() {
                         const direction = effectDirections[`zoom-${block.id}`] || 'in';
                         const duration = effectDurations[`zoom-${block.id}`] || 3.5;
                         const scale = effectScales[`zoom-${block.id}`] || 1.5;
-                        effectsArray.push(`ZOOM-${direction.toUpperCase()}:scale=${scale}:duration=${duration}`);
+                        const target = effectTargets[`zoom-${block.id}`];
+
+                        let zoomEffect = `ZOOM-${direction.toUpperCase()}:scale=${scale}:duration=${duration}`;
+
+                        // Add target information if specified
+                        if (target && target.type !== 'center') {
+                            if (target.type === 'person' && target.personId) {
+                                zoomEffect += `:target=person:${target.personId}`;
+                            } else if (target.type === 'custom' && target.coordinates) {
+                                // Use pixel coordinates (same as tagged people system)
+                                zoomEffect += `:target=custom:${Math.round(target.coordinates.x)},${Math.round(target.coordinates.y)}`;
+                            }
+                        }
+
+                        effectsArray.push(zoomEffect);
                     }
 
                     // Join effects with commas, fallback to 'media' if no effects
@@ -1476,6 +1579,27 @@ export default function StoryCutStudio() {
             email: null,
             fallbackText: voiceTag[0]?.toUpperCase() || '?'
         };
+    };
+
+    // Handle saving custom zoom target point
+    const handleSaveZoomTarget = async (coordinates) => {
+        if (!selectedZoomBlock) return;
+
+        setEffectTargets(prev => ({
+            ...prev,
+            [`zoom-${selectedZoomBlock.id}`]: {
+                type: 'custom',
+                coordinates
+            }
+        }));
+
+        console.log(`🎯 Set custom zoom target for block ${selectedZoomBlock.id}:`, coordinates);
+    };
+
+    // Handle closing zoom target modal
+    const handleCloseZoomTargetModal = () => {
+        setShowZoomTargetModal(false);
+        setSelectedZoomBlock(null);
     };
 
     // Handle adding a new media block
@@ -2217,7 +2341,7 @@ export default function StoryCutStudio() {
                                                                         <input
                                                                             type="range"
                                                                             min="0.5"
-                                                                            max="3.0"
+                                                                            max="5.0"
                                                                             step="0.1"
                                                                             value={effectScales[`zoom-${block.id}`] || 1.5}
                                                                             onChange={(e) => {
@@ -2228,6 +2352,72 @@ export default function StoryCutStudio() {
                                                                             }}
                                                                             className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
                                                                         />
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {selectedEffects[`effect-${block.id}`].includes('zoom') && (
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="flex-1 space-y-2">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="text-sm text-blue-700">Zoom Target</span>
+                                                                        </div>
+                                                                        <select
+                                                                            value={(() => {
+                                                                                const target = effectTargets[`zoom-${block.id}`];
+                                                                                if (!target) return 'center';
+                                                                                if (target.type === 'person') return `person:${target.personId}`;
+                                                                                if (target.type === 'custom') return 'custom';
+                                                                                return 'center';
+                                                                            })()}
+                                                                            onChange={(e) => {
+                                                                                const value = e.target.value;
+                                                                                if (value === 'center') {
+                                                                                    setEffectTargets(prev => ({
+                                                                                        ...prev,
+                                                                                        [`zoom-${block.id}`]: { type: 'center' }
+                                                                                    }));
+                                                                                } else if (value.startsWith('person:')) {
+                                                                                    const personId = value.replace('person:', '');
+                                                                                    setEffectTargets(prev => ({
+                                                                                        ...prev,
+                                                                                        [`zoom-${block.id}`]: { type: 'person', personId }
+                                                                                    }));
+                                                                                } else if (value === 'custom') {
+                                                                                    // Open modal for custom point selection
+                                                                                    setSelectedZoomBlock(block);
+                                                                                    setShowZoomTargetModal(true);
+                                                                                }
+                                                                            }}
+                                                                            className="w-full p-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                                        >
+                                                                            <option value="center">Photo Center</option>
+                                                                            {taggedPeople.map(person => (
+                                                                                <option key={person.id} value={`person:${person.id}`}>
+                                                                                    {person.person_name}
+                                                                                </option>
+                                                                            ))}
+                                                                            <option value="custom">Select Custom Point...</option>
+                                                                        </select>
+
+                                                                        {/* Current Target Display */}
+                                                                        <div className="mt-2 text-xs text-gray-600">
+                                                                            {(() => {
+                                                                                const target = effectTargets[`zoom-${block.id}`];
+                                                                                if (!target || target.type === 'center') {
+                                                                                    return 'Target: Photo Center';
+                                                                                } else if (target.type === 'person' && target.personId) {
+                                                                                    const person = taggedPeople.find(p => p.id === target.personId);
+                                                                                    return person ? `Target: ${person.person_name}` : 'Target: Unknown Person';
+                                                                                } else if (target.type === 'custom' && target.coordinates) {
+                                                                                    console.log(`🎯 Displaying custom target:`, target.coordinates);
+                                                                                    return `Target: (${Math.round(target.coordinates.x)}, ${Math.round(target.coordinates.y)}) pixels`;
+                                                                                } else if (target.type === 'custom') {
+                                                                                    console.warn(`🎯 Custom target missing coordinates:`, target);
+                                                                                    return 'Target: Custom Point (Invalid)';
+                                                                                }
+                                                                                return 'Target: Photo Center';
+                                                                            })()}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             )}
@@ -2743,6 +2933,15 @@ export default function StoryCutStudio() {
                 emberId={id}
                 onAddBlock={handleAddMediaBlock}
                 storyMessages={storyMessages}
+            />
+
+            {/* Zoom Target Modal */}
+            <ZoomTargetModal
+                isOpen={showZoomTargetModal}
+                onClose={handleCloseZoomTargetModal}
+                mediaUrl={selectedZoomBlock?.mediaUrl}
+                onSave={handleSaveZoomTarget}
+                currentTarget={selectedZoomBlock ? effectTargets[`zoom-${selectedZoomBlock.id}`]?.coordinates : null}
             />
         </div>
     );

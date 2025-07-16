@@ -488,33 +488,79 @@ export const extractPanFromAction = (action) => {
 /**
  * Helper function to extract zoom values from ZOOM-IN/ZOOM-OUT actions
  * @param {string} action - Action string to parse
- * @returns {Object|null} Object with zoom type, scale, and duration, or null if incomplete
+ * @returns {Object|null} Object with zoom type, scale, duration, and target, or null if incomplete
  */
 export const extractZoomFromAction = (action) => {
-    // Check for ZOOM-IN with scale and duration
-    const zoomInMatch = action.match(/ZOOM-IN:scale=([0-9.]+):duration=([0-9.]+)/);
+    // Check for ZOOM-IN with scale, duration, and optional target
+    const zoomInMatch = action.match(/ZOOM-IN:scale=([0-9.]+):duration=([0-9.]+)(?::target=(.+))?/);
     if (zoomInMatch) {
         const scale = parseFloat(zoomInMatch[1]);
         const duration = parseFloat(zoomInMatch[2]);
-        return {
+        const targetString = zoomInMatch[3];
+        
+        const result = {
             type: 'in',
             direction: 'in',
             scale: scale, // Actual scale value from slider
-            duration: duration
+            duration: duration,
+            target: null // Default to center/null
         };
+        
+        // Parse target information if present
+        if (targetString) {
+            if (targetString.startsWith('person:')) {
+                result.target = {
+                    type: 'person',
+                    personId: targetString.replace('person:', '')
+                };
+            } else if (targetString.startsWith('custom:')) {
+                const coords = targetString.replace('custom:', '').split(',');
+                if (coords.length === 2) {
+                    result.target = {
+                        type: 'custom',
+                        coordinates: { x: parseInt(coords[0]), y: parseInt(coords[1]) }
+                    };
+                }
+            }
+        }
+        
+        return result;
     }
 
-    // Check for ZOOM-OUT with scale and duration
-    const zoomOutMatch = action.match(/ZOOM-OUT:scale=([0-9.]+):duration=([0-9.]+)/);
+    // Check for ZOOM-OUT with scale, duration, and optional target
+    const zoomOutMatch = action.match(/ZOOM-OUT:scale=([0-9.]+):duration=([0-9.]+)(?::target=(.+))?/);
     if (zoomOutMatch) {
         const scale = parseFloat(zoomOutMatch[1]);
         const duration = parseFloat(zoomOutMatch[2]);
-        return {
+        const targetString = zoomOutMatch[3];
+        
+        const result = {
             type: 'out',
             direction: 'out',
             scale: scale, // Actual scale value from slider
-            duration: duration
+            duration: duration,
+            target: null // Default to center/null
         };
+        
+        // Parse target information if present
+        if (targetString) {
+            if (targetString.startsWith('person:')) {
+                result.target = {
+                    type: 'person',
+                    personId: targetString.replace('person:', '')
+                };
+            } else if (targetString.startsWith('custom:')) {
+                const coords = targetString.replace('custom:', '').split(',');
+                if (coords.length === 2) {
+                    result.target = {
+                        type: 'custom',
+                        coordinates: { x: parseInt(coords[0]), y: parseInt(coords[1]) }
+                    };
+                }
+            }
+        }
+        
+        return result;
     }
 
     return null; // No complete zoom effect found
