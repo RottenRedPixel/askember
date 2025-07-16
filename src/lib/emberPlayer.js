@@ -10,6 +10,49 @@ import {
 } from '@/lib/scriptParser';
 
 /**
+ * Audio engine for ember playback
+ * Extracted from EmberDetail.jsx to improve maintainability
+ */
+
+// Global audio tracking for reliable stopping
+let activeAudioRegistry = [];
+
+/**
+ * Register an audio object for tracking
+ * @param {Audio} audio - Audio object to track
+ */
+const registerAudio = (audio) => {
+  activeAudioRegistry.push(audio);
+  console.log(`🎵 Registered audio object - Registry size: ${activeAudioRegistry.length}`);
+}
+
+/**
+ * Clear all tracked audio objects
+ */
+const clearAudioRegistry = () => {
+  console.log(`🧹 Clearing audio registry - Stopping ${activeAudioRegistry.length} audio objects`);
+
+  activeAudioRegistry.forEach((audio, index) => {
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = ''; // Stops ElevenLabs streaming downloads
+      // Remove event listeners to prevent any delayed callbacks
+      audio.onended = null;
+      audio.onerror = null;
+      audio.onloadeddata = null;
+      audio.oncanplay = null;
+      console.log(`🛑 Stopped tracked audio ${index + 1}`);
+    } catch (error) {
+      console.warn(`⚠️ Error stopping tracked audio ${index + 1}:`, error);
+    }
+  });
+
+  activeAudioRegistry = [];
+  console.log('✅ Audio registry cleared');
+}
+
+/**
  * Get voice ID with script configuration priority over story cut
  * @param {Object} segment - Segment with voice configuration
  * @param {Object} storyCut - Story cut with fallback voice IDs
@@ -30,11 +73,6 @@ const getVoiceId = (segment, storyCut, voiceType) => {
 
   return null;
 };
-
-/**
- * Audio engine for ember playback
- * Extracted from EmberDetail.jsx to improve maintainability
- */
 
 /**
  * Handle complex contributor audio generation with preference fallbacks
@@ -76,6 +114,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
     const audioBlob = await textToSpeech(attributedContent, fallbackVoiceId);
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
+    registerAudio(audio);
 
     return {
       type: 'text_response',
@@ -101,6 +140,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
     const audioBlob = await textToSpeech(textToSynthesize, userVoiceModel.elevenlabs_voice_id);
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
+    registerAudio(audio);
 
     return {
       type: 'personal_voice_model',
@@ -120,6 +160,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
     console.log(`🔗 Audio URL:`, audioData.audio_url);
 
     const audio = new Audio(audioData.audio_url);
+    registerAudio(audio);
     return {
       type: 'recorded',
       audio,
@@ -151,6 +192,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
     const audioBlob = await textToSpeech(audioContent, fallbackVoiceId);
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
+    registerAudio(audio);
 
     return {
       type: 'attribution_fallback',
@@ -190,6 +232,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
     const audioBlob = await textToSpeech(attributedContent, fallbackVoiceId);
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
+    registerAudio(audio);
 
     return {
       type: 'text_response_fallback',
@@ -225,6 +268,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       const audioBlob = await textToSpeech(audioContent, fallbackVoiceId);
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
+      registerAudio(audio);
 
       return {
         type: 'text_response',
@@ -238,6 +282,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
     } else if (userPreference === 'recorded' && hasRecordedAudio) {
       console.log(`🎙️ ✅ Using recorded audio (final fallback)`);
       const audio = new Audio(audioData.audio_url);
+      registerAudio(audio);
       return {
         type: 'recorded',
         audio,
@@ -258,6 +303,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       const audioBlob = await textToSpeech(textToSynthesize, userVoiceModel.elevenlabs_voice_id);
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
+      registerAudio(audio);
 
       return {
         type: 'personal_voice_model',
@@ -291,6 +337,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       const audioBlob = await textToSpeech(audioContent, fallbackVoiceId);
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
+      registerAudio(audio);
 
       return {
         type: 'ultimate_fallback',
@@ -468,6 +515,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
               console.log(`🎯 Content: "${messageData.content}"`);
 
               const audio = new Audio(messageData.audio_url);
+              registerAudio(audio);
               return {
                 type: 'contributor_recorded',
                 audio,
@@ -502,6 +550,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
             console.log(`🎯 Content: "${messageData.content}"`);
 
             const audio = new Audio(messageData.audio_url);
+            registerAudio(audio);
             return {
               type: 'contributor_recorded',
               audio,
@@ -605,6 +654,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       const audioBlob = await textToSpeech(audioContent, voiceId);
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
+      registerAudio(audio);
 
       return {
         type: 'ember',
@@ -626,6 +676,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       const audioBlob = await textToSpeech(audioContent, voiceId);
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
+      registerAudio(audio);
 
       return {
         type: 'narrator',
@@ -692,6 +743,9 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
   } = stateSetters;
 
   console.log('🎭 Starting multi-voice playback with', segments.length, 'segments');
+
+  // Clear any previous audio registry to start fresh
+  clearAudioRegistry();
 
   // 🐛 DEBUG: Run debug helper to analyze recorded audio matching
   debugRecordedAudio(recordedAudio, segments);
@@ -1194,24 +1248,6 @@ export const stopMultiVoiceAudio = (stateSetters) => {
   // CRITICAL: Set stop flag FIRST to prevent any new timeline steps
   playbackStoppedRef.current = true;
 
-  // Stop ALL audio elements currently playing (including newly created ones)
-  const allPageAudio = document.querySelectorAll('audio');
-  allPageAudio.forEach((audio, index) => {
-    try {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.src = ''; // Stops ElevenLabs streaming downloads
-      // Remove event listeners to prevent any delayed callbacks
-      audio.onended = null;
-      audio.onerror = null;
-      audio.onloadeddata = null;
-      audio.oncanplay = null;
-      console.log(`🛑 Stopped audio element ${index + 1}`);
-    } catch (error) {
-      console.warn(`⚠️ Error stopping audio element ${index + 1}:`, error);
-    }
-  });
-
   // Clear all timeouts immediately
   if (sentenceTimeouts) {
     sentenceTimeouts.forEach(timeout => clearTimeout(timeout));
@@ -1250,6 +1286,9 @@ export const stopMultiVoiceAudio = (stateSetters) => {
   setCurrentVoiceTag('');
   setCurrentSentenceIndex(0);
   setCurrentSegmentSentences([]);
+
+  // Clear all tracked audio objects
+  clearAudioRegistry();
 
   console.log('✅ EmberPlayer: Timeline playback stopped and all resources cleaned up');
 };
