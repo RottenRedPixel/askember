@@ -2039,29 +2039,59 @@ export const saveEmberSupportingMedia = async (emberId, userId, mediaFiles) => {
 };
 
 /**
- * Get all supporting media for an ember
+ * Get all supporting media for an ember (with public access support)
  */
 export const getEmberSupportingMedia = async (emberId) => {
   try {
-    const { data, error } = await supabase
-      .from('ember_supporting_media')
-      .select(`
-        *,
-        uploader:user_profiles!uploaded_by_user_id(
-          user_id,
-          first_name,
-          last_name,
-          avatar_url
-        )
-      `)
-      .eq('ember_id', emberId)
-      .order('created_at', { ascending: false });
+    // Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (error) {
-      throw new Error(error.message);
+    let supportingMedia;
+
+    if (user) {
+      // User is authenticated - use normal query with RLS and join user profiles
+      const { data, error } = await supabase
+        .from('ember_supporting_media')
+        .select(`
+          *,
+          uploader:user_profiles!uploaded_by_user_id(
+            user_id,
+            first_name,
+            last_name,
+            avatar_url
+          )
+        `)
+        .eq('ember_id', emberId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      supportingMedia = data || [];
+    } else {
+      // User is not authenticated - use public RPC function to bypass RLS
+      console.log('🌍 Public access: fetching supporting media via RPC function');
+      try {
+        const { data, error } = await supabase.rpc('get_public_supporting_media', {
+          ember_uuid: emberId
+        });
+
+        if (error) {
+          console.error('RPC error details:', error);
+          throw new Error(error.message);
+        }
+
+        console.log('🌍 Public RPC supporting media response:', data);
+        supportingMedia = data || [];
+      } catch (rpcError) {
+        // RPC function doesn't exist yet - gracefully fallback to empty array
+        console.warn('🌍 Public supporting media RPC not available (migration needed):', rpcError.message);
+        console.log('🔄 Falling back to empty supporting media array for public user');
+        supportingMedia = [];
+      }
     }
 
-    return data || [];
+    return supportingMedia;
   } catch (error) {
     console.error('Error fetching supporting media:', error);
     throw error;
@@ -2473,6 +2503,47 @@ $$;
 -- Grant execute permission to anonymous users (public access)
 GRANT EXECUTE ON FUNCTION get_public_story_cuts(UUID) TO anon;
 GRANT EXECUTE ON FUNCTION get_public_story_cuts(UUID) TO authenticated;
+
+-- Create or replace the function to get public supporting media
+CREATE OR REPLACE FUNCTION get_public_supporting_media(ember_uuid UUID)
+RETURNS TABLE (
+  id UUID,
+  ember_id UUID,
+  file_url TEXT,
+  file_name TEXT,
+  file_type TEXT,
+  file_size BIGINT,
+  display_name TEXT,
+  uploaded_by_user_id UUID,
+  created_at TIMESTAMP WITH TIME ZONE,
+  updated_at TIMESTAMP WITH TIME ZONE
+)
+LANGUAGE plpgsql
+SECURITY DEFINER -- This allows the function to bypass RLS
+AS $$
+BEGIN
+  -- Return supporting media data without any authentication checks
+  RETURN QUERY
+  SELECT 
+    esm.id,
+    esm.ember_id,
+    esm.file_url,
+    esm.file_name,
+    esm.file_type,
+    esm.file_size,
+    esm.display_name,
+    esm.uploaded_by_user_id,
+    esm.created_at,
+    esm.updated_at
+  FROM ember_supporting_media esm
+  WHERE esm.ember_id = ember_uuid
+  ORDER BY esm.created_at DESC;
+END;
+$$;
+
+-- Grant execute permission to anonymous users (public access)
+GRANT EXECUTE ON FUNCTION get_public_supporting_media(UUID) TO anon;
+GRANT EXECUTE ON FUNCTION get_public_supporting_media(UUID) TO authenticated;
     `;
 
     const result = await executeSQL(migrationSQL);

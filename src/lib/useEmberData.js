@@ -213,7 +213,42 @@ export const useEmber = (id, userProfile = null) => {
                     }
                 } catch (sharingError) {
                     console.warn('🌍 Could not fetch sharing data for public user (avatars will not show):', sharingError);
-                    setSharedUsers([]);
+                    console.log('🔄 Attempting to extract avatar data from story messages...');
+                    
+                    // Fallback: Extract avatar data from story messages which ARE accessible to public users
+                    try {
+                        const storyData = await getAllStoryMessagesForEmber(id);
+                        const allMessages = storyData.messages || [];
+                        
+                        // Filter to user responses and extract unique contributors
+                        const userResponses = allMessages.filter(message =>
+                            message.sender === 'user' || message.message_type === 'response'
+                        );
+                        
+                        // Build unique user map from story messages
+                        const userMap = new Map();
+                        userResponses.forEach(message => {
+                            if (message.user_id && !userMap.has(message.user_id)) {
+                                userMap.set(message.user_id, {
+                                    id: message.user_id,
+                                    user_id: message.user_id,
+                                    first_name: message.user_first_name || 'Unknown',
+                                    last_name: message.user_last_name || '',
+                                    avatar_url: message.user_avatar_url || null,
+                                    email: message.user_email || '',
+                                    permission_level: 'view'
+                                });
+                            }
+                        });
+                        
+                        const contributorUsers = Array.from(userMap.values());
+                        setSharedUsers(contributorUsers);
+                        console.log('✅ Public avatar fallback successful - extracted from story messages:', contributorUsers);
+                    } catch (storyError) {
+                        console.warn('⚠️ Could not extract avatar data from story messages:', storyError);
+                        setSharedUsers([]);
+                    }
+                    
                     setUserPermission('public');
                 }
             }

@@ -1061,8 +1061,11 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
             setCurrentPanEffect(panEffect);
             setCurrentZoomEffect(zoomEffect);
 
-            // Set image URL - EmberPlay will now handle the coordination with effects
-            setCurrentMediaImageUrl(resolvedMediaUrl);
+            // Force React state change by clearing first, then setting - ensures re-render even with same URL
+            setCurrentMediaImageUrl(null);
+            setTimeout(() => {
+              setCurrentMediaImageUrl(resolvedMediaUrl);
+            }, 10); // Brief delay to ensure React processes the null first
 
             // Log effects for debugging
             if (fadeEffect) {

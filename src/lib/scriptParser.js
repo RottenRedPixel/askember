@@ -620,51 +620,11 @@ export const resolveMediaReference = async (segment, emberId) => {
         let emberPhotos = [];
         let supportingMedia = [];
 
-        try {
-            // Try to fetch photos and supporting media
-            [emberPhotos, supportingMedia] = await Promise.all([
-                getEmberPhotos(emberId),
-                getEmberSupportingMedia(emberId)
-            ]);
-        } catch (accessError) {
-            // For shared embers accessed by public users, these queries will fail due to RLS
-            console.warn('📸 Media access restricted (likely public user on shared ember):', accessError.message);
-            console.log('🌍 Attempting to get main ember image as fallback...');
-
-            // Try to get the main ember image as fallback using public access method
-            try {
-                const { getEmber } = await import('./database');
-                const emberData = await getEmber(emberId);
-                if (emberData?.image_url) {
-                    console.log('✅ Using main ember image as media fallback for shared ember');
-                    return emberData.image_url;
-                }
-            } catch (emberError) {
-                console.error('❌ Could not get ember data for fallback, trying alternative approach:', emberError);
-
-                // Alternative: try to extract image from existing ember context
-                // This will work if ember data was already loaded in useEmberData
-                try {
-                    // Check if ember data is available in global context or localStorage
-                    if (typeof window !== 'undefined') {
-                        const emberCache = sessionStorage.getItem(`ember_${emberId}`);
-                        if (emberCache) {
-                            const cachedEmber = JSON.parse(emberCache);
-                            if (cachedEmber?.image_url) {
-                                console.log('✅ Using cached ember image as media fallback');
-                                return cachedEmber.image_url;
-                            }
-                        }
-                    }
-                } catch (cacheError) {
-                    console.error('❌ Could not get cached ember data:', cacheError);
-                }
-            }
-
-            // Return null if all fallbacks fail
-            console.warn('⚠️ All fallback attempts failed - no media will be displayed');
-            return null;
-        }
+                // Try to fetch photos and supporting media
+        [emberPhotos, supportingMedia] = await Promise.all([
+            getEmberPhotos(emberId),
+            getEmberSupportingMedia(emberId)
+        ]);
 
         console.log(`🔍 Resolving media reference: ${segment.mediaId || segment.mediaName}`);
         console.log(`📸 Available photos: ${emberPhotos.length}`);
@@ -686,7 +646,24 @@ export const resolveMediaReference = async (segment, emberId) => {
                 return mediaMatch.file_url;
             }
 
-            // Legacy: treat mediaId as direct URL if no match found
+            // Check if we should fallback to main ember image
+            // This handles: 1) No media library access, 2) Media ID not found in available media
+            if ((emberPhotos.length === 0 && supportingMedia.length === 0) || 
+                (!photoMatch && !mediaMatch)) {
+                console.log('📸 No media library found or media ID not found - attempting fallback to main ember image...');
+                try {
+                    const { getEmber } = await import('./database');
+                    const emberData = await getEmber(emberId);
+                    if (emberData?.image_url) {
+                        console.log('✅ Using main ember image as media fallback:', emberData.image_url);
+                        return emberData.image_url;
+                    }
+                } catch (emberError) {
+                    console.warn('⚠️ Could not get main ember image for fallback:', emberError);
+                }
+            }
+
+            // Legacy: treat mediaId as direct URL if no match found and no fallback available
             console.log(`ℹ️ No ID match found, treating as legacy reference: ${segment.mediaId}`);
             return segment.mediaId;
         }
