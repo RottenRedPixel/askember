@@ -738,7 +738,7 @@ export default function EmberDetail() {
         duration: generatedStoryCut.duration,
         wordCount: generatedStoryCut.wordCount,
         storyFocus: formData.focus,
-        full_script: generatedStoryCut.full_script,
+        blocks: generatedStoryCut.blocks, // 🚀 NEW: Include JSON blocks from AI response
         ember_voice_lines: generatedStoryCut.ember_voice_lines,
         narrator_voice_lines: generatedStoryCut.narrator_voice_lines,
         ember_voice_name: generatedStoryCut.ember_voice_name,

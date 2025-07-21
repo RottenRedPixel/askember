@@ -899,7 +899,6 @@ export const saveStoryCut = async (storyCutData) => {
       duration: storyCutData.duration,
       word_count: storyCutData.wordCount,
       story_focus: storyCutData.storyFocus,
-      full_script: storyCutData.full_script,
       ember_voice_lines: storyCutData.ember_voice_lines,
       narrator_voice_lines: storyCutData.narrator_voice_lines,
       selected_contributors: storyCutData.voiceCasting?.contributors,
@@ -922,7 +921,7 @@ export const saveStoryCut = async (storyCutData) => {
         generated_at: new Date().toISOString()
       };
     } else {
-      console.log('📝 No JSON blocks found, using legacy full_script only');
+      console.log('📝 No JSON blocks found - this should not happen with new AI generation');
     }
 
     // Only include Ember voice data if Ember voice object has a voice_id
