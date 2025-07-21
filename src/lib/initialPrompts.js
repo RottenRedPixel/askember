@@ -240,37 +240,38 @@ CONTRIBUTOR QUOTE MATCHING:
 - Never repeat the same quote multiple times
 
 JSON BLOCKS EXAMPLES:
-```json
-[
-      {
-        "type": "voice",
-        "speaker": "EMBER VOICE",
-        "content": "A sunny day at Topgolf, where smiles and swings abound.",
-        "voice_preference": "{{ember_voice_name}}",
-        "message_id": null,
-        "user_id": null,
-        "order": 1
-      },
-      {
-        "type": "voice",
-        "speaker": "Sarah",
-        "content": "We had so much fun at the beach today.",
-        "voice_preference": "recorded",
-        "message_id": "abc123-def456",
-        "user_id": "user456",
-        "order": 2
-      },
-      {
-        "type": "voice",
-        "speaker": "NARRATOR",
-        "content": "The family gathered for a day of friendly competition.",
-        "voice_preference": "{{narrator_voice_name}}",
-        "message_id": null,
-        "user_id": null,
-        "order": 3
-      }
-    ]
-```
+Example 1 - Ember Voice:
+{
+  "type": "voice",
+  "speaker": "EMBER VOICE",
+  "content": "A sunny day at Topgolf, where smiles and swings abound.",
+  "voice_preference": "{{ember_voice_name}}",
+  "message_id": null,
+  "user_id": null,
+  "order": 1
+}
+
+Example 2 - Contributor with Recording:
+{
+  "type": "voice", 
+  "speaker": "Sarah",
+  "content": "We had so much fun at the beach today.",
+  "voice_preference": "recorded",
+  "message_id": "abc123-def456", 
+  "user_id": "user456",
+  "order": 2
+}
+
+Example 3 - Narrator Voice:
+{
+  "type": "voice",
+  "speaker": "NARRATOR", 
+  "content": "The family gathered for a day of friendly competition.",
+  "voice_preference": "{{narrator_voice_name}}",
+  "message_id": null,
+  "user_id": null,
+  "order": 3
+}
 
 VOICE ARRAYS (Legacy Support):
 - Still populate ember_voice_lines, narrator_voice_lines arrays for compatibility
