@@ -22,13 +22,7 @@ export const getArrowButtonColors = (block) => {
                 disabled: 'bg-green-50 text-green-300 cursor-not-allowed'
             };
         }
-    } else if (block.type === 'hold') {
-        return {
-            active: 'bg-gray-100 hover:bg-gray-200 text-gray-600',
-            disabled: 'bg-gray-50 text-gray-300 cursor-not-allowed'
-        };
     } else if (block.type === 'loadscreen') {
-        // Use same styling as HOLD blocks
         return {
             active: 'bg-gray-100 hover:bg-gray-200 text-gray-600',
             disabled: 'bg-gray-50 text-gray-300 cursor-not-allowed'
@@ -57,7 +51,7 @@ export const groupBlocksByType = (blocks) => {
     return {
         mediaBlocks: blocks.filter(block => block.type === 'media'),
         voiceBlocks: blocks.filter(block => block.type === 'voice'),
-        holdBlocks: blocks.filter(block => block.type === 'hold'),
+
         loadScreenBlocks: blocks.filter(block => block.type === 'loadscreen')
     };
 };

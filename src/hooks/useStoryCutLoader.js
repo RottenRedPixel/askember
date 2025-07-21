@@ -162,8 +162,12 @@ export function useStoryCutLoader(id, storyCutId, user) {
 
                 // Function to determine message type based on original story messages
                 const determineMessageType = (voiceTag, content, voiceType) => {
-                    if (voiceType !== 'contributor') {
-                        return 'AI Voice';
+                    if (voiceType === 'ember') {
+                        return 'Ember AI';
+                    } else if (voiceType === 'narrator') {
+                        return 'Narrator';
+                    } else if (voiceType !== 'contributor') {
+                        return null; // Don't show badge for unknown voice types
                     }
 
                     // For contributors, try to match with original story messages
@@ -488,307 +492,294 @@ export function useStoryCutLoader(id, storyCutId, user) {
                         continue; // Skip to next line, don't process as voice
                     }
 
-                    // Check for HOLD and LOAD SCREEN blocks (still use double brackets)
-                    const holdLoadMatch = trimmedLine.match(/^\[\[(HOLD|LOAD SCREEN)\]\]\s*(.*)$/);
-                    if (holdLoadMatch) {
-                        const blockType = holdLoadMatch[1];
-                        const content = holdLoadMatch[2].trim();
+                    // Check for LOAD SCREEN blocks (still use double brackets)
+                    const loadScreenMatch = trimmedLine.match(/^\[\[LOAD SCREEN\]\]\s*(.*)$/);
+                    if (loadScreenMatch) {
+                        const content = loadScreenMatch[1].trim();
+                        // Extract color and duration
+                        const colorMatch = content.match(/COLOR:(#[0-9A-Fa-f]{6})/);
+                        const durationMatch = content.match(/duration=([\d.]+)/);
+                        const color = colorMatch ? colorMatch[1] : '#000000';
+                        const duration = durationMatch ? parseFloat(durationMatch[1]) : 4.0;
 
-                        if (blockType === 'HOLD') {
-                            // Extract color and duration
-                            const colorMatch = content.match(/COLOR:(#[0-9A-Fa-f]{6})/);
-                            const durationMatch = content.match(/duration=([\d.]+)/);
-                            const color = colorMatch ? colorMatch[1] : '#000000';
-                            const duration = durationMatch ? parseFloat(durationMatch[1]) : 4.0;
+                        // HOLD blocks removed - skip processing
+                        console.log('⏸️ HOLD block found but ignoring (HOLD blocks have been removed from system)');
+                        continue; // Skip to next line
+                        // Parse LOAD SCREEN attributes
+                        const messageMatch = content.match(/message="([^"]+)"/);
+                        const durationMatch = content.match(/duration=([0-9.]+)/);
+                        const iconMatch = content.match(/icon="([^"]+)"/);
 
-                            realBlocks.push({
-                                id: blockId++,
-                                type: 'hold',
-                                effect: `COLOR:${color}`,
-                                duration: duration,
-                                color: color
-                            });
-                        } else if (blockType === 'LOAD SCREEN') {
-                            // Parse LOAD SCREEN attributes
-                            const messageMatch = content.match(/message="([^"]+)"/);
-                            const durationMatch = content.match(/duration=([0-9.]+)/);
-                            const iconMatch = content.match(/icon="([^"]+)"/);
+                        const message = messageMatch ? messageMatch[1] : 'Loading...';
+                        const duration = durationMatch ? parseFloat(durationMatch[1]) : 2.0;
+                        const icon = iconMatch ? iconMatch[1] : 'default';
 
-                            const message = messageMatch ? messageMatch[1] : 'Loading...';
-                            const duration = durationMatch ? parseFloat(durationMatch[1]) : 2.0;
-                            const icon = iconMatch ? iconMatch[1] : 'default';
+                        realBlocks.push({
+                            id: blockId++,
+                            type: 'loadscreen',
+                            message: message,
+                            duration: duration,
+                            icon: icon,
+                            effect: `LOADING:${duration}s`
+                        });
+                    }
+                } else {
+                    // Parse voice line - check Sacred Format first, then legacy format
+                    let voiceTag, explicitPreference, messageId, content;
 
-                            realBlocks.push({
-                                id: blockId++,
-                                type: 'loadscreen',
-                                message: message,
-                                duration: duration,
-                                icon: icon,
-                                effect: `LOADING:${duration}s`
-                            });
-                        }
+                    // Check for Sacred Format first: [NAME | preference | ID] <content>
+                    const sacredMatch = trimmedLine.match(/^\[([^|]+)\|([^|]+)\|([^\]]*)\]\s*<(.+)>$/);
+                    if (sacredMatch) {
+                        voiceTag = sacredMatch[1].trim();
+                        explicitPreference = sacredMatch[2].trim();
+                        messageId = sacredMatch[3].trim() || null;
+                        content = sacredMatch[4].trim(); // Content already extracted from <content>
                     } else {
-                        // Parse voice line - check Sacred Format first, then legacy format
-                        let voiceTag, explicitPreference, messageId, content;
-
-                        // Check for Sacred Format first: [NAME | preference | ID] <content>
-                        const sacredMatch = trimmedLine.match(/^\[([^|]+)\|([^|]+)\|([^\]]*)\]\s*<(.+)>$/);
-                        if (sacredMatch) {
-                            voiceTag = sacredMatch[1].trim();
-                            explicitPreference = sacredMatch[2].trim();
-                            messageId = sacredMatch[3].trim() || null;
-                            content = sacredMatch[4].trim(); // Content already extracted from <content>
-                        } else {
-                            // Fallback to legacy format: [voiceTag:preference:messageId] content
-                            const voiceMatch = trimmedLine.match(/^\[([^:\]]+)(?::([^:\]]+))?(?::([^:\]]+))?\]\s*(.+)$/);
-                            if (voiceMatch) {
-                                voiceTag = voiceMatch[1].trim();
-                                explicitPreference = voiceMatch[2]?.trim();
-                                messageId = voiceMatch[3]?.trim();
-                                content = voiceMatch[4].trim();
-                            }
-                        }
-
-                        if (voiceTag && content) {
-                            // Determine voice type
-                            let voiceType, voiceName;
-                            if (voiceTag === 'ember' || voiceTag === 'narrator') {
-                                voiceType = voiceTag;
-                                voiceName = embedVoiceNames[voiceTag] || 'Unknown Voice';
-                            } else {
-                                voiceType = 'contributor';
-                                voiceName = voiceTag; // Use the contributor's name
-                            }
-
-                            // Determine message type using contributor tracking
-                            const messageType = determineMessageTypeWithTracking(voiceTag, content, voiceType);
-
-                            // Determine preference if not explicitly set
-                            let finalPreference = explicitPreference;
-                            if (!finalPreference) {
-                                // Auto-determine based on message type
-                                if (messageType === 'Audio Message') {
-                                    finalPreference = 'recorded';
-                                } else if (messageType === 'Text Response') {
-                                    finalPreference = 'synth';
-                                } else {
-                                    finalPreference = 'synth'; // Default for AI voices
-                                }
-                            }
-
-                            console.log(`🎤 Voice line: [${voiceTag}] "${content.substring(0, 50)}..." Type: ${messageType}, Preference: ${finalPreference}`);
-
-                            realBlocks.push({
-                                id: blockId++,
-                                type: 'voice',
-                                voiceTag: voiceTag,
-                                voiceType: voiceType,
-                                voiceName: voiceName,
-                                content: content,
-                                messageType: messageType,
-                                messageId: messageId || null,
-                                audioPreference: finalPreference,
-                                hasVoiceModel: false // Will be set later
-                            });
+                        // Fallback to legacy format: [voiceTag:preference:messageId] content
+                        const voiceMatch = trimmedLine.match(/^\[([^:\]]+)(?::([^:\]]+))?(?::([^:\]]+))?\]\s*(.+)$/);
+                        if (voiceMatch) {
+                            voiceTag = voiceMatch[1].trim();
+                            explicitPreference = voiceMatch[2]?.trim();
+                            messageId = voiceMatch[3]?.trim();
+                            content = voiceMatch[4].trim();
                         }
                     }
+
+                    if (voiceTag && content) {
+                        // Determine voice type
+                        let voiceType, voiceName;
+                        if (voiceTag === 'ember' || voiceTag === 'narrator') {
+                            voiceType = voiceTag;
+                            voiceName = embedVoiceNames[voiceTag] || 'Unknown Voice';
+                        } else {
+                            voiceType = 'contributor';
+                            voiceName = voiceTag; // Use the contributor's name
+                        }
+
+                        // Determine message type using contributor tracking
+                        const messageType = determineMessageTypeWithTracking(voiceTag, content, voiceType);
+
+                        // Determine preference if not explicitly set
+                        let finalPreference = explicitPreference;
+                        if (!finalPreference) {
+                            // Auto-determine based on message type
+                            if (messageType === 'Audio Message') {
+                                finalPreference = 'recorded';
+                            } else if (messageType === 'Text Response') {
+                                finalPreference = 'synth';
+                            } else {
+                                finalPreference = 'synth'; // Default for AI voices
+                            }
+                        }
+
+                        console.log(`🎤 Voice line: [${voiceTag}] "${content.substring(0, 50)}..." Type: ${messageType}, Preference: ${finalPreference}`);
+
+                        realBlocks.push({
+                            id: blockId++,
+                            type: 'voice',
+                            voiceTag: voiceTag,
+                            voiceType: voiceType,
+                            voiceName: voiceName,
+                            content: content,
+                            messageType: messageType,
+                            messageId: messageId || null,
+                            audioPreference: finalPreference,
+                            hasVoiceModel: false // Will be set later
+                        });
+                    }
                 }
+            }
 
                 // Resolve actual media URLs and display names for media blocks
                 for (let block of realBlocks) {
-                    if (block.type === 'media' && block.mediaId) {
-                        try {
-                            // Get all available media for this ember to find display name
-                            const { getEmberPhotos } = await import('@/lib/photos');
-                            const { getEmberSupportingMedia } = await import('@/lib/database');
+                if (block.type === 'media' && block.mediaId) {
+                    try {
+                        // Get all available media for this ember to find display name
+                        const { getEmberPhotos } = await import('@/lib/photos');
+                        const { getEmberSupportingMedia } = await import('@/lib/database');
 
-                            const [emberPhotos, supportingMedia] = await Promise.all([
-                                getEmberPhotos(id),
-                                getEmberSupportingMedia(id)
-                            ]);
+                        const [emberPhotos, supportingMedia] = await Promise.all([
+                            getEmberPhotos(id),
+                            getEmberSupportingMedia(id)
+                        ]);
 
-                            // Search for the media by ID
-                            const photoMatch = emberPhotos.find(photo => photo.id === block.mediaId);
-                            const mediaMatch = supportingMedia.find(media => media.id === block.mediaId);
+                        // Search for the media by ID
+                        const photoMatch = emberPhotos.find(photo => photo.id === block.mediaId);
+                        const mediaMatch = supportingMedia.find(media => media.id === block.mediaId);
 
-                            if (photoMatch) {
-                                block.mediaName = photoMatch.display_name || photoMatch.original_filename;
-                                block.mediaUrl = photoMatch.storage_url;
-                                console.log('📸 Resolved photo:', block.mediaName, ':', block.mediaUrl);
-                            } else if (mediaMatch) {
-                                block.mediaName = mediaMatch.display_name || mediaMatch.file_name;
-                                block.mediaUrl = mediaMatch.file_url;
-                                console.log('📸 Resolved supporting media:', block.mediaName, ':', block.mediaUrl);
-                            } else {
-                                console.log('⚠️ No media found with ID:', block.mediaId);
-                                block.mediaName = 'Media Not Found';
-                            }
-                        } catch (error) {
-                            console.error('❌ Failed to resolve media for ID', block.mediaId, ':', error);
-                            block.mediaName = 'Error Loading Media';
+                        if (photoMatch) {
+                            block.mediaName = photoMatch.display_name || photoMatch.original_filename;
+                            block.mediaUrl = photoMatch.storage_url;
+                            console.log('📸 Resolved photo:', block.mediaName, ':', block.mediaUrl);
+                        } else if (mediaMatch) {
+                            block.mediaName = mediaMatch.display_name || mediaMatch.file_name;
+                            block.mediaUrl = mediaMatch.file_url;
+                            console.log('📸 Resolved supporting media:', block.mediaName, ':', block.mediaUrl);
+                        } else {
+                            console.log('⚠️ No media found with ID:', block.mediaId);
+                            block.mediaName = 'Media Not Found';
                         }
-                    } else if (block.type === 'media' && block.mediaName && block.mediaName !== 'Loading...') {
-                        // Handle name-based media references
-                        try {
-                            const fakeSegment = { mediaName: block.mediaName, mediaId: null };
-                            const resolvedUrl = await resolveMediaReference(fakeSegment, id);
-                            if (resolvedUrl) {
-                                block.mediaUrl = resolvedUrl;
-                                console.log('📸 Resolved media URL for', block.mediaName, ':', resolvedUrl);
-                            }
-                        } catch (error) {
-                            console.error('❌ Failed to resolve media URL for', block.mediaName, ':', error);
+                    } catch (error) {
+                        console.error('❌ Failed to resolve media for ID', block.mediaId, ':', error);
+                        block.mediaName = 'Error Loading Media';
+                    }
+                } else if (block.type === 'media' && block.mediaName && block.mediaName !== 'Loading...') {
+                    // Handle name-based media references
+                    try {
+                        const fakeSegment = { mediaName: block.mediaName, mediaId: null };
+                        const resolvedUrl = await resolveMediaReference(fakeSegment, id);
+                        if (resolvedUrl) {
+                            block.mediaUrl = resolvedUrl;
+                            console.log('📸 Resolved media URL for', block.mediaName, ':', resolvedUrl);
                         }
+                    } catch (error) {
+                        console.error('❌ Failed to resolve media URL for', block.mediaName, ':', error);
                     }
                 }
+            }
 
-                // Add voice model checking for existing contributor blocks
-                for (const block of realBlocks) {
-                    if (block.type === 'voice' && block.voiceType === 'contributor') {
-                        let userId = null;
+            // Add voice model checking for existing contributor blocks
+            for (const block of realBlocks) {
+                if (block.type === 'voice' && block.voiceType === 'contributor') {
+                    let userId = null;
 
-                        // Try to get user ID from message data first
-                        if (block.messageId && loadedStoryMessages && loadedStoryMessages.length > 0) {
-                            const foundMessage = loadedStoryMessages.find(msg => msg.id === block.messageId);
-                            if (foundMessage) {
-                                userId = foundMessage.user_id;
-                                console.log(`🔍 Found user ID ${userId} for ${block.voiceTag} via messageId ${block.messageId}`);
-                            }
+                    // Try to get user ID from message data first
+                    if (block.messageId && loadedStoryMessages && loadedStoryMessages.length > 0) {
+                        const foundMessage = loadedStoryMessages.find(msg => msg.id === block.messageId);
+                        if (foundMessage) {
+                            userId = foundMessage.user_id;
+                            console.log(`🔍 Found user ID ${userId} for ${block.voiceTag} via messageId ${block.messageId}`);
                         }
+                    }
 
-                        // Fallback: try to find user ID by matching contributor name
-                        if (!userId && loadedStoryMessages && loadedStoryMessages.length > 0) {
-                            const nameMatch = loadedStoryMessages.find(msg =>
-                                msg.user_first_name && msg.user_first_name.toLowerCase() === block.voiceTag.toLowerCase()
-                            );
-                            if (nameMatch) {
-                                userId = nameMatch.user_id;
-                                console.log(`🔍 Found user ID ${userId} for ${block.voiceTag} via name matching`);
-                            }
+                    // Fallback: try to find user ID by matching contributor name
+                    if (!userId && loadedStoryMessages && loadedStoryMessages.length > 0) {
+                        const nameMatch = loadedStoryMessages.find(msg =>
+                            msg.user_first_name && msg.user_first_name.toLowerCase() === block.voiceTag.toLowerCase()
+                        );
+                        if (nameMatch) {
+                            userId = nameMatch.user_id;
+                            console.log(`🔍 Found user ID ${userId} for ${block.voiceTag} via name matching`);
                         }
+                    }
 
-                        // Check voice model if we found a user ID
-                        if (userId) {
-                            try {
-                                const userVoiceModel = await getUserVoiceModel(userId);
-                                block.hasVoiceModel = !!(userVoiceModel && userVoiceModel.elevenlabs_voice_id);
-                                console.log(`🎤 Voice model check for ${block.voiceTag}: ${block.hasVoiceModel ? 'available' : 'not available'}`);
-                            } catch (error) {
-                                console.warn(`Failed to check voice model for ${block.voiceTag}:`, error);
-                                block.hasVoiceModel = false;
-                            }
-                        } else {
-                            console.warn(`No user ID found for ${block.voiceTag}, defaulting hasVoiceModel to false`);
+                    // Check voice model if we found a user ID
+                    if (userId) {
+                        try {
+                            const userVoiceModel = await getUserVoiceModel(userId);
+                            block.hasVoiceModel = !!(userVoiceModel && userVoiceModel.elevenlabs_voice_id);
+                            console.log(`🎤 Voice model check for ${block.voiceTag}: ${block.hasVoiceModel ? 'available' : 'not available'}`);
+                        } catch (error) {
+                            console.warn(`Failed to check voice model for ${block.voiceTag}:`, error);
                             block.hasVoiceModel = false;
                         }
+                    } else {
+                        console.warn(`No user ID found for ${block.voiceTag}, defaulting hasVoiceModel to false`);
+                        block.hasVoiceModel = false;
                     }
                 }
-
-                setBlocks(realBlocks);
-
-                // Initialize selected effects for blocks that have effects by default
-                realBlocks.forEach(block => {
-                    if (block.type === 'hold') {
-                        // Only set default empty array if no effects were already parsed
-                        if (!initialEffects[`hold-${block.id}`]) {
-                            initialEffects[`hold-${block.id}`] = [];
-                        }
-                        // Only set default duration if not already parsed
-                        if (!initialDurations[`hold-duration-${block.id}`]) {
-                            initialDurations[`hold-duration-${block.id}`] = block.duration || 4.0;
-                        }
-                    }
-
-                    // Set default directions for all effects (only if not already set)
-                    if (!initialDirections[`fade-${block.id}`]) {
-                        initialDirections[`fade-${block.id}`] = 'in';
-                    }
-                    if (!initialDirections[`pan-${block.id}`]) {
-                        initialDirections[`pan-${block.id}`] = 'left';
-                    }
-                    if (!initialDirections[`zoom-${block.id}`]) {
-                        initialDirections[`zoom-${block.id}`] = 'in';
-                    }
-                    // Set default direction for HOLD fade effects
-                    if (!initialDirections[`hold-fade-${block.id}`]) {
-                        initialDirections[`hold-fade-${block.id}`] = 'in';
-                    }
-
-                    // Set default durations for all effects (only if not already set)
-                    if (!initialDurations[`fade-${block.id}`]) {
-                        initialDurations[`fade-${block.id}`] = 3.0;
-                    }
-                    if (!initialDurations[`pan-${block.id}`]) {
-                        initialDurations[`pan-${block.id}`] = 4.0;
-                    }
-                    if (!initialDurations[`zoom-${block.id}`]) {
-                        initialDurations[`zoom-${block.id}`] = 3.5;
-                    }
-
-                    // Set default distances and scales (only if not already set)
-                    if (!initialDistances[`pan-${block.id}`]) {
-                        initialDistances[`pan-${block.id}`] = 25;
-                    }
-                    if (!initialScales[`zoom-${block.id}`]) {
-                        initialScales[`zoom-${block.id}`] = 1.5;
-                    }
-                });
-                setSelectedEffects(initialEffects);
-                setEffectDirections(initialDirections);
-                setEffectDurations(initialDurations);
-                setEffectDistances(initialDistances);
-                setEffectScales(initialScales);
-                setEffectTargets(initialTargets);
-
-                // Load tagged people for zoom target selection
-                console.log('👤 Loading tagged people for zoom targets...');
-                try {
-                    const people = await getEmberTaggedPeople(id);
-                    setTaggedPeople(people || []);
-                    console.log('✅ Loaded tagged people:', people?.length || 0);
-                } catch (taggedError) {
-                    console.warn('⚠️ Could not load tagged people:', taggedError);
-                    setTaggedPeople([]);
-                }
-
-            } catch (err) {
-                console.error('Failed to load story cut:', err);
-                setError(err.message || 'Failed to load story cut');
-            } finally {
-                setLoading(false);
             }
-        };
 
-        loadStoryCut();
-    }, [id, storyCutId]);
+            setBlocks(realBlocks);
 
-    return {
-        // Core data
-        storyCut,
-        setStoryCut,
-        ember,
-        blocks,
-        setBlocks,
-        contributors,
-        storyMessages,
-        taggedPeople,
+            // Initialize selected effects for blocks that have effects by default
+            realBlocks.forEach(block => {
+                if (block.type === 'hold') {
+                    // Only set default empty array if no effects were already parsed
+                    if (!initialEffects[`hold-${block.id}`]) {
+                        initialEffects[`hold-${block.id}`] = [];
+                    }
+                    // Only set default duration if not already parsed
 
-        // Loading states
-        loading,
-        error,
+                }
 
-        // Effect states
-        selectedEffects,
-        setSelectedEffects,
-        effectDirections,
-        setEffectDirections,
-        effectDurations,
-        setEffectDurations,
-        effectDistances,
-        setEffectDistances,
-        effectScales,
-        setEffectScales,
-        effectTargets,
-        setEffectTargets
+                // Set default directions for all effects (only if not already set)
+                if (!initialDirections[`fade-${block.id}`]) {
+                    initialDirections[`fade-${block.id}`] = 'in';
+                }
+                if (!initialDirections[`pan-${block.id}`]) {
+                    initialDirections[`pan-${block.id}`] = 'left';
+                }
+                if (!initialDirections[`zoom-${block.id}`]) {
+                    initialDirections[`zoom-${block.id}`] = 'in';
+                }
+
+
+                // Set default durations for all effects (only if not already set)
+                if (!initialDurations[`fade-${block.id}`]) {
+                    initialDurations[`fade-${block.id}`] = 3.0;
+                }
+                if (!initialDurations[`pan-${block.id}`]) {
+                    initialDurations[`pan-${block.id}`] = 4.0;
+                }
+                if (!initialDurations[`zoom-${block.id}`]) {
+                    initialDurations[`zoom-${block.id}`] = 3.5;
+                }
+
+                // Set default distances and scales (only if not already set)
+                if (!initialDistances[`pan-${block.id}`]) {
+                    initialDistances[`pan-${block.id}`] = 25;
+                }
+                if (!initialScales[`zoom-${block.id}`]) {
+                    initialScales[`zoom-${block.id}`] = 1.5;
+                }
+            });
+            setSelectedEffects(initialEffects);
+            setEffectDirections(initialDirections);
+            setEffectDurations(initialDurations);
+            setEffectDistances(initialDistances);
+            setEffectScales(initialScales);
+            setEffectTargets(initialTargets);
+
+            // Load tagged people for zoom target selection
+            console.log('👤 Loading tagged people for zoom targets...');
+            try {
+                const people = await getEmberTaggedPeople(id);
+                setTaggedPeople(people || []);
+                console.log('✅ Loaded tagged people:', people?.length || 0);
+            } catch (taggedError) {
+                console.warn('⚠️ Could not load tagged people:', taggedError);
+                setTaggedPeople([]);
+            }
+
+        } catch (err) {
+            console.error('Failed to load story cut:', err);
+            setError(err.message || 'Failed to load story cut');
+        } finally {
+            setLoading(false);
+        }
     };
+
+    loadStoryCut();
+}, [id, storyCutId]);
+
+return {
+    // Core data
+    storyCut,
+    setStoryCut,
+    ember,
+    blocks,
+    setBlocks,
+    contributors,
+    storyMessages,
+    taggedPeople,
+
+    // Loading states
+    loading,
+    error,
+
+    // Effect states
+    selectedEffects,
+    setSelectedEffects,
+    effectDirections,
+    setEffectDirections,
+    effectDurations,
+    setEffectDurations,
+    effectDistances,
+    setEffectDistances,
+    effectScales,
+    setEffectScales,
+    effectTargets,
+    setEffectTargets
+};
 } 

@@ -2666,3 +2666,26 @@ export const createUserProfileAdmin = async (userData) => {
     throw error;
   }
 };
+
+/**
+ * Get Ember AI and Narrator voice blocks that a user can edit
+ * @param {string} userId - User ID to check permissions for
+ * @returns {Promise<Array>} Array of editable voice blocks with metadata
+ */
+export const getEditableVoiceBlocks = async (userId) => {
+  try {
+    const { data, error } = await supabase.rpc('get_editable_voice_blocks', {
+      input_user_id: userId
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    console.log(`✅ Found ${data?.length || 0} editable voice blocks for user`);
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching editable voice blocks:', error);
+    throw error;
+  }
+};

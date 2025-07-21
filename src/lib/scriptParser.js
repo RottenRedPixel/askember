@@ -574,8 +574,8 @@ export const extractZoomFromAction = (action) => {
  * @returns {string} Estimated duration as string
  */
 export const estimateSegmentDuration = (content, segmentType) => {
-    // For media, hold, and loadscreen segments, prioritize explicit duration from visual actions
-    if (segmentType === 'media' || segmentType === 'hold' || segmentType === 'loadscreen') {
+    // For media and loadscreen segments, prioritize explicit duration from visual actions
+    if (segmentType === 'media' || segmentType === 'loadscreen') {
         // Extract duration from any visual action that has it
         const durationMatch = content.match(/duration=([0-9.]+)/);
         if (durationMatch) {
@@ -583,9 +583,7 @@ export const estimateSegmentDuration = (content, segmentType) => {
         }
 
         // Different defaults for each type
-        if (segmentType === 'hold') {
-            return "3.00"; // Hold segments default to 3 seconds
-        } else if (segmentType === 'loadscreen') {
+        else if (segmentType === 'loadscreen') {
             return "2.00"; // Load screen segments default to 2 seconds
         } else {
             return "2.00"; // Media segments default to 2 seconds
@@ -784,7 +782,7 @@ export const formatScriptForDisplay = async (script, ember, storyCut) => {
 
             // Handle media and other special blocks (keep as-is)
             if (trimmedLine.startsWith('[[') && trimmedLine.includes(']]')) {
-                return line; // Keep media/hold blocks unchanged
+                return line; // Keep media blocks unchanged
             }
 
             // Return line unchanged if no patterns match
@@ -1068,13 +1066,7 @@ function removeDuplicateSegments(segments) {
     // console.log('🔄 Removing duplicates from', segments.length, 'segments...');
 
     segments.forEach((segment, index) => {
-        // Skip duplicate removal for HOLD segments
-        if (segment.type === 'hold') {
-            uniqueSegments.push(segment);
-            // Remove excessive debug logging
-            // console.log(`  ✅ Kept HOLD segment ${index + 1}: [[${segment.voiceTag}]] "${segment.content.substring(0, 50)}..." (skipping duplicate check)`);
-            return;
-        }
+
 
         // Include mediaId for MEDIA blocks to prevent false duplicates
         const key = segment.type === 'media'
@@ -1209,6 +1201,8 @@ const extractContentFromLine = (line) => {
 
     return null;
 };
+
+// Duplicate parseStoryCutScript function removed - using the comprehensive version below
 
 // Parse story cut script into blocks and effect data
 export async function parseStoryCutScript({
@@ -1421,183 +1415,143 @@ export async function parseStoryCutScript({
                 continue; // Skip to next line, don't process as voice
             }
 
-            // Check for HOLD and LOAD SCREEN blocks (still use double brackets)
-            const holdLoadMatch = trimmedLine.match(/^\[\[(HOLD|LOAD SCREEN)\]\]\s*(.*)$/);
-            if (holdLoadMatch) {
-                const blockType = holdLoadMatch[1];
-                const content = holdLoadMatch[2].trim();
+            // Check for LOAD SCREEN blocks (still use double brackets)
+            const loadScreenMatch = trimmedLine.match(/^\[\[LOAD SCREEN\]\]\s*(.*)$/);
+            if (loadScreenMatch) {
+                const content = loadScreenMatch[1].trim();
+                // Parse LOAD SCREEN block: (message="Loading...",duration=3,icon="spinner")
+                let message = 'Loading...';
+                let duration = 3.0;
+                let icon = 'default';
 
-                if (blockType === 'HOLD') {
-                    // Parse HOLD block attributes: (COLOR:#FF0000,duration=4.0,FADE-IN:duration=3.0)
-                    let color = '#000000';
-                    let duration = 4.0;
-                    let fadeEffect = null;
-
-                    // Extract color
-                    const colorMatch = content.match(/COLOR:(#[A-Fa-f0-9]{6})/);
-                    if (colorMatch) {
-                        color = colorMatch[1];
-                    }
-
-                    // Extract duration
-                    const durationMatch = content.match(/duration=([0-9]+(?:\.[0-9]+)?)/);
-                    if (durationMatch) {
-                        duration = parseFloat(durationMatch[1]);
-                    }
-
-                    // Extract fade effect
-                    const fadeMatch = content.match(/FADE-(IN|OUT):duration=([0-9]+(?:\.[0-9]+)?)/);
-                    if (fadeMatch) {
-                        fadeEffect = {
-                            type: fadeMatch[1].toLowerCase(),
-                            duration: parseFloat(fadeMatch[2])
-                        };
-                    }
-
-                    console.log(`⏸️ DEBUG - Parsed HOLD block: color=${color}, duration=${duration}s`, fadeEffect ? `, fade=${fadeEffect.type}:${fadeEffect.duration}s` : '');
-
-                    realBlocks.push({
-                        id: blockId++,
-                        type: 'hold',
-                        color: color,
-                        duration: duration,
-                        fadeEffect: fadeEffect
-                    });
-                } else if (blockType === 'LOAD SCREEN') {
-                    // Parse LOAD SCREEN block: (message="Loading...",duration=3,icon="spinner")
-                    let message = 'Loading...';
-                    let duration = 3.0;
-                    let icon = 'default';
-
-                    // Extract message
-                    const messageMatch = content.match(/message="([^"]*)"/);
-                    if (messageMatch) {
-                        message = messageMatch[1];
-                    }
-
-                    // Extract duration
-                    const durationMatch = content.match(/duration=([0-9]+(?:\.[0-9]+)?)/);
-                    if (durationMatch) {
-                        duration = parseFloat(durationMatch[1]);
-                    }
-
-                    // Extract icon
-                    const iconMatch = content.match(/icon="([^"]*)"/);
-                    if (iconMatch) {
-                        icon = iconMatch[1];
-                    }
-
-                    console.log(`⏳ DEBUG - Parsed LOAD SCREEN block: message="${message}", duration=${duration}s, icon="${icon}"`);
-
-                    realBlocks.push({
-                        id: blockId++,
-                        type: 'loadscreen',
-                        message: message,
-                        duration: duration,
-                        icon: icon
-                    });
+                // Extract message
+                const messageMatch = content.match(/message="([^"]*)"/);
+                if (messageMatch) {
+                    message = messageMatch[1];
                 }
 
-                continue; // Skip to next line, don't process as voice
+                // Extract duration
+                const durationMatch = content.match(/duration=([0-9]+(?:\.[0-9]+)?)/);
+                if (durationMatch) {
+                    duration = parseFloat(durationMatch[1]);
+                }
+
+                // Extract icon
+                const iconMatch = content.match(/icon="([^"]*)"/);
+                if (iconMatch) {
+                    icon = iconMatch[1];
+                }
+
+                console.log(`⏳ DEBUG - Parsed LOAD SCREEN block: message="${message}", duration=${duration}s, icon="${icon}"`);
+
+                realBlocks.push({
+                    id: blockId++,
+                    type: 'loadscreen',
+                    message: message,
+                    duration: duration,
+                    icon: icon
+                });
             }
 
-            // Parse voice lines using the new Sacred Format or legacy format
-            // Sacred Format: [Sarah | recorded | abc123] <We had so much fun today!>
-            // Legacy Format: [EMBER VOICE] Content here
-            const sacredFormatMatch = trimmedLine.match(/^\[([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^\]]*?)\]\s*<(.+)>$/);
-            const legacyFormatMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.*)$/);
+            continue; // Skip to next line, don't process as voice
+        }
 
-            if (sacredFormatMatch || legacyFormatMatch) {
-                let voiceTag, preference, messageId, content;
+        // Parse voice lines using the new Sacred Format or legacy format
+        // Sacred Format: [Sarah | recorded | abc123] <We had so much fun today!>
+        // Legacy Format: [EMBER VOICE] Content here
+        const sacredFormatMatch = trimmedLine.match(/^\[([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^\]]*?)\]\s*<(.+)>$/);
+        const legacyFormatMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.*)$/);
 
-                if (sacredFormatMatch) {
-                    // Sacred Format parsing
-                    [, voiceTag, preference, messageId, content] = sacredFormatMatch;
-                    voiceTag = voiceTag.trim();
-                    preference = preference.trim();
-                    messageId = messageId.trim() === 'null' ? null : messageId.trim();
-                    content = content.trim();
+        if (sacredFormatMatch || legacyFormatMatch) {
+            let voiceTag, preference, messageId, content;
 
-                    console.log('🔍 DEBUG - Sacred Format MATCH:', {
-                        voiceTag,
-                        preference,
-                        messageId,
-                        content: content.substring(0, 50) + (content.length > 50 ? '...' : '')
-                    });
-                } else {
-                    // Legacy Format parsing
-                    [, voiceTag, content] = legacyFormatMatch;
-                    voiceTag = voiceTag.trim();
-                    content = content.trim();
-                    preference = 'synth'; // Default for legacy format
-                    messageId = null;
+            if (sacredFormatMatch) {
+                // Sacred Format parsing
+                [, voiceTag, preference, messageId, content] = sacredFormatMatch;
+                voiceTag = voiceTag.trim();
+                preference = preference.trim();
+                messageId = messageId.trim() === 'null' ? null : messageId.trim();
+                content = content.trim();
 
-                    console.log('🔍 DEBUG - Legacy Format MATCH:', {
-                        voiceTag,
-                        content: content.substring(0, 50) + (content.length > 50 ? '...' : '')
-                    });
-                }
+                console.log('🔍 DEBUG - Sacred Format MATCH:', {
+                    voiceTag,
+                    preference,
+                    messageId,
+                    content: content.substring(0, 50) + (content.length > 50 ? '...' : '')
+                });
+            } else {
+                // Legacy Format parsing
+                [, voiceTag, content] = legacyFormatMatch;
+                voiceTag = voiceTag.trim();
+                content = content.trim();
+                preference = 'synth'; // Default for legacy format
+                messageId = null;
 
-                // Determine voice type
-                let voiceType;
-                let enhancedVoiceTag = voiceTag;
+                console.log('🔍 DEBUG - Legacy Format MATCH:', {
+                    voiceTag,
+                    content: content.substring(0, 50) + (content.length > 50 ? '...' : '')
+                });
+            }
 
-                if (voiceTag.includes('EMBER VOICE')) {
-                    voiceType = 'ember';
-                    enhancedVoiceTag = embedVoiceNames.ember || 'Ember Voice';
-                } else if (voiceTag.includes('NARRATOR')) {
-                    voiceType = 'narrator';
-                    enhancedVoiceTag = embedVoiceNames.narrator || 'Narrator';
-                } else {
-                    voiceType = 'contributor';
-                    // For contributors, use the actual first name from the voice tag
-                }
+            // Determine voice type
+            let voiceType;
+            let enhancedVoiceTag = voiceTag;
 
-                // Determine original message type (for contributors only)
-                let originalMessageType = 'AI Voice'; // Default for ember/narrator
-                let contributorData = { avatarUrl: null, firstName: voiceTag, lastName: null, email: null, fallbackText: voiceTag[0]?.toUpperCase() || '?' };
+            if (voiceTag.includes('EMBER VOICE')) {
+                voiceType = 'ember';
+                enhancedVoiceTag = embedVoiceNames.ember || 'Ember Voice';
+            } else if (voiceTag.includes('NARRATOR')) {
+                voiceType = 'narrator';
+                enhancedVoiceTag = embedVoiceNames.narrator || 'Narrator';
+            } else {
+                voiceType = 'contributor';
+                // For contributors, use the actual first name from the voice tag
+            }
 
-                if (voiceType === 'contributor') {
-                    // Use the more robust message type determination
-                    originalMessageType = determineMessageType ? determineMessageType(voiceTag, content, voiceType) : 'Text Response';
+            // Determine original message type (for contributors only)
+            let originalMessageType = 'AI Voice'; // Default for ember/narrator
+            let contributorData = { avatarUrl: null, firstName: voiceTag, lastName: null, email: null, fallbackText: voiceTag[0]?.toUpperCase() || '?' };
 
-                    // Get contributor data for avatar (enhanced approach)
-                    if (messageId && storyMessages) {
-                        // NEW: Try to match by message ID first for most accurate results
-                        const messageMatch = storyMessages.find(msg => msg.id === messageId);
-                        if (messageMatch) {
-                            contributorData = {
-                                avatarUrl: null, // Will be populated from user profile lookup
-                                firstName: messageMatch.user_first_name || voiceTag,
-                                lastName: messageMatch.user_last_name || null,
-                                email: messageMatch.user_email || null,
-                                userId: messageMatch.user_id,
-                                fallbackText: (messageMatch.user_first_name || voiceTag)[0]?.toUpperCase() || '?'
-                            };
-                            console.log(`✅ Found contributor data via message ID ${messageId}:`, contributorData);
-                        } else {
-                            console.log(`⚠️ No message found with ID ${messageId} - falling back to name matching`);
-                            // Fall back to name-based matching if messageId lookup failed
-                            contributorData = getContributorAvatarData ? getContributorAvatarData(voiceTag) : contributorData;
-                        }
+            if (voiceType === 'contributor') {
+                // Use the more robust message type determination
+                originalMessageType = determineMessageType ? determineMessageType(voiceTag, content, voiceType) : 'Text Response';
+
+                // Get contributor data for avatar (enhanced approach)
+                if (messageId && storyMessages) {
+                    // NEW: Try to match by message ID first for most accurate results
+                    const messageMatch = storyMessages.find(msg => msg.id === messageId);
+                    if (messageMatch) {
+                        contributorData = {
+                            avatarUrl: null, // Will be populated from user profile lookup
+                            firstName: messageMatch.user_first_name || voiceTag,
+                            lastName: messageMatch.user_last_name || null,
+                            email: messageMatch.user_email || null,
+                            userId: messageMatch.user_id,
+                            fallbackText: (messageMatch.user_first_name || voiceTag)[0]?.toUpperCase() || '?'
+                        };
+                        console.log(`✅ Found contributor data via message ID ${messageId}:`, contributorData);
                     } else {
+                        console.log(`⚠️ No message found with ID ${messageId} - falling back to name matching`);
                         // Fall back to name-based matching if messageId lookup failed
                         contributorData = getContributorAvatarData ? getContributorAvatarData(voiceTag) : contributorData;
                     }
-
-                    realBlocks.push({
-                        id: blockId++,
-                        type: 'voice',
-                        voiceTag: enhancedVoiceTag,
-                        content: content,
-                        voiceType: voiceType,
-                        avatarUrl: voiceType === 'contributor' ? contributorData.avatarUrl : '/EMBERFAV.svg',
-                        contributorData: contributorData, // Store full contributor data for avatar fallbacks
-                        messageType: originalMessageType, // SACRED: Original message type - never changes
-                        preference: preference, // Current playback preference - can change
-                        messageId: messageId // Store message ID for future reference
-                    });
+                } else {
+                    // Fall back to name-based matching if messageId lookup failed
+                    contributorData = getContributorAvatarData ? getContributorAvatarData(voiceTag) : contributorData;
                 }
+
+                realBlocks.push({
+                    id: blockId++,
+                    type: 'voice',
+                    voiceTag: enhancedVoiceTag,
+                    content: content,
+                    voiceType: voiceType,
+                    avatarUrl: voiceType === 'contributor' ? contributorData.avatarUrl : '/EMBERFAV.svg',
+                    contributorData: contributorData, // Store full contributor data for avatar fallbacks
+                    messageType: originalMessageType, // SACRED: Original message type - never changes
+                    preference: preference, // Current playback preference - can change
+                    messageId: messageId // Store message ID for future reference
+                });
             }
         }
     }
@@ -1662,23 +1616,8 @@ export async function parseStoryCutScript({
         }
     }
 
-    // Initialize effect defaults for hold blocks
+    // Initialize effect defaults for blocks
     realBlocks.forEach(block => {
-        if (block.type === 'hold') {
-            // Only set default empty array if no effects were already parsed
-            if (!initialEffects[`hold-${block.id}`]) {
-                initialEffects[`hold-${block.id}`] = [];
-            }
-            // Only set default duration if not already parsed
-            if (!initialDurations[`hold-duration-${block.id}`]) {
-                initialDurations[`hold-duration-${block.id}`] = block.duration || 4.0;
-            }
-        }
-
-        // Set default direction for HOLD fade effects
-        if (!initialDirections[`hold-fade-${block.id}`]) {
-            initialDirections[`hold-fade-${block.id}`] = 'in';
-        }
 
         // Set default durations for all effects (only if not already set)
         if (!initialDurations[`fade-${block.id}`]) {
@@ -1711,4 +1650,4 @@ export async function parseStoryCutScript({
             initialTargets
         }
     };
-} 
+}

@@ -66,7 +66,7 @@ export const useAudioState = () => {
     const [isPlayerFadingOut, setIsPlayerFadingOut] = useState(false);
     const [currentAudio, setCurrentAudio] = useState(null);
     const [activeAudioSegments, setActiveAudioSegments] = useState([]);
-    const [showEndHold, setShowEndHold] = useState(false);
+
     const [currentVoiceType, setCurrentVoiceType] = useState(null);
     const [currentVoiceTransparency, setCurrentVoiceTransparency] = useState(0.2);
     const [currentMediaColor, setCurrentMediaColor] = useState(null);
@@ -103,7 +103,7 @@ export const useAudioState = () => {
         setIsPlayerFadingOut(false);
         setCurrentAudio(null);
         setActiveAudioSegments([]);
-        setShowEndHold(false);
+
         setCurrentVoiceType(null);
         setCurrentVoiceTransparency(0.2);
         setCurrentMediaColor(null);
@@ -131,7 +131,7 @@ export const useAudioState = () => {
         isPlayerFadingOut, setIsPlayerFadingOut,
         currentAudio, setCurrentAudio,
         activeAudioSegments, setActiveAudioSegments,
-        showEndHold, setShowEndHold,
+
         currentVoiceType, setCurrentVoiceType,
         currentVoiceTransparency, setCurrentVoiceTransparency,
         currentMediaColor, setCurrentMediaColor,

@@ -754,10 +754,10 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
   playbackStoppedRef.current = false;
 
   try {
-    // Separate media/hold/loadscreen and voice segments for different processing
-    const mediaSegments = segments.filter(segment => segment.type === 'media' || segment.type === 'hold' || segment.type === 'loadscreen');
+    // Separate media/loadscreen and voice segments for different processing
+    const mediaSegments = segments.filter(segment => segment.type === 'media' || segment.type === 'loadscreen');
     const voiceSegments = segments.filter(segment => segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor');
-    console.log(`🎭 Segment breakdown: ${segments.length} total → ${mediaSegments.length} media/hold/loadscreen + ${voiceSegments.length} voice`);
+    console.log(`🎭 Segment breakdown: ${segments.length} total → ${mediaSegments.length} media/loadscreen + ${voiceSegments.length} voice`);
 
     // Generate audio for voice segments only
     console.log('⏳ Generating audio for voice segments...');
@@ -789,16 +789,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
     for (let index = 0; index < segments.length; index++) {
       const segment = segments[index];
 
-      if (segment.type === 'hold') {
-        // Hold segment - add to timeline for sequential processing
-        timeline.push({
-          type: 'hold',
-          segment: segment,
-          segmentIndex: index, // Add segment index for progress tracking
-          duration: parseFloat(segment.duration || 3.0)
-        });
-        console.log(`⏸️ Timeline ${index + 1}: HOLD effect for ${segment.duration || 3.0}s - ${segment.content.substring(0, 50)}...`);
-      } else if (segment.type === 'loadscreen') {
+      if (segment.type === 'loadscreen') {
         // Load screen segment - add to timeline for sequential processing
         timeline.push({
           type: 'loadscreen',
@@ -872,7 +863,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
       }
 
       const currentStep = timeline[currentTimelineIndex];
-      console.log(`🎬 Timeline step ${currentTimelineIndex + 1}/${timeline.length}: ${currentStep.type} - ${currentStep.type === 'hold' ? `${currentStep.duration}s` : `[${currentStep.segment.voiceTag}]`}`);
+      console.log(`🎬 Timeline step ${currentTimelineIndex + 1}/${timeline.length}: ${currentStep.type} - [${currentStep.segment.voiceTag}]`);
 
       // Update progress tracking only when we start a new segment
       let currentSegmentStartTime = 0;
@@ -882,9 +873,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
         // Calculate elapsed time from completed segments
         for (let i = 0; i < currentSegmentIndex && i < segments.length; i++) {
           const segment = segments[i];
-          if (segment.type === 'hold') {
-            currentSegmentStartTime += parseFloat(segment.duration || 3.0);
-          } else if (segment.type === 'loadscreen') {
+          if (segment.type === 'loadscreen') {
             currentSegmentStartTime += parseFloat(segment.loadDuration || 2.0);
           } else if (segment.type === 'media') {
             currentSegmentStartTime += 2.0;
@@ -900,69 +889,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
         }
       }
 
-      if (currentStep.type === 'hold') {
-        // Hold step - apply visual effect and wait for duration
-        const segment = currentStep.segment;
-        const duration = currentStep.duration;
-
-        console.log(`⏸️ Applying hold effect for ${duration}s: ${segment.content}`);
-
-        // Extract fade effects first (same as MEDIA blocks)
-        const hasFadeEffects = segment.content.includes('FADE-');
-        let fadeEffect = null;
-
-        if (hasFadeEffects) {
-          fadeEffect = extractFadeFromAction(segment.content);
-          console.log(`🎬 HOLD fade effect detected: ${fadeEffect?.type} - ${fadeEffect?.duration}s`);
-        }
-
-        // Extract color from COLOR:#RRGGBB format
-        let colorValue = null;
-        if (segment.content.includes('COLOR:#')) {
-          const colorMatch = segment.content.match(/COLOR:#([0-9A-Fa-f]{6})/);
-          if (colorMatch) {
-            colorValue = '#' + colorMatch[1];
-          }
-        }
-
-        // Apply visual effects based on content
-        if (segment.content.includes('Z-OUT:')) {
-          // Extract zoom scale values from Z-OUT command
-          const zoomScale = extractZoomScaleFromAction(segment.content);
-          console.log(`🎬 Visual effect: Image zoom out - from ${zoomScale.start} to ${zoomScale.end}`);
-          setCurrentVoiceType(null); // Image display, no voice overlay
-          setCurrentMediaColor(null); // Clear any color overlay
-          setCurrentZoomScale(zoomScale); // Apply dynamic zoom scale
-        } else if (colorValue) {
-          console.log(`🎬 Visual effect: Color overlay - ${colorValue}`);
-          setCurrentVoiceType(null); // Clear any voice overlay
-
-          // 🎯 NEW APPROACH: Set color through React state, effects handled by EmberPlay
-          setCurrentMediaColor(colorValue);
-
-          // Log fade effect for debugging if present
-          if (fadeEffect) {
-            console.log(`🎬 HOLD fade effect will be handled by React: ${fadeEffect.type} - ${fadeEffect.duration}s`);
-          }
-        } else {
-          // Clear any existing color overlays if no explicit color command
-          setCurrentVoiceType(null);
-          setCurrentMediaColor(null);
-        }
-
-        // Wait for the specified duration, then continue to next step
-        const timeoutId = setTimeout(() => {
-          if (!playbackStoppedRef.current) {
-            currentTimelineIndex++;
-            playNextTimelineStep();
-          }
-        }, duration * 1000);
-
-        // Track timeout for cleanup
-        setMediaTimeouts(prev => [...prev, timeoutId]);
-        mediaTimeoutsRef.current.push(timeoutId);
-
-      } else if (currentStep.type === 'loadscreen') {
+      if (currentStep.type === 'loadscreen') {
         // Load screen step - display loading UI for specified duration
         const segment = currentStep.segment;
         const duration = currentStep.duration;

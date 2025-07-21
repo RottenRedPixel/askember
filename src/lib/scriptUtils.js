@@ -94,19 +94,7 @@ export function generateScript({
                 console.log('🔍 DEBUG - Generated voice line:', voiceLine);
                 return voiceLine;
 
-            case 'hold':
-                // Hold blocks use existing logic but with new format
-                const holdEffects = selectedEffects[`hold-${block.id}`] || [];
-                const holdDuration = effectDurations[`hold-duration-${block.id}`] || block.duration || 4.0;
-                const holdFadeDirection = effectDirections[`hold-fade-${block.id}`] || 'in';
 
-                let holdAttributes = `COLOR:${block.color || '#000000'},duration=${holdDuration}`;
-
-                if (holdEffects.includes('fade')) {
-                    holdAttributes += `,FADE-${holdFadeDirection.toUpperCase()}:duration=${holdDuration}`;
-                }
-
-                return `[[HOLD]] (${holdAttributes})`;
 
             case 'loadscreen':
                 return `[[LOAD SCREEN]] (message="${block.message}",duration=${block.duration},icon="${block.icon}")`;

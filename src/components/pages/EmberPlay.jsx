@@ -195,8 +195,7 @@ export default function EmberPlay() {
         setCurrentPanEffect,
         currentZoomEffect,
         setCurrentZoomEffect,
-        showEndHold,
-        setShowEndHold,
+
         message,
         setMessage
     } = useUIState();
@@ -388,7 +387,7 @@ export default function EmberPlay() {
             setShowEndLogo(false);
             setShowEndText(false);
         }
-    }, [showEndHold]);
+    }, []);
 
     // Progress tracking functions
     const calculateTotalDuration = useCallback((segments) => {
@@ -695,7 +694,7 @@ export default function EmberPlay() {
         // Additional EmberPlay-specific cleanup
         setCurrentlyPlayingStoryCut(null);
         setCurrentAudio(null);
-        setShowEndHold(false);
+
 
         // Reset progress tracking
         setCurrentProgress(0);
@@ -736,7 +735,7 @@ export default function EmberPlay() {
         setCurrentFadeEffect(null);
         setCurrentPanEffect(null);
         setCurrentZoomEffect(null);
-        setShowEndHold(true);
+
 
         // Reset progress tracking
         setCurrentProgress(totalDuration);
@@ -808,7 +807,7 @@ export default function EmberPlay() {
 
 
                                 {/* Background Image - with visual effects coordination */}
-                                {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
+                                {!isGeneratingAudio && !currentMediaColor && currentMediaImageUrl && (
                                     <img
                                         src={currentMediaImageUrl}
                                         alt={ember?.title || 'Ember'}
@@ -954,7 +953,7 @@ export default function EmberPlay() {
                             </div>
 
                             {/* Progress Bar - Between photo and text sections */}
-                            {(isPlaying || showEndHold) && totalDuration > 0 && (
+                            {isPlaying && totalDuration > 0 && (
                                 <div className="mt-2.5">
                                     <ProgressBar />
                                 </div>
