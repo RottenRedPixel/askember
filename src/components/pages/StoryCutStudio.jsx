@@ -137,6 +137,18 @@ export default function StoryCutStudio() {
         const loadStoryCut = async () => {
             if (!id) return;
 
+            // Wait for user to be loaded before processing contributors
+            if (!user) {
+                console.log('⏳ Waiting for user to load before processing contributors...');
+                return;
+            }
+
+            // Skip reload if we already have data and it's the same story cut
+            if (storyCut && storyCut.id === storyCutId && contributors.length > 0) {
+                console.log('📋 Story cut and contributors already loaded, skipping reload');
+                return;
+            }
+
             try {
                 setLoading(true);
                 setError(null);
@@ -188,8 +200,9 @@ export default function StoryCutStudio() {
                 let loadedContributors = [];
                 try {
                     const sharingData = await getEmberWithSharing(id);
+
+                    // Extract contributor data from shares
                     if (sharingData.shares && sharingData.shares.length > 0) {
-                        // Extract contributor data with real user profiles
                         loadedContributors = sharingData.shares
                             .filter(share => share.shared_user && share.shared_user.user_id)
                             .map(share => ({
@@ -199,11 +212,50 @@ export default function StoryCutStudio() {
                                 avatar_url: share.shared_user.avatar_url,
                                 email: share.shared_with_email
                             }));
-                        setContributors(loadedContributors);
-                        console.log('✅ Loaded contributors:', loadedContributors);
-                    } else {
-                        setContributors([]);
                     }
+
+                    // IMPORTANT: Add the ember owner to contributors (they're not in shares list!)
+                    // console.log('🔍 DEBUG - Owner check:', {
+                    //     'sharingData.user_id': sharingData.user_id,
+                    //     'user?.id': user?.id,
+                    //     'are they equal?': sharingData.user_id === user?.id,
+                    //     'user object present': !!user,
+                    //     'user.user_metadata': user?.user_metadata
+                    // });
+
+                    if (sharingData.user_id && user?.id === sharingData.user_id) {
+                        // Current user is the owner - add their data
+                        const ownerData = {
+                            user_id: user.id,
+                            first_name: user.user_metadata?.first_name || user.user_metadata?.name || 'Owner',
+                            last_name: user.user_metadata?.last_name || '',
+                            avatar_url: user.user_metadata?.avatar_url || null,
+                            email: user.email
+                        };
+
+                        // console.log('🔍 DEBUG - Owner data to add:', ownerData);
+
+                        // Check if owner is already in the list (shouldn't be, but just in case)
+                        const ownerExists = loadedContributors.some(c => c.user_id === user.id);
+                        if (!ownerExists) {
+                            loadedContributors.push(ownerData);
+                            console.log('➕ Added ember owner to contributors:', ownerData);
+                            console.log('👥 Total contributors after adding owner:', loadedContributors.length);
+                        } else {
+                            console.log('🔍 Owner already exists in contributors list');
+                        }
+                    } else {
+                        console.log('❌ Owner condition not met - not adding owner to contributors');
+                        console.log('❌ Detailed failure analysis:', {
+                            'sharingData.user_id exists': !!sharingData.user_id,
+                            'user?.id exists': !!user?.id,
+                            'user is loaded': !!user,
+                            'IDs match': sharingData.user_id === user?.id
+                        });
+                    }
+
+                    setContributors(loadedContributors);
+                    console.log('✅ Loaded contributors (including owner):', loadedContributors);
                 } catch (sharingError) {
                     console.warn('⚠️ Could not load contributor data:', sharingError);
                     setContributors([]);
@@ -227,6 +279,13 @@ export default function StoryCutStudio() {
                     // Use provided list or fall back to state (fixes timing issues)
                     const availableContributors = contributorList || contributors;
 
+                    // console.log(`🔍 getContributorAvatarData called with identifier: "${identifier}"`);
+                    // console.log(`🔍 Available contributors (${availableContributors.length}):`, availableContributors.map(c => ({ 
+                    //     user_id: c.user_id, 
+                    //     first_name: c.first_name, 
+                    //     avatar_url: c.avatar_url ? 'present' : 'missing' 
+                    // })));
+
                     if (!identifier) {
                         console.log(`⚠️ No identifier provided for contributor lookup`);
                         return {
@@ -242,40 +301,91 @@ export default function StoryCutStudio() {
 
                     // Try to match by user_id first (UUID format)
                     if (identifier.length > 20 && identifier.includes('-')) {
+                        // console.log(`🔍 Trying to match by user_id: ${identifier}`);
                         contributor = availableContributors.find(c => c.user_id === identifier);
-                        if (contributor) {
-                            console.log(`✅ Found contributor by user_id ${identifier}:`, contributor);
-                        }
+                        // if (contributor) {
+                        //     console.log(`✅ Found contributor by user_id ${identifier}:`, {
+                        //         user_id: contributor.user_id,
+                        //         first_name: contributor.first_name,
+                        //         avatar_url: contributor.avatar_url,
+                        //         email: contributor.email
+                        //     });
+                        // } else {
+                        //     console.log(`❌ No match found by user_id ${identifier}`);
+                        // }
                     }
 
                     // If no match by user_id, try by first name
                     if (!contributor) {
+                        // console.log(`🔍 Trying to match by first name: ${identifier}`);
                         contributor = availableContributors.find(c =>
                             c.first_name && c.first_name.toLowerCase() === identifier.toLowerCase().trim()
                         );
-                        if (contributor) {
-                            console.log(`✅ Found contributor by name ${identifier}:`, contributor);
-                        }
+                        // if (contributor) {
+                        //     console.log(`✅ Found contributor by name ${identifier}:`, {
+                        //         user_id: contributor.user_id,
+                        //         first_name: contributor.first_name,
+                        //         avatar_url: contributor.avatar_url,
+                        //         email: contributor.email
+                        //     });
+                        // } else {
+                        //     console.log(`❌ No match found by name ${identifier}`);
+                        // }
                     }
 
                     if (contributor) {
-                        return {
-                            avatarUrl: contributor.avatar_url || null,
+                        let avatarUrl = contributor.avatar_url || null;
+
+                        // If no avatar in contributor data, try to find it in storyMessages (like AddBlockModal does)
+                        if (!avatarUrl && loadedStoryMessages && loadedStoryMessages.length > 0) {
+                            // console.log(`🔍 No avatar in contributor data, checking storyMessages for ${identifier}`);
+
+                            // Try to find message by user_id first
+                            let messageWithAvatar = null;
+                            if (identifier.length > 20 && identifier.includes('-')) {
+                                messageWithAvatar = loadedStoryMessages.find(msg =>
+                                    msg.user_id === identifier && (msg.avatar_url || msg.user_avatar_url)
+                                );
+                            }
+
+                            // If not found by user_id, try by first_name
+                            if (!messageWithAvatar && contributor.first_name) {
+                                messageWithAvatar = loadedStoryMessages.find(msg =>
+                                    msg.user_first_name &&
+                                    msg.user_first_name.toLowerCase() === contributor.first_name.toLowerCase() &&
+                                    (msg.avatar_url || msg.user_avatar_url)
+                                );
+                            }
+
+                            if (messageWithAvatar) {
+                                avatarUrl = messageWithAvatar.avatar_url || messageWithAvatar.user_avatar_url;
+                                // console.log(`✅ Found avatar in storyMessages for ${identifier}: ${avatarUrl ? 'present' : 'missing'}`);
+                            } else {
+                                // console.log(`❌ No avatar found in storyMessages for ${identifier}`);
+                            }
+                        }
+
+                        const result = {
+                            avatarUrl: avatarUrl,
                             firstName: contributor.first_name,
                             lastName: contributor.last_name,
                             email: contributor.email,
                             fallbackText: contributor.first_name?.[0] || contributor.last_name?.[0] || contributor.email?.[0]?.toUpperCase() || identifier[0]?.toUpperCase() || '?'
                         };
+                        // console.log(`✅ Returning contributor data:`, result);
+                        return result;
                     }
 
-                    console.log(`⚠️ No contributor found for ${identifier}, using defaults`);
-                    return {
+                    // console.log(`⚠️ No contributor found for ${identifier}, using defaults`);
+                    const fallbackResult = {
                         avatarUrl: '/EMBERFAV.svg', // Fallback to Ember favicon for unknown contributors
                         firstName: identifier,
                         lastName: null,
                         email: null,
                         fallbackText: identifier[0]?.toUpperCase() || '?'
                     };
+                    // console.log(`⚠️ Returning fallback data:`, fallbackResult);
+                    return fallbackResult;
                 };
 
                 // Function to determine message type based on original story messages
@@ -294,26 +404,26 @@ export default function StoryCutStudio() {
                         return 'Text Response'; // Default to text if no messages available
                     }
 
-                    console.log(`🔍 DEBUGGING ${voiceTag}:`);
-                    console.log(`  Script content: "${content}"`);
-                    console.log(`  Total story messages: ${loadedStoryMessages.length}`);
-                    console.log(`  Ember owner user_id: ${emberData?.user_id}`);
+                    // console.log(`🔍 DEBUGGING ${voiceTag}:`);
+                    // console.log(`  Script content: "${content}"`);
+                    // console.log(`  Total story messages: ${loadedStoryMessages.length}`);
+                    // console.log(`  Ember owner user_id: ${emberData?.user_id}`);
 
                     // Debug all messages before filtering
-                    loadedStoryMessages.forEach((msg, index) => {
-                        console.log(`  Message ${index}: user_id="${msg.user_id}", sender="${msg.sender}", content="${msg.content?.substring(0, 50)}...", has_audio=${msg.has_audio}`);
-                    });
+                    // loadedStoryMessages.forEach((msg, index) => {
+                    //     console.log(`  Message ${index}: user_id="${msg.user_id}", sender="${msg.sender}", content="${msg.content?.substring(0, 50)}...", has_audio=${msg.has_audio}`);
+                    // });
 
                     // Get contributor messages (filter by sender - "user" messages are from contributors)
                     const contributorMessages = loadedStoryMessages.filter(msg => msg.sender === 'user')
                         .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-                    console.log(`  Available contributor messages after filtering: ${contributorMessages.length}`);
+                    // console.log(`  Available contributor messages after filtering: ${contributorMessages.length}`);
 
                     // Try to find a message that corresponds to this voice line by content matching
                     for (const msg of contributorMessages) {
                         if (msg.content && msg.content.trim()) {
-                            console.log(`  Checking message: "${msg.content}" (has_audio: ${msg.has_audio})`);
+                            // console.log(`  Checking message: "${msg.content}" (has_audio: ${msg.has_audio})`);
 
                             // More flexible matching approach
                             const msgContent = msg.content.toLowerCase().trim();
@@ -321,13 +431,13 @@ export default function StoryCutStudio() {
 
                             // Method 1: Exact match
                             if (msgContent === scriptContent) {
-                                console.log(`  ✅ EXACT MATCH found! has_audio: ${msg.has_audio}`);
+                                // console.log(`  ✅ EXACT MATCH found! has_audio: ${msg.has_audio}`);
                                 return msg.has_audio ? 'Audio Message' : 'Text Response';
                             }
 
                             // Method 2: One contains the other
                             if (msgContent.includes(scriptContent) || scriptContent.includes(msgContent)) {
-                                console.log(`  ✅ SUBSTRING MATCH found! has_audio: ${msg.has_audio}`);
+                                // console.log(`  ✅ SUBSTRING MATCH found! has_audio: ${msg.has_audio}`);
                                 return msg.has_audio ? 'Audio Message' : 'Text Response';
                             }
 
@@ -345,17 +455,17 @@ export default function StoryCutStudio() {
 
                             // If more than 50% of words match, consider it a match
                             const matchPercentage = matchingWords / Math.min(msgWords.length, scriptWords.length);
-                            console.log(`  Word match: ${matchingWords}/${Math.min(msgWords.length, scriptWords.length)} = ${Math.round(matchPercentage * 100)}%`);
+                            // console.log(`  Word match: ${matchingWords}/${Math.min(msgWords.length, scriptWords.length)} = ${Math.round(matchPercentage * 100)}%`);
 
                             if (matchPercentage >= 0.5 && matchingWords >= 2) {
-                                console.log(`  ✅ WORD MATCH found! has_audio: ${msg.has_audio}`);
+                                // console.log(`  ✅ WORD MATCH found! has_audio: ${msg.has_audio}`);
                                 return msg.has_audio ? 'Audio Message' : 'Text Response';
                             }
                         }
                     }
 
                     // Default to text response if no match found
-                    console.log(`  ❌ No message match found for "${content.substring(0, 50)}..." - defaulting to Text Response`);
+                    // console.log(`  ❌ No message match found for "${content.substring(0, 50)}..." - defaulting to Text Response`);
                     return 'Text Response';
                 };
 
@@ -512,7 +622,7 @@ export default function StoryCutStudio() {
 
                     let blockId = 2;
                     for (const jsonBlock of targetStoryCut.blocks.blocks) {
-                        console.log('🔍 Processing JSON block:', jsonBlock);
+                        // console.log('🔍 Processing JSON block:', jsonBlock);
 
                         if (jsonBlock.type === 'voice') {
                             // Process voice block
@@ -544,7 +654,7 @@ export default function StoryCutStudio() {
                             };
 
                             realBlocks.push(voiceBlock);
-                            console.log('✅ Added JSON voice block:', voiceBlock.voiceTag);
+                            // console.log('✅ Added JSON voice block:', voiceBlock.voiceTag);
 
                         } else if (jsonBlock.type === 'media') {
                             // Process media block
@@ -559,7 +669,7 @@ export default function StoryCutStudio() {
                             };
 
                             realBlocks.push(mediaBlock);
-                            console.log('✅ Added JSON media block:', mediaBlock.mediaName);
+                            // console.log('✅ Added JSON media block:', mediaBlock.mediaName);
                         }
                     }
 
@@ -589,7 +699,7 @@ export default function StoryCutStudio() {
                             const foundMessage = loadedStoryMessages.find(msg => msg.id === block.messageId);
                             if (foundMessage) {
                                 userId = foundMessage.user_id;
-                                console.log(`🔍 Found user ID ${userId} for ${block.voiceTag} via messageId ${block.messageId}`);
+                                // console.log(`🔍 Found user ID ${userId} for ${block.voiceTag} via messageId ${block.messageId}`);
                             }
                         }
 
@@ -600,7 +710,7 @@ export default function StoryCutStudio() {
                             );
                             if (nameMatch) {
                                 userId = nameMatch.user_id;
-                                console.log(`🔍 Found user ID ${userId} for ${block.voiceTag} via name matching`);
+                                // console.log(`🔍 Found user ID ${userId} for ${block.voiceTag} via name matching`);
                             }
                         }
 
@@ -609,7 +719,7 @@ export default function StoryCutStudio() {
                             try {
                                 const userVoiceModel = await getUserVoiceModel(userId);
                                 block.hasVoiceModel = !!(userVoiceModel && userVoiceModel.elevenlabs_voice_id);
-                                console.log(`🎤 Voice model check for ${block.voiceTag}: ${block.hasVoiceModel ? 'available' : 'not available'}`);
+                                // console.log(`🎤 Voice model check for ${block.voiceTag}: ${block.hasVoiceModel ? 'available' : 'not available'}`);
                             } catch (error) {
                                 console.warn(`Failed to check voice model for ${block.voiceTag}:`, error);
                                 block.hasVoiceModel = false;
@@ -685,7 +795,7 @@ export default function StoryCutStudio() {
         };
 
         loadStoryCut();
-    }, [id, storyCutId]);
+    }, [id, storyCutId, user]);
 
     // Load editable voice blocks for current user
     useEffect(() => {
