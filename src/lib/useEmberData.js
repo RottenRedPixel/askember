@@ -214,17 +214,17 @@ export const useEmber = (id, userProfile = null) => {
                 } catch (sharingError) {
                     console.warn('🌍 Could not fetch sharing data for public user (avatars will not show):', sharingError);
                     console.log('🔄 Attempting to extract avatar data from story messages...');
-                    
+
                     // Fallback: Extract avatar data from story messages which ARE accessible to public users
                     try {
                         const storyData = await getAllStoryMessagesForEmber(id);
                         const allMessages = storyData.messages || [];
-                        
+
                         // Filter to user responses and extract unique contributors
                         const userResponses = allMessages.filter(message =>
                             message.sender === 'user' || message.message_type === 'response'
                         );
-                        
+
                         // Build unique user map from story messages
                         const userMap = new Map();
                         userResponses.forEach(message => {
@@ -240,7 +240,7 @@ export const useEmber = (id, userProfile = null) => {
                                 });
                             }
                         });
-                        
+
                         const contributorUsers = Array.from(userMap.values());
                         setSharedUsers(contributorUsers);
                         console.log('✅ Public avatar fallback successful - extracted from story messages:', contributorUsers);
@@ -248,7 +248,7 @@ export const useEmber = (id, userProfile = null) => {
                         console.warn('⚠️ Could not extract avatar data from story messages:', storyError);
                         setSharedUsers([]);
                     }
-                    
+
                     setUserPermission('public');
                 }
             }
@@ -311,7 +311,8 @@ export const useStoryCuts = (emberId, userProfile) => {
 
         try {
             setStoryCutsLoading(true);
-            const cuts = await getStoryCutsForEmber(emberId);
+            const { getStoryCutsWithBlocks } = await import('./blockDatabase.js');
+            const cuts = await getStoryCutsWithBlocks(emberId);
             console.log('📚 Story cuts fetched:', {
                 cutsLength: cuts?.length,
                 cutsType: typeof cuts,

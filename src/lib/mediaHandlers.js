@@ -302,7 +302,7 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
 
             setCurrentlyPlayingStoryCut(selectedStoryCut);
 
-            console.log('📖 Story cut script:', selectedStoryCut.full_script);
+            console.log('📖 Story cut blocks:', selectedStoryCut.blocks?.length || 0, 'blocks');
 
             // Check if we have recorded audio URLs in the story cut
             const recordedAudio = selectedStoryCut.metadata?.recordedAudio || {};
@@ -326,19 +326,19 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
                 narrator_name: selectedStoryCut.narrator_voice_name
             });
 
-            // Parse the script into segments
-            const { parseScriptSegments } = await import('@/lib/scriptParser');
+            // Use blocks directly - no parsing needed!
+            const blocks = selectedStoryCut.blocks || [];
+            console.log('🎭 Using', blocks.length, 'blocks directly from database');
             const { playMultiVoiceAudio } = await import('@/lib/emberPlayer');
             const { textToSpeech } = await import('@/lib/elevenlabs');
 
-            setCurrentLoadingMessage('Processing story script...');
-            const segments = parseScriptSegments(selectedStoryCut.full_script);
+            setCurrentLoadingMessage('Processing story blocks...');
 
-            if (segments.length > 0) {
+            if (blocks.length > 0) {
                 setCurrentLoadingMessage('Generating audio segments...');
 
                 // Use multi-voice playback system (works with or without recorded audio)
-                await playMultiVoiceAudio(segments, selectedStoryCut, recordedAudio, {
+                await playMultiVoiceAudio(blocks, selectedStoryCut, recordedAudio, {
                     setIsGeneratingAudio,
                     setIsPlaying,
                     handleExitPlay,

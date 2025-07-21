@@ -1,5 +1,6 @@
 import { getEmberPhotos } from '@/lib/photos';
 import { getEmberSupportingMedia } from '@/lib/database';
+import { smartSplitEffects } from './effectUtils';
 
 /**
  * Script parsing utility functions
@@ -620,7 +621,7 @@ export const resolveMediaReference = async (segment, emberId) => {
         let emberPhotos = [];
         let supportingMedia = [];
 
-                // Try to fetch photos and supporting media
+        // Try to fetch photos and supporting media
         [emberPhotos, supportingMedia] = await Promise.all([
             getEmberPhotos(emberId),
             getEmberSupportingMedia(emberId)
@@ -648,7 +649,7 @@ export const resolveMediaReference = async (segment, emberId) => {
 
             // Check if we should fallback to main ember image
             // This handles: 1) No media library access, 2) Media ID not found in available media
-            if ((emberPhotos.length === 0 && supportingMedia.length === 0) || 
+            if ((emberPhotos.length === 0 && supportingMedia.length === 0) ||
                 (!photoMatch && !mediaMatch)) {
                 console.log('📸 No media library found or media ID not found - attempting fallback to main ember image...');
                 try {
@@ -1207,4 +1208,507 @@ const extractContentFromLine = (line) => {
     if (legacyData) return legacyData.content;
 
     return null;
-}; 
+};
+
+// Parse story cut script into blocks and effect data
+export async function parseStoryCutScript({
+    storyCut,
+    emberId,
+    storyMessages = [],
+    user = null,
+    determineMessageType,
+    getContributorAvatarData
+}) {
+    // Parse the actual script and create blocks with real content
+    const realBlocks = [];
+
+    // Always add start block
+    realBlocks.push({
+        id: 1,
+        type: 'start',
+        title: 'Start Story'
+    });
+
+    // Parse the actual script and initialize effects state
+    const initialEffects = {};
+    const initialDirections = {};
+    const initialDurations = {};
+    const initialDistances = {};
+    const initialScales = {};
+    const initialTargets = {};
+
+    // Parse voice declarations and override story cut voice names
+    let embedVoiceNames = {
+        ember: storyCut.ember_voice_name || 'Unknown Voice',
+        narrator: storyCut.narrator_voice_name || 'Unknown Voice'
+    };
+
+    if (storyCut.full_script) {
+        const lines = storyCut.full_script.split('\n');
+        let blockId = 2;
+
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) continue;
+
+            console.log('🔍 DEBUG - Parsing line:', trimmedLine);
+
+            // Enhanced MEDIA parsing - Handle multiple format variations
+            let mediaMatch = null;
+            let mediaId = null;
+            let mediaName = null;
+            let content = null;
+            let formatType = null;
+
+            // 1. Sacred Format (3-part): [MEDIA | name | id] <content>
+            mediaMatch = trimmedLine.match(/^\[MEDIA\s*\|\s*([^|]+?)\s*\|\s*([^\]]+?)\]\s*<(.+)>$/);
+            if (mediaMatch) {
+                mediaName = mediaMatch[1].trim();
+                mediaId = mediaMatch[2].trim();
+                content = mediaMatch[3].trim();
+                formatType = 'sacred_format';
+                console.log('🔍 DEBUG - MEDIA Sacred Format MATCH:', {
+                    fullLine: trimmedLine,
+                    mediaName,
+                    mediaId,
+                    content,
+                    formatType
+                });
+            }
+
+            // 2. Enhanced Sacred Format (2-part): [MEDIA | id] <content>
+            if (!mediaMatch) {
+                mediaMatch = trimmedLine.match(/^\[MEDIA\s*\|\s*([^\]]+?)\]\s*<(.+)>$/);
+                if (mediaMatch) {
+                    mediaId = mediaMatch[1].trim();
+                    content = mediaMatch[2].trim();
+                    mediaName = 'Loading...'; // Will be resolved later
+                    formatType = 'enhanced_sacred_format';
+                    console.log('🔍 DEBUG - MEDIA Enhanced Sacred Format MATCH:', {
+                        fullLine: trimmedLine,
+                        mediaId,
+                        content,
+                        formatType
+                    });
+                }
+            }
+
+            // 3. Legacy format: [[MEDIA]] various formats
+            if (!mediaMatch) {
+                const legacyMediaMatch = trimmedLine.match(/^\[\[MEDIA\]\]\s*(.*)$/);
+                if (legacyMediaMatch) {
+                    content = legacyMediaMatch[1].trim();
+                    formatType = 'legacy_format';
+
+                    // Try to extract ID and name from legacy content
+                    const legacyIdMatch = content.match(/id="([^"]+)"/);
+                    const legacyNameMatch = content.match(/name="([^"]+)"/);
+
+                    if (legacyIdMatch) {
+                        mediaId = legacyIdMatch[1];
+                        mediaName = legacyNameMatch ? legacyNameMatch[1] : 'Legacy Media';
+                    } else {
+                        mediaId = 'legacy-generated';
+                        mediaName = 'Legacy Media';
+                    }
+
+                    console.log('🔍 DEBUG - MEDIA Legacy Format MATCH:', {
+                        fullLine: trimmedLine,
+                        content,
+                        mediaId,
+                        mediaName,
+                        formatType
+                    });
+                    mediaMatch = true; // Set flag to process as media
+                }
+            }
+
+            if (mediaMatch) {
+                console.log(`📸 DEBUG - Parsed MEDIA block - Format: ${formatType}, ID: ${mediaId}, Content: ${content}, Name: ${mediaName}`);
+
+                // Parse effects from the content
+                const currentBlockId = blockId;
+                const blockKey = `effect-${currentBlockId}`;
+                const currentBlockEffects = [];
+
+                // Skip media references (id= or name=) - content is already extracted from angle brackets
+                if (!content.startsWith('id=') && !content.startsWith('name=') && content !== 'media') {
+                    console.log(`🎬 Parsing effects from content: "${content}" for block ${currentBlockId}`);
+
+                    // Parse individual effects separated by commas - smart splitting to preserve custom coordinates
+                    const effects = smartSplitEffects(content);
+                    effects.forEach(effect => {
+                        const trimmedEffect = effect.trim();
+
+                        // Parse FADE effects: FADE-IN:duration=3.0 or FADE-OUT:duration=2.5
+                        const fadeMatch = trimmedEffect.match(/FADE-(IN|OUT):duration=([0-9.]+)/);
+                        if (fadeMatch) {
+                            const [, direction, duration] = fadeMatch;
+                            currentBlockEffects.push('fade');
+                            initialDirections[`fade-${currentBlockId}`] = direction.toLowerCase();
+                            initialDurations[`fade-${currentBlockId}`] = parseFloat(duration);
+                            console.log(`🎬 Parsed FADE effect: ${direction} ${duration}s for block ${currentBlockId}`);
+                        }
+
+                        // Parse PAN effects: PAN-LEFT:distance=25%:duration=4.0 or PAN-RIGHT:duration=3.5 (legacy)
+                        const panMatch = trimmedEffect.match(/PAN-(LEFT|RIGHT)(?::distance=([0-9]+)%)?:duration=([0-9.]+)/);
+                        if (panMatch) {
+                            const [, direction, distance, duration] = panMatch;
+                            currentBlockEffects.push('pan');
+                            initialDirections[`pan-${currentBlockId}`] = direction.toLowerCase();
+                            initialDurations[`pan-${currentBlockId}`] = parseFloat(duration);
+                            if (distance) {
+                                initialDistances[`pan-${currentBlockId}`] = parseInt(distance);
+                            }
+                            console.log(`🎬 Parsed PAN effect: ${direction} ${distance ? distance + '%' : 'default'} ${duration}s for block ${currentBlockId}`);
+                        }
+
+                        // Parse ZOOM effects: ZOOM-IN:scale=1.5:duration=3.5:target=person:123 or ZOOM-OUT:duration=2.0 (legacy)
+                        const zoomMatch = trimmedEffect.match(/ZOOM-(IN|OUT)(?::scale=([0-9.]+))?:duration=([0-9.]+)(?::target=(.*))?$/);
+                        if (zoomMatch) {
+                            const [, direction, scale, duration, target] = zoomMatch;
+                            currentBlockEffects.push('zoom');
+                            initialDirections[`zoom-${currentBlockId}`] = direction.toLowerCase();
+                            initialDurations[`zoom-${currentBlockId}`] = parseFloat(duration);
+                            if (scale) {
+                                initialScales[`zoom-${currentBlockId}`] = parseFloat(scale);
+                            }
+
+                            // Parse target information
+                            if (target) {
+                                if (target.startsWith('person:')) {
+                                    const personId = target.replace('person:', '');
+                                    initialTargets[`zoom-${currentBlockId}`] = { type: 'person', personId };
+                                    console.log(`🎯 Parsed zoom target for block ${currentBlockId}: person ${personId}`);
+                                } else if (target.startsWith('custom:')) {
+                                    const coords = target.replace('custom:', '').split(',');
+                                    console.log(`🎯 Parsing custom coordinates: raw="${target}", coords=`, coords);
+                                    if (coords.length === 2) {
+                                        // Parse pixel coordinates (same as tagged people system)
+                                        const parsedCoords = { x: parseInt(coords[0]), y: parseInt(coords[1]) };
+                                        initialTargets[`zoom-${currentBlockId}`] = {
+                                            type: 'custom',
+                                            coordinates: parsedCoords
+                                        };
+                                        console.log(`🎯 Parsed zoom target for block ${currentBlockId}: custom`, parsedCoords);
+                                    } else {
+                                        console.warn(`🎯 Invalid custom coordinates format: ${coords.length} parts instead of 2`);
+                                    }
+                                }
+                            }
+
+                            console.log(`🎬 Parsed ZOOM effect: ${direction} ${scale ? scale + 'x' : 'default'} ${duration}s${target ? ' target=' + target : ''} for block ${currentBlockId}`);
+                        }
+                    });
+                }
+
+                // Store parsed effects for this block
+                if (currentBlockEffects.length > 0) {
+                    initialEffects[blockKey] = currentBlockEffects;
+                    console.log(`🎬 Stored effects for block ${currentBlockId}:`, currentBlockEffects);
+                }
+
+                realBlocks.push({
+                    id: blockId++,
+                    type: 'media',
+                    mediaName: mediaName,
+                    mediaId: mediaId,
+                    mediaUrl: 'https://picsum.photos/400/300?random=1', // Will be resolved later
+                    effect: null,
+                    duration: 0
+                });
+
+                continue; // Skip to next line, don't process as voice
+            }
+
+            // Check for HOLD and LOAD SCREEN blocks (still use double brackets)
+            const holdLoadMatch = trimmedLine.match(/^\[\[(HOLD|LOAD SCREEN)\]\]\s*(.*)$/);
+            if (holdLoadMatch) {
+                const blockType = holdLoadMatch[1];
+                const content = holdLoadMatch[2].trim();
+
+                if (blockType === 'HOLD') {
+                    // Parse HOLD block attributes: (COLOR:#FF0000,duration=4.0,FADE-IN:duration=3.0)
+                    let color = '#000000';
+                    let duration = 4.0;
+                    let fadeEffect = null;
+
+                    // Extract color
+                    const colorMatch = content.match(/COLOR:(#[A-Fa-f0-9]{6})/);
+                    if (colorMatch) {
+                        color = colorMatch[1];
+                    }
+
+                    // Extract duration
+                    const durationMatch = content.match(/duration=([0-9]+(?:\.[0-9]+)?)/);
+                    if (durationMatch) {
+                        duration = parseFloat(durationMatch[1]);
+                    }
+
+                    // Extract fade effect
+                    const fadeMatch = content.match(/FADE-(IN|OUT):duration=([0-9]+(?:\.[0-9]+)?)/);
+                    if (fadeMatch) {
+                        fadeEffect = {
+                            type: fadeMatch[1].toLowerCase(),
+                            duration: parseFloat(fadeMatch[2])
+                        };
+                    }
+
+                    console.log(`⏸️ DEBUG - Parsed HOLD block: color=${color}, duration=${duration}s`, fadeEffect ? `, fade=${fadeEffect.type}:${fadeEffect.duration}s` : '');
+
+                    realBlocks.push({
+                        id: blockId++,
+                        type: 'hold',
+                        color: color,
+                        duration: duration,
+                        fadeEffect: fadeEffect
+                    });
+                } else if (blockType === 'LOAD SCREEN') {
+                    // Parse LOAD SCREEN block: (message="Loading...",duration=3,icon="spinner")
+                    let message = 'Loading...';
+                    let duration = 3.0;
+                    let icon = 'default';
+
+                    // Extract message
+                    const messageMatch = content.match(/message="([^"]*)"/);
+                    if (messageMatch) {
+                        message = messageMatch[1];
+                    }
+
+                    // Extract duration
+                    const durationMatch = content.match(/duration=([0-9]+(?:\.[0-9]+)?)/);
+                    if (durationMatch) {
+                        duration = parseFloat(durationMatch[1]);
+                    }
+
+                    // Extract icon
+                    const iconMatch = content.match(/icon="([^"]*)"/);
+                    if (iconMatch) {
+                        icon = iconMatch[1];
+                    }
+
+                    console.log(`⏳ DEBUG - Parsed LOAD SCREEN block: message="${message}", duration=${duration}s, icon="${icon}"`);
+
+                    realBlocks.push({
+                        id: blockId++,
+                        type: 'loadscreen',
+                        message: message,
+                        duration: duration,
+                        icon: icon
+                    });
+                }
+
+                continue; // Skip to next line, don't process as voice
+            }
+
+            // Parse voice lines using the new Sacred Format or legacy format
+            // Sacred Format: [Sarah | recorded | abc123] <We had so much fun today!>
+            // Legacy Format: [EMBER VOICE] Content here
+            const sacredFormatMatch = trimmedLine.match(/^\[([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^\]]*?)\]\s*<(.+)>$/);
+            const legacyFormatMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.*)$/);
+
+            if (sacredFormatMatch || legacyFormatMatch) {
+                let voiceTag, preference, messageId, content;
+
+                if (sacredFormatMatch) {
+                    // Sacred Format parsing
+                    [, voiceTag, preference, messageId, content] = sacredFormatMatch;
+                    voiceTag = voiceTag.trim();
+                    preference = preference.trim();
+                    messageId = messageId.trim() === 'null' ? null : messageId.trim();
+                    content = content.trim();
+
+                    console.log('🔍 DEBUG - Sacred Format MATCH:', {
+                        voiceTag,
+                        preference,
+                        messageId,
+                        content: content.substring(0, 50) + (content.length > 50 ? '...' : '')
+                    });
+                } else {
+                    // Legacy Format parsing
+                    [, voiceTag, content] = legacyFormatMatch;
+                    voiceTag = voiceTag.trim();
+                    content = content.trim();
+                    preference = 'synth'; // Default for legacy format
+                    messageId = null;
+
+                    console.log('🔍 DEBUG - Legacy Format MATCH:', {
+                        voiceTag,
+                        content: content.substring(0, 50) + (content.length > 50 ? '...' : '')
+                    });
+                }
+
+                // Determine voice type
+                let voiceType;
+                let enhancedVoiceTag = voiceTag;
+
+                if (voiceTag.includes('EMBER VOICE')) {
+                    voiceType = 'ember';
+                    enhancedVoiceTag = embedVoiceNames.ember || 'Ember Voice';
+                } else if (voiceTag.includes('NARRATOR')) {
+                    voiceType = 'narrator';
+                    enhancedVoiceTag = embedVoiceNames.narrator || 'Narrator';
+                } else {
+                    voiceType = 'contributor';
+                    // For contributors, use the actual first name from the voice tag
+                }
+
+                // Determine original message type (for contributors only)
+                let originalMessageType = 'AI Voice'; // Default for ember/narrator
+                let contributorData = { avatarUrl: null, firstName: voiceTag, lastName: null, email: null, fallbackText: voiceTag[0]?.toUpperCase() || '?' };
+
+                if (voiceType === 'contributor') {
+                    // Use the more robust message type determination
+                    originalMessageType = determineMessageType ? determineMessageType(voiceTag, content, voiceType) : 'Text Response';
+
+                    // Get contributor data for avatar (enhanced approach)
+                    if (messageId && storyMessages) {
+                        // NEW: Try to match by message ID first for most accurate results
+                        const messageMatch = storyMessages.find(msg => msg.id === messageId);
+                        if (messageMatch) {
+                            contributorData = {
+                                avatarUrl: null, // Will be populated from user profile lookup
+                                firstName: messageMatch.user_first_name || voiceTag,
+                                lastName: messageMatch.user_last_name || null,
+                                email: messageMatch.user_email || null,
+                                userId: messageMatch.user_id,
+                                fallbackText: (messageMatch.user_first_name || voiceTag)[0]?.toUpperCase() || '?'
+                            };
+                            console.log(`✅ Found contributor data via message ID ${messageId}:`, contributorData);
+                        } else {
+                            console.log(`⚠️ No message found with ID ${messageId} - falling back to name matching`);
+                            // Fall back to name-based matching if messageId lookup failed
+                            contributorData = getContributorAvatarData ? getContributorAvatarData(voiceTag) : contributorData;
+                        }
+                    } else {
+                        // Fall back to name-based matching if messageId lookup failed
+                        contributorData = getContributorAvatarData ? getContributorAvatarData(voiceTag) : contributorData;
+                    }
+
+                    realBlocks.push({
+                        id: blockId++,
+                        type: 'voice',
+                        voiceTag: enhancedVoiceTag,
+                        content: content,
+                        voiceType: voiceType,
+                        avatarUrl: voiceType === 'contributor' ? contributorData.avatarUrl : '/EMBERFAV.svg',
+                        contributorData: contributorData, // Store full contributor data for avatar fallbacks
+                        messageType: originalMessageType, // SACRED: Original message type - never changes
+                        preference: preference, // Current playback preference - can change
+                        messageId: messageId // Store message ID for future reference
+                    });
+                }
+            }
+        }
+    }
+
+    // Always add end block
+    realBlocks.push({
+        id: 999,
+        type: 'end',
+        title: 'End Story'
+    });
+
+    // Resolve actual media URLs and display names for media blocks
+    for (let block of realBlocks) {
+        if (block.type === 'media' && block.mediaId) {
+            try {
+                // Get all available media for this ember to find display name
+                const { getEmberPhotos } = await import('./photos');
+                const { getEmberSupportingMedia } = await import('./database');
+
+                const [emberPhotos, supportingMedia] = await Promise.all([
+                    getEmberPhotos(emberId),
+                    getEmberSupportingMedia(emberId)
+                ]);
+
+                // Search for the media by ID
+                const photoMatch = emberPhotos.find(photo => photo.id === block.mediaId);
+                const mediaMatch = supportingMedia.find(media => media.id === block.mediaId);
+
+                if (photoMatch) {
+                    block.mediaUrl = photoMatch.url;
+                    block.mediaName = photoMatch.display_name || photoMatch.original_name || 'Photo';
+                } else if (mediaMatch) {
+                    block.mediaUrl = mediaMatch.url;
+                    block.mediaName = mediaMatch.display_name || 'Media';
+                } else {
+                    // Keep fallback values
+                    console.log(`⚠️  Media with ID ${block.mediaId} not found in photos or supporting media`);
+                }
+            } catch (error) {
+                console.error('Error resolving media:', error);
+            }
+        }
+    }
+
+    // Check for user voice models on voice blocks
+    if (user) {
+        for (let block of realBlocks) {
+            if (block.type === 'voice' && block.voiceType === 'contributor' && block.contributorData?.userId) {
+                try {
+                    const { getUserVoiceModel } = await import('./database');
+                    const voiceModel = await getUserVoiceModel(block.contributorData.userId);
+                    block.hasVoiceModel = !!voiceModel;
+                    console.log(`🎤 Voice model check for ${block.voiceTag}: ${block.hasVoiceModel ? 'Available' : 'Not available'}`);
+                } catch (error) {
+                    console.warn(`Failed to check voice model for ${block.voiceTag}:`, error);
+                    block.hasVoiceModel = false;
+                }
+            } else {
+                console.warn(`No user ID found for ${block.voiceTag}, defaulting hasVoiceModel to false`);
+                block.hasVoiceModel = false;
+            }
+        }
+    }
+
+    // Initialize effect defaults for hold blocks
+    realBlocks.forEach(block => {
+        if (block.type === 'hold') {
+            // Only set default empty array if no effects were already parsed
+            if (!initialEffects[`hold-${block.id}`]) {
+                initialEffects[`hold-${block.id}`] = [];
+            }
+            // Only set default duration if not already parsed
+            if (!initialDurations[`hold-duration-${block.id}`]) {
+                initialDurations[`hold-duration-${block.id}`] = block.duration || 4.0;
+            }
+        }
+
+        // Set default direction for HOLD fade effects
+        if (!initialDirections[`hold-fade-${block.id}`]) {
+            initialDirections[`hold-fade-${block.id}`] = 'in';
+        }
+
+        // Set default durations for all effects (only if not already set)
+        if (!initialDurations[`fade-${block.id}`]) {
+            initialDurations[`fade-${block.id}`] = 3.0;
+        }
+        if (!initialDurations[`pan-${block.id}`]) {
+            initialDurations[`pan-${block.id}`] = 4.0;
+        }
+        if (!initialDurations[`zoom-${block.id}`]) {
+            initialDurations[`zoom-${block.id}`] = 3.5;
+        }
+
+        // Set default distances and scales (only if not already set)
+        if (!initialDistances[`pan-${block.id}`]) {
+            initialDistances[`pan-${block.id}`] = 25;
+        }
+        if (!initialScales[`zoom-${block.id}`]) {
+            initialScales[`zoom-${block.id}`] = 1.5;
+        }
+    });
+
+    return {
+        blocks: realBlocks,
+        effectData: {
+            initialEffects,
+            initialDirections,
+            initialDurations,
+            initialDistances,
+            initialScales,
+            initialTargets
+        }
+    };
+} 
