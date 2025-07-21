@@ -912,6 +912,19 @@ export const saveStoryCut = async (storyCutData) => {
       }
     };
 
+    // 🚀 NEW: Save JSON blocks if available (preferred format)
+    if (storyCutData.blocks && Array.isArray(storyCutData.blocks)) {
+      console.log('💾 Saving JSON blocks to database:', storyCutData.blocks.length, 'blocks');
+      insertData.blocks = {
+        blocks: storyCutData.blocks,
+        format: 'json_blocks',
+        version: '1.0',
+        generated_at: new Date().toISOString()
+      };
+    } else {
+      console.log('📝 No JSON blocks found, using legacy full_script only');
+    }
+
     // Only include Ember voice data if Ember voice object has a voice_id
     if (storyCutData.voiceCasting?.emberVoice?.voice_id) {
       insertData.ember_voice_id = storyCutData.voiceCasting.emberVoice.voice_id;

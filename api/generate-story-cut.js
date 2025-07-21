@@ -731,6 +731,67 @@ export default async function handler(req, res) {
       console.log('🔍 API DEBUG - ai_script field:', generatedStoryCut.ai_script);
       console.log('🔍 API DEBUG - ai_script length:', generatedStoryCut.ai_script?.length || 0);
 
+      // 🚀 NEW: Process JSON blocks if available (preferred format)
+      if (generatedStoryCut.blocks && Array.isArray(generatedStoryCut.blocks)) {
+        console.log('🚀 API - New JSON blocks format detected:', generatedStoryCut.blocks.length, 'blocks');
+
+        // Enhanced blocks with message ID mapping and user IDs
+        const enhancedBlocks = generatedStoryCut.blocks.map((block, index) => {
+          const enhancedBlock = { ...block };
+
+          // Ensure order is set
+          if (!enhancedBlock.order) {
+            enhancedBlock.order = index + 1;
+          }
+
+          // Map recorded contributor blocks to correct message IDs and user IDs
+          if (block.voice_preference === 'recorded' && block.speaker && enhancedContributorQuotes) {
+            const matchingQuote = enhancedContributorQuotes.find(quote =>
+              quote.contributor === block.speaker &&
+              quote.content === block.content
+            );
+
+            if (matchingQuote && matchingQuote.message_id) {
+              enhancedBlock.message_id = matchingQuote.message_id;
+
+              // Find user ID from messageIdMap
+              const messageData = messageIdMap.get(matchingQuote.message_id);
+              if (messageData) {
+                enhancedBlock.user_id = messageData.user_id;
+                console.log(`🆔 Enhanced block for ${block.speaker}: message_id=${matchingQuote.message_id}, user_id=${messageData.user_id}`);
+              }
+            }
+          }
+
+          return enhancedBlock;
+        });
+
+        // Store enhanced blocks
+        generatedStoryCut.blocks = enhancedBlocks;
+        console.log('✅ Enhanced', enhancedBlocks.length, 'JSON blocks with message IDs and user IDs');
+
+        // Generate legacy ai_script for backward compatibility during transition
+        if (!generatedStoryCut.ai_script) {
+          console.log('🔄 Generating legacy ai_script from JSON blocks for backward compatibility...');
+          const legacyScript = enhancedBlocks
+            .filter(block => block.type === 'voice')
+            .map(block => {
+              const name = block.speaker;
+              const preference = block.voice_preference || 'text';
+              const messageId = block.message_id || 'null';
+              const content = block.content;
+
+              return `[${name} | ${preference} | ${messageId}] <${content}>`;
+            })
+            .join('\n\n');
+
+          generatedStoryCut.ai_script = legacyScript;
+          console.log('✅ Generated legacy ai_script:', legacyScript.substring(0, 200) + '...');
+        }
+      } else {
+        console.log('📝 Using legacy ai_script format (Sacred Format)');
+      }
+
       // 🔧 FIX CONTRIBUTION IDS: Post-process script to use correct message IDs
       console.log('🔧 API DEBUG - Starting contribution ID fix...');
       if (generatedStoryCut.ai_script && enhancedContributorQuotes && enhancedContributorQuotes.length > 0) {

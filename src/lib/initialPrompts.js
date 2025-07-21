@@ -188,35 +188,36 @@ VOICE CASTING DETAILS:
 DIRECT QUOTES AVAILABLE:
 {{contributor_quotes}}
 
-CRITICAL - SACRED SCRIPT FORMAT:
-You MUST use the new sacred format for all voice lines. This format preserves critical data and prevents audio matching failures.
+CRITICAL - JSON BLOCK STRUCTURE:
+You MUST generate structured JSON blocks for each voice segment. This creates a clean, parsable format that preserves all necessary data without complex text parsing.
 
-SACRED FORMAT STRUCTURE:
-[NAME | preference | contributionID] <content>
+JSON BLOCK SCHEMA:
+Each voice segment is a JSON object with these fields:
+{
+  "type": "voice",
+  "speaker": "string",           // Name of speaker ("Sarah", "EMBER VOICE", "NARRATOR")
+  "content": "string",           // The actual spoken words
+  "voice_preference": "string", // "recorded", "text", or voice name for AI
+  "message_id": "string|null",  // Message ID for recorded content, null for AI
+  "user_id": "string|null",     // User ID for recorded content, null for AI
+  "order": number               // Sequence order in the story
+}
 
-SACRED FORMAT RULES:
-- [NAME | preference | contributionID] = SACRED DATA (never modify)
-- <content> = EDITABLE CONTENT (actual spoken words)
-- Use pipe separators (|) between sacred elements
-- Always include all three sacred elements even if some are 'null'
+SPEAKER TYPES:
+- Contributors: Use actual first names ("Sarah", "Mike", "Amado")
+- Ember Voice: Use "EMBER VOICE" 
+- Narrator Voice: Use "NARRATOR"
 
-VOICE TAG EXAMPLES - SACRED FORMAT:
-- Contributors: [Amado | recorded | 550e8400-e29b-41d4-a716-446655440000] <We went to Top Golf in Edison with Luca, Zia, and Joey.>
-- Contributors without audio: [Sarah | text | null] <I think this moment was really special for everyone.>
-- Ember Voice: [EMBER VOICE | {{ember_voice_name}} | {{ember_voice_id}}] <A sunny day at Topgolf, where smiles and swings abound.>
-- Narrator Voice: [NARRATOR | {{narrator_voice_name}} | {{narrator_voice_id}}] <The family gathered for a day of friendly competition.>
-
-SACRED DATA GUIDELINES:
-- NAME: Use actual first names for contributors (Amado, Sarah, etc.), "EMBER VOICE" for ember agent, "NARRATOR" for narrator agent
-- preference: Use "recorded" if contributor has audio, "text" if no audio available, "text" for AI voices
-- contributionID: Use the actual message_id from contributor_quotes for recorded contributions, "null" for AI-generated content
-- Look for "message_id" field in the contributor_quotes data structure and use it exactly
+VOICE PREFERENCE RULES:
+- "recorded" = Use recorded audio from contributor (requires valid message_id)
+- "text" = Use AI text-to-speech with fallback voice
+- Voice name = Use specific AI voice (for ember/narrator)
 
 CONTENT GUIDELINES:
-- <content> contains the actual spoken words without voice tags
-- Use authentic quotes from contributor_quotes for contributors with recorded audio
-- Generate appropriate content for EMBER VOICE and NARRATOR based on story context
+- Use EXACT quotes from contributor_quotes for contributors with recorded audio
+- Generate appropriate narrative content for EMBER VOICE and NARRATOR
 - Keep content clean and suitable for audio narration
+- DO NOT paraphrase recorded quotes - use them word-for-word
 
 GENERATION REQUIREMENTS:
 Create a {{duration}}-second story that weaves together the ember context and story circle conversations into a compelling narrative. Apply the provided style directive to shape your storytelling approach.
@@ -232,59 +233,49 @@ CONTENT INSTRUCTIONS:
 - Create content suitable for audio narration
 - Make the story personally meaningful while being accessible to listeners
 
-MULTIPLE VOICE FORMAT (Sacred Format):
-Each voice segment must follow this EXACT format with single spaces around pipes:
-[VOICE_TYPE | preference | contributionID] <content>
+CONTRIBUTOR QUOTE MATCHING:
+- When using contributor quotes, match exact message_id from contributor_quotes
+- Format: {"speaker": "FirstName", "voice_preference": "recorded", "message_id": "actual_message_id"}
+- Use different quotes for multiple appearances of the same contributor
+- Never repeat the same quote multiple times
 
-Where:
-- VOICE_TYPE: "EMBER VOICE", "NARRATOR", or contributor first name (e.g., "Sarah", "Mike")
-- preference: "recorded" for contributors, voice name for AI voices
-- contributionID: Use actual message IDs from contributor_quotes for contributors, generate UUIDs for AI voices
-- content: Exact quote for contributors, AI-generated for ember/narrator
+JSON BLOCKS EXAMPLES:
+```json
+[
+      {
+        "type": "voice",
+        "speaker": "EMBER VOICE",
+        "content": "A sunny day at Topgolf, where smiles and swings abound.",
+        "voice_preference": "{{ember_voice_name}}",
+        "message_id": null,
+        "user_id": null,
+        "order": 1
+      },
+      {
+        "type": "voice",
+        "speaker": "Sarah",
+        "content": "We had so much fun at the beach today.",
+        "voice_preference": "recorded",
+        "message_id": "abc123-def456",
+        "user_id": "user456",
+        "order": 2
+      },
+      {
+        "type": "voice",
+        "speaker": "NARRATOR",
+        "content": "The family gathered for a day of friendly competition.",
+        "voice_preference": "{{narrator_voice_name}}",
+        "message_id": null,
+        "user_id": null,
+        "order": 3
+      }
+    ]
+```
 
-**CRITICAL CONTRIBUTOR RULES:**
-1. **Use EXACT quotes from contributor_quotes - word-for-word, no changes**
-2. **Match each quote to its original message_id from contributor_quotes**
-3. **Format: [FirstName | recorded | actual_message_id] <exact_recorded_quote>**
-4. **Example: [Sarah | recorded | abc123-def456] <We had so much fun at the beach today.>**
-
-AI VOICE FORMAT:
-- Ember: [EMBER VOICE | {{ember_voice_name}} | generatedUUID] <AI generated content>
-- Narrator: [NARRATOR | {{narrator_voice_name}} | generatedUUID] <AI generated content>
-
-MULTIPLE CONTRIBUTIONS HANDLING:
-- When a contributor has made multiple contributions in the story circle, use DIFFERENT contributions for different voice blocks
-- DO NOT repeat the same contribution content in multiple voice blocks from the same person
-- If [Amado] appears multiple times in your script, each instance should use a different quote from Amado's contributions
-- Vary the contributions to create a richer, more dynamic narrative
-- Use the most relevant contribution from each person for each specific moment in the story
-
-VOICE TAG NAMING:
-- Use [{{owner_first_name}} | preference | message_id] for the ember owner's actual quotes
-- Use [CONTRIBUTOR_FIRST_NAME | preference | message_id] with actual first names for contributors
-- Use [EMBER VOICE | {{ember_voice_name}} | {{ember_voice_id}}] for AI-generated ember voice content
-- Use [NARRATOR | {{narrator_voice_name}} | {{narrator_voice_id}}] for AI-generated narrator content
-- Available contributor names are provided in the "Selected Contributors" section above
-- DO NOT use generic tags like [Owner] or [CONTRIBUTOR NAME] - always use actual first names
-
-SCRIPT FORMATTING - SACRED FORMAT:
-- Create scripts using the sacred format only
-- Use double line breaks between voice changes
-- Format like: "[EMBER VOICE | {{ember_voice_name}} | {{ember_voice_id}}] <Narrative line>\n\n[NARRATOR | {{narrator_voice_name}} | {{narrator_voice_id}}] <Context line>\n\n[{{owner_first_name}} | recorded | message_id] <Actual quote from owner>\n\n[CONTRIBUTOR_FIRST_NAME | recorded | message_id] <Quote from contributor>"
-- Ember Voice and Narrator are for storytelling; Owner/Contributors are for actual quotes
-- Replace {{owner_first_name}} with the actual first name of the ember owner (e.g., [Amado | recorded | message_id])
-- Replace contributor placeholders with actual contributor first names and include message IDs when available
-
-VOICE LINE ARRAYS REQUIREMENT:
-- MUST populate ember_voice_lines array with all [EMBER VOICE | {{ember_voice_name}} | {{ember_voice_id}}] lines from the ai_script
-- MUST populate narrator_voice_lines array with all [NARRATOR | {{narrator_voice_name}} | {{narrator_voice_id}}] lines from the ai_script
-- MUST populate owner_lines array with all [{{owner_first_name}} | preference | message_id] quotes from the ai_script
-- MUST populate contributor_lines array with all contributor quotes from the ai_script
-- Each array should contain the actual spoken text WITHOUT the voice tags (content from inside < >)
-- If a voice type has no lines, use an empty array []
-- Example: If ai_script contains "[EMBER VOICE | {{ember_voice_name}} | {{ember_voice_id}}] <A tense moment>\n\n[NARRATOR | {{narrator_voice_name}} | {{narrator_voice_id}}] <The game begins>", then:
-  - ember_voice_lines: ["A tense moment"]
-  - narrator_voice_lines: ["The game begins"]
+VOICE ARRAYS (Legacy Support):
+- Still populate ember_voice_lines, narrator_voice_lines arrays for compatibility
+- Extract content from blocks where speaker matches voice type
+- These will be deprecated in future versions
 
 OUTPUT FORMAT:
 Return a JSON object with this exact structure:
@@ -293,11 +284,21 @@ Return a JSON object with this exact structure:
   "duration": {{duration}},
   "style": "{{selected_style}}",
   "wordCount": {{word_count}},
-  "ai_script": "[EMBER VOICE | {{ember_voice_name}} | {{ember_voice_id}}] <First narrative line>\n\n[NARRATOR | {{narrator_voice_name}} | {{narrator_voice_id}}] <Context line>\n\n[{{owner_first_name}} | recorded | message_id] <Owner quote>\n\n[CONTRIBUTOR_FIRST_NAME | recorded | message_id] <Contributor quote>",
-  "ember_voice_lines": ["A classroom buzzes with anticipation", "Faces filled with determination"],
-  "narrator_voice_lines": ["A dodgeball tournament begins", "Who will claim victory?"],
-  "owner_lines": ["We went to a dodgeball tournament at the kid's school", "Anna, Zia and Luca"],
-  "contributor_lines": ["Potatoes"],
+  "blocks": [
+    {
+      "type": "voice",
+      "speaker": "EMBER VOICE",
+      "content": "Opening narrative line",
+      "voice_preference": "{{ember_voice_name}}",
+      "message_id": null,
+      "user_id": null,
+      "order": 1
+    }
+  ],
+  "ember_voice_lines": ["Opening narrative line"],
+  "narrator_voice_lines": ["Narrator content"],
+  "owner_lines": ["Owner quotes"], 
+  "contributor_lines": ["Contributor quotes"],
   "ember_voice_name": "{{ember_voice_name}}",
   "narrator_voice_name": "{{narrator_voice_name}}",
   "owner_first_name": "{{owner_first_name}}",
@@ -312,7 +313,8 @@ Return a JSON object with this exact structure:
     "styleApplied": "{{selected_style}}",
     "totalContributors": {{contributor_count}},
     "hasDirectQuotes": {{has_quotes}},
-    "generatedAt": "{{timestamp}}"
+    "generatedAt": "{{timestamp}}",
+    "format": "json_blocks"
   }
 }`,
 
