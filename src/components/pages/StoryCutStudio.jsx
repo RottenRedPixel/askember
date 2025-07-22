@@ -70,7 +70,13 @@ export default function StoryCutStudio() {
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState(null);
 
-
+    // Store original effects state for change detection
+    const [originalEffects, setOriginalEffects] = useState({});
+    const [originalDirections, setOriginalDirections] = useState({});
+    const [originalDurations, setOriginalDurations] = useState({});
+    const [originalDistances, setOriginalDistances] = useState({});
+    const [originalScales, setOriginalScales] = useState({});
+    const [originalTargets, setOriginalTargets] = useState({});
 
     // Initialize contributor preferences when blocks are loaded
     useEffect(() => {
@@ -746,8 +752,9 @@ export default function StoryCutStudio() {
 
                         } else if (jsonBlock.type === 'media') {
                             // Process media block
+                            const currentBlockId = blockId;
                             const mediaBlock = {
-                                id: blockId++,
+                                id: currentBlockId,
                                 type: 'media',
                                 mediaId: jsonBlock.media_id,
                                 mediaName: jsonBlock.media_name,
@@ -756,7 +763,27 @@ export default function StoryCutStudio() {
                                 effectConfig: jsonBlock.effect_config || {}
                             };
 
+                            // ✅ FIXED: Parse effects from content field and populate UI state
+                            if (jsonBlock.content) {
+                                const parsedEffects = parseEffectsFromContent(jsonBlock.content, currentBlockId);
+
+                                // Store effects for this block
+                                if (parsedEffects.effects.length > 0) {
+                                    initialEffects[`effect-${currentBlockId}`] = parsedEffects.effects;
+                                }
+
+                                // Merge all effect state
+                                Object.assign(initialDirections, parsedEffects.directions);
+                                Object.assign(initialDurations, parsedEffects.durations);
+                                Object.assign(initialDistances, parsedEffects.distances);
+                                Object.assign(initialScales, parsedEffects.scales);
+                                Object.assign(initialTargets, parsedEffects.targets);
+
+                                console.log(`🎬 Loaded effects for block ${currentBlockId}:`, parsedEffects.effects);
+                            }
+
                             realBlocks.push(mediaBlock);
+                            blockId++;
                             // console.log('✅ Added JSON media block:', mediaBlock.mediaName);
                         }
                     }
@@ -823,6 +850,31 @@ export default function StoryCutStudio() {
 
                 // Store original blocks for change detection
                 setOriginalBlocks(JSON.parse(JSON.stringify(realBlocks)));
+
+                // ✅ FIXED: Set effect states from parsed data
+                setSelectedEffects(initialEffects);
+                setEffectDirections(initialDirections);
+                setEffectDurations(initialDurations);
+                setEffectDistances(initialDistances);
+                setEffectScales(initialScales);
+                setEffectTargets(initialTargets);
+
+                // Store original effect states for change detection
+                setOriginalEffects(JSON.parse(JSON.stringify(initialEffects)));
+                setOriginalDirections(JSON.parse(JSON.stringify(initialDirections)));
+                setOriginalDurations(JSON.parse(JSON.stringify(initialDurations)));
+                setOriginalDistances(JSON.parse(JSON.stringify(initialDistances)));
+                setOriginalScales(JSON.parse(JSON.stringify(initialScales)));
+                setOriginalTargets(JSON.parse(JSON.stringify(initialTargets)));
+
+                console.log('🎬 Effect states initialized from JSON blocks:', {
+                    effects: Object.keys(initialEffects).length,
+                    directions: Object.keys(initialDirections).length,
+                    durations: Object.keys(initialDurations).length,
+                    distances: Object.keys(initialDistances).length,
+                    scales: Object.keys(initialScales).length,
+                    targets: Object.keys(initialTargets).length
+                });
 
                 // Initialize selected effects for blocks that have effects by default
                 realBlocks.forEach(block => {
@@ -934,9 +986,150 @@ export default function StoryCutStudio() {
         if (originalBlocks.length === 0 || blocks.length === 0) return;
 
         // Deep compare blocks to detect changes
-        const hasChanges = JSON.stringify(originalBlocks) !== JSON.stringify(blocks);
+        const hasBlockChanges = JSON.stringify(originalBlocks) !== JSON.stringify(blocks);
+
+        // Deep compare effects to detect changes
+        const hasEffectChanges = (
+            JSON.stringify(originalEffects) !== JSON.stringify(selectedEffects) ||
+            JSON.stringify(originalDirections) !== JSON.stringify(effectDirections) ||
+            JSON.stringify(originalDurations) !== JSON.stringify(effectDurations) ||
+            JSON.stringify(originalDistances) !== JSON.stringify(effectDistances) ||
+            JSON.stringify(originalScales) !== JSON.stringify(effectScales) ||
+            JSON.stringify(originalTargets) !== JSON.stringify(effectTargets)
+        );
+
+        const hasChanges = hasBlockChanges || hasEffectChanges;
         setHasUnsavedChanges(hasChanges);
-    }, [blocks, originalBlocks]);
+
+        if (hasEffectChanges) {
+            console.log('🎬 Effect changes detected:', {
+                effectsChanged: JSON.stringify(originalEffects) !== JSON.stringify(selectedEffects),
+                directionsChanged: JSON.stringify(originalDirections) !== JSON.stringify(effectDirections),
+                durationsChanged: JSON.stringify(originalDurations) !== JSON.stringify(effectDurations),
+                distancesChanged: JSON.stringify(originalDistances) !== JSON.stringify(effectDistances),
+                scalesChanged: JSON.stringify(originalScales) !== JSON.stringify(effectScales),
+                targetsChanged: JSON.stringify(originalTargets) !== JSON.stringify(effectTargets)
+            });
+        }
+    }, [blocks, originalBlocks, selectedEffects, effectDirections, effectDurations, effectDistances, effectScales, effectTargets, originalEffects, originalDirections, originalDurations, originalDistances, originalScales, originalTargets]);
+
+    // Helper function to parse effects from JSON block content (for loading from database)
+    const parseEffectsFromContent = (content, blockId) => {
+        if (!content || content === 'media') return {};
+
+        const effects = [];
+        const directions = {};
+        const durations = {};
+        const distances = {};
+        const scales = {};
+        const targets = {};
+
+        // Smart split effects to handle coordinates properly
+        const effectList = content.split(',').map(e => e.trim());
+
+        effectList.forEach(effect => {
+            // Parse FADE effects: FADE-IN:duration=3.0 or FADE-OUT:duration=2.5
+            const fadeMatch = effect.match(/FADE-(IN|OUT):duration=([0-9.]+)/);
+            if (fadeMatch) {
+                const [, direction, duration] = fadeMatch;
+                effects.push('fade');
+                directions[`fade-${blockId}`] = direction.toLowerCase();
+                durations[`fade-${blockId}`] = parseFloat(duration);
+            }
+
+            // Parse PAN effects: PAN-LEFT:distance=25%:duration=4.0 or PAN-RIGHT:distance=30%:duration=3.5
+            const panMatch = effect.match(/PAN-(LEFT|RIGHT)(?::distance=([0-9]+)%)?:duration=([0-9.]+)/);
+            if (panMatch) {
+                const [, direction, distance, duration] = panMatch;
+                effects.push('pan');
+                directions[`pan-${blockId}`] = direction.toLowerCase();
+                durations[`pan-${blockId}`] = parseFloat(duration);
+                if (distance) {
+                    distances[`pan-${blockId}`] = parseInt(distance);
+                }
+            }
+
+            // Parse ZOOM effects: ZOOM-IN:scale=1.5:duration=3.5:target=person:123 or ZOOM-OUT:scale=0.8:duration=2.0:target=custom:100,200
+            const zoomMatch = effect.match(/ZOOM-(IN|OUT)(?::scale=([0-9.]+))?:duration=([0-9.]+)(?::target=(.*))?$/);
+            if (zoomMatch) {
+                const [, direction, scale, duration, target] = zoomMatch;
+                effects.push('zoom');
+                directions[`zoom-${blockId}`] = direction.toLowerCase();
+                durations[`zoom-${blockId}`] = parseFloat(duration);
+                if (scale) {
+                    scales[`zoom-${blockId}`] = parseFloat(scale);
+                }
+
+                // Parse target information
+                if (target) {
+                    if (target.startsWith('person:')) {
+                        const personId = target.replace('person:', '');
+                        targets[`zoom-${blockId}`] = { type: 'person', personId };
+                    } else if (target.startsWith('custom:')) {
+                        const coords = target.replace('custom:', '').split(',');
+                        if (coords.length === 2) {
+                            const parsedCoords = { x: parseInt(coords[0]), y: parseInt(coords[1]) };
+                            targets[`zoom-${blockId}`] = {
+                                type: 'custom',
+                                coordinates: parsedCoords
+                            };
+                        }
+                    }
+                }
+            }
+        });
+
+        return { effects, directions, durations, distances, scales, targets };
+    };
+
+    // Helper function to generate effect string from UI state (for EmberPlay compatibility)
+    const generateEffectString = (blockId) => {
+        const blockEffects = selectedEffects[`effect-${blockId}`] || [];
+        const effectsArray = [];
+
+        // Generate FADE effect string
+        if (blockEffects.includes('fade')) {
+            const direction = effectDirections[`fade-${blockId}`] || 'in';
+            const duration = effectDurations[`fade-${blockId}`] || 3.0;
+            effectsArray.push(`FADE-${direction.toUpperCase()}:duration=${duration}`);
+        }
+
+        // Generate PAN effect string  
+        if (blockEffects.includes('pan')) {
+            const direction = effectDirections[`pan-${blockId}`] || 'left';
+            const duration = effectDurations[`pan-${blockId}`] || 4.0;
+            const distance = effectDistances[`pan-${blockId}`] || 25;
+            effectsArray.push(`PAN-${direction.toUpperCase()}:distance=${distance}%:duration=${duration}`);
+        }
+
+        // Generate ZOOM effect string
+        if (blockEffects.includes('zoom')) {
+            const direction = effectDirections[`zoom-${blockId}`] || 'in';
+            const duration = effectDurations[`zoom-${blockId}`] || 3.5;
+            const scale = effectScales[`zoom-${blockId}`] || 1.5;
+            const target = effectTargets[`zoom-${blockId}`];
+
+            let zoomEffect = `ZOOM-${direction.toUpperCase()}:scale=${scale}:duration=${duration}`;
+
+            // Add target information if specified
+            if (target && target.type !== 'center') {
+                if (target.type === 'person' && target.personId) {
+                    zoomEffect += `:target=person:${target.personId}`;
+                } else if (target.type === 'custom' && target.coordinates) {
+                    // Use pixel coordinates (same as tagged people system)
+                    zoomEffect += `:target=custom:${Math.round(target.coordinates.x)},${Math.round(target.coordinates.y)}`;
+                }
+            }
+
+            effectsArray.push(zoomEffect);
+        }
+
+        // Return effects string or empty if no effects
+        if (effectsArray.length > 0) {
+            return effectsArray.join(',');
+        }
+        return '';
+    };
 
     // Handle saving changes to database
     const handleUpdateStoryCut = async () => {
@@ -999,6 +1192,9 @@ export default function StoryCutStudio() {
                             hasVoiceModel: block.hasVoiceModel
                         };
                     } else if (block.type === 'media') {
+                        // ✅ FIXED: Generate effect string for EmberPlay compatibility
+                        const effectString = generateEffectString(block.id);
+
                         return {
                             // ✅ ENHANCED: Core fields
                             type: 'media',
@@ -1007,13 +1203,12 @@ export default function StoryCutStudio() {
                             media_name: block.mediaName,
                             media_url: block.mediaUrl,
 
+                            // ✅ FIXED: Put effects in content field for EmberPlay compatibility
+                            content: effectString || 'media', // Default to 'media' if no effects
+
                             // ✅ ENHANCED: Media metadata
                             mediaType: 'image', // Most media is images
-                            displayName: block.mediaName,
-
-                            // Existing fields
-                            effects: block.effects || [],
-                            effect_config: block.effectConfig || {}
+                            displayName: block.mediaName
                         };
                     }
                     return null;
@@ -1034,8 +1229,14 @@ export default function StoryCutStudio() {
                 }
             }, user.id);
 
-            // Reset dirty state and update original blocks
+            // Reset dirty state and update original blocks and effects
             setOriginalBlocks(JSON.parse(JSON.stringify(blocks)));
+            setOriginalEffects(JSON.parse(JSON.stringify(selectedEffects)));
+            setOriginalDirections(JSON.parse(JSON.stringify(effectDirections)));
+            setOriginalDurations(JSON.parse(JSON.stringify(effectDurations)));
+            setOriginalDistances(JSON.parse(JSON.stringify(effectDistances)));
+            setOriginalScales(JSON.parse(JSON.stringify(effectScales)));
+            setOriginalTargets(JSON.parse(JSON.stringify(effectTargets)));
             setHasUnsavedChanges(false);
 
             console.log('✅ Story cut updated successfully');
@@ -1064,8 +1265,14 @@ export default function StoryCutStudio() {
 
         // Confirm before discarding changes
         if (window.confirm('Are you sure you want to discard all unsaved changes?')) {
-            // Revert to original blocks
+            // Revert to original blocks and effects
             setBlocks(JSON.parse(JSON.stringify(originalBlocks)));
+            setSelectedEffects(JSON.parse(JSON.stringify(originalEffects)));
+            setEffectDirections(JSON.parse(JSON.stringify(originalDirections)));
+            setEffectDurations(JSON.parse(JSON.stringify(originalDurations)));
+            setEffectDistances(JSON.parse(JSON.stringify(originalDistances)));
+            setEffectScales(JSON.parse(JSON.stringify(originalScales)));
+            setEffectTargets(JSON.parse(JSON.stringify(originalTargets)));
             setHasUnsavedChanges(false);
 
             // Navigate back
@@ -2413,7 +2620,7 @@ export default function StoryCutStudio() {
                                                 Saving...
                                             </>
                                         ) : (
-                                            'Update Story Cut'
+                                            'Update'
                                         )}
                                     </button>
                                 </div>
