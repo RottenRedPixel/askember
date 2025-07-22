@@ -917,7 +917,7 @@ export const saveStoryCut = async (storyCutData) => {
       insertData.blocks = {
         blocks: storyCutData.blocks,
         format: 'json_blocks',
-        version: '1.0',
+        version: '2.0', // ✅ ENHANCED: Use version 2.0 for new enhanced JSON format
         generated_at: new Date().toISOString()
       };
     } else {
