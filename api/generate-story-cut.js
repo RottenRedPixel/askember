@@ -1,334 +1,36 @@
-import { OpenAI } from 'openai';
+import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 
-// Self-contained Supabase client setup (no import issues)
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+// Initialize Supabase client for database operations
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase configuration');
-}
+// Template variable replacement function
+function replaceVariables(template, variables) {
+  let result = template;
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Self-contained prompt management functions (copied from promptManager.js)
-async function getActivePrompt(promptKey) {
-  try {
-    const { data, error } = await supabase.rpc('get_active_prompt', {
-      prompt_key_param: promptKey
-    });
-
-    if (error) {
-      console.error('Error fetching active prompt:', error);
-      return null;
+  Object.entries(variables).forEach(([key, value]) => {
+    // Handle different value types appropriately
+    let replacementValue;
+    if (typeof value === 'object' && value !== null) {
+      replacementValue = JSON.stringify(value);
+    } else if (typeof value === 'boolean') {
+      replacementValue = value.toString();
+    } else if (typeof value === 'number') {
+      replacementValue = value.toString();
+    } else if (value === null || value === undefined) {
+      replacementValue = '';
+    } else {
+      replacementValue = value.toString();
     }
 
-    return data && data.length > 0 ? data[0] : null;
-  } catch (error) {
-    console.error('Error in getActivePrompt:', error);
-    return null;
-  }
-}
-
-// Self-contained variable replacement (copied from promptManager.js)
-function replaceVariables(text, variables) {
-  if (!text) return '';
-
-  let result = text;
-
-  // Replace standard variables like {{variable_name}}
-  Object.entries(variables).forEach(([key, value]) => {
     const regex = new RegExp(`{{${key}}}`, 'g');
-    result = result.replace(regex, value || '');
+    result = result.replace(regex, replacementValue);
   });
 
   return result;
-}
-
-
-
-
-
-
-
-
-
-// Additional media (if any)
-if (sortedMedia.length > 1) {
-  console.log('🔍 API DEBUG: Processing additional media elements:', sortedMedia.length - 1);
-  additionalMediaElements = sortedMedia.slice(1)
-    .map(media => {
-      console.log('🔍 API DEBUG: Processing additional media:', {
-        id: media.id,
-        name: media.name,
-        storage_url: media.storage_url?.substring(0, 30) + '...'
-      });
-
-      let line;
-      if (media.file_url || media.storage_url) {
-        const mediaUrl = media.file_url || media.storage_url;
-        const fallbackName = media.display_name || media.filename || media.name || 'media';
-        const friendlyName = media.display_name || media.filename || media.name || 'media';
-        line = `[MEDIA | ${friendlyName} | ${media.id || 'generated'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
-        console.log('✅ API DEBUG: Created additional MEDIA line with URL:', line);
-      } else if (media.id) {
-        const friendlyName = media.display_name || media.filename || media.name || 'media';
-        line = `[MEDIA | ${friendlyName} | ${media.id}] <media>`;
-        console.log('✅ API DEBUG: Created additional MEDIA line with ID:', line);
-      } else {
-        const friendlyName = media.filename || media.name || 'media';
-        line = `[MEDIA | ${friendlyName} | generated] <name="${media.filename || media.name}">`;
-        console.log('✅ API DEBUG: Created additional MEDIA line with name:', line);
-      }
-      return line;
-    })
-    .join('\n\n');
-  console.log('🔍 API DEBUG: additionalMediaElements:', additionalMediaElements);
-}
-}
-} else {
-  // No media selected - use ember's own image data if available
-  console.log('📸 API: No media selected, checking for ember image from emberData');
-  console.log('🔍 API DEBUG: emberData exists:', !!emberData);
-  console.log('🔍 API DEBUG: emberData.original_filename:', emberData?.original_filename);
-
-  if (emberData && emberData.original_filename) {
-    emberImage = `[MEDIA | ember image | ember_image] <name="${emberData.original_filename}">`;
-    console.log('✅ API DEBUG: Created fallback emberImage:', emberImage);
-  } else {
-    console.log('❌ API DEBUG: No fallback ember image could be created');
-    console.log('🔍 API DEBUG: emberData object:', JSON.stringify(emberData, null, 2));
-  }
-}
-
-// 🔧 GUARANTEED EMBER PHOTO FALLBACK - Always ensure we have an ember image
-if (!emberImage) {
-  console.log('🚨 API DEBUG: No ember image created yet - applying guaranteed fallback');
-
-  // Try multiple fallback strategies
-  if (emberData) {
-    if (emberData.storage_url) {
-      emberImage = `[MEDIA | ember image | ${emberData.id || 'ember_main'}] <path="${emberData.storage_url}",fallback="ember_photo">`;
-      console.log('✅ API DEBUG: Fallback 1 - Using emberData.storage_url:', emberImage);
-    } else if (emberData.original_filename) {
-      emberImage = `[MEDIA | ember image | ${emberData.id || 'ember_main'}] <name="${emberData.original_filename}">`;
-      console.log('✅ API DEBUG: Fallback 2 - Using emberData.original_filename:', emberImage);
-    } else if (emberData.id) {
-      emberImage = `[MEDIA | ember image | ${emberData.id}] <media>`;
-      console.log('✅ API DEBUG: Fallback 3 - Using emberData.id only:', emberImage);
-    }
-  }
-
-  // Ultimate fallback - create a placeholder ember image reference
-  if (!emberImage) {
-    emberImage = `[MEDIA | ember image | ember_photo] <name="ember_image">`;
-    console.log('✅ API DEBUG: Ultimate fallback - Generic ember image:', emberImage);
-  }
-} else {
-  console.log('✅ API DEBUG: Ember image already created successfully:', emberImage);
-}
-
-// 3. Process AI script - preserve sacred format if already present
-let processedVoiceLines = aiScript;
-
-if (isSacredFormat) {
-  // AI script is already in sacred format - preserve it exactly
-  console.log('✅ API: AI script already in sacred format - preserving as-is');
-  processedVoiceLines = aiScript.trim();
-} else {
-  // Legacy format - convert to sacred format for backward compatibility
-  console.log('🔄 API: Converting legacy format to sacred format');
-  processedVoiceLines = aiScript
-    .split('\n\n')
-    .filter(line => line.trim())
-    .map(line => {
-      const trimmedLine = line.trim();
-
-      // Skip if already processed or malformed
-      if (!trimmedLine.includes('[') || !trimmedLine.includes(']')) {
-        return trimmedLine;
-      }
-
-      // Extract voice tag and content from legacy format
-      const voiceMatch = trimmedLine.match(/^\[([^\]]+)\]\s*(.*)$/);
-      if (!voiceMatch) {
-        return trimmedLine;
-      }
-
-      const [, voiceTag, content] = voiceMatch;
-      const cleanContent = content.trim();
-
-      // Convert to sacred format
-      let sacredName = voiceTag;
-      let preference = 'text';
-      let contributionId = 'null';
-
-      // Check if it's already partially sacred (has colons)
-      const colonParts = voiceTag.split(':');
-      if (colonParts.length >= 2) {
-        sacredName = colonParts[0];
-        preference = colonParts[1];
-        contributionId = colonParts[2] || 'null';
-      }
-
-      // Normalize voice names for sacred format and populate actual voice data
-      if (sacredName.toLowerCase().includes('ember')) {
-        sacredName = 'EMBER VOICE';
-        // Use actual ember voice data from voiceCasting
-        preference = voiceCasting.ember?.preference || 'text';
-        contributionId = voiceCasting.ember?.contributionId || 'null';
-      } else if (sacredName.toLowerCase().includes('narrator')) {
-        sacredName = 'NARRATOR';
-        // Use actual narrator voice data from voiceCasting
-        preference = voiceCasting.narrator?.preference || 'text';
-        contributionId = voiceCasting.narrator?.contributionId || 'null';
-      }
-
-      // Build sacred format with actual voice data
-      return `[${sacredName} | ${preference} | ${contributionId}] <${cleanContent}>`;
-    })
-    .join('\n\n');
-}
-
-// 4. Combine all elements into complete ember script (no closing HOLD)
-const scriptParts = [];
-
-console.log('🔍 API DEBUG: Script assembly starting...');
-console.log('🔍 API DEBUG: emberImage value:', emberImage);
-console.log('🔍 API DEBUG: emberImage is truthy:', !!emberImage);
-
-// Add ember image immediately (no black opening)
-if (emberImage) {
-  scriptParts.push(emberImage);
-  console.log('✅ API DEBUG: Added ember image to scriptParts:', emberImage);
-} else {
-  console.log('❌ API DEBUG: No ember image to add - emberImage is empty/null');
-}
-
-// Add voice content
-scriptParts.push(processedVoiceLines);
-console.log('🔍 API DEBUG: Added voice content, scriptParts length now:', scriptParts.length);
-
-// Add any additional media
-if (additionalMediaElements) {
-  scriptParts.push(additionalMediaElements);
-  console.log('🔍 API DEBUG: Added additional media, scriptParts length now:', scriptParts.length);
-}
-
-// Story ends naturally without HOLD block
-
-const emberScript = scriptParts.join('\n\n');
-
-console.log('✅ API: Sacred format ember script generated successfully');
-console.log('📝 API: Output script length:', emberScript?.length || 0);
-console.log('📝 API: Final scriptParts array:', scriptParts.map((part, i) => `${i}: ${part.substring(0, 100)}...`));
-console.log('📝 API: Output script preview:', emberScript?.substring(0, 300) + '...');
-
-return emberScript;
-} catch (error) {
-  console.error('❌ API: Error processing AI script to Ember script:', error);
-  console.log('🔄 API: Falling back to basic processing...');
-  return processAIScriptToEmberScriptBasic(aiScript, selectedMedia, voiceCasting);
-}
-}
-
-// Fallback basic processing without ember data - SACRED FORMAT
-function processAIScriptToEmberScriptBasic(aiScript, selectedMedia = [], voiceCasting = {}) {
-  try {
-    console.log('🔄 API: Using basic processing fallback (SACRED FORMAT)');
-    console.log('📝 API: Basic processing input:', aiScript?.substring(0, 100) + '...');
-    console.log('🔍 API DEBUG: Basic processing selectedMedia:', selectedMedia?.length || 0);
-
-    if (!aiScript || aiScript.trim() === '') {
-      console.error('❌ API: Basic processing - no script content available');
-      return '[EMBER VOICE | Selected Voice | null] <No script content available>';
-    }
-
-    // 🔧 BUILD EMBER IMAGE FOR BASIC PROCESSING
-    let emberImage = '';
-
-    if (selectedMedia && selectedMedia.length > 0) {
-      console.log('📸 API: Basic processing - checking for ember photos in selectedMedia');
-      const emberPhoto = selectedMedia.find(m => m.category === 'ember' || (m.name && m.name.toLowerCase().includes('ember')));
-
-      if (emberPhoto) {
-        if (emberPhoto.file_url || emberPhoto.storage_url) {
-          const mediaUrl = emberPhoto.file_url || emberPhoto.storage_url;
-          const fallbackName = emberPhoto.display_name || emberPhoto.filename || emberPhoto.name || 'ember_photo';
-          const friendlyName = emberPhoto.display_name || emberPhoto.filename || emberPhoto.name || 'ember image';
-          emberImage = `[MEDIA | ${friendlyName} | ${emberPhoto.id || 'ember_main'}] <path="${mediaUrl}",fallback="${fallbackName}">`;
-          console.log('✅ API DEBUG: Basic processing created ember image with URL:', emberImage);
-        } else if (emberPhoto.id) {
-          const friendlyName = emberPhoto.display_name || emberPhoto.filename || emberPhoto.name || 'ember image';
-          emberImage = `[MEDIA | ${friendlyName} | ${emberPhoto.id}] <media>`;
-          console.log('✅ API DEBUG: Basic processing created ember image with ID:', emberImage);
-        } else {
-          const friendlyName = emberPhoto.filename || emberPhoto.name || 'ember image';
-          emberImage = `[MEDIA | ${friendlyName} | ember_basic] <name="${emberPhoto.filename || emberPhoto.name || 'ember_photo'}">`;
-          console.log('✅ API DEBUG: Basic processing created ember image with name:', emberImage);
-        }
-      }
-    }
-
-    // Ultimate fallback for basic processing
-    if (!emberImage) {
-      emberImage = `[MEDIA | ember image | ember_fallback] <name="ember_image">`;
-      console.log('✅ API DEBUG: Basic processing using ultimate fallback ember image');
-    }
-
-    // Check if AI script is already in sacred format
-    const isSacredFormat = aiScript.includes(' | ') && aiScript.includes('<') && aiScript.includes('>');
-    console.log('🔍 API: Basic processing - Sacred format:', isSacredFormat);
-
-    // Basic processing with minimal sacred format (no closing HOLD)
-
-    // Process the script based on format
-    let processedScript = aiScript;
-    if (!isSacredFormat) {
-      // Convert legacy to sacred format
-      console.log('🔄 API: Basic processing - converting to sacred format');
-      processedScript = aiScript.replace(/^\[([^\]]+)\]\s*(.+)$/gm, (match, voiceTag, content) => {
-        let sacredName = voiceTag;
-        let preference = 'text';
-        let contributionId = 'null';
-
-        if (sacredName.toLowerCase().includes('ember')) {
-          sacredName = 'EMBER VOICE';
-          // Use actual ember voice data from voiceCasting
-          preference = voiceCasting.ember?.preference || 'text';
-          contributionId = voiceCasting.ember?.contributionId || 'null';
-        } else if (sacredName.toLowerCase().includes('narrator')) {
-          sacredName = 'NARRATOR';
-          // Use actual narrator voice data from voiceCasting
-          preference = voiceCasting.narrator?.preference || 'text';
-          contributionId = voiceCasting.narrator?.contributionId || 'null';
-        }
-        return `[${sacredName} | ${preference} | ${contributionId}] <${content.trim()}>`;
-      });
-    }
-
-    // 🔧 ASSEMBLE SCRIPT WITH EMBER IMAGE FIRST
-    const scriptParts = [];
-
-    // Always add ember image first
-    if (emberImage) {
-      scriptParts.push(emberImage);
-      console.log('✅ API DEBUG: Basic processing added ember image first');
-    }
-
-    // Add processed voice script
-    scriptParts.push(processedScript);
-
-    const emberScript = scriptParts.join('\n\n');
-
-    console.log('✅ API: Basic sacred format script generated');
-    console.log('📝 API: Basic output length:', emberScript?.length || 0);
-
-    return emberScript;
-  } catch (error) {
-    console.error('❌ API: Error in basic processing:', error);
-    return '[EMBER VOICE | Selected Voice | null] <Error processing script>';
-  }
 }
 
 export default async function handler(req, res) {
@@ -432,109 +134,83 @@ export default async function handler(req, res) {
     let enhancedContributorQuotes = contributorQuotes;
     if (contributorQuotes && contributorQuotes.length > 0) {
       enhancedContributorQuotes = contributorQuotes.map(quote => {
-        // Use message_id directly from the quote if available
-        if (quote.message_id) {
-          return {
-            contributor: quote.contributor_name,
-            content: quote.content,
-            message_id: quote.message_id
-          };
+        // Try to find matching message ID from the message content
+        for (const [messageId, messageData] of messageIdMap.entries()) {
+          if (messageData.content && quote.content &&
+            messageData.content.trim() === quote.content.trim()) {
+            return {
+              ...quote,
+              message_id: messageId,
+              user_id: messageData.user_id
+            };
+          }
         }
-
-        // Fallback: Find the corresponding message ID for this quote (legacy compatibility)
-        const matchingMessage = storyMessages.find(msg =>
-          msg.sender === 'user' &&
-          msg.content === quote.content &&
-          msg.user_first_name === quote.contributor_name
-        );
-
-        return {
-          contributor: quote.contributor_name,
-          content: quote.content,
-          message_id: matchingMessage?.id || null
-        };
+        return quote; // Return original if no match found
       });
+
+      console.log('✅ Enhanced contributor quotes with message IDs');
     }
 
-    console.log('🎙️ API - Found recorded audio for users:', Array.from(recordedAudioMap.keys()));
-    console.log('🔍 API DEBUG - Story messages loaded from RPC:', storyMessages?.length || 0);
-    console.log('🔍 API DEBUG - Voice casting contributors:', voiceCasting.contributors?.length || 0);
-    console.log('🆔 API DEBUG - Enhanced contributor quotes with message IDs:', enhancedContributorQuotes?.length || 0);
-    console.log('🆔 API DEBUG - Message ID map size:', messageIdMap.size);
-
-    // 🐛 DEBUG: Log enhanced contributor quotes details
-    console.log('🐛 API DEBUG - Enhanced contributor quotes details:');
-    if (enhancedContributorQuotes && enhancedContributorQuotes.length > 0) {
-      enhancedContributorQuotes.forEach((quote, index) => {
-        console.log(`  Quote ${index + 1}:`);
-        console.log(`    - Contributor: ${quote.contributor}`);
-        console.log(`    - Message ID: ${quote.message_id}`);
-        console.log(`    - Content: "${quote.content?.substring(0, 50)}..."`);
-      });
-    } else {
-      console.log('  No enhanced contributor quotes found');
-    }
-
-    // 🐛 DEBUG: Log messageIdMap details
-    console.log('🐛 API DEBUG - MessageIdMap contents:');
-    for (const [messageId, messageData] of messageIdMap.entries()) {
-      console.log(`  Message ID: ${messageId}`);
-      console.log(`    - User: ${messageData.user_first_name} (${messageData.user_id})`);
-      console.log(`    - Content: "${messageData.content?.substring(0, 50)}..."`);
-      console.log(`    - Audio URL: ${messageData.audio_url ? 'EXISTS' : 'MISSING'}`);
-    }
-
-    // 🐛 ENHANCED DEBUG: Log all story messages details
-    console.log('🐛 API DEBUG - All story messages:');
-    if (storyMessages && Array.isArray(storyMessages)) {
-      storyMessages.forEach((msg, index) => {
-        console.log(`  Message ${index + 1}:`);
-        console.log(`    - ID: ${msg.id}`);
-        console.log(`    - User ID: ${msg.user_id} (${typeof msg.user_id})`);
-        console.log(`    - First Name: ${msg.user_first_name}`);
-        console.log(`    - Sender: ${msg.sender}`);
-        console.log(`    - Content: "${msg.content?.substring(0, 50)}..."`);
-        console.log(`    - Audio URL: ${msg.audio_url ? 'EXISTS' : 'MISSING'}`);
-        console.log(`    - Audio Filename: ${msg.audio_filename || 'N/A'}`);
-        console.log(`    - Audio Duration: ${msg.audio_duration_seconds || 'N/A'}s`);
-      });
-    } else {
-      console.log('  No story messages found or not an array');
+    // Get ember owner's information for proper voice attribution
+    let ownerFirstName = 'Owner';
+    if (voiceCasting.contributors && voiceCasting.contributors.length > 0) {
+      const owner = voiceCasting.contributors.find(c => c.role === 'owner');
+      if (owner && owner.name) {
+        ownerFirstName = owner.name;
+      }
     }
 
     // Get the master story cut generation prompt
     console.log('🔍 Loading master story cut generation prompt...');
-    const masterPrompt = await getActivePrompt('story_cut_generation');
+    const { data: masterPrompt, error: promptError } = await supabase
+      .from('prompts')
+      .select('*')
+      .eq('prompt_key', 'story_cut_generation')
+      .eq('is_active', true)
+      .single();
 
-    if (!masterPrompt) {
-      throw new Error('Master story cut generation prompt not found in database');
+    if (promptError || !masterPrompt) {
+      throw new Error(`Master prompt not found: ${promptError?.message || 'story_cut_generation prompt not active'}`);
     }
 
     console.log('✅ Loaded master prompt:', masterPrompt.title);
 
     // Get the selected style prompt
     console.log('🎨 Loading style prompt:', selectedStyle);
-    const stylePrompt = await getActivePrompt(selectedStyle);
+    const { data: stylePrompt, error: styleError } = await supabase
+      .from('prompts')
+      .select('*')
+      .eq('prompt_key', selectedStyle)
+      .eq('is_active', true)
+      .single();
 
-    if (!stylePrompt) {
+    if (styleError || !stylePrompt) {
       throw new Error(`Style prompt not found: ${selectedStyle}`);
     }
 
     console.log('✅ Loaded style prompt:', stylePrompt.title);
 
-    // Get ember owner's information for proper voice attribution
-    let ownerFirstName = 'Owner';
-    if (voiceCasting.contributors) {
-      const ownerInfo = voiceCasting.contributors.find(c => c.role === 'owner');
-      if (ownerInfo?.name) {
-        ownerFirstName = ownerInfo.name;
-      }
+    // Format story conversations with proper voice attribution
+    let storyConversations_formatted = 'No story circle conversations available yet.';
+    if (storyConversations && storyConversations.length > 0) {
+      storyConversations_formatted = storyConversations
+        .map(msg => {
+          if (msg.sender === 'ember') {
+            return `Ember AI: ${msg.content}`;
+          } else {
+            const userLabel = msg.user_first_name || 'User';
+            return `${userLabel}: ${msg.content}`;
+          }
+        })
+        .join('\n');
     }
+
+    console.log('🎙️ Found recorded audio for users:', Array.from(recordedAudioMap.keys()));
 
     // Prepare all the variables for the master prompt
     const promptVariables = {
       ember_context: emberContext,
-      story_conversations: storyConversations || 'No story circle conversations available yet.',
+      story_conversations: storyConversations_formatted,
       selected_media: selectedMedia ? JSON.stringify(selectedMedia, null, 2) : 'No media selected',
       style_prompt: stylePrompt.system_prompt,
       story_title: formData.title,
@@ -558,85 +234,17 @@ export default async function handler(req, res) {
       use_narrator_voice: voiceCasting.narrator !== null
     };
 
-    // Dynamically modify the prompt based on voice selections
-    let userPrompt = masterPrompt.user_prompt_template;
-
-    // Build voice-specific instructions
-    const hasEmber = voiceCasting.ember !== null;
-    const hasNarrator = voiceCasting.narrator !== null;
-
-    if (hasEmber && hasNarrator) {
-      // Both voices selected - use original template
-      console.log('🎭 Using both Ember and Narrator voices');
-    } else if (hasEmber && !hasNarrator) {
-      // Only Ember voice selected
-      console.log('🎭 Using only Ember voice - modifying prompt');
-
-      // Update voice tag instructions to only mention Ember voice
-      userPrompt = userPrompt.replace(
-        /- Use these voice tags: \[EMBER VOICE\], \[NARRATOR\], \[\{\{owner_first_name\}\}\], \[ACTUAL_CONTRIBUTOR_FIRST_NAME\]/,
-        '- Use these voice tags: [EMBER VOICE], [{{owner_first_name}}], [ACTUAL_CONTRIBUTOR_FIRST_NAME]'
-      );
-
-      // Update format example to exclude narrator
-      userPrompt = userPrompt.replace(
-        /Format like: "\[EMBER VOICE\] Narrative line\\n\[NARRATOR\] Context line\\n\[\{\{owner_first_name\}\}\] Actual quote from owner\\n\[CONTRIBUTOR_FIRST_NAME\] Quote from contributor"/,
-        'Format like: "[EMBER VOICE] Narrative line\\n[{{owner_first_name}}] Actual quote from owner\\n[CONTRIBUTOR_FIRST_NAME] Quote from contributor"'
-      );
-
-      // Update output format to exclude narrator_voice_lines
-      userPrompt = userPrompt.replace(
-        /"narrator_voice_lines": \["A dodgeball tournament begins", "Who will claim victory\?"\],/,
-        ''
-      );
-
-      // Update voiceCasting object to exclude narratorVoice
-      userPrompt = userPrompt.replace(
-        /"narratorVoice": "\{\{narrator_voice_name\}\}",/,
-        ''
-      );
-
-    } else if (!hasEmber && hasNarrator) {
-      // Only Narrator voice selected
-      console.log('🎭 Using only Narrator voice - modifying prompt');
-
-      // Update voice tag instructions to only mention Narrator voice
-      userPrompt = userPrompt.replace(
-        /- Use these voice tags: \[EMBER VOICE\], \[NARRATOR\], \[\{\{owner_first_name\}\}\], \[ACTUAL_CONTRIBUTOR_FIRST_NAME\]/,
-        '- Use these voice tags: [NARRATOR], [{{owner_first_name}}], [ACTUAL_CONTRIBUTOR_FIRST_NAME]'
-      );
-
-      // Update format example to exclude ember voice
-      userPrompt = userPrompt.replace(
-        /Format like: "\[EMBER VOICE\] Narrative line\\n\[NARRATOR\] Context line\\n\[\{\{owner_first_name\}\}\] Actual quote from owner\\n\[CONTRIBUTOR_FIRST_NAME\] Quote from contributor"/,
-        'Format like: "[NARRATOR] Context line\\n[{{owner_first_name}}] Actual quote from owner\\n[CONTRIBUTOR_FIRST_NAME] Quote from contributor"'
-      );
-
-      // Update output format to exclude ember_voice_lines
-      userPrompt = userPrompt.replace(
-        /"ember_voice_lines": \["A classroom buzzes with anticipation", "Faces filled with determination"\],/,
-        ''
-      );
-
-      // Update voiceCasting object to exclude emberVoice
-      userPrompt = userPrompt.replace(
-        /"emberVoice": "\{\{ember_voice_name\}\}",/,
-        ''
-      );
-    }
-
     // Format the master prompt with all variables
     let systemPrompt = replaceVariables(masterPrompt.system_prompt, promptVariables);
-    userPrompt = replaceVariables(userPrompt, promptVariables);
+    let userPrompt = replaceVariables(masterPrompt.user_prompt_template, promptVariables);
 
     console.log('🤖 Generating story cut with:', {
       style: stylePrompt.title,
       duration: formData.duration,
       wordCount: approximateWords,
-      contributors: voiceCasting.contributors?.length || 0,
+      contributorCount: voiceCasting.contributors?.length || 0,
       hasQuotes: enhancedContributorQuotes && enhancedContributorQuotes.length > 0,
-      useEmberVoice: hasEmber,
-      useNarratorVoice: hasNarrator
+      selectedMediaCount: selectedMedia?.length || 0
     });
 
     const completion = await openai.chat.completions.create({
@@ -658,13 +266,6 @@ export default async function handler(req, res) {
     try {
       generatedStoryCut = JSON.parse(storyCut);
       console.log('✅ Generated story cut:', generatedStoryCut.title);
-      console.log('📝 AI script received:', generatedStoryCut.ai_script?.substring(0, 200) + '...');
-
-      // 🔍 DEBUG: Log what OpenAI actually returned
-      console.log('🔍 API DEBUG - Raw OpenAI response:', storyCut);
-      console.log('🔍 API DEBUG - Parsed generatedStoryCut:', generatedStoryCut);
-      console.log('🔍 API DEBUG - ai_script field:', generatedStoryCut.ai_script);
-      console.log('🔍 API DEBUG - ai_script length:', generatedStoryCut.ai_script?.length || 0);
 
       // 🚀 NEW: Process JSON blocks if available (preferred format)
       if (generatedStoryCut.blocks && Array.isArray(generatedStoryCut.blocks)) {
@@ -704,13 +305,11 @@ export default async function handler(req, res) {
         // Store enhanced blocks
         generatedStoryCut.blocks = enhancedBlocks;
         console.log('✅ Enhanced', enhancedBlocks.length, 'JSON blocks with message IDs and user IDs');
-
-        console.log('✅ Enhanced', enhancedBlocks.length, 'JSON blocks with message IDs and user IDs');
       } else {
         console.log('⚠️ No JSON blocks found in AI response - this should not happen with new prompt format');
       }
 
-      // Add recorded audio URLs to the story cut data (MISSING LOGIC FROM LOCALHOST)
+      // Add recorded audio URLs to the story cut data
       generatedStoryCut.recordedAudio = {};
 
       // Map recorded audio to contributors with message IDs
@@ -734,24 +333,6 @@ export default async function handler(req, res) {
 
       console.log('🎙️ API - Added recorded audio to story cut:', Object.keys(generatedStoryCut.recordedAudio));
       console.log('🆔 API - Added message ID mapping:', Object.keys(generatedStoryCut.messageIdMap || {}));
-      console.log('🔍 API DEBUG - Contributors to map:', voiceCasting.contributors?.map(c => ({ id: c.id, name: c.name })) || []);
-      console.log('🔍 API DEBUG - Available audio users in map:', Array.from(recordedAudioMap.keys()));
-
-      // Debug the mapping process
-      if (voiceCasting.contributors) {
-        voiceCasting.contributors.forEach(contributor => {
-          const hasAudio = recordedAudioMap.has(contributor.id);
-          console.log(`🔍 API DEBUG - Contributor ${contributor.name} (${contributor.id}): ${hasAudio ? 'HAS AUDIO' : 'NO AUDIO'}`);
-          console.log(`🔍 API DEBUG - Contributor ID type: ${typeof contributor.id}`);
-
-          // Check if there's a type mismatch
-          const audioUsers = Array.from(recordedAudioMap.keys());
-          const matchingUser = audioUsers.find(userId => userId == contributor.id); // Use loose equality
-          if (matchingUser) {
-            console.log(`🔍 API DEBUG - Found matching user with loose equality: ${matchingUser} (${typeof matchingUser})`);
-          }
-        });
-      }
 
     } catch (parseError) {
       console.error('OpenAI returned invalid JSON:', storyCut);
@@ -760,7 +341,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      data: JSON.stringify(generatedStoryCut), // Return the enhanced data with recorded audio
+      data: JSON.stringify(generatedStoryCut),
       tokensUsed,
       promptUsed: masterPrompt.prompt_key,
       styleUsed: stylePrompt.prompt_key,
