@@ -731,7 +731,7 @@ export default function EmberDetail() {
       const generatedStoryCut = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
 
       console.log('✅ Story cut generated successfully:', generatedStoryCut.title);
-      console.log('📄 Script length:', generatedStoryCut.full_script?.length || 0, 'characters');
+      console.log('📄 Blocks count:', generatedStoryCut.blocks?.length || 0, 'blocks generated');
 
       // 🔍 DEBUG: Log the complete API response structure
       console.log('🔍 DEBUG - Raw API result:', result);
@@ -739,12 +739,15 @@ export default function EmberDetail() {
       console.log('🔍 DEBUG - JSON blocks:', generatedStoryCut.blocks);
       console.log('🔍 DEBUG - All fields in response:', Object.keys(generatedStoryCut));
 
-      // Check if full_script is null/undefined and prevent database error
-      if (!generatedStoryCut.full_script) {
-        console.error('❌ CRITICAL: full_script is null/undefined. Cannot save story cut.');
+      // ✅ JSON-ONLY: Check if blocks array exists instead of full_script
+      if (!generatedStoryCut.blocks || !Array.isArray(generatedStoryCut.blocks) || generatedStoryCut.blocks.length === 0) {
+        console.error('❌ CRITICAL: JSON blocks are missing or empty. Cannot save story cut.');
         console.log('🔍 Available fields:', Object.keys(generatedStoryCut).join(', '));
-        throw new Error('Story generation failed - no script content received from API');
+        console.log('🔍 Blocks value:', generatedStoryCut.blocks);
+        throw new Error('Story generation failed - no JSON blocks received from API');
       }
+
+      console.log('✅ JSON blocks validation passed:', generatedStoryCut.blocks.length, 'blocks generated');
 
       // Save the story cut to database
       console.log('💾 Saving story cut to database...');
