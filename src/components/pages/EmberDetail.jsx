@@ -578,6 +578,20 @@ export default function EmberDetail() {
       // Filter story messages to only include selected contributors' responses for direct quotes
       const selectedContributorQuotes = [];
       if (allStoryMessages?.messages) {
+        // 🔍 DEBUG: Log filtering details
+        console.log('🔍 FRONTEND DEBUG - selectedVoices:', selectedVoices);
+        console.log('🔍 FRONTEND DEBUG - Total story messages:', allStoryMessages.messages.length);
+
+        const userMessages = allStoryMessages.messages.filter(msg => msg.sender === 'user');
+        console.log('🔍 FRONTEND DEBUG - User messages:', userMessages.length);
+
+        const answerMessages = userMessages.filter(msg => msg.message_type === 'answer');
+        console.log('🔍 FRONTEND DEBUG - Answer messages:', answerMessages.length);
+
+        console.log('🔍 FRONTEND DEBUG - Available user IDs in messages:',
+          userMessages.map(msg => ({ id: msg.user_id, name: msg.user_first_name, type: msg.message_type }))
+        );
+
         allStoryMessages.messages.forEach(message => {
           // Only include user responses (not AI questions) from selected contributors
           if (message.sender === 'user' && message.message_type === 'answer' && selectedVoices.includes(message.user_id)) {
@@ -589,6 +603,11 @@ export default function EmberDetail() {
               timestamp: message.created_at
             });
           }
+        });
+
+        console.log('🔍 FRONTEND DEBUG - selectedContributorQuotes after filtering:', selectedContributorQuotes.length);
+        selectedContributorQuotes.forEach((quote, i) => {
+          console.log(`  Quote ${i + 1}: ${quote.contributor_name} - "${quote.content.substring(0, 50)}..."`);
         });
       }
 
@@ -717,8 +736,7 @@ export default function EmberDetail() {
       // 🔍 DEBUG: Log the complete API response structure
       console.log('🔍 DEBUG - Raw API result:', result);
       console.log('🔍 DEBUG - Generated story cut object:', generatedStoryCut);
-      console.log('🔍 DEBUG - ai_script content:', generatedStoryCut.ai_script);
-      console.log('🔍 DEBUG - full_script content:', generatedStoryCut.full_script);
+      console.log('🔍 DEBUG - JSON blocks:', generatedStoryCut.blocks);
       console.log('🔍 DEBUG - All fields in response:', Object.keys(generatedStoryCut));
 
       // Check if full_script is null/undefined and prevent database error

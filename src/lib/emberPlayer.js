@@ -369,17 +369,23 @@ export const debugRecordedAudio = (recordedAudio, blocks) => {
   });
 
   console.log('\n📝 Blocks requiring recorded audio:');
-  blocks.filter(seg => seg.type === 'contributor').forEach((segment, index) => {
+  blocks.filter(seg =>
+    seg.type === 'contributor' ||
+    (seg.type === 'voice' && seg.speaker && seg.speaker !== 'EMBER VOICE' && seg.speaker !== 'NARRATOR')
+  ).forEach((segment, index) => {
+    const segmentVoiceTag = segment.voiceTag || segment.speaker || 'Unknown';
+
     console.log(`  📋 Segment ${index + 1}:`);
-    console.log(`    - Voice Tag: "${segment.voiceTag}"`);
+    console.log(`    - Voice Tag: "${segmentVoiceTag}"`);
     console.log(`    - Content: "${segment.content}"`);
     console.log(`    - Type: ${segment.type}`);
+    console.log(`    - Speaker: ${segment.speaker || 'NONE'}`);
     console.log(`    - Message ID: ${segment.messageId || 'NONE'}`);
     console.log(`    - Preference: ${segment.preference || 'NONE'}`);
 
     // Check for matches
     const matches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
-      const nameMatches = audioData.user_first_name === segment.voiceTag;
+      const nameMatches = audioData.user_first_name === segmentVoiceTag;
       const recordedContent = audioData.message_content?.toLowerCase() || '';
       const segmentContent = segment.content.toLowerCase();
       const contentMatches = recordedContent === segmentContent ||
@@ -396,7 +402,7 @@ export const debugRecordedAudio = (recordedAudio, blocks) => {
 
       // Check for personal voice model as fallback
       const nameMatches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
-        return audioData.user_first_name === segment.voiceTag;
+        return audioData.user_first_name === segmentVoiceTag;
       });
 
       if (nameMatches.length > 0) {
@@ -424,7 +430,26 @@ export const debugRecordedAudio = (recordedAudio, blocks) => {
  * @returns {Promise<Object>} Audio segment with metadata
  */
 export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => {
-  const { voiceTag, content, originalContent, type } = segment;
+  const { voiceTag, content, originalContent, type, speaker } = segment;
+
+  // ✅ ENHANCED: Derive actual voice type for backward compatibility  
+  let actualVoiceType = type;
+  let actualVoiceTag = voiceTag || speaker || 'Unknown Voice';
+
+  // For type 'voice' blocks, derive the actual type from speaker
+  if (type === 'voice' && speaker) {
+    if (speaker === 'EMBER VOICE') {
+      actualVoiceType = 'ember';
+      actualVoiceTag = 'Ember Voice';
+    } else if (speaker === 'NARRATOR') {
+      actualVoiceType = 'narrator';
+      actualVoiceTag = 'Narrator';
+    } else {
+      actualVoiceType = 'contributor';
+      actualVoiceTag = speaker;
+    }
+    console.log(`🔄 Derived voice type: ${type} + speaker "${speaker}" → ${actualVoiceType}`);
+  }
 
   // Use originalContent for audio synthesis, content for display/matching
   const rawAudioContent = originalContent || content;
@@ -436,7 +461,7 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
     .trim();
 
   try {
-    if (type === 'contributor') {
+    if (actualVoiceType === 'contributor') {
       // Check per-message preference for this content FIRST
       let userPreference = 'recorded'; // default
       let foundStudioPreference = false;
@@ -637,12 +662,12 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         audioData,
         userVoiceModel,
         storyCut,
-        voiceTag,
+        actualVoiceTag,
         audioContent,
         content,
         segment
       );
-    } else if (type === 'ember') {
+    } else if (actualVoiceType === 'ember') {
       // EMBER VOICE
       console.log(`🔥 Generating EMBER voice audio: "${audioContent}"`);
 
@@ -661,10 +686,10 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         audio,
         url: audioUrl,
         blob: audioBlob,
-        voiceTag,
+        voiceTag: actualVoiceTag,
         content: audioContent
       };
-    } else if (type === 'narrator') {
+    } else if (actualVoiceType === 'narrator') {
       // NARRATOR VOICE
       console.log(`🗣️ Generating NARRATOR voice audio: "${audioContent}"`);
 
@@ -683,14 +708,14 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         audio,
         url: audioUrl,
         blob: audioBlob,
-        voiceTag,
+        voiceTag: actualVoiceTag,
         content: audioContent
       };
     } else {
-      throw new Error(`Unsupported voice type: ${type}`);
+      throw new Error(`Unsupported voice type: ${actualVoiceType} (original: ${type})`);
     }
   } catch (error) {
-    console.error(`❌ Error generating audio for [${voiceTag}]:`, error);
+    console.error(`❌ Error generating audio for [${actualVoiceTag}]:`, error);
     throw error;
   }
 };
@@ -756,6 +781,20 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
   // 🐛 DEBUG: Run debug helper to analyze recorded audio matching
   debugRecordedAudio(recordedAudio, blocks);
 
+  // ✅ DEBUG: Inspect block structure to understand voice detection issue
+  console.log('🔍 DEBUG: Block structure analysis:');
+  blocks.forEach((block, index) => {
+    console.log(`  Block ${index + 1}:`, {
+      type: block.type,
+      voiceType: block.voiceType,
+      speaker: block.speaker,
+      voiceTag: block.voiceTag,
+      hasVoiceType: !!block.voiceType,
+      isVoiceBlock: block.type === 'voice',
+      matchesDetection: (block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor' || (block.type === 'voice' && block.voiceType))
+    });
+  });
+
   // Reset playback flag
   playbackStoppedRef.current = false;
 
@@ -764,10 +803,28 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
     const mediaBlocks = blocks.filter(block => block.type === 'media' || block.type === 'loadscreen');
 
     // Check both old format (type: 'ember'/'narrator'/'contributor') AND new format (type: 'voice' with voiceType)
-    const voiceBlocks = blocks.filter(block =>
-      block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor' ||
-      (block.type === 'voice' && block.voiceType) // NEW: StoryCutStudio format
-    );
+    const voiceBlocks = blocks.filter(block => {
+      // Old format: direct type matching
+      if (block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor') {
+        return true;
+      }
+
+      // New format: type 'voice' with voiceType field
+      if (block.type === 'voice' && block.voiceType) {
+        return true;
+      }
+
+      // ✅ ENHANCED: Fallback for AI-generated blocks that have type 'voice' but missing voiceType
+      if (block.type === 'voice' && block.speaker) {
+        // Derive voiceType from speaker name for backward compatibility
+        if (block.speaker === 'EMBER VOICE') return true;
+        if (block.speaker === 'NARRATOR') return true;
+        // Any other speaker is a contributor
+        return true;
+      }
+
+      return false;
+    });
 
     console.log(`🎭 Block breakdown: ${blocks.length} total → ${mediaBlocks.length} media/loadscreen + ${voiceBlocks.length} voice`);
 
@@ -824,11 +881,23 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
         });
         console.log(`📺 Timeline ${index + 1}: MEDIA switch - ${(block.content || block.mediaName || 'Media').substring(0, 50)}...`);
       } else if (block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor' ||
-        (block.type === 'voice' && block.voiceType)) {
+        (block.type === 'voice' && block.voiceType) ||
+        (block.type === 'voice' && block.speaker)) {
         // ✅ ENHANCED: Voice block - handle both old and new formats
 
-        // Get voice type from enriched JSON or fallback to old format
-        const voiceType = block.voiceType || block.type; // New format has voiceType, old format uses type directly
+        // Get voice type from enriched JSON or fallback to old format or derive from speaker
+        let voiceType = block.voiceType || block.type; // New format has voiceType, old format uses type directly
+
+        // ✅ ENHANCED: For backward compatibility with AI-generated blocks
+        if (block.type === 'voice' && !block.voiceType && block.speaker) {
+          if (block.speaker === 'EMBER VOICE') {
+            voiceType = 'ember';
+          } else if (block.speaker === 'NARRATOR') {
+            voiceType = 'narrator';
+          } else {
+            voiceType = 'contributor';
+          }
+        }
 
         // Voice block - find corresponding audio by index instead of voiceTag to prevent repetition
         const audioSegment = audioSegments[lastBlockIndex + 1];

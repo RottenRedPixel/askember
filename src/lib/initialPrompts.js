@@ -233,11 +233,59 @@ VOICE PREFERENCE RULES:
 - "text" = Use AI text-to-speech with fallback voice
 - Voice name = Use specific AI voice (for ember/narrator)
 
+🚨 CRITICAL JSON BLOCK GENERATION RULES:
+
+1. **FOR RECORDED QUOTES**: When using contributor_quotes with message_id, you MUST include the exact message_id and user_id in the JSON block:
+   ```json
+   {
+    "type": "voice",
+    "speaker": "Zia",
+    "content": "At Supercharged, we went to see if we were tall enough to go go-karting.",
+    "voice_preference": "recorded",
+    "message_id": "abc123-def456",
+    "user_id": "user789",
+    "order": 3
+  }
+    ```
+
+2. **FOR AI-GENERATED CONTENT** (Ember/Narrator voices):
+   ```json
+   {
+    "type": "voice",
+    "speaker": "EMBER VOICE",
+    "content": "A day of adventure begins...",
+    "voice_preference": "Lily",
+    "message_id": null,
+    "user_id": null,
+    "order": 2
+  }
+    ```
+
+3. **MANDATORY FIELD INCLUSION**: Every voice block MUST include message_id and user_id fields (use null for AI-generated content).
+
 CONTENT GUIDELINES:
 - Use EXACT quotes from contributor_quotes for contributors with recorded audio
 - Generate appropriate narrative content for EMBER VOICE and NARRATOR
 - Keep content clean and suitable for audio narration
 - DO NOT paraphrase recorded quotes - use them word-for-word
+
+🚨 CRITICAL CONTRIBUTOR QUOTE RULES - READ CAREFULLY:
+
+1. **MANDATORY FOR ALL CONTRIBUTORS**: You MUST use the EXACT text from contributor_quotes. 
+2. **ZERO TOLERANCE FOR CREATIVITY**: Do NOT rewrite, paraphrase, summarize, or "improve" any contributor quotes.
+3. **COPY-PASTE ONLY**: If a contributor has recorded audio, you MUST copy their exact words from contributor_quotes.
+4. **NO ARTISTIC LICENSE**: You are NOT allowed to create new dialogue for real people.
+5. **INCLUDE MESSAGE IDS**: When using recorded quotes, you MUST include the correct message_id from contributor_quotes.
+
+❌ WRONG EXAMPLE - DO NOT DO THIS:
+If contributor_quotes contains: Zia - "At Supercharged, we went to see if we were tall enough to go go-karting."
+DO NOT generate: "When we went to Topgolf, I played with a special club and beat my brother."
+
+✅ CORRECT EXAMPLE - DO THIS:
+If contributor_quotes contains: Zia - "At Supercharged, we went to see if we were tall enough to go go-karting."
+USE EXACTLY: "At Supercharged, we went to see if we were tall enough to go go-karting."
+
+🔒 ENFORCEMENT: If you generate ANY content for contributors that differs from contributor_quotes, you have failed this task.
 
 GENERATION REQUIREMENTS:
 Create a {{duration}}-second story that weaves together the ember context and story circle conversations into a compelling narrative. Apply the provided style directive to shape your storytelling approach.
@@ -364,35 +412,35 @@ Return a JSON object with this exact structure:
   }
 }`,
 
-    // Management & Versioning
-    is_active: true,
-    version: 'v3.0',
+  // Management & Versioning
+  is_active: true,
+  version: 'v3.0',
 
-    // Metadata
-    tags: ['story', 'generation', 'ai-script', 'content', 'narrative', 'audio'],
-    notes: 'AI Story Content Generator - focuses purely on storytelling content creation. Returns raw AI script that gets processed into ember format by platform. v3.0: Simplified to focus on content creation only.'
+  // Metadata
+  tags: ['story', 'generation', 'ai-script', 'content', 'narrative', 'audio'],
+  notes: 'AI Story Content Generator - focuses purely on storytelling content creation. Returns raw AI script that gets processed into ember format by platform. v3.0: Simplified to focus on content creation only.'
   },
 
-  // ===========================================
-  // CONVERSATION PROMPTS
-  // ===========================================
-  {
-    prompt_key: 'story_circle_initial',
+// ===========================================
+// CONVERSATION PROMPTS
+// ===========================================
+{
+  prompt_key: 'story_circle_initial',
     title: 'Story Circle Initial Question',
-    description: 'Generate an opening question for the story circle conversation',
-    category: 'conversation',
-    subcategory: 'story_circle',
+      description: 'Generate an opening question for the story circle conversation',
+        category: 'conversation',
+          subcategory: 'story_circle',
 
-    // OpenAI Configuration
-    model: 'gpt-4o-mini',
-    max_tokens: 100,
-    temperature: 0.7,
-    response_format: 'text',
+            // OpenAI Configuration
+            model: 'gpt-4o-mini',
+              max_tokens: 100,
+                temperature: 0.7,
+                  response_format: 'text',
 
-    // Prompt Structure
-    prompt_type: 'user_only',
-    system_prompt: null,
-    user_prompt_template: `{{ember_context}}
+                    // Prompt Structure
+                    prompt_type: 'user_only',
+                      system_prompt: null,
+                        user_prompt_template: `{{ember_context}}
 
 Based on the ember context above, generate ONE thoughtful, engaging opening question for a story circle conversation. The question should:
 - Be personal and encourage storytelling
@@ -403,32 +451,32 @@ Based on the ember context above, generate ONE thoughtful, engaging opening ques
 
 Only provide the question, no additional text or explanation.`,
 
-    // Management & Versioning
-    is_active: true,
-    version: 'v1.0',
+                          // Management & Versioning
+                          is_active: true,
+                            version: 'v1.0',
 
-    // Metadata
-    tags: ['conversation', 'story_circle', 'questions', 'initial', 'opening'],
-    notes: 'Generates opening questions for story circle conversations based on ember context.'
-  },
+                              // Metadata
+                              tags: ['conversation', 'story_circle', 'questions', 'initial', 'opening'],
+                                notes: 'Generates opening questions for story circle conversations based on ember context.'
+},
 
-  {
-    prompt_key: 'story_circle_followup',
+{
+  prompt_key: 'story_circle_followup',
     title: 'Story Circle Follow-up Questions',
-    description: 'Generate contextual follow-up questions for story circle conversations',
-    category: 'conversation',
-    subcategory: 'story_circle',
+      description: 'Generate contextual follow-up questions for story circle conversations',
+        category: 'conversation',
+          subcategory: 'story_circle',
 
-    // OpenAI Configuration
-    model: 'gpt-4o-mini',
-    max_tokens: 150,
-    temperature: 0.8,
-    response_format: 'text',
+            // OpenAI Configuration
+            model: 'gpt-4o-mini',
+              max_tokens: 150,
+                temperature: 0.8,
+                  response_format: 'text',
 
-    // Prompt Structure
-    prompt_type: 'user_only',
-    system_prompt: null,
-    user_prompt_template: `{{ember_context}}
+                    // Prompt Structure
+                    prompt_type: 'user_only',
+                      system_prompt: null,
+                        user_prompt_template: `{{ember_context}}
 
 Previous conversation context:
 {{conversation_history}}
@@ -442,35 +490,35 @@ Based on the ember context and conversation history above, generate ONE thoughtf
 
 Only provide the question, no additional text or explanation.`,
 
-    // Management & Versioning
-    is_active: true,
-    version: 'v1.0',
+                          // Management & Versioning
+                          is_active: true,
+                            version: 'v1.0',
 
-    // Metadata
-    tags: ['conversation', 'story_circle', 'followup', 'questions', 'contextual'],
-    notes: 'Generates follow-up questions for ongoing story circle conversations.'
-  },
+                              // Metadata
+                              tags: ['conversation', 'story_circle', 'followup', 'questions', 'contextual'],
+                                notes: 'Generates follow-up questions for ongoing story circle conversations.'
+},
 
-  // ===========================================
-  // GENERAL PROMPTS
-  // ===========================================
-  {
-    prompt_key: 'ember_summary_generation',
+// ===========================================
+// GENERAL PROMPTS
+// ===========================================
+{
+  prompt_key: 'ember_summary_generation',
     title: 'Ember Summary Generation',
-    description: 'Generate a concise summary of an ember based on all available context',
-    category: 'general',
-    subcategory: 'summary',
+      description: 'Generate a concise summary of an ember based on all available context',
+        category: 'general',
+          subcategory: 'summary',
 
-    // OpenAI Configuration
-    model: 'gpt-4o-mini',
-    max_tokens: 300,
-    temperature: 0.6,
-    response_format: 'text',
+            // OpenAI Configuration
+            model: 'gpt-4o-mini',
+              max_tokens: 300,
+                temperature: 0.6,
+                  response_format: 'text',
 
-    // Prompt Structure
-    prompt_type: 'user_only',
-    system_prompt: null,
-    user_prompt_template: `{{ember_context}}
+                    // Prompt Structure
+                    prompt_type: 'user_only',
+                      system_prompt: null,
+                        user_prompt_template: `{{ember_context}}
 
 Based on the complete ember context above, generate a concise but comprehensive summary of this moment. The summary should:
 - Capture the key elements of what happened
@@ -481,35 +529,35 @@ Based on the complete ember context above, generate a concise but comprehensive 
 
 Focus on what makes this moment unique and memorable.`,
 
-    // Management & Versioning
-    is_active: true,
-    version: 'v1.0',
+                          // Management & Versioning
+                          is_active: true,
+                            version: 'v1.0',
 
-    // Metadata
-    tags: ['summary', 'general', 'ember', 'overview'],
-    notes: 'Generates concise summaries of ember moments for overview purposes.'
-  },
+                              // Metadata
+                              tags: ['summary', 'general', 'ember', 'overview'],
+                                notes: 'Generates concise summaries of ember moments for overview purposes.'
+},
 
-  // ===========================================
-  // EXPERIMENTAL/ALTERNATIVE PROMPTS
-  // ===========================================
-  {
-    prompt_key: 'title_generation_poetic',
+// ===========================================
+// EXPERIMENTAL/ALTERNATIVE PROMPTS
+// ===========================================
+{
+  prompt_key: 'title_generation_poetic',
     title: 'Poetic Title Generation',
-    description: 'Generate more poetic and artistic titles for embers',
-    category: 'title_generation',
-    subcategory: 'poetic',
+      description: 'Generate more poetic and artistic titles for embers',
+        category: 'title_generation',
+          subcategory: 'poetic',
 
-    // OpenAI Configuration
-    model: 'gpt-4o-mini',
-    max_tokens: 200,
-    temperature: 0.9,
-    response_format: 'text',
+            // OpenAI Configuration
+            model: 'gpt-4o-mini',
+              max_tokens: 200,
+                temperature: 0.9,
+                  response_format: 'text',
 
-    // Prompt Structure
-    prompt_type: 'user_only',
-    system_prompt: null,
-    user_prompt_template: `{{ember_context}}
+                    // Prompt Structure
+                    prompt_type: 'user_only',
+                      system_prompt: null,
+                        user_prompt_template: `{{ember_context}}
 
 Based on the context above, generate 5 poetic and artistic titles for this moment. The titles should:
 - Use evocative, lyrical language
@@ -526,32 +574,32 @@ Format your response as a numbered list:
 4. [Title]
 5. [Title]`,
 
-    // Management & Versioning
-    is_active: false, // Inactive - alternative to main title generation
-    version: 'v1.0',
+                          // Management & Versioning
+                          is_active: false, // Inactive - alternative to main title generation
+                            version: 'v1.0',
 
-    // Metadata
-    tags: ['title', 'generation', 'poetic', 'artistic', 'alternative'],
-    notes: 'Alternative prompt for more poetic/artistic title generation. Currently inactive.'
-  },
+                              // Metadata
+                              tags: ['title', 'generation', 'poetic', 'artistic', 'alternative'],
+                                notes: 'Alternative prompt for more poetic/artistic title generation. Currently inactive.'
+},
 
-  {
-    prompt_key: 'image_analysis_technical',
+{
+  prompt_key: 'image_analysis_technical',
     title: 'Technical Image Analysis',
-    description: 'Focus on technical and compositional aspects of images',
-    category: 'image_analysis',
-    subcategory: 'technical',
+      description: 'Focus on technical and compositional aspects of images',
+        category: 'image_analysis',
+          subcategory: 'technical',
 
-    // OpenAI Configuration
-    model: 'gpt-4o',
-    max_tokens: 2000,
-    temperature: 0.2,
-    response_format: 'text',
+            // OpenAI Configuration
+            model: 'gpt-4o',
+              max_tokens: 2000,
+                temperature: 0.2,
+                  response_format: 'text',
 
-    // Prompt Structure
-    prompt_type: 'user_only',
-    system_prompt: null,
-    user_prompt_template: `{{ember_context}}
+                    // Prompt Structure
+                    prompt_type: 'user_only',
+                      system_prompt: null,
+                        user_prompt_template: `{{ember_context}}
 
 Analyze this image with a focus on technical and compositional aspects:
 
@@ -583,32 +631,32 @@ VISUAL STORYTELLING:
 
 Provide a detailed technical analysis that would help understand the photographic craft behind this image.`,
 
-    // Management & Versioning
-    is_active: false, // Inactive - specialized use case
-    version: 'v1.0',
+                          // Management & Versioning
+                          is_active: false, // Inactive - specialized use case
+                            version: 'v1.0',
 
-    // Metadata
-    tags: ['image', 'analysis', 'technical', 'composition', 'photography'],
-    notes: 'Specialized prompt for technical image analysis. Currently inactive.'
-  },
+                              // Metadata
+                              tags: ['image', 'analysis', 'technical', 'composition', 'photography'],
+                                notes: 'Specialized prompt for technical image analysis. Currently inactive.'
+},
 
-  {
-    prompt_key: 'story_circle_emotional',
+{
+  prompt_key: 'story_circle_emotional',
     title: 'Emotional Story Circle Questions',
-    description: 'Generate questions focused on emotional aspects of moments',
-    category: 'conversation',
-    subcategory: 'story_circle',
+      description: 'Generate questions focused on emotional aspects of moments',
+        category: 'conversation',
+          subcategory: 'story_circle',
 
-    // OpenAI Configuration
-    model: 'gpt-4o-mini',
-    max_tokens: 100,
-    temperature: 0.8,
-    response_format: 'text',
+            // OpenAI Configuration
+            model: 'gpt-4o-mini',
+              max_tokens: 100,
+                temperature: 0.8,
+                  response_format: 'text',
 
-    // Prompt Structure
-    prompt_type: 'user_only',
-    system_prompt: null,
-    user_prompt_template: `{{ember_context}}
+                    // Prompt Structure
+                    prompt_type: 'user_only',
+                      system_prompt: null,
+                        user_prompt_template: `{{ember_context}}
 
 Based on the ember context above, generate ONE question that focuses specifically on the emotional aspects of this moment. The question should:
 - Explore feelings and emotions
@@ -619,31 +667,31 @@ Based on the ember context above, generate ONE question that focuses specificall
 
 Only provide the question, no additional text or explanation.`,
 
-    // Management & Versioning
-    is_active: false, // Inactive - specialized variation
-    version: 'v1.0',
+                          // Management & Versioning
+                          is_active: false, // Inactive - specialized variation
+                            version: 'v1.0',
 
-    // Metadata
-    tags: ['conversation', 'story_circle', 'emotional', 'feelings', 'specialized'],
-    notes: 'Specialized prompt for emotionally-focused story circle questions. Currently inactive.'
-  },
+                              // Metadata
+                              tags: ['conversation', 'story_circle', 'emotional', 'feelings', 'specialized'],
+                                notes: 'Specialized prompt for emotionally-focused story circle questions. Currently inactive.'
+},
 
-  {
-    prompt_key: 'story_circle_ember_ai',
+{
+  prompt_key: 'story_circle_ember_ai',
     title: 'Ember AI Story Circle Questions',
-    description: 'Ember AI analyzes comments and wiki context to generate thoughtful questions focusing on the 5 W\'s and emotional responses',
-    category: 'conversation',
-    subcategory: 'story_circle',
+      description: 'Ember AI analyzes comments and wiki context to generate thoughtful questions focusing on the 5 W\'s and emotional responses',
+        category: 'conversation',
+          subcategory: 'story_circle',
 
-    // OpenAI Configuration
-    model: 'gpt-4o-mini',
-    max_tokens: 150,
-    temperature: 0.7,
-    response_format: 'text',
+            // OpenAI Configuration
+            model: 'gpt-4o-mini',
+              max_tokens: 150,
+                temperature: 0.7,
+                  response_format: 'text',
 
-    // Prompt Structure
-    prompt_type: 'system_and_user',
-    system_prompt: `You are Ember AI, a thoughtful conversation guide helping people explore their memories and stories. Your role is to:
+                    // Prompt Structure
+                    prompt_type: 'system_and_user',
+                      system_prompt: `You are Ember AI, a thoughtful conversation guide helping people explore their memories and stories. Your role is to:
 
 1. Analyze new user comments and the full wiki context
 2. Look for gaps in the Five W's (Who, What, Where, When, Why)
@@ -654,7 +702,7 @@ Only provide the question, no additional text or explanation.`,
 
 Keep your questions brief, natural, and focused on one specific aspect. Avoid long explanations or multiple questions at once.`,
 
-    user_prompt_template: `EMBER WIKI CONTEXT:
+                        user_prompt_template: `EMBER WIKI CONTEXT:
 {{ember_context}}
 
 RECENT CONVERSATION:
@@ -679,34 +727,34 @@ Generate ONE short, casual question (1-2 sentences) that either:
 
 Be conversational and warm. Ask about feelings, personal memories, or little details that make this moment special.`,
 
-    // Management & Versioning
-    is_active: true,
-    version: 'v1.0',
+                          // Management & Versioning
+                          is_active: true,
+                            version: 'v1.0',
 
-    // Metadata
-    tags: ['conversation', 'story_circle', 'ember_ai', 'emotional', 'five_ws', 'anecdotes'],
-    notes: 'Main Ember AI prompt for analyzing comments and generating emotional story circle questions based on the 5 W\'s framework.'
-  },
+                              // Metadata
+                              tags: ['conversation', 'story_circle', 'ember_ai', 'emotional', 'five_ws', 'anecdotes'],
+                                notes: 'Main Ember AI prompt for analyzing comments and generating emotional story circle questions based on the 5 W\'s framework.'
+},
 
-  // ===========================================
-  // STORY STYLE PROMPTS
-  // ===========================================
-  {
-    prompt_key: 'story_style_movie_trailer',
+// ===========================================
+// STORY STYLE PROMPTS
+// ===========================================
+{
+  prompt_key: 'story_style_movie_trailer',
     title: 'Movie Trailer Style',
-    description: 'Fast-paced, dramatic storytelling that builds excitement and tension',
-    category: 'story_styles',
-    subcategory: 'cinematic',
+      description: 'Fast-paced, dramatic storytelling that builds excitement and tension',
+        category: 'story_styles',
+          subcategory: 'cinematic',
 
-    // OpenAI Configuration
-    model: 'gpt-4o',
-    max_tokens: 500,
-    temperature: 0.8,
-    response_format: 'text',
+            // OpenAI Configuration
+            model: 'gpt-4o',
+              max_tokens: 500,
+                temperature: 0.8,
+                  response_format: 'text',
 
-    // Prompt Structure
-    prompt_type: 'system_only',
-    system_prompt: `You are creating a MOVIE TRAILER style story cut. This style is characterized by:
+                    // Prompt Structure
+                    prompt_type: 'system_only',
+                      system_prompt: `You are creating a MOVIE TRAILER style story cut. This style is characterized by:
 
 PACING & RHYTHM:
 - Fast-paced, dynamic flow
@@ -741,33 +789,33 @@ FOCUS AREAS:
 
 When generating story cuts in this style, make every word count and every moment feel significant. The goal is to make the listener feel the excitement and emotion of a movie trailer while telling their personal story.`,
 
-    user_prompt_template: null,
+                        user_prompt_template: null,
 
-    // Management & Versioning
-    is_active: true,
-    version: 'v1.0',
+                          // Management & Versioning
+                          is_active: true,
+                            version: 'v1.0',
 
-    // Metadata
-    tags: ['story', 'style', 'cinematic', 'dramatic', 'fast-paced', 'trailer'],
-    notes: 'Movie trailer style for dynamic, exciting story cuts that build tension and drama.'
-  },
+                              // Metadata
+                              tags: ['story', 'style', 'cinematic', 'dramatic', 'fast-paced', 'trailer'],
+                                notes: 'Movie trailer style for dynamic, exciting story cuts that build tension and drama.'
+},
 
-  {
-    prompt_key: 'story_style_documentary',
+{
+  prompt_key: 'story_style_documentary',
     title: 'Documentary Style',
-    description: 'Thoughtful, educational storytelling that explores context and meaning',
-    category: 'story_styles',
-    subcategory: 'educational',
+      description: 'Thoughtful, educational storytelling that explores context and meaning',
+        category: 'story_styles',
+          subcategory: 'educational',
 
-    // OpenAI Configuration
-    model: 'gpt-4o',
-    max_tokens: 500,
-    temperature: 0.6,
-    response_format: 'text',
+            // OpenAI Configuration
+            model: 'gpt-4o',
+              max_tokens: 500,
+                temperature: 0.6,
+                  response_format: 'text',
 
-    // Prompt Structure
-    prompt_type: 'system_only',
-    system_prompt: `You are creating a DOCUMENTARY style story cut. This style is characterized by:
+                    // Prompt Structure
+                    prompt_type: 'system_only',
+                      system_prompt: `You are creating a DOCUMENTARY style story cut. This style is characterized by:
 
 PACING & RHYTHM:
 - Thoughtful, measured pacing
@@ -803,33 +851,33 @@ FOCUS AREAS:
 
 When generating story cuts in this style, prioritize depth over drama, understanding over excitement. Help the listener learn something new about the moment while feeling deeply connected to it.`,
 
-    user_prompt_template: null,
+                        user_prompt_template: null,
 
-    // Management & Versioning
-    is_active: true,
-    version: 'v1.0',
+                          // Management & Versioning
+                          is_active: true,
+                            version: 'v1.0',
 
-    // Metadata
-    tags: ['story', 'style', 'documentary', 'educational', 'thoughtful', 'reflective'],
-    notes: 'Documentary style for thoughtful, educational story cuts that explore context and meaning.'
-  },
+                              // Metadata
+                              tags: ['story', 'style', 'documentary', 'educational', 'thoughtful', 'reflective'],
+                                notes: 'Documentary style for thoughtful, educational story cuts that explore context and meaning.'
+},
 
-  {
-    prompt_key: 'story_style_news_report',
+{
+  prompt_key: 'story_style_news_report',
     title: 'News Report Style',
-    description: 'Factual, structured storytelling with clear timeline and professional tone',
-    category: 'story_styles',
-    subcategory: 'journalistic',
+      description: 'Factual, structured storytelling with clear timeline and professional tone',
+        category: 'story_styles',
+          subcategory: 'journalistic',
 
-    // OpenAI Configuration
-    model: 'gpt-4o',
-    max_tokens: 500,
-    temperature: 0.4,
-    response_format: 'text',
+            // OpenAI Configuration
+            model: 'gpt-4o',
+              max_tokens: 500,
+                temperature: 0.4,
+                  response_format: 'text',
 
-    // Prompt Structure
-    prompt_type: 'system_only',
-    system_prompt: `You are creating a NEWS REPORT style story cut. This style is characterized by:
+                    // Prompt Structure
+                    prompt_type: 'system_only',
+                      system_prompt: `You are creating a NEWS REPORT style story cut. This style is characterized by:
 
 PACING & RHYTHM:
 - Clear, steady pacing
@@ -866,33 +914,33 @@ FOCUS AREAS:
 
 When generating story cuts in this style, prioritize clarity, accuracy, and professional presentation. Make the personal story feel newsworthy and significant while maintaining journalistic integrity.`,
 
-    user_prompt_template: null,
+                        user_prompt_template: null,
 
-    // Management & Versioning
-    is_active: true,
-    version: 'v1.0',
+                          // Management & Versioning
+                          is_active: true,
+                            version: 'v1.0',
 
-    // Metadata
-    tags: ['story', 'style', 'news', 'journalistic', 'factual', 'professional'],
-    notes: 'News report style for clear, factual story cuts with professional presentation.'
-  },
+                              // Metadata
+                              tags: ['story', 'style', 'news', 'journalistic', 'factual', 'professional'],
+                                notes: 'News report style for clear, factual story cuts with professional presentation.'
+},
 
-  {
-    prompt_key: 'story_style_public_radio',
+{
+  prompt_key: 'story_style_public_radio',
     title: 'Public Radio Style',
-    description: 'Intimate, personal storytelling with rich descriptions and human connection',
-    category: 'story_styles',
-    subcategory: 'intimate',
+      description: 'Intimate, personal storytelling with rich descriptions and human connection',
+        category: 'story_styles',
+          subcategory: 'intimate',
 
-    // OpenAI Configuration
-    model: 'gpt-4o',
-    max_tokens: 500,
-    temperature: 0.7,
-    response_format: 'text',
+            // OpenAI Configuration
+            model: 'gpt-4o',
+              max_tokens: 500,
+                temperature: 0.7,
+                  response_format: 'text',
 
-    // Prompt Structure
-    prompt_type: 'system_only',
-    system_prompt: `You are creating a PUBLIC RADIO style story cut. This style is characterized by:
+                    // Prompt Structure
+                    prompt_type: 'system_only',
+                      system_prompt: `You are creating a PUBLIC RADIO style story cut. This style is characterized by:
 
 PACING & RHYTHM:
 - Gentle, unhurried pacing
@@ -930,33 +978,33 @@ FOCUS AREAS:
 
 When generating story cuts in this style, create an intimate listening experience that makes the audience feel they're sharing a meaningful conversation with a close friend. Focus on the human heart of the story.`,
 
-    user_prompt_template: null,
+                        user_prompt_template: null,
 
-    // Management & Versioning
-    is_active: true,
-    version: 'v1.0',
+                          // Management & Versioning
+                          is_active: true,
+                            version: 'v1.0',
 
-    // Metadata
-    tags: ['story', 'style', 'public_radio', 'intimate', 'personal', 'conversational'],
-    notes: 'Public radio style for intimate, personal story cuts with rich descriptions and emotional depth.'
-  },
+                              // Metadata
+                              tags: ['story', 'style', 'public_radio', 'intimate', 'personal', 'conversational'],
+                                notes: 'Public radio style for intimate, personal story cuts with rich descriptions and emotional depth.'
+},
 
-  {
-    prompt_key: 'story_style_podcast_narrative',
+{
+  prompt_key: 'story_style_podcast_narrative',
     title: 'Podcast Narrative Style',
-    description: 'Engaging conversational storytelling with strong narrative arc and listener engagement',
-    category: 'story_styles',
-    subcategory: 'conversational',
+      description: 'Engaging conversational storytelling with strong narrative arc and listener engagement',
+        category: 'story_styles',
+          subcategory: 'conversational',
 
-    // OpenAI Configuration
-    model: 'gpt-4o',
-    max_tokens: 500,
-    temperature: 0.7,
-    response_format: 'text',
+            // OpenAI Configuration
+            model: 'gpt-4o',
+              max_tokens: 500,
+                temperature: 0.7,
+                  response_format: 'text',
 
-    // Prompt Structure
-    prompt_type: 'system_only',
-    system_prompt: `You are creating a PODCAST NARRATIVE style story cut. This style is characterized by:
+                    // Prompt Structure
+                    prompt_type: 'system_only',
+                      system_prompt: `You are creating a PODCAST NARRATIVE style story cut. This style is characterized by:
 
 PACING & RHYTHM:
 - Engaging, conversational pacing
@@ -994,16 +1042,16 @@ FOCUS AREAS:
 
 When generating story cuts in this style, imagine you're telling an engaging story to a friend over coffee, but with the polish and structure of a well-produced podcast. Keep the listener hooked while honoring the personal nature of the story.`,
 
-    user_prompt_template: null,
+                        user_prompt_template: null,
 
-    // Management & Versioning
-    is_active: true,
-    version: 'v1.0',
+                          // Management & Versioning
+                          is_active: true,
+                            version: 'v1.0',
 
-    // Metadata
-    tags: ['story', 'style', 'podcast', 'narrative', 'conversational', 'engaging'],
-    notes: 'Podcast narrative style for engaging, conversational story cuts with strong narrative structure.'
-  }
+                              // Metadata
+                              tags: ['story', 'style', 'podcast', 'narrative', 'conversational', 'engaging'],
+                                notes: 'Podcast narrative style for engaging, conversational story cuts with strong narrative structure.'
+}
 ];
 
 /**
