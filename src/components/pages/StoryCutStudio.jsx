@@ -43,6 +43,19 @@ const scaleToSlider = (scaleValue) => {
     }
 };
 
+// Conversion functions between slider values (-50 to +50) and actual pan positions (percentage)
+const sliderToPanPosition = (sliderValue) => {
+    // Slider -50 → -50% (far left)
+    // Slider 0 → 0% (center)
+    // Slider +50 → +50% (far right)
+    return sliderValue;
+};
+
+const panPositionToSlider = (panPosition) => {
+    // Convert pan position back to slider value
+    return panPosition;
+};
+
 export default function StoryCutStudio() {
     const { id, storyCutId } = useParams(); // id is ember ID, storyCutId is story cut ID
     const navigate = useNavigate();
@@ -53,7 +66,9 @@ export default function StoryCutStudio() {
     const [selectedEffects, setSelectedEffects] = useState({}); // Track selected checkboxes (can be multiple per block)
     const [effectDirections, setEffectDirections] = useState({}); // Track effect directions (in/out, left/right)
     const [effectDurations, setEffectDurations] = useState({}); // Track effect duration values from sliders
-    const [effectDistances, setEffectDistances] = useState({}); // Track pan distances  
+    const [effectDistances, setEffectDistances] = useState({}); // Track pan distances (legacy)
+    const [effectStartPositions, setEffectStartPositions] = useState({}); // Track pan start positions
+    const [effectEndPositions, setEffectEndPositions] = useState({}); // Track pan end positions
     const [effectScales, setEffectScales] = useState({}); // Track zoom scales (legacy)
     const [effectStartScales, setEffectStartScales] = useState({}); // Track zoom start scales
     const [effectEndScales, setEffectEndScales] = useState({}); // Track zoom end scales
@@ -101,6 +116,8 @@ export default function StoryCutStudio() {
     const [originalDirections, setOriginalDirections] = useState({});
     const [originalDurations, setOriginalDurations] = useState({});
     const [originalDistances, setOriginalDistances] = useState({});
+    const [originalStartPositions, setOriginalStartPositions] = useState({});
+    const [originalEndPositions, setOriginalEndPositions] = useState({});
     const [originalScales, setOriginalScales] = useState({});
     const [originalStartScales, setOriginalStartScales] = useState({});
     const [originalEndScales, setOriginalEndScales] = useState({});
@@ -719,6 +736,8 @@ export default function StoryCutStudio() {
                 const initialDirections = {};
                 const initialDurations = {};
                 const initialDistances = {};
+                const initialStartPositions = {};
+                const initialEndPositions = {};
                 const initialScales = {};
                 const initialStartScales = {};
                 const initialEndScales = {};
@@ -811,9 +830,43 @@ export default function StoryCutStudio() {
 
                                 if (effects.pan) {
                                     blockEffects.push('pan');
-                                    initialDirections[`pan-${currentBlockId}`] = effects.pan.type;
                                     initialDurations[`pan-${currentBlockId}`] = effects.pan.duration;
-                                    initialDistances[`pan-${currentBlockId}`] = effects.pan.distance;
+
+                                    // Handle new start/end position format
+                                    if (effects.pan.startPosition !== undefined && effects.pan.endPosition !== undefined) {
+                                        // NEW format: convert saved pan positions back to slider values
+                                        const startSliderValue = panPositionToSlider(effects.pan.startPosition);
+                                        const endSliderValue = panPositionToSlider(effects.pan.endPosition);
+                                        initialStartPositions[`pan-${currentBlockId}`] = startSliderValue;
+                                        initialEndPositions[`pan-${currentBlockId}`] = endSliderValue;
+                                        console.log(`🔄 Loading pan positions for block ${currentBlockId}: saved positions ${effects.pan.startPosition}%→${effects.pan.endPosition}% converted to sliders ${startSliderValue}→${endSliderValue}`);
+
+                                        // Derive direction from start/end positions for UI toggle (use original pan positions for comparison)
+                                        if (effects.pan.startPosition < effects.pan.endPosition) {
+                                            initialDirections[`pan-${currentBlockId}`] = 'right';  // Panning right (moving to right)
+                                            // Set legacy distance to the movement distance
+                                            initialDistances[`pan-${currentBlockId}`] = Math.abs(effects.pan.endPosition - effects.pan.startPosition);
+                                        } else if (effects.pan.startPosition > effects.pan.endPosition) {
+                                            initialDirections[`pan-${currentBlockId}`] = 'left'; // Panning left (moving to left)
+                                            // Set legacy distance to the movement distance
+                                            initialDistances[`pan-${currentBlockId}`] = Math.abs(effects.pan.startPosition - effects.pan.endPosition);
+                                        } else {
+                                            initialDirections[`pan-${currentBlockId}`] = 'right';  // Default to 'right' if equal
+                                            initialDistances[`pan-${currentBlockId}`] = 25;
+                                        }
+                                    } else if (effects.pan.distance !== undefined && effects.pan.type !== undefined) {
+                                        // LEGACY format: convert type + distance to start/end positions
+                                        if (effects.pan.type === 'right') {
+                                            initialStartPositions[`pan-${currentBlockId}`] = -effects.pan.distance; // Start left
+                                            initialEndPositions[`pan-${currentBlockId}`] = effects.pan.distance; // End right
+                                        } else { // pan-left
+                                            initialStartPositions[`pan-${currentBlockId}`] = effects.pan.distance; // Start right
+                                            initialEndPositions[`pan-${currentBlockId}`] = -effects.pan.distance; // End left
+                                        }
+                                        // Also populate legacy values for compatibility
+                                        initialDistances[`pan-${currentBlockId}`] = effects.pan.distance;
+                                        initialDirections[`pan-${currentBlockId}`] = effects.pan.type;
+                                    }
                                 }
 
                                 if (effects.zoom) {
@@ -942,6 +995,8 @@ export default function StoryCutStudio() {
                 setEffectDirections(initialDirections);
                 setEffectDurations(initialDurations);
                 setEffectDistances(initialDistances);
+                setEffectStartPositions(initialStartPositions);
+                setEffectEndPositions(initialEndPositions);
                 setEffectScales(initialScales);
                 setEffectStartScales(initialStartScales);
                 setEffectEndScales(initialEndScales);
@@ -952,6 +1007,8 @@ export default function StoryCutStudio() {
                 setOriginalDirections(JSON.parse(JSON.stringify(initialDirections)));
                 setOriginalDurations(JSON.parse(JSON.stringify(initialDurations)));
                 setOriginalDistances(JSON.parse(JSON.stringify(initialDistances)));
+                setOriginalStartPositions(JSON.parse(JSON.stringify(initialStartPositions)));
+                setOriginalEndPositions(JSON.parse(JSON.stringify(initialEndPositions)));
                 setOriginalScales(JSON.parse(JSON.stringify(initialScales)));
                 setOriginalStartScales(JSON.parse(JSON.stringify(initialStartScales)));
                 setOriginalEndScales(JSON.parse(JSON.stringify(initialEndScales)));
@@ -1001,6 +1058,14 @@ export default function StoryCutStudio() {
                         initialScales[`zoom-${block.id}`] = 1.5;
                     }
 
+                    // Set default start and end positions for new pan system
+                    if (!initialStartPositions[`pan-${block.id}`]) {
+                        initialStartPositions[`pan-${block.id}`] = -25; // Default start position (left side)
+                    }
+                    if (!initialEndPositions[`pan-${block.id}`]) {
+                        initialEndPositions[`pan-${block.id}`] = 25; // Default end position (right side)
+                    }
+
                     // Set default start and end scales for new zoom system
                     if (!initialStartScales[`zoom-${block.id}`]) {
                         initialStartScales[`zoom-${block.id}`] = 0; // Default start scale (normal)
@@ -1013,6 +1078,8 @@ export default function StoryCutStudio() {
                 setEffectDirections(initialDirections);
                 setEffectDurations(initialDurations);
                 setEffectDistances(initialDistances);
+                setEffectStartPositions(initialStartPositions);
+                setEffectEndPositions(initialEndPositions);
                 setEffectScales(initialScales);
                 setEffectStartScales(initialStartScales);
                 setEffectEndScales(initialEndScales);
@@ -1102,6 +1169,8 @@ export default function StoryCutStudio() {
             JSON.stringify(originalDirections) !== JSON.stringify(effectDirections) ||
             JSON.stringify(originalDurations) !== JSON.stringify(effectDurations) ||
             JSON.stringify(originalDistances) !== JSON.stringify(effectDistances) ||
+            JSON.stringify(originalStartPositions) !== JSON.stringify(effectStartPositions) ||
+            JSON.stringify(originalEndPositions) !== JSON.stringify(effectEndPositions) ||
             JSON.stringify(originalScales) !== JSON.stringify(effectScales) ||
             JSON.stringify(originalStartScales) !== JSON.stringify(effectStartScales) ||
             JSON.stringify(originalEndScales) !== JSON.stringify(effectEndScales) ||
@@ -1117,13 +1186,15 @@ export default function StoryCutStudio() {
                 directionsChanged: JSON.stringify(originalDirections) !== JSON.stringify(effectDirections),
                 durationsChanged: JSON.stringify(originalDurations) !== JSON.stringify(effectDurations),
                 distancesChanged: JSON.stringify(originalDistances) !== JSON.stringify(effectDistances),
+                startPositionsChanged: JSON.stringify(originalStartPositions) !== JSON.stringify(effectStartPositions),
+                endPositionsChanged: JSON.stringify(originalEndPositions) !== JSON.stringify(effectEndPositions),
                 scalesChanged: JSON.stringify(originalScales) !== JSON.stringify(effectScales),
                 startScalesChanged: JSON.stringify(originalStartScales) !== JSON.stringify(effectStartScales),
                 endScalesChanged: JSON.stringify(originalEndScales) !== JSON.stringify(effectEndScales),
                 targetsChanged: JSON.stringify(originalTargets) !== JSON.stringify(effectTargets)
             });
         }
-    }, [blocks, originalBlocks, selectedEffects, effectDirections, effectDurations, effectDistances, effectScales, effectStartScales, effectEndScales, effectTargets, originalEffects, originalDirections, originalDurations, originalDistances, originalScales, originalStartScales, originalEndScales, originalTargets]);
+    }, [blocks, originalBlocks, selectedEffects, effectDirections, effectDurations, effectDistances, effectStartPositions, effectEndPositions, effectScales, effectStartScales, effectEndScales, effectTargets, originalEffects, originalDirections, originalDurations, originalDistances, originalStartPositions, originalEndPositions, originalScales, originalStartScales, originalEndScales, originalTargets]);
 
     // Helper function to parse effects from JSON block content (for loading from database)
     const parseEffectsFromContent = (content, blockId) => {
@@ -1211,9 +1282,15 @@ export default function StoryCutStudio() {
         }
 
         if (blockEffects.includes('pan')) {
+            // Convert slider values to actual pan positions
+            const startSliderValue = effectStartPositions[`pan-${blockId}`] || -25;
+            const endSliderValue = effectEndPositions[`pan-${blockId}`] || 25;
+            const startPosition = sliderToPanPosition(startSliderValue);
+            const endPosition = sliderToPanPosition(endSliderValue);
+
             effects.pan = {
-                type: effectDirections[`pan-${blockId}`] || 'left',
-                distance: effectDistances[`pan-${blockId}`] || 25,
+                startPosition,
+                endPosition,
                 duration: effectDurations[`pan-${blockId}`] || 4.0
             };
         }
@@ -1348,6 +1425,8 @@ export default function StoryCutStudio() {
             setOriginalDirections(JSON.parse(JSON.stringify(effectDirections)));
             setOriginalDurations(JSON.parse(JSON.stringify(effectDurations)));
             setOriginalDistances(JSON.parse(JSON.stringify(effectDistances)));
+            setOriginalStartPositions(JSON.parse(JSON.stringify(effectStartPositions)));
+            setOriginalEndPositions(JSON.parse(JSON.stringify(effectEndPositions)));
             setOriginalScales(JSON.parse(JSON.stringify(effectScales)));
             setOriginalStartScales(JSON.parse(JSON.stringify(effectStartScales)));
             setOriginalEndScales(JSON.parse(JSON.stringify(effectEndScales)));
@@ -1386,6 +1465,8 @@ export default function StoryCutStudio() {
             setEffectDirections(JSON.parse(JSON.stringify(originalDirections)));
             setEffectDurations(JSON.parse(JSON.stringify(originalDurations)));
             setEffectDistances(JSON.parse(JSON.stringify(originalDistances)));
+            setEffectStartPositions(JSON.parse(JSON.stringify(originalStartPositions)));
+            setEffectEndPositions(JSON.parse(JSON.stringify(originalEndPositions)));
             setEffectScales(JSON.parse(JSON.stringify(originalScales)));
             setEffectStartScales(JSON.parse(JSON.stringify(originalStartScales)));
             setEffectEndScales(JSON.parse(JSON.stringify(originalEndScales)));
@@ -1912,6 +1993,8 @@ export default function StoryCutStudio() {
             const newEffectDirections = {};
             const newEffectDurations = {};
             const newEffectDistances = {};
+            const newEffectStartPositions = {};
+            const newEffectEndPositions = {};
             const newEffectScales = {};
             const newEffectStartScales = {};
             const newEffectEndScales = {};
@@ -1929,6 +2012,8 @@ export default function StoryCutStudio() {
                     newEffectDurations[`zoom-${block.id}`] = 3.5;
 
                     newEffectDistances[`pan-${block.id}`] = 25;
+                    newEffectStartPositions[`pan-${block.id}`] = -25; // Start left  
+                    newEffectEndPositions[`pan-${block.id}`] = 25; // End right
                     newEffectScales[`zoom-${block.id}`] = 1.5; // Legacy compatibility
                     newEffectStartScales[`zoom-${block.id}`] = 0; // Start at normal (slider 0)
                     newEffectEndScales[`zoom-${block.id}`] = 2.5; // Default zoom in (slider +2.5 = 1.5x)
@@ -1941,6 +2026,8 @@ export default function StoryCutStudio() {
             setEffectDirections(prev => ({ ...prev, ...newEffectDirections }));
             setEffectDurations(prev => ({ ...prev, ...newEffectDurations }));
             setEffectDistances(prev => ({ ...prev, ...newEffectDistances }));
+            setEffectStartPositions(prev => ({ ...prev, ...newEffectStartPositions }));
+            setEffectEndPositions(prev => ({ ...prev, ...newEffectEndPositions }));
             setEffectScales(prev => ({ ...prev, ...newEffectScales }));
             setEffectStartScales(prev => ({ ...prev, ...newEffectStartScales }));
             setEffectEndScales(prev => ({ ...prev, ...newEffectEndScales }));
@@ -2422,24 +2509,29 @@ export default function StoryCutStudio() {
                                                                         className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
                                                                     />
                                                                 </div>
-                                                                <div className="flex-shrink-0 flex flex-col items-end">
-                                                                    <div className="text-xs text-blue-700 mb-1">
-                                                                        {effectDirections[`pan-${block.id}`] === 'right' ? 'RIGHT' : 'LEFT'}
+                                                            </div>
+                                                        )}
+                                                        {selectedEffects[`effect-${block.id}`].includes('pan') && (
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="flex-1 space-y-2">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-sm text-blue-700">Pan Start Position</span>
+                                                                        <span className="text-sm text-blue-700">{(effectStartPositions[`pan-${block.id}`] || -25).toFixed(1)}</span>
                                                                     </div>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setEffectDirections(prev => ({
+                                                                    <input
+                                                                        type="range"
+                                                                        min="-50"
+                                                                        max="50"
+                                                                        step="1"
+                                                                        value={effectStartPositions[`pan-${block.id}`] || -25}
+                                                                        onChange={(e) => {
+                                                                            setEffectStartPositions(prev => ({
                                                                                 ...prev,
-                                                                                [`pan-${block.id}`]: prev[`pan-${block.id}`] === 'right' ? 'left' : 'right'
+                                                                                [`pan-${block.id}`]: parseInt(e.target.value)
                                                                             }));
                                                                         }}
-                                                                        className="w-12 h-6 rounded-full transition-colors duration-200 relative bg-blue-600"
-                                                                    >
-                                                                        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 ${effectDirections[`pan-${block.id}`] === 'right'
-                                                                            ? 'translate-x-6'
-                                                                            : 'translate-x-0.5'
-                                                                            }`} />
-                                                                    </button>
+                                                                        className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                                                                    />
                                                                 </div>
                                                             </div>
                                                         )}
@@ -2447,17 +2539,17 @@ export default function StoryCutStudio() {
                                                             <div className="flex items-center gap-4">
                                                                 <div className="flex-1 space-y-2">
                                                                     <div className="flex items-center justify-between">
-                                                                        <span className="text-sm text-blue-700">Pan Distance</span>
-                                                                        <span className="text-sm text-blue-700">{effectDistances[`pan-${block.id}`] || 25}%</span>
+                                                                        <span className="text-sm text-blue-700">Pan End Position</span>
+                                                                        <span className="text-sm text-blue-700">{(effectEndPositions[`pan-${block.id}`] || 25).toFixed(1)}</span>
                                                                     </div>
                                                                     <input
                                                                         type="range"
-                                                                        min="10"
+                                                                        min="-50"
                                                                         max="50"
                                                                         step="1"
-                                                                        value={effectDistances[`pan-${block.id}`] || 25}
+                                                                        value={effectEndPositions[`pan-${block.id}`] || 25}
                                                                         onChange={(e) => {
-                                                                            setEffectDistances(prev => ({
+                                                                            setEffectEndPositions(prev => ({
                                                                                 ...prev,
                                                                                 [`pan-${block.id}`]: parseInt(e.target.value)
                                                                             }));

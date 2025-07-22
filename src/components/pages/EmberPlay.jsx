@@ -299,121 +299,144 @@ export default function EmberPlay() {
     // Combine multiple visual effects using direct effect handling
     useEffect(() => {
         const applyEffects = async () => {
-            const transforms = [];
-            let opacity = 1;
-            let animation = null;
             let transformOrigin = 'center center';
-            let transitionDuration = '0.5s';
+            let animation = null;
+            let opacity = 1;
+            let transform = 'scale(1) translateX(0)';
+            let transition = 'transform 0.5s ease-out, opacity 0.5s ease-out';
 
-            // Handle pan effects
-            if (currentPanEffect && typeof currentPanEffect === 'object') {
-                const direction = currentPanEffect.type === 'left' ? '-' : '';
-                transforms.push(`translateX(${direction}${currentPanEffect.distance}%)`);
-                transitionDuration = `${currentPanEffect.duration}s`;
+            // Collect effect parameters
+            const effects = {
+                pan: currentPanEffect,
+                zoom: currentZoomEffect,
+                fade: currentFadeEffect
+            };
+
+            // Check if any effects need animation (have start/end differences)
+            const panNeedsAnimation = effects.pan && (effects.pan.startPosition || 0) !== (effects.pan.endPosition || 0);
+            const zoomNeedsAnimation = effects.zoom && (effects.zoom.startScale || 1.0) !== (effects.zoom.endScale || 1.0);
+            const fadeNeedsAnimation = effects.fade;
+
+            const needsAnimation = panNeedsAnimation || zoomNeedsAnimation || fadeNeedsAnimation;
+
+            // Calculate transform-origin for zoom targets
+            if (effects.zoom && effects.zoom.target && ember?.id) {
+                const mockBlock = {
+                    media_url: currentMediaImageUrl || ember?.image_url
+                };
+                transformOrigin = await calculateTransformOrigin(
+                    effects.zoom.target,
+                    taggedPeople,
+                    mockBlock,
+                    ember.id
+                );
             }
 
-            // Handle zoom effects with start and end scales
-            if (currentZoomEffect && typeof currentZoomEffect === 'object') {
-                const startScale = currentZoomEffect.startScale || 1.0;
-                const endScale = currentZoomEffect.endScale || 1.0;
+            if (needsAnimation) {
+                // Create unified animation with all effects combined
+                const animationName = `combined-effect-${Date.now()}`;
 
-                // Calculate transform-origin first for zoom animations
-                let zoomTransformOrigin = 'center center';
-                if (currentZoomEffect.target && ember?.id) {
-                    const mockBlock = {
-                        media_url: currentMediaImageUrl || ember?.image_url
-                    };
-                    zoomTransformOrigin = await calculateTransformOrigin(
-                        currentZoomEffect.target,
-                        taggedPeople,
-                        mockBlock,
-                        ember.id
-                    );
-                }
+                // Calculate start and end states for all effects
+                const startState = {
+                    panPosition: effects.pan?.startPosition || 0,
+                    zoomScale: effects.zoom?.startScale || 1.0,
+                    fadeOpacity: effects.fade?.type === 'in' ? 0 : 1
+                };
 
-                // Create CSS animation for start-to-end zoom
-                if (startScale !== endScale) {
-                    const animationName = `zoom-${Date.now()}`;
-                    const keyframes = `
-                        @keyframes ${animationName} {
-                            0% { 
-                                transform: scale(${startScale}); 
-                                transform-origin: ${zoomTransformOrigin};
-                            }
-                            100% { 
-                                transform: scale(${endScale}); 
-                                transform-origin: ${zoomTransformOrigin};
-                            }
+                const endState = {
+                    panPosition: effects.pan?.endPosition || effects.pan?.startPosition || 0,
+                    zoomScale: effects.zoom?.endScale || effects.zoom?.startScale || 1.0,
+                    fadeOpacity: effects.fade?.type === 'out' ? 0 : 1
+                };
+
+                // Calculate the longest duration for the animation
+                const durations = [
+                    effects.pan?.duration || 0,
+                    effects.zoom?.duration || 0,
+                    effects.fade?.duration || 0
+                ].filter(d => d > 0);
+                const maxDuration = durations.length > 0 ? Math.max(...durations) : 3.0;
+
+                // Create combined keyframes
+                const keyframes = `
+                    @keyframes ${animationName} {
+                        0% { 
+                            transform: scale(${startState.zoomScale}) translateX(${startState.panPosition}%);
+                            transform-origin: ${transformOrigin};
+                            opacity: ${startState.fadeOpacity};
                         }
-                    `;
-
-                    // Inject keyframes into document
-                    const style = document.createElement('style');
-                    style.textContent = keyframes;
-                    document.head.appendChild(style);
-
-                    // Use animation instead of transform
-                    animation = `${animationName} ${currentZoomEffect.duration}s ease-out forwards`;
-
-                    // Clean up animation after it's done
-                    setTimeout(() => {
-                        try {
-                            if (style && style.parentNode) {
-                                document.head.removeChild(style);
-                            }
-                        } catch (error) {
-                            console.warn('Failed to cleanup zoom animation style:', error);
+                        100% { 
+                            transform: scale(${endState.zoomScale}) translateX(${endState.panPosition}%);
+                            transform-origin: ${transformOrigin};
+                            opacity: ${endState.fadeOpacity};
                         }
-                    }, (currentZoomEffect.duration + 1) * 1000);
-                } else {
-                    // No animation needed if start and end are the same
-                    transforms.push(`scale(${endScale})`);
-                    transitionDuration = `${currentZoomEffect.duration}s`;
+                    }
+                `;
+
+                // Inject keyframes into document
+                const style = document.createElement('style');
+                style.textContent = keyframes;
+                document.head.appendChild(style);
+
+                // Set animation
+                animation = `${animationName} ${maxDuration}s ease-out forwards`;
+
+                // Set initial state
+                transform = `scale(${startState.zoomScale}) translateX(${startState.panPosition}%)`;
+                opacity = startState.fadeOpacity;
+
+                // Clean up animation after it's done
+                setTimeout(() => {
+                    try {
+                        if (style && style.parentNode) {
+                            document.head.removeChild(style);
+                        }
+                    } catch (error) {
+                        console.warn('Failed to cleanup combined animation style:', error);
+                    }
+                }, (maxDuration + 1) * 1000);
+
+                console.log(`🎬 Combined animation: Pan ${startState.panPosition}% → ${endState.panPosition}%, Zoom ${startState.zoomScale}x → ${endState.zoomScale}x, Fade ${startState.fadeOpacity} → ${endState.fadeOpacity} over ${maxDuration}s`);
+            } else {
+                // No animation needed - use static transforms
+                const staticTransforms = [];
+
+                if (effects.pan) {
+                    const position = effects.pan.endPosition || effects.pan.startPosition || 0;
+                    staticTransforms.push(`translateX(${position}%)`);
                 }
 
-                console.log(`🔍 Zoom effect: ${startScale} → ${endScale} over ${currentZoomEffect.duration}s`);
-
-                // Set transform-origin for non-animated zoom (when start = end)
-                if (startScale === endScale) {
-                    transformOrigin = zoomTransformOrigin;
+                if (effects.zoom) {
+                    const scale = effects.zoom.endScale || effects.zoom.startScale || 1.0;
+                    staticTransforms.push(`scale(${scale})`);
                 }
+
+                transform = staticTransforms.length > 0 ? staticTransforms.join(' ') : 'scale(1) translateX(0)';
+
+                if (effects.fade) {
+                    opacity = effects.fade.type === 'out' ? 0 : 1;
+                }
+
+                console.log(`🎬 Static effects: ${transform}, opacity: ${opacity}`);
             }
-
-            // Handle fade effects - use CSS animation (only if zoom isn't already using animation)
-            if (currentFadeEffect && typeof currentFadeEffect === 'object' && !animation) {
-                const duration = currentFadeEffect.duration;
-                if (currentFadeEffect.type === 'in') {
-                    animation = `fadeIn ${duration}s ease-out forwards`;
-                    opacity = 0; // Start invisible
-                } else {
-                    animation = `fadeOut ${duration}s ease-out forwards`;
-                    opacity = 1; // Start visible
-                }
-            }
-
-            // Use the longest duration for transitions
-            const panDuration = currentPanEffect?.duration || 0;
-            const zoomDuration = currentZoomEffect?.duration || 0;
-            const maxTransitionDuration = Math.max(panDuration, zoomDuration, 0.5);
 
             const combinedStyles = {
-                transform: transforms.length > 0 ? transforms.join(' ') : 'scale(1) translateX(0)',
+                transform,
                 transformOrigin,
                 opacity,
                 animation: animation || 'none',
-                transition: animation
-                    ? `transform ${maxTransitionDuration}s ease-out`
-                    : `transform ${maxTransitionDuration}s ease-out, opacity ${maxTransitionDuration}s ease-out`
+                transition: animation ? 'none' : transition
             };
 
             setCombinedEffectStyles(combinedStyles);
 
-            console.log('🎬 Combined effects applied directly:', {
+            console.log('🎬 Combined effects applied:', {
                 effects: {
                     fade: currentFadeEffect,
                     pan: currentPanEffect,
                     zoom: currentZoomEffect
                 },
+                needsAnimation,
                 combinedStyles
             });
         };
