@@ -1,13 +1,6 @@
 import { getUserVoiceModel } from '@/lib/database';
 import { textToSpeech } from '@/lib/elevenlabs';
-import {
-  estimateSegmentDuration,
-  extractZoomScaleFromAction,
-  extractFadeFromAction,
-  extractPanFromAction,
-  extractZoomFromAction,
-  resolveMediaReference
-} from '@/lib/scriptParser';
+import { resolveMediaReference } from '@/lib/mediaResolvers';
 
 /**
  * Audio engine for ember playback
@@ -1002,59 +995,14 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
           console.log(`🔍 Resolved media URL for "${block.media_url || block.media_name || block.media_id}":`, resolvedMediaUrl);
 
           if (resolvedMediaUrl) {
-            // Extract all effects directly from Sacred Format content  
-            let fadeEffect = null;
-            let panEffect = null;
-            let zoomEffect = null;
-            let hasLegacyZoomEffects = false;
+            // Use effects directly from block object (no string parsing needed)
+            const effects = block.effects || {};
+            console.log(`🎬 Using effects from block object:`, effects);
 
-            // Extract effects from Sacred Format content: <ZOOM-OUT:duration=3.5>
-            const contentForEffects = block.content || '';
-            console.log(`🔍 Processing Sacred Format content for effects: "${contentForEffects}"`);
-
-            // Extract fade effects directly from content
-            if (contentForEffects.includes('FADE-') && !fadeEffect) {
-              fadeEffect = extractFadeFromAction(contentForEffects);
-              if (fadeEffect) {
-                console.log(`🎬 Fade effect extracted from content: ${fadeEffect.type} - ${fadeEffect.duration}s`);
-              }
-            }
-
-            // Extract pan effects directly from content
-            if (contentForEffects.includes('PAN-') && !panEffect) {
-              panEffect = extractPanFromAction(contentForEffects);
-              if (panEffect) {
-                console.log(`🎬 Pan effect extracted from content: ${panEffect.direction} - ${panEffect.duration}s`);
-              }
-            }
-
-            // Extract zoom effects directly from content
-            if (contentForEffects.includes('ZOOM-') && !zoomEffect) {
-              zoomEffect = extractZoomFromAction(contentForEffects);
-              if (zoomEffect) {
-                console.log(`🎬 Zoom effect extracted from content: ${zoomEffect.type} - ${zoomEffect.duration}s`);
-              }
-            }
-
-            // Check for legacy zoom effects
-            if (contentForEffects.includes('Z-OUT:')) {
-              hasLegacyZoomEffects = true;
-            }
-
-            // Apply legacy zoom effects (Z-OUT: system)
-            if (hasLegacyZoomEffects) {
-              const zoomScale = extractZoomScaleFromAction(block.content);
-              console.log(`🎬 Applying legacy zoom effect: from ${zoomScale.start} to ${zoomScale.end}`);
-              setCurrentZoomScale(zoomScale);
-            }
-
-            // 🎯 NEW APPROACH: Coordinate image and effects through React state coordination
-            console.log(`🎬 Setting image URL and effects through React state coordination`);
-
-            // Set effects state first, then image URL - this allows EmberPlay to coordinate properly
-            setCurrentFadeEffect(fadeEffect);
-            setCurrentPanEffect(panEffect);
-            setCurrentZoomEffect(zoomEffect);
+            // Set effects state directly - no parsing required
+            setCurrentFadeEffect(effects.fade || null);
+            setCurrentPanEffect(effects.pan || null);
+            setCurrentZoomEffect(effects.zoom || null);
 
             // Force React state change by clearing first, then setting - ensures re-render even with same URL
             setCurrentMediaImageUrl(null);
@@ -1063,14 +1011,14 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
             }, 10); // Brief delay to ensure React processes the null first
 
             // Log effects for debugging
-            if (fadeEffect) {
-              console.log(`🎬 Fade effect set in React state: ${fadeEffect.type} - ${fadeEffect.duration}s`);
+            if (effects.fade) {
+              console.log(`🎬 Fade effect: ${effects.fade.type} - ${effects.fade.duration}s`);
             }
-            if (panEffect) {
-              console.log(`🎬 Pan effect set in React state: ${panEffect.direction} - ${panEffect.duration}s`);
+            if (effects.pan) {
+              console.log(`🎬 Pan effect: ${effects.pan.type} - ${effects.pan.duration}s - ${effects.pan.distance}%`);
             }
-            if (zoomEffect) {
-              console.log(`🎬 Zoom effect set in React state: ${zoomEffect.type} - ${zoomEffect.duration}s`);
+            if (effects.zoom) {
+              console.log(`🎬 Zoom effect: ${effects.zoom.startScale}x → ${effects.zoom.endScale}x over ${effects.zoom.duration}s`);
             }
 
             // Clear any color overlays when switching to image

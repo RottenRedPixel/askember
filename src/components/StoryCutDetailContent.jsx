@@ -1,6 +1,6 @@
 import React from 'react';
 import { getStyleDisplayName } from '@/lib/styleUtils';
-import { extractColorFromAction } from '@/lib/scriptParser';
+// extractColorFromAction no longer needed - using JSON blocks directly
 import MessageAudioControls from '@/components/OwnerMessageAudioControls';
 
 const StoryCutDetailContent = ({
@@ -61,25 +61,9 @@ const StoryCutDetailContent = ({
                                 🎬 Studio
                             </a>
                             <button
-                                onClick={async () => {
-                                    try {
-                                        console.log('✏️ Starting script edit...');
-                                        console.log('📝 Current stored script:', selectedStoryCut.full_script);
-                                        // Use the same formatting as the display view
-                                        const { formatScriptForDisplay } = await import('@/lib/scriptParser');
-                                        const editableScript = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
-                                        console.log('📝 Loaded editable script:', editableScript);
-                                        setIsEditingScript(true);
-                                        setEditedScript(editableScript);
-                                    } catch (error) {
-                                        console.error('❌ Error loading script for editing:', error);
-                                        console.error('❌ Error details:', error.message);
-                                        console.error('❌ Stack trace:', error.stack);
-                                        // Fallback - use raw script
-                                        console.log('🔄 Falling back to raw script');
-                                        setIsEditingScript(true);
-                                        setEditedScript(selectedStoryCut.full_script || '');
-                                    }
+                                onClick={() => {
+                                    console.log('⚠️ Script editing deprecated - use StoryCutStudio for JSON block editing');
+                                    alert('Script editing is deprecated. Please use StoryCutStudio for visual editing.');
                                 }}
                                 className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                             >

@@ -41,18 +41,7 @@ import { formatRelativeTime, formatDuration, formatDisplayDate, formatDisplayLoc
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import OwnerMessageAudioControls from '@/components/OwnerMessageAudioControls';
 import ShareSlideOutContent from '@/components/ShareSlideOutContent';
-import {
-  parseScriptSegments,
-  parseSentences,
-  estimateSentenceTimings,
-  getVoiceType,
-  extractColorFromAction,
-  extractTransparencyFromAction,
-  extractZoomScaleFromAction,
-  estimateSegmentDuration,
-  resolveMediaReference,
-  formatScriptForDisplay
-} from '@/lib/scriptParser';
+// Most scriptParser functions no longer needed with direct JSON block handling
 import { debugRecordedAudio, generateSegmentAudio, playMultiVoiceAudio } from '@/lib/emberPlayer';
 import { useEmberData } from '@/lib/useEmberData';
 import {
@@ -293,7 +282,7 @@ export default function EmberDetail() {
     const formatScript = async () => {
       if (selectedStoryCut && selectedStoryCut.full_script && ember) {
         try {
-          const formatted = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
+          const formatted = selectedStoryCut.full_script; // No longer formatting scripts
           setFormattedScript(formatted);
         } catch (error) {
           console.error('Error formatting script:', error);
@@ -964,78 +953,18 @@ export default function EmberDetail() {
       console.log('💾 Saving script...');
       console.log('🔍 Edited script content (first 500 chars):', editedScript.trim().substring(0, 500));
 
-      // NEW: Check if script uses sacred format
-      const { isSacredFormat } = await import('@/lib/scriptParser');
-      const isUsingNewFormat = isSacredFormat(editedScript);
-      console.log('🔍 Script format detection - Sacred format:', isUsingNewFormat);
+      // Script editing is no longer supported - only JSON blocks are used
+      console.log('⚠️ Script editing not supported - story cuts now use JSON blocks only');
 
-      // NEW: Basic sacred format validation
-      if (isUsingNewFormat) {
-        const sacredLines = editedScript.split('\n').filter(line =>
-          line.trim().startsWith('[') && !line.trim().startsWith('[[')
-        );
-
-        let hasValidationErrors = false;
-        const validationErrors = [];
-
-        sacredLines.forEach((line, index) => {
-          const sacredMatch = line.match(/^\[([^|]+)\|([^|]+)\|([^\]]*)\]\s*<(.+)>$/);
-          if (!sacredMatch) {
-            hasValidationErrors = true;
-            validationErrors.push(`Line ${index + 1}: Invalid sacred format - should be [NAME | preference | ID] <content>`);
-          }
-        });
-
-        if (hasValidationErrors) {
-          console.warn('⚠️ Sacred format validation warnings:', validationErrors);
-          // Don't block save, just warn in console
-        } else {
-          console.log('✅ Sacred format validation passed');
-        }
-      }
-
-      console.log('📝 Script has MEDIA lines:', editedScript.includes('[[MEDIA]]'));
-      console.log('📝 Script has HOLD lines:', editedScript.includes('[[HOLD]]'));
-      console.log('📝 Original selectedStoryCut script before save (first 500 chars):', selectedStoryCut.full_script.substring(0, 500));
-      console.log('✅ SAVING EXACTLY what user typed - no modifications applied during save');
-
-      // Count MEDIA and HOLD lines in edited script
-      const mediaLines = (editedScript.match(/\[\[MEDIA\]\]/g) || []).length;
-      const holdLines = (editedScript.match(/\[\[HOLD\]\]/g) || []).length;
-      console.log('📊 Number of MEDIA lines in edited script:', mediaLines);
-      console.log('📊 Number of HOLD lines in edited script:', holdLines);
-
-      // 🚨 CRITICAL DEBUG: Find all HOLD lines in the edited script
-      const holdMatches = editedScript.match(/\[\[HOLD\]\].*$/gm) || [];
-      console.log('🚨 HOLD LINES FOUND IN EDITED SCRIPT:');
-      holdMatches.forEach((holdLine, index) => {
-        console.log(`  🚨 HOLD ${index + 1}: "${holdLine}"`);
-      });
-
-      // Import the update function and script reconstruction
+      // For now, just save the edited script as-is (will be deprecated)
       const { updateStoryCut } = await import('@/lib/database');
-      const { reconstructScript } = await import('@/lib/scriptParser');
-
-      // Reconstruct the original format to preserve metadata (voice IDs, preferences, etc.)
-      const reconstructedScript = reconstructScript(
-        editedScript.trim(),
-        selectedStoryCut.full_script,
-        selectedStoryCut
-      );
-
-      console.log('🔧 Reconstructed script preview:', reconstructedScript.substring(0, 200));
-      console.log('🔧 Original metadata preserved in reconstructed script');
-
-      // Update the story cut with the reconstructed script (preserves metadata)
       const updatedStoryCut = await updateStoryCut(
         selectedStoryCut.id,
-        { full_script: reconstructedScript },
+        { full_script: editedScript.trim() },
         user.id
       );
 
-      console.log('📝 Database returned script (first 500 chars):', updatedStoryCut.full_script?.substring(0, 500));
-      console.log('📝 Database script has MEDIA lines:', updatedStoryCut.full_script?.includes('[[MEDIA]]'));
-      console.log('📝 Database script has HOLD lines:', updatedStoryCut.full_script?.includes('[[HOLD]]'));
+      console.log('📝 Updated script saved (legacy mode)');
 
       // Count MEDIA and HOLD lines in database response
       const dbMediaLines = (updatedStoryCut.full_script?.match(/\[\[MEDIA\]\]/g) || []).length;
@@ -1112,11 +1041,7 @@ export default function EmberDetail() {
 
   const handleCancelScriptEdit = async () => {
     console.log('🔄 Canceling script edit...');
-    console.log('📝 Current stored script:', selectedStoryCut.full_script);
-    // Use the same formatting as the display view
-    const editableScript = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
-    console.log('📝 Loaded editable script:', editableScript);
-    setEditedScript(editableScript);
+    console.log('📝 Script editing deprecated');
     setIsEditingScript(false);
   };
 
@@ -1134,16 +1059,9 @@ export default function EmberDetail() {
           console.log(`  🚨 STORED HOLD ${index + 1}: "${holdLine}"`);
         });
 
-        // Use the same formatting as the display view
-        const editableScript = await formatScriptForDisplay(selectedStoryCut.full_script, ember, selectedStoryCut);
-        console.log('📝 Setting editedScript to:', editableScript);
-
-        // 🚨 CRITICAL DEBUG: Check for HOLD segments in the editable script
-        const editableHoldMatches = editableScript.match(/\[\[HOLD\]\].*$/gm) || [];
-        console.log('🚨 HOLD SEGMENTS IN EDITABLE SCRIPT (useEffect):');
-        editableHoldMatches.forEach((holdLine, index) => {
-          console.log(`  🚨 EDITABLE HOLD ${index + 1}: "${holdLine}"`);
-        });
+        // Script editing deprecated - use raw script
+        const editableScript = selectedStoryCut.full_script;
+        console.log('📝 Using raw script (editing deprecated):', editableScript);
 
         setEditedScript(editableScript);
       } else if (isSavingScript) {

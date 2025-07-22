@@ -218,6 +218,77 @@ export default function EmberPlay() {
     const progressIntervalRef = useRef(null);
     const mediaTimeoutsRef = useRef([]);
 
+    // Helper function to calculate transform-origin for zoom targets using stored metadata
+    const calculateTransformOrigin = async (target, taggedPeople, currentBlock, emberId) => {
+        if (!target || target.type === 'center') {
+            return 'center center';
+        }
+
+        try {
+            // Import the media dimensions utility
+            const { getMediaDimensions, getMediaDimensionsByUrl, toPercent, validateCoordinates } = await import('@/lib/mediaDimensions');
+
+            // Get image dimensions from stored metadata
+            let dimensions = null;
+
+            if (currentBlock?.media_id) {
+                dimensions = await getMediaDimensions(currentBlock.media_id, emberId);
+            } else if (currentBlock?.media_url) {
+                dimensions = await getMediaDimensionsByUrl(currentBlock.media_url, emberId);
+            }
+
+            if (!dimensions) {
+                console.log('⚠️ No stored dimensions found - falling back to center');
+                return 'center center';
+            }
+
+            console.log(`📐 Using stored dimensions: ${dimensions.width}x${dimensions.height}`);
+
+            if (target.type === 'person' && target.personId) {
+                // Find the tagged person by ID
+                const person = taggedPeople.find(p => p.id === target.personId);
+                if (person && person.face_coordinates) {
+                    const coords = person.face_coordinates;
+
+                    // Validate coordinates against stored dimensions
+                    if (validateCoordinates(coords, dimensions)) {
+                        // Face coordinates are stored in natural image dimensions
+                        // Convert to percentages for transform-origin
+                        const centerX = coords.x + (coords.width / 2);
+                        const centerY = coords.y + (coords.height / 2);
+
+                        const percentX = toPercent(centerX, dimensions.width);
+                        const percentY = toPercent(centerY, dimensions.height);
+
+                        console.log(`🎯 Zoom target: Person "${person.person_name}" at (${Math.round(percentX)}%, ${Math.round(percentY)}%)`);
+                        return `${percentX.toFixed(1)}% ${percentY.toFixed(1)}%`;
+                    } else {
+                        console.warn(`⚠️ Person coordinates exceed stored dimensions - using center`);
+                    }
+                }
+            } else if (target.type === 'custom' && target.coordinates) {
+                // Custom coordinates should also be in natural image dimensions
+                const coords = target.coordinates;
+
+                // Validate coordinates against stored dimensions
+                if (validateCoordinates(coords, dimensions)) {
+                    const percentX = toPercent(coords.x, dimensions.width);
+                    const percentY = toPercent(coords.y, dimensions.height);
+
+                    console.log(`🎯 Zoom target: Custom point at (${Math.round(percentX)}%, ${Math.round(percentY)}%)`);
+                    return `${percentX.toFixed(1)}% ${percentY.toFixed(1)}%`;
+                } else {
+                    console.warn(`⚠️ Custom zoom coordinates (${coords.x}, ${coords.y}) exceed stored dimensions (${dimensions.width}x${dimensions.height}) - using center`);
+                }
+            }
+
+            return 'center center';
+        } catch (error) {
+            console.error('❌ Error calculating transform origin:', error);
+            return 'center center';
+        }
+    };
+
     // Combined visual effects state for simultaneous effects
     const [combinedEffectStyles, setCombinedEffectStyles] = useState({
         transform: 'scale(1) translateX(0)',
@@ -225,121 +296,130 @@ export default function EmberPlay() {
         transition: 'transform 0.5s ease-out, opacity 0.5s ease-out'
     });
 
-    // Combine multiple visual effects into a single transform
+    // Combine multiple visual effects using direct effect handling
     useEffect(() => {
-        const transforms = [];
-        let opacity = 1;
-        let animation = null;
-        let transitionDuration = '0.5s';
+        const applyEffects = async () => {
+            const transforms = [];
+            let opacity = 1;
+            let animation = null;
+            let transformOrigin = 'center center';
+            let transitionDuration = '0.5s';
 
-        // Handle pan effects
-        if (currentPanEffect && currentPanEffect.distance && currentPanEffect.duration) {
-            const direction = currentPanEffect.direction === 'left' ? '-' : '';
-            transforms.push(`translateX(${direction}${currentPanEffect.distance}%)`);
-            transitionDuration = `${currentPanEffect.duration}s`;
-        }
-
-        // Handle zoom effects with animation phases
-        if (currentZoomEffect && currentZoomEffect.scale && currentZoomEffect.duration) {
-            let finalScale = currentZoomEffect.scale;
-
-            // For zoom-out, if scale > 1, invert it to create zoom-out effect
-            if (currentZoomEffect.type === 'out' && finalScale > 1) {
-                finalScale = 1 / finalScale;
+            // Handle pan effects
+            if (currentPanEffect && typeof currentPanEffect === 'object') {
+                const direction = currentPanEffect.type === 'left' ? '-' : '';
+                transforms.push(`translateX(${direction}${currentPanEffect.distance}%)`);
+                transitionDuration = `${currentPanEffect.duration}s`;
             }
 
-            // Use animation phase to control zoom progression
-            const currentScale = zoomAnimationPhase === 'starting' ? 1 : finalScale;
-            transforms.push(`scale(${currentScale})`);
-            transitionDuration = `${currentZoomEffect.duration}s`;
-        }
+            // Handle zoom effects with start and end scales
+            if (currentZoomEffect && typeof currentZoomEffect === 'object') {
+                const startScale = currentZoomEffect.startScale || 1.0;
+                const endScale = currentZoomEffect.endScale || 1.0;
 
-        // Handle fade effects - use CSS animation instead of transition
-        if (currentFadeEffect && currentFadeEffect.duration) {
-            const duration = currentFadeEffect.duration;
-            if (currentFadeEffect.type === 'in') {
-                // Fade in: start invisible, animate to visible
-                animation = `fadeIn ${duration}s ease-out forwards`;
-                opacity = 0; // Start invisible
-            } else {
-                // Fade out: start visible, animate to invisible  
-                animation = `fadeOut ${duration}s ease-out forwards`;
-                opacity = 1; // Start visible
-            }
-        }
+                // Calculate transform-origin first for zoom animations
+                let zoomTransformOrigin = 'center center';
+                if (currentZoomEffect.target && ember?.id) {
+                    const mockBlock = {
+                        media_url: currentMediaImageUrl || ember?.image_url
+                    };
+                    zoomTransformOrigin = await calculateTransformOrigin(
+                        currentZoomEffect.target,
+                        taggedPeople,
+                        mockBlock,
+                        ember.id
+                    );
+                }
 
-        // Use the longest duration if multiple effects (for non-fade transitions)
-        const panDuration = currentPanEffect?.duration || 0;
-        const zoomDuration = currentZoomEffect?.duration || 0;
-        const maxTransitionDuration = Math.max(panDuration, zoomDuration, 0.5);
-
-        // Calculate transform-origin for zoom targets
-        let transformOrigin = 'center center'; // Default to center
-        if (currentZoomEffect && currentZoomEffect.target) {
-            const target = currentZoomEffect.target;
-
-            if (target.type === 'person' && target.personId) {
-                // Find the tagged person by ID
-                const person = taggedPeople.find(p => p.id === target.personId);
-                if (person && person.face_coordinates) {
-                    const coords = person.face_coordinates;
-                    // Get the current media element to calculate natural dimensions
-                    // Look for any img element that has the combined effects styles applied
-                    const imageUrl = currentMediaImageUrl || ember?.image_url;
-                    if (imageUrl) {
-                        const mediaElement = document.querySelector('img[src*="' + imageUrl.split('/').pop() + '"]');
-                        if (mediaElement && mediaElement.naturalWidth && mediaElement.naturalHeight &&
-                            coords.x >= 0 && coords.y >= 0 && coords.x <= mediaElement.naturalWidth && coords.y <= mediaElement.naturalHeight) {
-                            // Convert pixel coordinates to percentage for transform-origin
-                            const originX = (coords.x / mediaElement.naturalWidth) * 100;
-                            const originY = (coords.y / mediaElement.naturalHeight) * 100;
-                            transformOrigin = `${originX}% ${originY}%`;
-                            console.log(`🎯 Zoom target: Person "${person.person_name}" at (${Math.round(originX)}%, ${Math.round(originY)}%)`);
-                        } else {
-                            console.warn(`⚠️ Could not resolve zoom target for person "${person.person_name}" - using center`);
+                // Create CSS animation for start-to-end zoom
+                if (startScale !== endScale) {
+                    const animationName = `zoom-${Date.now()}`;
+                    const keyframes = `
+                        @keyframes ${animationName} {
+                            0% { 
+                                transform: scale(${startScale}); 
+                                transform-origin: ${zoomTransformOrigin};
+                            }
+                            100% { 
+                                transform: scale(${endScale}); 
+                                transform-origin: ${zoomTransformOrigin};
+                            }
                         }
-                    }
+                    `;
+
+                    // Inject keyframes into document
+                    const style = document.createElement('style');
+                    style.textContent = keyframes;
+                    document.head.appendChild(style);
+
+                    // Use animation instead of transform
+                    animation = `${animationName} ${currentZoomEffect.duration}s ease-out forwards`;
+
+                    // Clean up animation after it's done
+                    setTimeout(() => {
+                        try {
+                            if (style && style.parentNode) {
+                                document.head.removeChild(style);
+                            }
+                        } catch (error) {
+                            console.warn('Failed to cleanup zoom animation style:', error);
+                        }
+                    }, (currentZoomEffect.duration + 1) * 1000);
+                } else {
+                    // No animation needed if start and end are the same
+                    transforms.push(`scale(${endScale})`);
+                    transitionDuration = `${currentZoomEffect.duration}s`;
                 }
-            } else if (target.type === 'custom' && target.coordinates) {
-                // Use custom pixel coordinates
-                const coords = target.coordinates;
-                // Get the current media element to calculate natural dimensions
-                // Look for any img element that has the combined effects styles applied
-                const imageUrl = currentMediaImageUrl || ember?.image_url;
-                if (imageUrl) {
-                    const mediaElement = document.querySelector('img[src*="' + imageUrl.split('/').pop() + '"]');
-                    if (mediaElement && mediaElement.naturalWidth && mediaElement.naturalHeight &&
-                        coords.x >= 0 && coords.y >= 0 && coords.x <= mediaElement.naturalWidth && coords.y <= mediaElement.naturalHeight) {
-                        // Convert pixel coordinates to percentage for transform-origin
-                        const originX = (coords.x / mediaElement.naturalWidth) * 100;
-                        const originY = (coords.y / mediaElement.naturalHeight) * 100;
-                        transformOrigin = `${originX}% ${originY}%`;
-                        console.log(`🎯 Zoom target: Custom point at (${Math.round(originX)}%, ${Math.round(originY)}%)`);
-                    } else {
-                        console.warn(`⚠️ Could not resolve custom zoom target at (${coords.x}, ${coords.y}) - using center`);
-                    }
+
+                console.log(`🔍 Zoom effect: ${startScale} → ${endScale} over ${currentZoomEffect.duration}s`);
+
+                // Set transform-origin for non-animated zoom (when start = end)
+                if (startScale === endScale) {
+                    transformOrigin = zoomTransformOrigin;
                 }
             }
-        }
 
-        setCombinedEffectStyles({
-            transform: transforms.length > 0 ? transforms.join(' ') : 'scale(1) translateX(0)',
-            transformOrigin: transformOrigin,
-            opacity: opacity,
-            animation: animation || 'none', // CSS animation for fade, or none to clear
-            transition: animation ? `transform ${maxTransitionDuration}s ease-out` : `transform ${maxTransitionDuration}s ease-out, opacity ${maxTransitionDuration}s ease-out` // Only transition non-fade properties when using animation
-        });
+            // Handle fade effects - use CSS animation (only if zoom isn't already using animation)
+            if (currentFadeEffect && typeof currentFadeEffect === 'object' && !animation) {
+                const duration = currentFadeEffect.duration;
+                if (currentFadeEffect.type === 'in') {
+                    animation = `fadeIn ${duration}s ease-out forwards`;
+                    opacity = 0; // Start invisible
+                } else {
+                    animation = `fadeOut ${duration}s ease-out forwards`;
+                    opacity = 1; // Start visible
+                }
+            }
 
-        console.log('🎬 Combined effects applied:', {
-            pan: currentPanEffect,
-            zoom: currentZoomEffect,
-            fade: currentFadeEffect,
-            finalTransform: transforms.join(' ') || 'scale(1) translateX(0)',
-            opacity: opacity,
-            animation: animation,
-            maxDuration: Math.max(panDuration, zoomDuration, currentFadeEffect?.duration || 0, 0.5)
-        });
-    }, [currentPanEffect, currentZoomEffect, currentFadeEffect, taggedPeople, currentMediaImageUrl, ember?.image_url]);
+            // Use the longest duration for transitions
+            const panDuration = currentPanEffect?.duration || 0;
+            const zoomDuration = currentZoomEffect?.duration || 0;
+            const maxTransitionDuration = Math.max(panDuration, zoomDuration, 0.5);
+
+            const combinedStyles = {
+                transform: transforms.length > 0 ? transforms.join(' ') : 'scale(1) translateX(0)',
+                transformOrigin,
+                opacity,
+                animation: animation || 'none',
+                transition: animation
+                    ? `transform ${maxTransitionDuration}s ease-out`
+                    : `transform ${maxTransitionDuration}s ease-out, opacity ${maxTransitionDuration}s ease-out`
+            };
+
+            setCombinedEffectStyles(combinedStyles);
+
+            console.log('🎬 Combined effects applied directly:', {
+                effects: {
+                    fade: currentFadeEffect,
+                    pan: currentPanEffect,
+                    zoom: currentZoomEffect
+                },
+                combinedStyles
+            });
+        };
+
+        applyEffects();
+    }, [currentPanEffect, currentZoomEffect, currentFadeEffect, taggedPeople, currentMediaImageUrl, ember?.image_url, ember?.id]);
 
     // Track text changes to trigger fade-in animation
     useEffect(() => {

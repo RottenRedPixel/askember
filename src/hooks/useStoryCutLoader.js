@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getStoryCutById, getPrimaryStoryCut, getEmber, getAllStoryMessagesForEmber, getStoryCutsForEmber, getUserVoiceModel, getEmberTaggedPeople, updateStoryCut } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
-import { resolveMediaReference } from '@/lib/scriptParser';
+import { resolveMediaReference } from '@/lib/mediaResolvers';
 
 // Smart function to split effects by commas while preserving custom coordinates
 function smartSplitEffects(content) {

@@ -18,7 +18,30 @@ import { useUIState } from '@/lib/useUIState';
 import AddBlockModal from '@/components/AddBlockModal';
 import ZoomTargetModal from '@/components/ZoomTargetModal';
 
+// Conversion functions between slider values (-5 to +5) and actual zoom scales
+const sliderToScale = (sliderValue) => {
+    // Slider -5 → scale(0.2) (looks zoomed out)
+    // Slider 0 → scale(1.0) (normal)  
+    // Slider +5 → scale(5.0) (zoomed in)
+    if (sliderValue <= 0) {
+        // Negative: 1.0 + (slider * 0.16) → -5 gives 0.2x, 0 gives 1.0x
+        return 1.0 + (sliderValue * 0.16);
+    } else {
+        // Positive: 1.0 + (slider * 0.8) → +5 gives 5.0x
+        return 1.0 + (sliderValue * 0.8);
+    }
+};
 
+const scaleToSlider = (scaleValue) => {
+    // Convert actual scale back to slider value
+    if (scaleValue <= 1.0) {
+        // Scale 0.2-1.0 maps to slider -5 to 0
+        return (scaleValue - 1.0) / 0.16;
+    } else {
+        // Scale 1.0-5.0 maps to slider 0 to +5
+        return (scaleValue - 1.0) / 0.8;
+    }
+};
 
 export default function StoryCutStudio() {
     const { id, storyCutId } = useParams(); // id is ember ID, storyCutId is story cut ID
@@ -31,7 +54,9 @@ export default function StoryCutStudio() {
     const [effectDirections, setEffectDirections] = useState({}); // Track effect directions (in/out, left/right)
     const [effectDurations, setEffectDurations] = useState({}); // Track effect duration values from sliders
     const [effectDistances, setEffectDistances] = useState({}); // Track pan distances  
-    const [effectScales, setEffectScales] = useState({}); // Track zoom scales
+    const [effectScales, setEffectScales] = useState({}); // Track zoom scales (legacy)
+    const [effectStartScales, setEffectStartScales] = useState({}); // Track zoom start scales
+    const [effectEndScales, setEffectEndScales] = useState({}); // Track zoom end scales
     const [effectTargets, setEffectTargets] = useState({}); // Track zoom targets (center, person, custom)
     const [showZoomTargetModal, setShowZoomTargetModal] = useState(false);
     const [selectedZoomBlock, setSelectedZoomBlock] = useState(null);
@@ -77,6 +102,8 @@ export default function StoryCutStudio() {
     const [originalDurations, setOriginalDurations] = useState({});
     const [originalDistances, setOriginalDistances] = useState({});
     const [originalScales, setOriginalScales] = useState({});
+    const [originalStartScales, setOriginalStartScales] = useState({});
+    const [originalEndScales, setOriginalEndScales] = useState({});
     const [originalTargets, setOriginalTargets] = useState({});
 
     // Voice management for AI voices
@@ -693,6 +720,8 @@ export default function StoryCutStudio() {
                 const initialDurations = {};
                 const initialDistances = {};
                 const initialScales = {};
+                const initialStartScales = {};
+                const initialEndScales = {};
                 const initialTargets = {};
 
                 // Parse voice declarations and override story cut voice names
@@ -765,27 +794,78 @@ export default function StoryCutStudio() {
                                 mediaId: jsonBlock.media_id,
                                 mediaName: jsonBlock.media_name,
                                 mediaUrl: jsonBlock.media_url,
-                                effects: jsonBlock.effects || [],
-                                effectConfig: jsonBlock.effect_config || {}
+                                effects: jsonBlock.effects || {}
                             };
 
-                            // ✅ FIXED: Parse effects from content field and populate UI state
-                            if (jsonBlock.content) {
-                                const parsedEffects = parseEffectsFromContent(jsonBlock.content, currentBlockId);
+                            // ✅ NEW: Use effects object directly from JSON blocks
+                            if (jsonBlock.effects && typeof jsonBlock.effects === 'object') {
+                                // Convert effect object to UI state for editing
+                                const effects = jsonBlock.effects;
+                                const blockEffects = [];
 
-                                // Store effects for this block
-                                if (parsedEffects.effects.length > 0) {
-                                    initialEffects[`effect-${currentBlockId}`] = parsedEffects.effects;
+                                if (effects.fade) {
+                                    blockEffects.push('fade');
+                                    initialDirections[`fade-${currentBlockId}`] = effects.fade.type;
+                                    initialDurations[`fade-${currentBlockId}`] = effects.fade.duration;
                                 }
 
-                                // Merge all effect state
-                                Object.assign(initialDirections, parsedEffects.directions);
-                                Object.assign(initialDurations, parsedEffects.durations);
-                                Object.assign(initialDistances, parsedEffects.distances);
-                                Object.assign(initialScales, parsedEffects.scales);
-                                Object.assign(initialTargets, parsedEffects.targets);
+                                if (effects.pan) {
+                                    blockEffects.push('pan');
+                                    initialDirections[`pan-${currentBlockId}`] = effects.pan.type;
+                                    initialDurations[`pan-${currentBlockId}`] = effects.pan.duration;
+                                    initialDistances[`pan-${currentBlockId}`] = effects.pan.distance;
+                                }
 
-                                console.log(`🎬 Loaded effects for block ${currentBlockId}:`, parsedEffects.effects);
+                                if (effects.zoom) {
+                                    blockEffects.push('zoom');
+                                    initialDurations[`zoom-${currentBlockId}`] = effects.zoom.duration;
+
+                                    // Handle new start/end scale format
+                                    if (effects.zoom.startScale !== undefined && effects.zoom.endScale !== undefined) {
+                                        // NEW format: convert saved zoom scales back to slider values
+                                        const startSliderValue = scaleToSlider(effects.zoom.startScale);
+                                        const endSliderValue = scaleToSlider(effects.zoom.endScale);
+                                        initialStartScales[`zoom-${currentBlockId}`] = startSliderValue;
+                                        initialEndScales[`zoom-${currentBlockId}`] = endSliderValue;
+                                        console.log(`🔄 Loading zoom scales for block ${currentBlockId}: saved scales ${effects.zoom.startScale}→${effects.zoom.endScale} converted to sliders ${startSliderValue}→${endSliderValue}`);
+
+                                        // Derive direction from start/end scales for UI toggle (use original zoom scales for comparison)
+                                        if (effects.zoom.startScale < effects.zoom.endScale) {
+                                            initialDirections[`zoom-${currentBlockId}`] = 'in';  // Zooming in (getting bigger)
+                                            // Set legacy scale to the end scale (the zoom target)
+                                            initialScales[`zoom-${currentBlockId}`] = effects.zoom.endScale;
+                                        } else if (effects.zoom.startScale > effects.zoom.endScale) {
+                                            initialDirections[`zoom-${currentBlockId}`] = 'out'; // Zooming out (getting smaller)
+                                            // Set legacy scale to the start scale (the zoom starting point)
+                                            initialScales[`zoom-${currentBlockId}`] = effects.zoom.startScale;
+                                        } else {
+                                            initialDirections[`zoom-${currentBlockId}`] = 'in';  // Default to 'in' if equal
+                                            initialScales[`zoom-${currentBlockId}`] = effects.zoom.endScale;
+                                        }
+                                    } else if (effects.zoom.scale !== undefined && effects.zoom.type !== undefined) {
+                                        // LEGACY format: convert type + scale to start/end scales
+                                        if (effects.zoom.type === 'in') {
+                                            initialStartScales[`zoom-${currentBlockId}`] = 0; // Always start at normal (slider 0)
+                                            initialEndScales[`zoom-${currentBlockId}`] = scaleToSlider(effects.zoom.scale);
+                                        } else { // zoom-out
+                                            initialStartScales[`zoom-${currentBlockId}`] = scaleToSlider(effects.zoom.scale);
+                                            initialEndScales[`zoom-${currentBlockId}`] = 0; // Always end at normal (slider 0)
+                                        }
+                                        // Also populate legacy scale for compatibility
+                                        initialScales[`zoom-${currentBlockId}`] = effects.zoom.scale;
+                                        initialDirections[`zoom-${currentBlockId}`] = effects.zoom.type;
+                                    }
+
+                                    if (effects.zoom.target) {
+                                        initialTargets[`zoom-${currentBlockId}`] = effects.zoom.target;
+                                    }
+                                }
+
+                                if (blockEffects.length > 0) {
+                                    initialEffects[`effect-${currentBlockId}`] = blockEffects;
+                                }
+
+                                console.log(`🎬 Loaded effects from JSON object for block ${currentBlockId}:`, blockEffects);
                             }
 
                             realBlocks.push(mediaBlock);
@@ -863,6 +943,8 @@ export default function StoryCutStudio() {
                 setEffectDurations(initialDurations);
                 setEffectDistances(initialDistances);
                 setEffectScales(initialScales);
+                setEffectStartScales(initialStartScales);
+                setEffectEndScales(initialEndScales);
                 setEffectTargets(initialTargets);
 
                 // Store original effect states for change detection
@@ -871,6 +953,8 @@ export default function StoryCutStudio() {
                 setOriginalDurations(JSON.parse(JSON.stringify(initialDurations)));
                 setOriginalDistances(JSON.parse(JSON.stringify(initialDistances)));
                 setOriginalScales(JSON.parse(JSON.stringify(initialScales)));
+                setOriginalStartScales(JSON.parse(JSON.stringify(initialStartScales)));
+                setOriginalEndScales(JSON.parse(JSON.stringify(initialEndScales)));
                 setOriginalTargets(JSON.parse(JSON.stringify(initialTargets)));
 
                 console.log('🎬 Effect states initialized from JSON blocks:', {
@@ -916,12 +1000,22 @@ export default function StoryCutStudio() {
                     if (!initialScales[`zoom-${block.id}`]) {
                         initialScales[`zoom-${block.id}`] = 1.5;
                     }
+
+                    // Set default start and end scales for new zoom system
+                    if (!initialStartScales[`zoom-${block.id}`]) {
+                        initialStartScales[`zoom-${block.id}`] = 0; // Default start scale (normal)
+                    }
+                    if (!initialEndScales[`zoom-${block.id}`]) {
+                        initialEndScales[`zoom-${block.id}`] = 2.5; // Default end scale (slider +2.5 = 1.5x zoom)
+                    }
                 });
                 setSelectedEffects(initialEffects);
                 setEffectDirections(initialDirections);
                 setEffectDurations(initialDurations);
                 setEffectDistances(initialDistances);
                 setEffectScales(initialScales);
+                setEffectStartScales(initialStartScales);
+                setEffectEndScales(initialEndScales);
                 setEffectTargets(initialTargets);
 
                 // Load tagged people for zoom target selection
@@ -1009,6 +1103,8 @@ export default function StoryCutStudio() {
             JSON.stringify(originalDurations) !== JSON.stringify(effectDurations) ||
             JSON.stringify(originalDistances) !== JSON.stringify(effectDistances) ||
             JSON.stringify(originalScales) !== JSON.stringify(effectScales) ||
+            JSON.stringify(originalStartScales) !== JSON.stringify(effectStartScales) ||
+            JSON.stringify(originalEndScales) !== JSON.stringify(effectEndScales) ||
             JSON.stringify(originalTargets) !== JSON.stringify(effectTargets)
         );
 
@@ -1022,10 +1118,12 @@ export default function StoryCutStudio() {
                 durationsChanged: JSON.stringify(originalDurations) !== JSON.stringify(effectDurations),
                 distancesChanged: JSON.stringify(originalDistances) !== JSON.stringify(effectDistances),
                 scalesChanged: JSON.stringify(originalScales) !== JSON.stringify(effectScales),
+                startScalesChanged: JSON.stringify(originalStartScales) !== JSON.stringify(effectStartScales),
+                endScalesChanged: JSON.stringify(originalEndScales) !== JSON.stringify(effectEndScales),
                 targetsChanged: JSON.stringify(originalTargets) !== JSON.stringify(effectTargets)
             });
         }
-    }, [blocks, originalBlocks, selectedEffects, effectDirections, effectDurations, effectDistances, effectScales, effectTargets, originalEffects, originalDirections, originalDurations, originalDistances, originalScales, originalTargets]);
+    }, [blocks, originalBlocks, selectedEffects, effectDirections, effectDurations, effectDistances, effectScales, effectStartScales, effectEndScales, effectTargets, originalEffects, originalDirections, originalDurations, originalDistances, originalScales, originalStartScales, originalEndScales, originalTargets]);
 
     // Helper function to parse effects from JSON block content (for loading from database)
     const parseEffectsFromContent = (content, blockId) => {
@@ -1098,53 +1196,46 @@ export default function StoryCutStudio() {
         return { effects, directions, durations, distances, scales, targets };
     };
 
-    // Helper function to generate effect string from UI state (for EmberPlay compatibility)
-    const generateEffectString = (blockId) => {
+
+
+    // Helper function to generate effect object from UI state (for EmberPlay compatibility)
+    const generateEffectObject = (blockId) => {
+        const effects = {};
         const blockEffects = selectedEffects[`effect-${blockId}`] || [];
-        const effectsArray = [];
 
-        // Generate FADE effect string
         if (blockEffects.includes('fade')) {
-            const direction = effectDirections[`fade-${blockId}`] || 'in';
-            const duration = effectDurations[`fade-${blockId}`] || 3.0;
-            effectsArray.push(`FADE-${direction.toUpperCase()}:duration=${duration}`);
+            effects.fade = {
+                type: effectDirections[`fade-${blockId}`] || 'in',
+                duration: effectDurations[`fade-${blockId}`] || 3.0
+            };
         }
 
-        // Generate PAN effect string  
         if (blockEffects.includes('pan')) {
-            const direction = effectDirections[`pan-${blockId}`] || 'left';
-            const duration = effectDurations[`pan-${blockId}`] || 4.0;
-            const distance = effectDistances[`pan-${blockId}`] || 25;
-            effectsArray.push(`PAN-${direction.toUpperCase()}:distance=${distance}%:duration=${duration}`);
+            effects.pan = {
+                type: effectDirections[`pan-${blockId}`] || 'left',
+                distance: effectDistances[`pan-${blockId}`] || 25,
+                duration: effectDurations[`pan-${blockId}`] || 4.0
+            };
         }
 
-        // Generate ZOOM effect string
         if (blockEffects.includes('zoom')) {
-            const direction = effectDirections[`zoom-${blockId}`] || 'in';
-            const duration = effectDurations[`zoom-${blockId}`] || 3.5;
-            const scale = effectScales[`zoom-${blockId}`] || 1.5;
             const target = effectTargets[`zoom-${blockId}`];
 
-            let zoomEffect = `ZOOM-${direction.toUpperCase()}:scale=${scale}:duration=${duration}`;
+            // Convert slider values to actual zoom scales
+            const startSliderValue = effectStartScales[`zoom-${blockId}`] || 0;
+            const endSliderValue = effectEndScales[`zoom-${blockId}`] || 0;
+            const startScale = sliderToScale(startSliderValue);
+            const endScale = sliderToScale(endSliderValue);
 
-            // Add target information if specified
-            if (target && target.type !== 'center') {
-                if (target.type === 'person' && target.personId) {
-                    zoomEffect += `:target=person:${target.personId}`;
-                } else if (target.type === 'custom' && target.coordinates) {
-                    // Use pixel coordinates (same as tagged people system)
-                    zoomEffect += `:target=custom:${Math.round(target.coordinates.x)},${Math.round(target.coordinates.y)}`;
-                }
-            }
-
-            effectsArray.push(zoomEffect);
+            effects.zoom = {
+                startScale,
+                endScale,
+                duration: effectDurations[`zoom-${blockId}`] || 3.5,
+                target: target || { type: 'center' }
+            };
         }
 
-        // Return effects string or empty if no effects
-        if (effectsArray.length > 0) {
-            return effectsArray.join(',');
-        }
-        return '';
+        return effects;
     };
 
     // Handle saving changes to database
@@ -1214,8 +1305,8 @@ export default function StoryCutStudio() {
                             hasVoiceModel: block.hasVoiceModel
                         };
                     } else if (block.type === 'media') {
-                        // ✅ FIXED: Generate effect string for EmberPlay compatibility
-                        const effectString = generateEffectString(block.id);
+                        // ✅ NEW: Generate effect object for direct usage
+                        const effectObject = generateEffectObject(block.id);
 
                         return {
                             // ✅ ENHANCED: Core fields
@@ -1225,8 +1316,8 @@ export default function StoryCutStudio() {
                             media_name: block.mediaName,
                             media_url: block.mediaUrl,
 
-                            // ✅ FIXED: Put effects in content field for EmberPlay compatibility
-                            content: effectString || 'media', // Default to 'media' if no effects
+                            // ✅ NEW: Store effects as object instead of string
+                            effects: effectObject,
 
                             // ✅ ENHANCED: Media metadata
                             mediaType: 'image', // Most media is images
@@ -1258,6 +1349,8 @@ export default function StoryCutStudio() {
             setOriginalDurations(JSON.parse(JSON.stringify(effectDurations)));
             setOriginalDistances(JSON.parse(JSON.stringify(effectDistances)));
             setOriginalScales(JSON.parse(JSON.stringify(effectScales)));
+            setOriginalStartScales(JSON.parse(JSON.stringify(effectStartScales)));
+            setOriginalEndScales(JSON.parse(JSON.stringify(effectEndScales)));
             setOriginalTargets(JSON.parse(JSON.stringify(effectTargets)));
             setHasUnsavedChanges(false);
 
@@ -1294,6 +1387,8 @@ export default function StoryCutStudio() {
             setEffectDurations(JSON.parse(JSON.stringify(originalDurations)));
             setEffectDistances(JSON.parse(JSON.stringify(originalDistances)));
             setEffectScales(JSON.parse(JSON.stringify(originalScales)));
+            setEffectStartScales(JSON.parse(JSON.stringify(originalStartScales)));
+            setEffectEndScales(JSON.parse(JSON.stringify(originalEndScales)));
             setEffectTargets(JSON.parse(JSON.stringify(originalTargets)));
             setHasUnsavedChanges(false);
 
@@ -1818,6 +1913,8 @@ export default function StoryCutStudio() {
             const newEffectDurations = {};
             const newEffectDistances = {};
             const newEffectScales = {};
+            const newEffectStartScales = {};
+            const newEffectEndScales = {};
             const newSelectedEffects = {};
 
             blocksToAdd.forEach(block => {
@@ -1825,14 +1922,16 @@ export default function StoryCutStudio() {
                     // Initialize media block effects
                     newEffectDirections[`fade-${block.id}`] = 'in';
                     newEffectDirections[`pan-${block.id}`] = 'left';
-                    newEffectDirections[`zoom-${block.id}`] = 'in';
+                    // No longer need direction for zoom - using start/end scales
 
                     newEffectDurations[`fade-${block.id}`] = 3.0;
                     newEffectDurations[`pan-${block.id}`] = 4.0;
                     newEffectDurations[`zoom-${block.id}`] = 3.5;
 
                     newEffectDistances[`pan-${block.id}`] = 25;
-                    newEffectScales[`zoom-${block.id}`] = 1.5;
+                    newEffectScales[`zoom-${block.id}`] = 1.5; // Legacy compatibility
+                    newEffectStartScales[`zoom-${block.id}`] = 0; // Start at normal (slider 0)
+                    newEffectEndScales[`zoom-${block.id}`] = 2.5; // Default zoom in (slider +2.5 = 1.5x)
 
                     newSelectedEffects[`effect-${block.id}`] = [];
                 }
@@ -1843,6 +1942,8 @@ export default function StoryCutStudio() {
             setEffectDurations(prev => ({ ...prev, ...newEffectDurations }));
             setEffectDistances(prev => ({ ...prev, ...newEffectDistances }));
             setEffectScales(prev => ({ ...prev, ...newEffectScales }));
+            setEffectStartScales(prev => ({ ...prev, ...newEffectStartScales }));
+            setEffectEndScales(prev => ({ ...prev, ...newEffectEndScales }));
             setSelectedEffects(prev => ({ ...prev, ...newSelectedEffects }));
 
             console.log('✅ Effects state initialized for new blocks');
@@ -2388,24 +2489,30 @@ export default function StoryCutStudio() {
                                                                         className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
                                                                     />
                                                                 </div>
-                                                                <div className="flex-shrink-0 flex flex-col items-end">
-                                                                    <div className="text-xs text-blue-700 mb-1">
-                                                                        {effectDirections[`zoom-${block.id}`] === 'out' ? 'OUT' : 'IN'}
+
+                                                            </div>
+                                                        )}
+                                                        {selectedEffects[`effect-${block.id}`].includes('zoom') && (
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="flex-1 space-y-2">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <span className="text-sm text-blue-700">Zoom Start Scale</span>
+                                                                        <span className="text-sm text-blue-700">{(effectStartScales[`zoom-${block.id}`] || 0).toFixed(1)}</span>
                                                                     </div>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setEffectDirections(prev => ({
+                                                                    <input
+                                                                        type="range"
+                                                                        min="-5"
+                                                                        max="5"
+                                                                        step="0.5"
+                                                                        value={effectStartScales[`zoom-${block.id}`] || 0}
+                                                                        onChange={(e) => {
+                                                                            setEffectStartScales(prev => ({
                                                                                 ...prev,
-                                                                                [`zoom-${block.id}`]: prev[`zoom-${block.id}`] === 'out' ? 'in' : 'out'
+                                                                                [`zoom-${block.id}`]: parseFloat(e.target.value)
                                                                             }));
                                                                         }}
-                                                                        className="w-12 h-6 rounded-full transition-colors duration-200 relative bg-blue-600"
-                                                                    >
-                                                                        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 ${effectDirections[`zoom-${block.id}`] === 'out'
-                                                                            ? 'translate-x-6'
-                                                                            : 'translate-x-0.5'
-                                                                            }`} />
-                                                                    </button>
+                                                                        className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                                                                    />
                                                                 </div>
                                                             </div>
                                                         )}
@@ -2413,17 +2520,17 @@ export default function StoryCutStudio() {
                                                             <div className="flex items-center gap-4">
                                                                 <div className="flex-1 space-y-2">
                                                                     <div className="flex items-center justify-between">
-                                                                        <span className="text-sm text-blue-700">Zoom Scale</span>
-                                                                        <span className="text-sm text-blue-700">{effectScales[`zoom-${block.id}`] || 1.5}x</span>
+                                                                        <span className="text-sm text-blue-700">Zoom End Scale</span>
+                                                                        <span className="text-sm text-blue-700">{(effectEndScales[`zoom-${block.id}`] || 0).toFixed(1)}</span>
                                                                     </div>
                                                                     <input
                                                                         type="range"
-                                                                        min="0.5"
-                                                                        max="5.0"
+                                                                        min="-5"
+                                                                        max="5"
                                                                         step="0.5"
-                                                                        value={effectScales[`zoom-${block.id}`] || 1.5}
+                                                                        value={effectEndScales[`zoom-${block.id}`] || 0}
                                                                         onChange={(e) => {
-                                                                            setEffectScales(prev => ({
+                                                                            setEffectEndScales(prev => ({
                                                                                 ...prev,
                                                                                 [`zoom-${block.id}`]: parseFloat(e.target.value)
                                                                             }));
@@ -2578,7 +2685,7 @@ export default function StoryCutStudio() {
                                                                             </>
                                                                         )}
                                                                     </Avatar>
-                                                                    <span className={`font-bold text-base ${block.voiceType === 'ember' ? 'text-left' : 'text-center'} ${textColor}`}>
+                                                                    <span className={`font-bold text-base text-left ${textColor}`}>
                                                                         {(() => {
                                                                             // Use formatVoiceTagJSX for ember/narrator, getContributorDisplayName for contributors
                                                                             if (block.voiceType === 'ember' || block.voiceType === 'narrator') {
@@ -2691,7 +2798,7 @@ export default function StoryCutStudio() {
                                                                     {getShortVoiceTag(block)}
                                                                 </AvatarFallback>
                                                             </Avatar>
-                                                            <span className={`font-bold text-base ${block.voiceType === 'ember' ? 'text-left' : 'text-center'} ${textColor}`}>
+                                                            <span className={`font-bold text-base text-left ${textColor}`}>
                                                                 {(() => {
                                                                     // Use formatVoiceTagJSX for ember/narrator, getContributorDisplayName for contributors
                                                                     if (block.voiceType === 'ember' || block.voiceType === 'narrator') {
