@@ -10,6 +10,7 @@ import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllSt
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import { formatDuration } from '@/lib/dateUtils';
+import { useVoices } from '@/lib/useEmberData';
 
 import { handlePlay as handleMediaPlay, handlePlaybackComplete as handleMediaPlaybackComplete, handleExitPlay as handleMediaExitPlay } from '@/lib/mediaHandlers';
 import useStore from '@/store';
@@ -77,6 +78,11 @@ export default function StoryCutStudio() {
     const [originalDistances, setOriginalDistances] = useState({});
     const [originalScales, setOriginalScales] = useState({});
     const [originalTargets, setOriginalTargets] = useState({});
+
+    // Voice management for AI voices
+    const { availableVoices, voicesLoading } = useVoices();
+    const [currentEmberVoiceId, setCurrentEmberVoiceId] = useState('');
+    const [currentNarratorVoiceId, setCurrentNarratorVoiceId] = useState('');
 
     // Initialize contributor preferences when blocks are loaded
     useEffect(() => {
@@ -940,6 +946,14 @@ export default function StoryCutStudio() {
         loadStoryCut();
     }, [id, storyCutId, user]);
 
+    // Initialize voice IDs from story cut data
+    useEffect(() => {
+        if (storyCut) {
+            setCurrentEmberVoiceId(storyCut.ember_voice_id || '');
+            setCurrentNarratorVoiceId(storyCut.narrator_voice_id || '');
+        }
+    }, [storyCut]);
+
     // Load editable voice blocks for current user
     useEffect(() => {
         const loadEditableBlocks = async () => {
@@ -1364,6 +1378,108 @@ export default function StoryCutStudio() {
         setEditingBlock(null);
         setEditingBlockIndex(null);
         setEditedContent('');
+    };
+
+    // Helper function to format voice tags with voice names (string version for alt text)
+    const formatVoiceTag = (block) => {
+        if (!block) return 'Unknown Voice';
+
+        if (block.voiceType === 'ember') {
+            const voiceName = storyCut?.ember_voice_name || 'Unknown Voice';
+            return `Ember AI (${voiceName})`;
+        } else if (block.voiceType === 'narrator') {
+            const voiceName = storyCut?.narrator_voice_name || 'Unknown Voice';
+            return `Narrator (${voiceName})`;
+        } else {
+            // For contributors, use the original voiceTag (user's name)
+            return block.voiceTag || 'Unknown Voice';
+        }
+    };
+
+    // Helper function to format voice tags with styled voice names (JSX version for display)
+    const formatVoiceTagJSX = (block) => {
+        if (!block) return 'Unknown Voice';
+
+        if (block.voiceType === 'ember') {
+            const voiceName = storyCut?.ember_voice_name || 'Unknown Voice';
+            return (
+                <>
+                    Ember AI <span className="font-normal text-xs opacity-80">({voiceName})</span>
+                </>
+            );
+        } else if (block.voiceType === 'narrator') {
+            const voiceName = storyCut?.narrator_voice_name || 'Unknown Voice';
+            return (
+                <>
+                    Narrator <span className="font-normal text-xs opacity-80">({voiceName})</span>
+                </>
+            );
+        } else {
+            // For contributors, use the original voiceTag (user's name)
+            return block.voiceTag || 'Unknown Voice';
+        }
+    };
+
+    // Helper function to get short voice tag for compact displays
+    const getShortVoiceTag = (block) => {
+        if (!block) return '?';
+
+        if (block.voiceType === 'ember') {
+            return 'E';
+        } else if (block.voiceType === 'narrator') {
+            return 'N';
+        } else {
+            // For contributors, use first letter of name
+            return block.voiceTag?.[0]?.toUpperCase() || '?';
+        }
+    };
+
+    // Handle voice change for AI voices (ember/narrator)
+    const handleVoiceChange = async (voiceType, newVoiceId) => {
+        if (!storyCut?.id || !user?.id) {
+            console.error('❌ Cannot change voice: missing storyCut ID or user ID');
+            return;
+        }
+
+        const selectedVoice = availableVoices.find(v => v.voice_id === newVoiceId);
+        if (!selectedVoice) {
+            console.error('❌ Selected voice not found:', newVoiceId);
+            return;
+        }
+
+        try {
+            console.log(`🎤 Changing ${voiceType} voice to: ${selectedVoice.name} (${newVoiceId})`);
+
+            // Prepare updates for database
+            const updates = {};
+            if (voiceType === 'ember') {
+                updates.ember_voice_id = newVoiceId;
+                updates.ember_voice_name = selectedVoice.name;
+                setCurrentEmberVoiceId(newVoiceId);
+            } else if (voiceType === 'narrator') {
+                updates.narrator_voice_id = newVoiceId;
+                updates.narrator_voice_name = selectedVoice.name;
+                setCurrentNarratorVoiceId(newVoiceId);
+            }
+
+            // Update database
+            await updateStoryCut(storyCut.id, updates, user.id);
+
+            // Update local storyCut state
+            setStoryCut(prev => ({ ...prev, ...updates }));
+
+            console.log(`✅ Successfully updated ${voiceType} voice to: ${selectedVoice.name}`);
+
+        } catch (error) {
+            console.error(`❌ Failed to update ${voiceType} voice:`, error);
+
+            // Revert local state on error
+            if (voiceType === 'ember') {
+                setCurrentEmberVoiceId(storyCut.ember_voice_id || '');
+            } else if (voiceType === 'narrator') {
+                setCurrentNarratorVoiceId(storyCut.narrator_voice_id || '');
+            }
+        }
     };
 
     // Handle deleting a block
@@ -2449,7 +2565,7 @@ export default function StoryCutStudio() {
                                                                                 {/* Ember and Narrator use favicon */}
                                                                                 <AvatarImage
                                                                                     src="/EMBERFAV.svg"
-                                                                                    alt={block.voiceType === 'ember' ? 'Ember Voice' : block.voiceType === 'narrator' ? 'Narrator' : block.voiceTag}
+                                                                                    alt={formatVoiceTag(block)}
                                                                                 />
                                                                                 <AvatarFallback className={`text-sm font-medium ${block.voiceType === 'ember'
                                                                                     ? 'bg-purple-100 text-purple-800'
@@ -2457,19 +2573,24 @@ export default function StoryCutStudio() {
                                                                                         ? 'bg-yellow-100 text-yellow-800'
                                                                                         : 'bg-gray-100 text-gray-800'
                                                                                     }`}>
-                                                                                    {block.voiceType === 'ember' ? 'E' : block.voiceType === 'narrator' ? 'N' : '?'}
+                                                                                    {getShortVoiceTag(block)}
                                                                                 </AvatarFallback>
                                                                             </>
                                                                         )}
                                                                     </Avatar>
-                                                                    <span className={`font-bold text-base ${textColor}`}>
+                                                                    <span className={`font-bold text-base ${block.voiceType === 'ember' ? 'text-left' : 'text-center'} ${textColor}`}>
                                                                         {(() => {
-                                                                            // Find corresponding story message for full name
-                                                                            const storyMessage = storyMessages.find(msg =>
-                                                                                msg.user_id === block.messageId ||
-                                                                                msg.user_first_name?.toLowerCase() === block.voiceTag?.toLowerCase()
-                                                                            );
-                                                                            return getContributorDisplayName(block.contributorData, storyMessage, block.voiceTag);
+                                                                            // Use formatVoiceTagJSX for ember/narrator, getContributorDisplayName for contributors
+                                                                            if (block.voiceType === 'ember' || block.voiceType === 'narrator') {
+                                                                                return formatVoiceTagJSX(block);
+                                                                            } else {
+                                                                                // Find corresponding story message for full name (contributors)
+                                                                                const storyMessage = storyMessages.find(msg =>
+                                                                                    msg.user_id === block.messageId ||
+                                                                                    msg.user_first_name?.toLowerCase() === block.voiceTag?.toLowerCase()
+                                                                                );
+                                                                                return getContributorDisplayName(block.contributorData, storyMessage, block.voiceTag);
+                                                                            }
                                                                         })()}
                                                                     </span>
                                                                 </div>
@@ -2559,7 +2680,7 @@ export default function StoryCutStudio() {
                                                             <Avatar className="h-10 w-10 shadow-sm">
                                                                 <AvatarImage
                                                                     src="/EMBERFAV.svg"
-                                                                    alt={block.voiceType === 'ember' ? 'Ember Voice' : block.voiceType === 'narrator' ? 'Narrator' : block.voiceTag}
+                                                                    alt={formatVoiceTag(block)}
                                                                 />
                                                                 <AvatarFallback className={`text-sm font-medium ${block.voiceType === 'ember'
                                                                     ? 'bg-purple-100 text-purple-800'
@@ -2567,17 +2688,22 @@ export default function StoryCutStudio() {
                                                                         ? 'bg-yellow-100 text-yellow-800'
                                                                         : 'bg-gray-100 text-gray-800'
                                                                     }`}>
-                                                                    {block.voiceType === 'ember' ? 'E' : block.voiceType === 'narrator' ? 'N' : '?'}
+                                                                    {getShortVoiceTag(block)}
                                                                 </AvatarFallback>
                                                             </Avatar>
-                                                            <span className={`font-bold text-base ${textColor}`}>
+                                                            <span className={`font-bold text-base ${block.voiceType === 'ember' ? 'text-left' : 'text-center'} ${textColor}`}>
                                                                 {(() => {
-                                                                    // Find corresponding story message for full name
-                                                                    const storyMessage = storyMessages.find(msg =>
-                                                                        msg.user_id === block.messageId ||
-                                                                        msg.user_first_name?.toLowerCase() === block.voiceTag?.toLowerCase()
-                                                                    );
-                                                                    return getContributorDisplayName(block.contributorData, storyMessage, block.voiceTag);
+                                                                    // Use formatVoiceTagJSX for ember/narrator, getContributorDisplayName for contributors
+                                                                    if (block.voiceType === 'ember' || block.voiceType === 'narrator') {
+                                                                        return formatVoiceTagJSX(block);
+                                                                    } else {
+                                                                        // Find corresponding story message for full name (contributors)
+                                                                        const storyMessage = storyMessages.find(msg =>
+                                                                            msg.user_id === block.messageId ||
+                                                                            msg.user_first_name?.toLowerCase() === block.voiceTag?.toLowerCase()
+                                                                        );
+                                                                        return getContributorDisplayName(block.contributorData, storyMessage, block.voiceTag);
+                                                                    }
                                                                 })()}
                                                             </span>
                                                             {isBlockEditable(block, index) && (
@@ -2846,14 +2972,45 @@ export default function StoryCutStudio() {
                     <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-200">
                             <h2 className="text-xl font-semibold text-gray-900">
-                                Edit {editingBlock?.voiceType === 'ember' ? 'Ember Voice' : 'Narrator'} Content
+                                Edit {editingBlock?.voiceType === 'ember' ? 'Ember AI' : 'Narrator'} Content
                             </h2>
                             <p className="text-sm text-gray-500 mt-1">
-                                Speaker: {editingBlock?.voiceTag}
+                                Speaker: {formatVoiceTag(editingBlock)}
                             </p>
                         </div>
 
                         <div className="px-6 py-4">
+                            {/* Voice Selection for AI voices */}
+                            {(editingBlock?.voiceType === 'ember' || editingBlock?.voiceType === 'narrator') && (
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        {editingBlock?.voiceType === 'ember' ? 'Ember AI Voice' : 'Narrator Voice'}
+                                    </label>
+                                    <select
+                                        value={editingBlock?.voiceType === 'ember' ? currentEmberVoiceId : currentNarratorVoiceId}
+                                        onChange={(e) => handleVoiceChange(editingBlock?.voiceType, e.target.value)}
+                                        disabled={voicesLoading}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                    >
+                                        {voicesLoading ? (
+                                            <option>Loading voices...</option>
+                                        ) : (
+                                            <>
+                                                <option value="">Select voice...</option>
+                                                {availableVoices.map((voice) => (
+                                                    <option key={voice.voice_id} value={voice.voice_id}>
+                                                        {voice.name} {voice.labels?.gender ? `(${voice.labels.gender})` : ''}
+                                                    </option>
+                                                ))}
+                                            </>
+                                        )}
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        This will change the voice for ALL {editingBlock?.voiceType === 'ember' ? 'Ember AI' : 'Narrator'} blocks in this story cut
+                                    </p>
+                                </div>
+                            )}
+
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Voice Content
                             </label>
@@ -2863,7 +3020,7 @@ export default function StoryCutStudio() {
                                 placeholder="Enter voice content..."
                                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                                 rows={6}
-                                autoFocus
+                                autoFocus={editingBlock?.voiceType === 'contributor'}
                             />
                             <p className="text-xs text-gray-500 mt-2">
                                 Original: "{editingBlock?.content}"
