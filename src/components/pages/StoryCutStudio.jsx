@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, ArrowLeft, ArrowUp, ArrowDown, Edit } from 'lucide-react';
+import { Plus, ArrowLeft, ArrowUp, ArrowDown, Edit, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { FilmSlate } from 'phosphor-react';
+import { FilmSlate, PlayCircle } from 'phosphor-react';
 import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber, getStoryCutsForEmber, getUserVoiceModel, getEmberTaggedPeople, getEditableVoiceBlocks } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getStyleDisplayName } from '@/lib/styleUtils';
@@ -2608,6 +2608,16 @@ export default function StoryCutStudio() {
                                         className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
                                     >
                                         Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            // Navigate to EmberPlay with this specific story cut
+                                            navigate(`/embers/${id}?cut=${storyCut.id}`);
+                                        }}
+                                        className="px-4 py-2 text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-medium flex items-center gap-2"
+                                    >
+                                        <PlayCircle size={18} />
+                                        Preview
                                     </button>
                                     <button
                                         onClick={handleUpdateStoryCut}
