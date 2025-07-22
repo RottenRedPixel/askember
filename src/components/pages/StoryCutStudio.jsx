@@ -1,16 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, ArrowLeft, ArrowUp, ArrowDown, Edit, Sparkles } from 'lucide-react';
+import { Plus, ArrowLeft, ArrowUp, ArrowDown, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { FilmSlate, Play, Pause } from 'phosphor-react';
+import { FilmSlate } from 'phosphor-react';
 import { getStoryCutById, getPrimaryStoryCut, updateStoryCut, getEmber, getAllStoryMessagesForEmber, getStoryCutsForEmber, getUserVoiceModel, getEmberTaggedPeople, getEditableVoiceBlocks } from '@/lib/database';
 import { getEmberWithSharing } from '@/lib/sharing';
 import { getStyleDisplayName } from '@/lib/styleUtils';
 import { formatDuration } from '@/lib/dateUtils';
-import { textToSpeech } from '@/lib/elevenlabs';
 
 import { handlePlay as handleMediaPlay, handlePlaybackComplete as handleMediaPlaybackComplete, handleExitPlay as handleMediaExitPlay } from '@/lib/mediaHandlers';
 import useStore from '@/store';
@@ -58,14 +57,6 @@ export default function StoryCutStudio() {
 
     // Add Block modal state
     const [showAddBlockModal, setShowAddBlockModal] = useState(false);
-
-    // Audio playback state
-    const [playingMessageId, setPlayingMessageId] = useState(null);
-    const [messageAudioRef, setMessageAudioRef] = useState(null);
-    const [ttsMessageId, setTtsMessageId] = useState(null);
-    const [ttsAudioRef, setTtsAudioRef] = useState(null);
-    const [isGeneratingTts, setIsGeneratingTts] = useState(null);
-    const [userVoiceStatus, setUserVoiceStatus] = useState({});
 
     // Edit voice content modal state
     const [showEditModal, setShowEditModal] = useState(false);
@@ -219,161 +210,6 @@ export default function StoryCutStudio() {
         return email.substring(0, 2).toUpperCase();
     };
 
-    // Check if a user has a trained voice
-    const checkUserVoiceStatus = async (userId) => {
-        if (userVoiceStatus && userVoiceStatus[userId] !== undefined) {
-            return userVoiceStatus[userId];
-        }
-
-        try {
-            const voiceModel = await getUserVoiceModel(userId);
-            const hasTrainedVoice = !!(voiceModel && voiceModel.elevenlabs_voice_id);
-
-            setUserVoiceStatus(prev => ({
-                ...prev,
-                [userId]: hasTrainedVoice
-            }));
-
-            return hasTrainedVoice;
-        } catch (error) {
-            console.error('Error checking user voice status:', error);
-            setUserVoiceStatus(prev => ({
-                ...prev,
-                [userId]: false
-            }));
-            return false;
-        }
-    };
-
-    // Play TTS with user's trained voice
-    const playTTSAudio = async (messageId, text, userId) => {
-        if (ttsMessageId === messageId) {
-            // Stop current TTS if playing same message
-            if (ttsAudioRef) {
-                ttsAudioRef.pause();
-                ttsAudioRef.currentTime = 0;
-                setTtsMessageId(null);
-                setTtsAudioRef(null);
-            }
-            return;
-        }
-
-        // Stop any currently playing TTS audio
-        if (ttsAudioRef) {
-            ttsAudioRef.pause();
-            ttsAudioRef.currentTime = 0;
-        }
-
-        try {
-            setIsGeneratingTts(messageId);
-            setTtsMessageId(messageId);
-
-            // Get user's trained voice
-            const userVoiceModel = await getUserVoiceModel(userId);
-
-            if (!userVoiceModel || !userVoiceModel.elevenlabs_voice_id) {
-                console.error('No trained voice available for user:', userId);
-                setIsGeneratingTts(null);
-                setTtsMessageId(null);
-                return;
-            }
-
-            // Generate TTS audio
-            const audioBlob = await textToSpeech(text, userVoiceModel.elevenlabs_voice_id);
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-
-            setTtsAudioRef(audio);
-            setIsGeneratingTts(null);
-
-            // Set up event listeners
-            audio.onended = () => {
-                setTtsMessageId(null);
-                setTtsAudioRef(null);
-                URL.revokeObjectURL(audioUrl);
-            };
-
-            audio.onerror = (error) => {
-                console.error('Error playing TTS audio:', error);
-                setTtsMessageId(null);
-                setTtsAudioRef(null);
-                URL.revokeObjectURL(audioUrl);
-            };
-
-            await audio.play();
-        } catch (error) {
-            console.error('Error generating TTS audio:', error);
-            setIsGeneratingTts(null);
-            setTtsMessageId(null);
-        }
-    };
-
-    // Play message audio
-    const playMessageAudio = async (messageId, audioUrl) => {
-        if (playingMessageId === messageId) {
-            // Stop current audio if playing same message
-            if (messageAudioRef) {
-                messageAudioRef.pause();
-                messageAudioRef.currentTime = 0;
-                setPlayingMessageId(null);
-                setMessageAudioRef(null);
-            }
-            return;
-        }
-
-        // Stop any currently playing message audio
-        if (messageAudioRef) {
-            messageAudioRef.pause();
-            messageAudioRef.currentTime = 0;
-        }
-
-        try {
-            const audio = new Audio(audioUrl);
-            setMessageAudioRef(audio);
-            setPlayingMessageId(messageId);
-
-            // Set up event listeners
-            audio.onended = () => {
-                setPlayingMessageId(null);
-                setMessageAudioRef(null);
-            };
-
-            audio.onerror = (error) => {
-                console.error('Audio playback failed for URL:', audioUrl);
-                setPlayingMessageId(null);
-                setMessageAudioRef(null);
-            };
-
-            await audio.play();
-        } catch (error) {
-            console.error('Failed to play audio:', audioUrl);
-            setPlayingMessageId(null);
-            setMessageAudioRef(null);
-        }
-    };
-
-    // Helper function to find audio URL for a contributor block
-    const getAudioUrlForBlock = (block, storyMessages) => {
-        if (!block || block.voiceType !== 'contributor' || !storyMessages) return null;
-
-        // Try to find the story message that matches this block
-        const matchingMessage = storyMessages.find(msg => {
-            // Match by user_id if available
-            if (block.contributorData?.userId && msg.user_id === block.contributorData.userId) {
-                return true;
-            }
-
-            // Match by first name if no user_id
-            if (block.voiceTag && msg.user_first_name) {
-                return msg.user_first_name.toLowerCase().trim() === block.voiceTag.toLowerCase().trim();
-            }
-
-            return false;
-        });
-
-        return matchingMessage?.audio_url || null;
-    };
-
     // Load real story cut data
     useEffect(() => {
         const loadStoryCut = async () => {
@@ -522,8 +358,6 @@ export default function StoryCutStudio() {
                     console.warn('⚠️ Could not load story messages:', messageError);
                     setStoryMessages([]);
                 }
-
-
 
                 // DEPRECATED: Helper function to get contributor avatar data (complex lookup)
                 // Now using getSimpleContributorData instead for better reliability
@@ -1134,21 +968,50 @@ export default function StoryCutStudio() {
                 .map((block, index) => {
                     if (block.type === 'voice') {
                         return {
+                            // ✅ ENHANCED: Core fields
                             type: 'voice',
                             order: index + 1,
                             content: block.content,
                             speaker: block.voiceTag,
+
+                            // ✅ ENHANCED: Voice metadata for EmberPlay
+                            voiceType: block.voiceType, // ember | narrator | contributor
+                            voiceTag: block.voiceTag,   // Display name
+
+                            // ✅ ENHANCED: User/Audio metadata
                             user_id: block.voiceType === 'contributor' ? (block.contributorData?.user_id || null) : null,
                             voice_preference: block.preference || 'text',
-                            message_id: block.messageId || null
+                            message_id: block.messageId || null,
+
+                            // ✅ ENHANCED: Audio metadata
+                            hasRecordedAudio: block.messageType === 'Audio Message',
+                            messageType: block.messageType,
+
+                            // ✅ ENHANCED: Visual metadata
+                            avatarUrl: block.avatarUrl,
+                            displayName: (() => {
+                                const storyMessage = storyMessages.find(msg =>
+                                    msg.user_id === block.messageId ||
+                                    msg.user_first_name?.toLowerCase() === block.voiceTag?.toLowerCase()
+                                );
+                                return getContributorDisplayName(block.contributorData, storyMessage, block.voiceTag);
+                            })(),
+                            hasVoiceModel: block.hasVoiceModel
                         };
                     } else if (block.type === 'media') {
                         return {
+                            // ✅ ENHANCED: Core fields
                             type: 'media',
                             order: index + 1,
                             media_id: block.mediaId,
                             media_name: block.mediaName,
                             media_url: block.mediaUrl,
+
+                            // ✅ ENHANCED: Media metadata
+                            mediaType: 'image', // Most media is images
+                            displayName: block.mediaName,
+
+                            // Existing fields
                             effects: block.effects || [],
                             effect_config: block.effectConfig || {}
                         };
@@ -1224,18 +1087,6 @@ export default function StoryCutStudio() {
                 currentAudio.currentTime = 0;
             }
 
-            // Stop any playing message audio
-            if (messageAudioRef) {
-                messageAudioRef.pause();
-                messageAudioRef.currentTime = 0;
-            }
-
-            // Stop any playing TTS audio
-            if (ttsAudioRef) {
-                ttsAudioRef.pause();
-                ttsAudioRef.currentTime = 0;
-            }
-
             playbackStoppedRef.current = true;
 
             // Clean up any timeouts
@@ -1243,28 +1094,7 @@ export default function StoryCutStudio() {
             mediaTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
             mediaTimeoutsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
         };
-    }, [currentAudio, messageAudioRef, ttsAudioRef, sentenceTimeouts, mediaTimeouts]);
-
-    // Check voice status for all contributors when blocks change
-    useEffect(() => {
-        const checkAllVoiceStatuses = async () => {
-            const contributorBlocks = blocks.filter(block =>
-                block.voiceType === 'contributor' &&
-                block.contributorData?.userId
-            );
-
-            for (const block of contributorBlocks) {
-                const userId = block.contributorData.userId;
-                if (userVoiceStatus[userId] === undefined) {
-                    await checkUserVoiceStatus(userId);
-                }
-            }
-        };
-
-        if (blocks.length > 0) {
-            checkAllVoiceStatuses();
-        }
-    }, [blocks]);
+    }, [currentAudio, sentenceTimeouts, mediaTimeouts]);
 
     // Helper function to check if a block is editable by current user
     const isBlockEditable = (block, blockIndex) => {
@@ -2347,7 +2177,7 @@ export default function StoryCutStudio() {
                                                                             ? 'bg-yellow-100 text-yellow-800'
                                                                             : 'bg-purple-100 text-purple-800'
                                                                         }`}>
-                                                                        {block.messageType === 'Text Response' ? 'Text' : block.messageType}
+                                                                        {block.messageType}
                                                                     </span>
                                                                 )}
                                                                 {isBlockEditable(block, index) && (
@@ -2457,47 +2287,28 @@ export default function StoryCutStudio() {
                                                     return (
                                                         <div className="mt-3" style={{ marginLeft: '24px' }}>
                                                             <div className="flex items-center gap-4">
-                                                                                                                                 {/* Show "Audio" option only if contributor has recorded audio available */}
-                                                                 {(() => {
-                                                                     const audioUrl = getAudioUrlForBlock(block, storyMessages);
-                                                                     return audioUrl ? (
-                                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                                            <input
-                                                                                type="radio"
-                                                                                name={`audio-${block.id}`}
-                                                                                value="recorded"
-                                                                                checked={contributorAudioPreferences[blockKey] === 'recorded'}
-                                                                                onChange={(e) => {
-                                                                                    if (e.target.checked) {
-                                                                                        setContributorAudioPreferences(prev => ({
-                                                                                            ...prev,
-                                                                                            [blockKey]: 'recorded'
-                                                                                        }));
-                                                                                        console.log(`🎙️ Set ${blockKey} to use audio (DATABASE PERSISTENT)`);
-                                                                                    }
-                                                                                }}
-                                                                                className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
-                                                                            />
-                                                                            <span className="text-sm text-green-700">Audio</span>
-                                                                            {/* Inline play button for recorded audio */}
-                                                                            <button
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    const playKey = `${block.id}-recorded-inline`;
-                                                                                    playMessageAudio(playKey, audioUrl);
-                                                                                }}
-                                                                                className="ml-1 p-1 hover:bg-green-100 rounded-full transition-colors"
-                                                                                title={playingMessageId === `${block.id}-recorded-inline` ? "Stop audio" : "Play audio"}
-                                                                            >
-                                                                                {playingMessageId === `${block.id}-recorded-inline` ? (
-                                                                                    <Pause size={12} className="text-green-600" />
-                                                                                ) : (
-                                                                                    <Play size={12} className="text-green-600" />
-                                                                                )}
-                                                                            </button>
-                                                                        </label>
-                                                                    ) : null;
-                                                                })()}
+                                                                {/* Show "Recorded" option only if contributor left an audio message */}
+                                                                {block.messageType === 'Audio Message' && (
+                                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                                        <input
+                                                                            type="radio"
+                                                                            name={`audio-${block.id}`}
+                                                                            value="recorded"
+                                                                            checked={contributorAudioPreferences[blockKey] === 'recorded'}
+                                                                            onChange={(e) => {
+                                                                                if (e.target.checked) {
+                                                                                    setContributorAudioPreferences(prev => ({
+                                                                                        ...prev,
+                                                                                        [blockKey]: 'recorded'
+                                                                                    }));
+                                                                                    console.log(`🎙️ Set ${blockKey} to use recorded audio (DATABASE PERSISTENT)`);
+                                                                                }
+                                                                            }}
+                                                                            className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
+                                                                        />
+                                                                        <span className="text-sm text-green-700">Recorded</span>
+                                                                    </label>
+                                                                )}
                                                                 {/* Only show Synth option if contributor has voice model (or if hasVoiceModel is undefined for backward compatibility) */}
                                                                 {(block.hasVoiceModel === true || block.hasVoiceModel === undefined) && (
                                                                     <label className="flex items-center gap-2 cursor-pointer">
@@ -2518,47 +2329,6 @@ export default function StoryCutStudio() {
                                                                             className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
                                                                         />
                                                                         <span className="text-sm text-green-700">Synth</span>
-                                                                        {/* Inline TTS button for synth voice */}
-                                                                        {(() => {
-                                                                            const userId = block.contributorData?.userId;
-                                                                            const playKey = `${block.id}-synth-inline`;
-                                                                            const hasVoice = userVoiceStatus[userId] === true;
-
-                                                                            return (
-                                                                                <button
-                                                                                    onClick={async (e) => {
-                                                                                        e.stopPropagation();
-                                                                                        if (userId && hasVoice) {
-                                                                                            // Check voice status first if not cached
-                                                                                            if (userVoiceStatus[userId] === undefined) {
-                                                                                                await checkUserVoiceStatus(userId);
-                                                                                            }
-                                                                                            await playTTSAudio(playKey, block.content, userId);
-                                                                                        }
-                                                                                    }}
-                                                                                    className={`ml-1 p-1 rounded-full transition-colors ${hasVoice && userId
-                                                                                        ? 'hover:bg-purple-100 cursor-pointer'
-                                                                                        : 'cursor-not-allowed opacity-50'
-                                                                                        }`}
-                                                                                    title={
-                                                                                        !userId ? "No user ID available"
-                                                                                            : !hasVoice ? "No trained voice available"
-                                                                                                : isGeneratingTts === playKey ? "Generating..."
-                                                                                                    : ttsMessageId === playKey ? "Stop synth voice"
-                                                                                                        : "Play with synth voice"
-                                                                                    }
-                                                                                    disabled={!hasVoice || !userId || isGeneratingTts === playKey}
-                                                                                >
-                                                                                    {isGeneratingTts === playKey ? (
-                                                                                        <Sparkles size={12} className="text-purple-600 animate-spin" />
-                                                                                    ) : ttsMessageId === playKey ? (
-                                                                                        <Pause size={12} className="text-purple-600" />
-                                                                                    ) : (
-                                                                                        <Sparkles size={12} className={hasVoice && userId ? "text-purple-600" : "text-gray-400"} />
-                                                                                    )}
-                                                                                </button>
-                                                                            );
-                                                                        })()}
                                                                     </label>
                                                                 )}
                                                                 <label className="flex items-center gap-2 cursor-pointer">
@@ -2578,7 +2348,7 @@ export default function StoryCutStudio() {
                                                                         }}
                                                                         className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
                                                                     />
-                                                                    <span className="text-sm text-green-700">Text</span>
+                                                                    <span className="text-sm text-green-700">Text Response</span>
                                                                 </label>
                                                             </div>
                                                         </div>

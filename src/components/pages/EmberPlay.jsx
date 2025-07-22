@@ -7,7 +7,6 @@ import { useEmberData } from '@/lib/useEmberData';
 import { useUIState } from '@/lib/useUIState';
 import { autoTriggerImageAnalysis, autoTriggerExifProcessing, autoTriggerLocationProcessing, handlePlay as handleMediaPlay, handlePlaybackComplete as handleMediaPlaybackComplete, handleExitPlay as handleMediaExitPlay } from '@/lib/mediaHandlers';
 import { debugRecordedAudio, generateSegmentAudio, playMultiVoiceAudio, stopMultiVoiceAudio } from '@/lib/emberPlayer';
-import { parseScriptSegments } from '@/lib/scriptParser';
 import { getEmberTaggedPeople } from '@/lib/database';
 import useStore from '@/store';
 
@@ -208,6 +207,7 @@ export default function EmberPlay() {
     const [currentSegmentStartTime, setCurrentSegmentStartTime] = useState(0);
     const [currentAudioElement, setCurrentAudioElement] = useState(null);
     const [textKey, setTextKey] = useState(0); // For triggering text animation
+    const [showEndHold, setShowEndHold] = useState(false);
     const [showEndLogo, setShowEndLogo] = useState(false);
     const [showEndText, setShowEndText] = useState(false);
     const [taggedPeople, setTaggedPeople] = useState([]); // For zoom target person lookup
@@ -387,23 +387,23 @@ export default function EmberPlay() {
             setShowEndLogo(false);
             setShowEndText(false);
         }
-    }, []);
+    }, [showEndHold]);
 
     // Progress tracking functions
-    const calculateTotalDuration = useCallback((segments) => {
-        if (!segments || segments.length === 0) return 0;
+    const calculateTotalDuration = useCallback((blocks) => {
+        if (!blocks || !Array.isArray(blocks) || blocks.length === 0) return 0;
 
         let total = 0;
-        segments.forEach(segment => {
-            if (segment.type === 'hold') {
-                total += parseFloat(segment.duration || 3.0);
-            } else if (segment.type === 'loadscreen') {
-                total += parseFloat(segment.loadDuration || 2.0);
-            } else if (segment.type === 'media') {
-                total += 2.0; // Media segments are typically 2 seconds
-            } else if (segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor') {
-                // Estimate voice segment duration by text length
-                const cleanContent = segment.content.replace(/<[^>]+>/g, '').trim();
+        blocks.forEach(block => {
+            if (block.type === 'hold') {
+                total += parseFloat(block.duration || 3.0);
+            } else if (block.type === 'loadscreen') {
+                total += parseFloat(block.loadDuration || 2.0);
+            } else if (block.type === 'media') {
+                total += 2.0; // Media blocks are typically 2 seconds
+            } else if (block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor') {
+                // Estimate voice block duration by text length
+                const cleanContent = block.content.replace(/<[^>]+>/g, '').trim();
                 const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
                 total += estimatedDuration;
             }
@@ -413,22 +413,22 @@ export default function EmberPlay() {
         return total;
     }, []);
 
-    const updateProgress = useCallback((currentStep, segments) => {
-        if (!segments || segments.length === 0) return;
+    const updateProgress = useCallback((currentStep, blocks) => {
+        if (!blocks || !Array.isArray(blocks) || blocks.length === 0) return;
 
         let elapsedTime = 0;
 
-        // Calculate elapsed time from completed segments
-        for (let i = 0; i < currentStep && i < segments.length; i++) {
-            const segment = segments[i];
-            if (segment.type === 'hold') {
-                elapsedTime += parseFloat(segment.duration || 3.0);
-            } else if (segment.type === 'loadscreen') {
-                elapsedTime += parseFloat(segment.loadDuration || 2.0);
-            } else if (segment.type === 'media') {
+        // Calculate elapsed time from completed blocks
+        for (let i = 0; i < currentStep && i < blocks.length; i++) {
+            const block = blocks[i];
+            if (block.type === 'hold') {
+                elapsedTime += parseFloat(block.duration || 3.0);
+            } else if (block.type === 'loadscreen') {
+                elapsedTime += parseFloat(block.loadDuration || 2.0);
+            } else if (block.type === 'media') {
                 elapsedTime += 2.0;
-            } else if (segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor') {
-                const cleanContent = segment.content.replace(/<[^>]+>/g, '').trim();
+            } else if (block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor') {
+                const cleanContent = block.content.replace(/<[^>]+>/g, '').trim();
                 const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
                 elapsedTime += estimatedDuration;
             }
@@ -436,7 +436,7 @@ export default function EmberPlay() {
 
         setCurrentProgress(elapsedTime);
         setCurrentTimelineStep(currentStep);
-        setCurrentSegmentStartTime(elapsedTime); // Track where current segment starts
+        setCurrentSegmentStartTime(elapsedTime); // Track where current block starts
     }, []);
 
     const startSmoothProgress = useCallback((audioElement, segmentStartTime = 0) => {
@@ -544,15 +544,39 @@ export default function EmberPlay() {
 
     // Calculate total duration when story cut is available
     useEffect(() => {
-        if (primaryStoryCut && primaryStoryCut.full_script) {
+        if (primaryStoryCut) {
             try {
-                const segments = parseScriptSegments(primaryStoryCut.full_script);
-                const duration = calculateTotalDuration(segments);
-                setTotalDuration(duration);
-                setTotalTimelineSteps(segments.length);
-                setCurrentProgress(0);
-                setCurrentTimelineStep(0);
-                console.log(`📊 Timeline initialized: ${segments.length} segments, ${duration.toFixed(2)}s total`);
+                                console.log('🔍 EmberPlay: Primary story cut structure:', primaryStoryCut);
+                console.log('🔍 EmberPlay: blocks field:', primaryStoryCut.blocks);
+                console.log('🔍 EmberPlay: blocks type:', typeof primaryStoryCut.blocks);
+                console.log('🔍 EmberPlay: blocks is array:', Array.isArray(primaryStoryCut.blocks));
+                
+                // Extract blocks from versioned structure: {blocks: Array, version: '2.0'} or direct array
+                let blocks = null;
+                if (Array.isArray(primaryStoryCut.blocks)) {
+                    // Direct array format
+                    blocks = primaryStoryCut.blocks;
+                    console.log('✅ EmberPlay: Using direct blocks array');
+                } else if (primaryStoryCut.blocks && Array.isArray(primaryStoryCut.blocks.blocks)) {
+                    // Versioned object format: {blocks: Array, version: '2.0'}
+                    blocks = primaryStoryCut.blocks.blocks;
+                    console.log('✅ EmberPlay: Using versioned blocks array from blocks.blocks');
+                    console.log('🔍 EmberPlay: Version:', primaryStoryCut.blocks.version);
+                }
+                
+                if (blocks && Array.isArray(blocks)) {
+                    const duration = calculateTotalDuration(blocks);
+                    setTotalDuration(duration);
+                    setTotalTimelineSteps(blocks.length);
+                    setCurrentProgress(0);
+                    setCurrentTimelineStep(0);
+                    console.log(`📊 Timeline initialized: ${blocks.length} blocks, ${duration.toFixed(2)}s total`);
+                } else {
+                    console.warn('⚠️ EmberPlay: No valid blocks array found in primaryStoryCut');
+                    console.warn('⚠️ EmberPlay: Available fields:', Object.keys(primaryStoryCut));
+                    setTotalDuration(0);
+                    setTotalTimelineSteps(0);
+                }
             } catch (error) {
                 console.error('Error calculating timeline duration:', error);
             }

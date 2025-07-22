@@ -327,7 +327,22 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
             });
 
             // Use blocks directly - no parsing needed!
-            const blocks = selectedStoryCut.blocks || [];
+            // Extract blocks from versioned structure: {blocks: Array, version: '2.0'} or direct array
+            let blocks = [];
+            if (Array.isArray(selectedStoryCut.blocks)) {
+                // Direct array format
+                blocks = selectedStoryCut.blocks;
+                console.log('✅ Using direct blocks array');
+            } else if (selectedStoryCut.blocks && Array.isArray(selectedStoryCut.blocks.blocks)) {
+                // Versioned object format: {blocks: Array, version: '2.0'}
+                blocks = selectedStoryCut.blocks.blocks;
+                console.log('✅ Using versioned blocks array from blocks.blocks');
+                console.log('🔍 Version:', selectedStoryCut.blocks.version);
+            } else {
+                console.warn('⚠️ No valid blocks found in selectedStoryCut.blocks:', selectedStoryCut.blocks);
+                console.warn('⚠️ Available selectedStoryCut fields:', Object.keys(selectedStoryCut));
+            }
+
             console.log('🎭 Using', blocks.length, 'blocks directly from database');
             const { playMultiVoiceAudio } = await import('@/lib/emberPlayer');
             const { textToSpeech } = await import('@/lib/elevenlabs');

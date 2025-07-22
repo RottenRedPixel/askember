@@ -353,11 +353,11 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
 };
 
 /**
- * Debug helper to inspect recorded audio data and script segment matching
+ * Debug helper to inspect recorded audio data and block matching
  * @param {Object} recordedAudio - Available recorded audio data
- * @param {Array} scriptSegments - Script segments to analyze
+ * @param {Array} blocks - JSON blocks to analyze
  */
-export const debugRecordedAudio = (recordedAudio, scriptSegments) => {
+export const debugRecordedAudio = (recordedAudio, blocks) => {
   console.log('🐛 ===== RECORDED AUDIO DEBUG REPORT =====');
   console.log('🎙️ Available recorded audio:');
   Object.entries(recordedAudio).forEach(([userId, audioData]) => {
@@ -368,8 +368,8 @@ export const debugRecordedAudio = (recordedAudio, scriptSegments) => {
     console.log(`    - Duration: ${audioData.audio_duration_seconds}s`);
   });
 
-  console.log('\n📝 Script segments requiring recorded audio:');
-  scriptSegments.filter(seg => seg.type === 'contributor').forEach((segment, index) => {
+  console.log('\n📝 Blocks requiring recorded audio:');
+  blocks.filter(seg => seg.type === 'contributor').forEach((segment, index) => {
     console.log(`  📋 Segment ${index + 1}:`);
     console.log(`    - Voice Tag: "${segment.voiceTag}"`);
     console.log(`    - Content: "${segment.content}"`);
@@ -696,15 +696,15 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
 };
 
 /**
- * Play multiple audio segments sequentially with visual effects
- * @param {Array} segments - Audio segments to play
+ * Play multiple audio blocks sequentially with visual effects
+ * @param {Array} blocks - Audio blocks to play
  * @param {Object} storyCut - Story cut configuration
  * @param {Object} recordedAudio - Available recorded audio data
  * @param {Object} stateSetters - React state setters for visual effects
  * @param {Object} ember - Ember data for media resolution
  * @returns {Promise<void>}
  */
-export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, stateSetters, ember) => {
+export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, stateSetters, ember) => {
   const {
     setIsGeneratingAudio,
     setIsPlaying,
@@ -742,86 +742,110 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
     stopSmoothProgress
   } = stateSetters;
 
-  console.log('🎭 Starting multi-voice playback with', segments.length, 'segments');
+  // Validate blocks input
+  if (!blocks || !Array.isArray(blocks)) {
+    console.error('❌ Invalid blocks input - expected array:', blocks);
+    throw new Error('playMultiVoiceAudio requires blocks to be an array');
+  }
+
+  console.log('🎭 Starting multi-voice playback with', blocks.length, 'blocks');
 
   // Clear any previous audio registry to start fresh
   clearAudioRegistry();
 
   // 🐛 DEBUG: Run debug helper to analyze recorded audio matching
-  debugRecordedAudio(recordedAudio, segments);
+  debugRecordedAudio(recordedAudio, blocks);
 
   // Reset playback flag
   playbackStoppedRef.current = false;
 
   try {
-    // Separate media/loadscreen and voice segments for different processing
-    const mediaSegments = segments.filter(segment => segment.type === 'media' || segment.type === 'loadscreen');
-    const voiceSegments = segments.filter(segment => segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor');
-    console.log(`🎭 Segment breakdown: ${segments.length} total → ${mediaSegments.length} media/loadscreen + ${voiceSegments.length} voice`);
+    // ✅ ENHANCED: Separate media/loadscreen and voice blocks using enriched JSON
+    const mediaBlocks = blocks.filter(block => block.type === 'media' || block.type === 'loadscreen');
 
-    // Generate audio for voice segments only
-    console.log('⏳ Generating audio for voice segments...');
+    // Check both old format (type: 'ember'/'narrator'/'contributor') AND new format (type: 'voice' with voiceType)
+    const voiceBlocks = blocks.filter(block =>
+      block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor' ||
+      (block.type === 'voice' && block.voiceType) // NEW: StoryCutStudio format
+    );
+
+    console.log(`🎭 Block breakdown: ${blocks.length} total → ${mediaBlocks.length} media/loadscreen + ${voiceBlocks.length} voice`);
+
+    // Generate audio for voice blocks only
+    console.log('⏳ Generating audio for voice blocks...');
     const audioSegments = [];
-    for (let i = 0; i < voiceSegments.length; i++) {
-      const segment = voiceSegments[i];
-      console.log(`🔧 Generating segment ${i + 1}/${voiceSegments.length}: [${segment.voiceTag}] "${segment.originalContent || segment.content}"`);
+    for (let i = 0; i < voiceBlocks.length; i++) {
+      const block = voiceBlocks[i];
+      console.log(`🔧 Generating block ${i + 1}/${voiceBlocks.length}: [${block.voiceTag}] "${block.originalContent || block.content}"`);
 
       try {
-        const audioSegment = await generateSegmentAudio(segment, storyCut, recordedAudio);
+        const audioSegment = await generateSegmentAudio(block, storyCut, recordedAudio);
         audioSegments.push(audioSegment);
-        console.log(`✅ Generated segment ${i + 1}: [${segment.voiceTag}]`);
+        console.log(`✅ Generated block ${i + 1}: [${block.voiceTag}]`);
       } catch (segmentError) {
-        console.error(`❌ Failed to generate segment ${i + 1} [${segment.voiceTag}]:`, segmentError);
-        console.error(`❌ Segment content: "${segment.originalContent || segment.content}"`);
-        console.error(`❌ Segment type: ${segment.type}`);
+        console.error(`❌ Failed to generate block ${i + 1} [${block.voiceTag}]:`, segmentError);
+        console.error(`❌ Block content: "${block.originalContent || block.content}"`);
+        console.error(`❌ Block type: ${block.type}`);
 
         // Instead of throwing, push null to maintain index alignment
         audioSegments.push(null);
-        console.warn(`⚠️ Skipping segment ${i + 1} [${segment.voiceTag}] due to audio generation failure`);
+        console.warn(`⚠️ Skipping block ${i + 1} [${block.voiceTag}] due to audio generation failure`);
       }
     }
 
     // Create unified timeline with media effects and voice audio
     const timeline = [];
-    let lastSegmentIndex = -1; // Track which segment we're currently processing
+    let lastBlockIndex = -1; // Track which block we're currently processing
 
     console.log('🎬 Building unified timeline...');
-    for (let index = 0; index < segments.length; index++) {
-      const segment = segments[index];
+    for (let index = 0; index < blocks.length; index++) {
+      const block = blocks[index];
 
-      if (segment.type === 'loadscreen') {
-        // Load screen segment - add to timeline for sequential processing
+      // ✅ ENHANCED: Get voice tag for all blocks (for consistent logging)
+      const voiceTag = block.voiceTag || block.speaker || 'Unknown Voice';
+
+      if (block.type === 'loadscreen') {
+        // Load screen block - add to timeline for sequential processing
         timeline.push({
           type: 'loadscreen',
-          segment: segment,
-          segmentIndex: index, // Add segment index for progress tracking
-          message: segment.loadMessage || 'Loading...',
-          duration: parseFloat(segment.loadDuration || 2.0),
-          icon: segment.loadIcon || 'default'
+          block: block,
+          blockIndex: index, // Add block index for progress tracking
+          message: block.loadMessage || 'Loading...',
+          duration: parseFloat(block.loadDuration || 2.0),
+          icon: block.loadIcon || 'default'
         });
-        console.log(`📱 Timeline ${index + 1}: LOAD SCREEN for ${segment.loadDuration || 2.0}s - ${segment.loadMessage || 'Loading...'}...`);
-      } else if (segment.type === 'media') {
-        // Media segment - add to timeline for sequential processing
+        console.log(`📱 Timeline ${index + 1}: LOAD SCREEN for ${block.loadDuration || 2.0}s - ${block.loadMessage || 'Loading...'}...`);
+      } else if (block.type === 'media') {
+        // Media block - add to timeline for sequential processing
         timeline.push({
           type: 'media',
-          segment: segment,
-          segmentIndex: index // Add segment index for progress tracking
+          block: block,
+          blockIndex: index // Add block index for progress tracking
         });
-        console.log(`📺 Timeline ${index + 1}: MEDIA switch - ${segment.content.substring(0, 50)}...`);
-      } else if (segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor') {
-        // Voice segment - find corresponding audio by index instead of voiceTag to prevent repetition
-        const audioSegment = audioSegments[lastSegmentIndex + 1];
-        lastSegmentIndex++;
+        console.log(`📺 Timeline ${index + 1}: MEDIA switch - ${(block.content || block.mediaName || 'Media').substring(0, 50)}...`);
+      } else if (block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor' ||
+        (block.type === 'voice' && block.voiceType)) {
+        // ✅ ENHANCED: Voice block - handle both old and new formats
+
+        // Get voice type from enriched JSON or fallback to old format
+        const voiceType = block.voiceType || block.type; // New format has voiceType, old format uses type directly
+
+        // Voice block - find corresponding audio by index instead of voiceTag to prevent repetition
+        const audioSegment = audioSegments[lastBlockIndex + 1];
+        lastBlockIndex++;
 
         timeline.push({
           type: 'voice',
-          segment: segment,
-          segmentIndex: index, // Add segment index for progress tracking
-          audio: audioSegment
+          block: block,
+          blockIndex: index, // Add block index for progress tracking
+          audio: audioSegment,
+          // ✅ ENHANCED: Include enriched metadata for easy access
+          voiceTag: voiceTag,
+          voiceType: voiceType
         });
-        console.log(`🎤 Timeline ${index + 1}: VOICE audio - [${segment.voiceTag}]`);
+        console.log(`🎤 Timeline ${index + 1}: VOICE audio - [${voiceTag}] (${voiceType})`);
       } else {
-        console.warn(`⚠️ Skipping timeline step ${index + 1}: No audio available for [${segment.voiceTag}]`);
+        console.warn(`⚠️ Skipping timeline step ${index + 1}: No audio available for [${voiceTag}]`);
       }
     }
 
@@ -839,7 +863,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
     // No background media processing - MEDIA elements are now in timeline
 
     let currentTimelineIndex = 0;
-    let currentSegmentIndex = -1; // Track which segment we're currently processing (start at -1 so first segment triggers update)
+    let currentBlockIndex = -1; // Track which block we're currently processing (start at -1 so first block triggers update)
 
     const playNextTimelineStep = () => {
       if (playbackStoppedRef.current || currentTimelineIndex >= timeline.length) {
@@ -863,42 +887,42 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
       }
 
       const currentStep = timeline[currentTimelineIndex];
-      console.log(`🎬 Timeline step ${currentTimelineIndex + 1}/${timeline.length}: ${currentStep.type} - [${currentStep.segment.voiceTag}]`);
+      console.log(`🎬 Timeline step ${currentTimelineIndex + 1}/${timeline.length}: ${currentStep.type} - [${currentStep.voiceTag || currentStep.block?.voiceTag || currentStep.block?.speaker || 'Unknown'}]`);
 
-      // Update progress tracking only when we start a new segment
-      let currentSegmentStartTime = 0;
-      if (currentStep.segmentIndex !== undefined && currentStep.segmentIndex !== currentSegmentIndex) {
-        currentSegmentIndex = currentStep.segmentIndex;
+      // Update progress tracking only when we start a new block
+      let currentBlockStartTime = 0;
+      if (currentStep.blockIndex !== undefined && currentStep.blockIndex !== currentBlockIndex) {
+        currentBlockIndex = currentStep.blockIndex;
 
-        // Calculate elapsed time from completed segments
-        for (let i = 0; i < currentSegmentIndex && i < segments.length; i++) {
-          const segment = segments[i];
-          if (segment.type === 'loadscreen') {
-            currentSegmentStartTime += parseFloat(segment.loadDuration || 2.0);
-          } else if (segment.type === 'media') {
-            currentSegmentStartTime += 2.0;
-          } else if (segment.type === 'ember' || segment.type === 'narrator' || segment.type === 'contributor') {
-            const cleanContent = segment.content.replace(/<[^>]+>/g, '').trim();
+        // Calculate elapsed time from completed blocks
+        for (let i = 0; i < currentBlockIndex && i < blocks.length; i++) {
+          const block = blocks[i];
+          if (block.type === 'loadscreen') {
+            currentBlockStartTime += parseFloat(block.loadDuration || 2.0);
+          } else if (block.type === 'media') {
+            currentBlockStartTime += 2.0;
+          } else if (block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor') {
+            const cleanContent = block.content.replace(/<[^>]+>/g, '').trim();
             const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
-            currentSegmentStartTime += estimatedDuration;
+            currentBlockStartTime += estimatedDuration;
           }
         }
 
         if (updateProgress) {
-          updateProgress(currentSegmentIndex, segments);
+          updateProgress(currentBlockIndex, blocks);
         }
       }
 
       if (currentStep.type === 'loadscreen') {
         // Load screen step - display loading UI for specified duration
-        const segment = currentStep.segment;
+        const block = currentStep.block;
         const duration = currentStep.duration;
 
-        console.log(`⏳ Load screen step: ${duration}s - "${segment.loadMessage}"`);
+        console.log(`⏳ Load screen step: ${duration}s - "${block.loadMessage}"`);
 
         // Set loading state with message and icon
-        setCurrentLoadingMessage(segment.loadMessage);
-        setCurrentLoadingIcon(segment.loadIcon);
+        setCurrentLoadingMessage(block.loadMessage);
+        setCurrentLoadingIcon(block.loadIcon);
         setCurrentLoadingState(true);
 
         // Clear any background image/color and voice
@@ -925,13 +949,13 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
 
       } else if (currentStep.type === 'media') {
         // Media step - switch background image and continue immediately
-        const segment = currentStep.segment;
+        const block = currentStep.block;
 
-        console.log(`📺 Switching to media: ${segment.content.substring(0, 50)}...`);
+        console.log(`📺 Switching to media: ${(block.content || block.mediaName || 'Media').substring(0, 50)}...`);
 
         // Resolve the media reference to get the actual image URL
-        resolveMediaReference(segment, ember.id).then(resolvedMediaUrl => {
-          console.log(`🔍 Resolved media URL for "${segment.mediaPath || segment.mediaName || segment.mediaId}":`, resolvedMediaUrl);
+        resolveMediaReference(block, ember.id).then(resolvedMediaUrl => {
+          console.log(`🔍 Resolved media URL for "${block.mediaPath || block.mediaName || block.mediaId}":`, resolvedMediaUrl);
 
           if (resolvedMediaUrl) {
             // Extract all effects directly from Sacred Format content  
@@ -941,7 +965,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
             let hasLegacyZoomEffects = false;
 
             // Extract effects from Sacred Format content: <ZOOM-OUT:duration=3.5>
-            const contentForEffects = segment.content || '';
+            const contentForEffects = block.content || '';
             console.log(`🔍 Processing Sacred Format content for effects: "${contentForEffects}"`);
 
             // Extract fade effects directly from content
@@ -975,7 +999,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
 
             // Apply legacy zoom effects (Z-OUT: system)
             if (hasLegacyZoomEffects) {
-              const zoomScale = extractZoomScaleFromAction(segment.content);
+              const zoomScale = extractZoomScaleFromAction(block.content);
               console.log(`🎬 Applying legacy zoom effect: from ${zoomScale.start} to ${zoomScale.end}`);
               setCurrentZoomScale(zoomScale);
             }
@@ -1008,7 +1032,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
             // Clear any color overlays when switching to image
             setCurrentMediaColor(null);
           } else {
-            console.warn(`⚠️ Could not resolve media reference: ${segment.mediaPath || segment.mediaName || segment.mediaId}`);
+            console.warn(`⚠️ Could not resolve media reference: ${block.mediaPath || block.mediaName || block.mediaId}`);
           }
 
           // Continue immediately to next timeline step (media changes are instant)
@@ -1024,29 +1048,29 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
       } else if (currentStep.type === 'voice') {
         // Voice step - play audio
         if (!currentStep.audio || !currentStep.audio.audio) {
-          console.error(`❌ No audio available for voice segment [${currentStep.segment.voiceTag}] - skipping`);
+          console.error(`❌ No audio available for voice block [${currentStep.voiceTag || currentStep.block?.voiceTag || currentStep.block?.speaker || 'Unknown Voice'}] - skipping`);
           currentTimelineIndex++;
           playNextTimelineStep();
           return;
         }
 
         const audio = currentStep.audio.audio;
-        const segment = currentStep.segment;
+        const block = currentStep.block;
 
-        console.log(`▶️ Playing voice segment: [${segment.voiceTag}]`);
+        console.log(`▶️ Playing voice block: [${block.voiceTag}]`);
 
         // Clear any color overlays during voice playback
         setCurrentVoiceType(null);
         setCurrentMediaColor(null);
 
-        // 🎯 Simplified Text Display: Show full segment text when voice starts
+        // 🎯 Simplified Text Display: Show full block text when voice starts
         // Use the generated audio content (which contains recorded content if available) instead of script content
-        const displayText = currentStep.audio.content || segment.originalContent || segment.content;
-        const voiceTag = segment.voiceTag;
+        const displayText = currentStep.audio.content || block.originalContent || block.content;
+        const voiceTag = block.voiceTag;
 
         console.log(`📝 Displaying text for [${voiceTag}]: "${displayText}"`);
         console.log(`📝 Audio content: "${currentStep.audio.content}"`);
-        console.log(`📝 Original script content: "${segment.originalContent || segment.content}"`);
+        console.log(`📝 Original script content: "${block.originalContent || block.content}"`);
 
         // Set text display immediately when voice starts
         setCurrentDisplayText(displayText);
@@ -1064,7 +1088,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
         audio.onended = () => {
           if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
 
-          console.log(`✅ Completed voice segment: [${segment.voiceTag}]`);
+          console.log(`✅ Completed voice block: [${block.voiceTag}]`);
 
           // Stop smooth progress tracking when audio ends
           if (stopSmoothProgress) {
@@ -1079,7 +1103,7 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
         audio.onerror = (error) => {
           if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
 
-          console.error(`❌ Error playing voice segment [${segment.voiceTag}]:`, error);
+          console.error(`❌ Error playing voice block [${block.voiceTag}]:`, error);
 
           // Stop smooth progress tracking on error
           if (stopSmoothProgress) {
@@ -1094,14 +1118,14 @@ export const playMultiVoiceAudio = async (segments, storyCut, recordedAudio, sta
         audio.play().then(() => {
           if (playbackStoppedRef.current) return; // Don't start progress if playback was stopped
 
-          // Start smooth progress tracking for this audio segment
+          // Start smooth progress tracking for this audio block
           if (startSmoothProgress) {
-            startSmoothProgress(audio, currentSegmentStartTime);
+            startSmoothProgress(audio, currentBlockStartTime);
           }
         }).catch(error => {
           if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
 
-          console.error(`❌ Failed to play voice segment [${segment.voiceTag}]:`, error);
+          console.error(`❌ Failed to play voice block [${block.voiceTag}]:`, error);
           currentTimelineIndex++;
           playNextTimelineStep(); // Continue to next timeline step
         });
