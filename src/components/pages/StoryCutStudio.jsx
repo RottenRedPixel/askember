@@ -1015,14 +1015,16 @@ export default function StoryCutStudio() {
 
     // Helper function to parse effects from JSON block content (for loading from database)
     const parseEffectsFromContent = (content, blockId) => {
-        if (!content || content === 'media') return {};
-
         const effects = [];
         const directions = {};
         const durations = {};
         const distances = {};
         const scales = {};
         const targets = {};
+
+        if (!content || content === 'media') {
+            return { effects, directions, durations, distances, scales, targets };
+        }
 
         // Smart split effects to handle coordinates properly
         const effectList = content.split(',').map(e => e.trim());
