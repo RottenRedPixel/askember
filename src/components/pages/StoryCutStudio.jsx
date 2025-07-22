@@ -138,6 +138,78 @@ export default function StoryCutStudio() {
         message, setMessage
     } = uiState;
 
+    // Helper function to get contributor display name (consistent with AddBlockModal)
+    const getContributorDisplayName = (contributorData, storyMessage, voiceTag) => {
+        const firstName = contributorData?.firstName || storyMessage?.user_first_name || '';
+        const lastName = contributorData?.lastName || storyMessage?.user_last_name || '';
+        const email = contributorData?.email || storyMessage?.user_email || '';
+
+        if (firstName && lastName) {
+            return `${firstName} ${lastName}`;
+        }
+        if (firstName) {
+            return firstName;
+        }
+        if (email) {
+            return email.split('@')[0];
+        }
+        return voiceTag || 'Unknown User';
+    };
+
+    // Simple avatar lookup using storyMessages (like AddBlockModal - this works!)
+    const getSimpleContributorData = (speakerName, userId, storyMessages) => {
+        // Find the message by user_id first (most reliable)
+        let message = null;
+        if (userId) {
+            message = storyMessages.find(msg => msg.user_id === userId);
+        }
+
+        // If not found by user_id, try by first name
+        if (!message && speakerName) {
+            message = storyMessages.find(msg =>
+                msg.user_first_name?.toLowerCase() === speakerName.toLowerCase().trim()
+            );
+        }
+
+        if (message) {
+            const result = {
+                avatarUrl: message.avatar_url || message.user_avatar_url || '/EMBERFAV.svg',
+                firstName: message.user_first_name || speakerName,
+                lastName: message.user_last_name || '',
+                email: message.user_email || '',
+                fallbackText: getUserInitials(message.user_email, message.user_first_name, message.user_last_name)
+            };
+            console.log(`✅ Simple lookup found for "${speakerName}":`, { avatarUrl: result.avatarUrl ? 'present' : 'missing', firstName: result.firstName });
+            return result;
+        }
+
+        // Fallback if no message found
+        console.log(`⚠️ Simple lookup failed for "${speakerName}" (userId: ${userId}) - using fallback`);
+        return {
+            avatarUrl: '/EMBERFAV.svg',
+            firstName: speakerName || 'Unknown',
+            lastName: '',
+            email: '',
+            fallbackText: speakerName?.[0]?.toUpperCase() || '?'
+        };
+    };
+
+    // Helper function to get user initials (same as AddBlockModal)
+    const getUserInitials = (email, firstName = '', lastName = '') => {
+        if (firstName && lastName) {
+            return (firstName[0] + lastName[0]).toUpperCase();
+        }
+        if (firstName) {
+            return firstName.substring(0, 2).toUpperCase();
+        }
+        if (!email) return 'U';
+        const parts = email.split('@')[0].split('.');
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
+        return email.substring(0, 2).toUpperCase();
+    };
+
     // Load real story cut data
     useEffect(() => {
         const loadStoryCut = async () => {
@@ -287,7 +359,8 @@ export default function StoryCutStudio() {
                     setStoryMessages([]);
                 }
 
-                // Helper function to get contributor avatar data
+                // DEPRECATED: Helper function to get contributor avatar data (complex lookup)
+                // Now using getSimpleContributorData instead for better reliability
                 const getContributorAvatarData = (identifier, contributorList = null) => {
                     // Use provided list or fall back to state (fixes timing issues)
                     const availableContributors = contributorList || contributors;
@@ -650,7 +723,9 @@ export default function StoryCutStudio() {
                             }
 
                             const messageType = determineMessageType(jsonBlock.speaker, jsonBlock.content, voiceType);
-                            const contributorData = getContributorAvatarData(jsonBlock.user_id || jsonBlock.speaker, loadedContributors);
+
+                            // Use simple storyMessages lookup (like AddBlockModal - this works!)
+                            const contributorData = getSimpleContributorData(jsonBlock.speaker, jsonBlock.user_id, loadedStoryMessages);
 
                             const voiceBlock = {
                                 id: blockId++,
@@ -930,10 +1005,10 @@ export default function StoryCutStudio() {
                 }
             }, user.id);
 
-                        // Reset dirty state and update original blocks
+            // Reset dirty state and update original blocks
             setOriginalBlocks(JSON.parse(JSON.stringify(blocks)));
             setHasUnsavedChanges(false);
-            
+
             console.log('✅ Story cut updated successfully');
 
         } catch (error) {
@@ -1119,7 +1194,8 @@ export default function StoryCutStudio() {
 
 
 
-    // Helper function to get contributor avatar data at component level (fallback method)
+    // DEPRECATED: Helper function to get contributor avatar data at component level (fallback method)
+    // Now using getSimpleContributorData instead for better reliability
     const getContributorAvatarData = (identifier) => {
         if (!identifier) {
             console.log(`⚠️ No identifier provided for contributor lookup`);
@@ -1273,8 +1349,8 @@ export default function StoryCutStudio() {
                     }
                 }
 
-                // Get contributor data for real avatar
-                const contributorData = getContributorAvatarData(contribution.user_id || contribution.user_first_name);
+                // Get contributor data using simple lookup (consistent with AI blocks)
+                const contributorData = getSimpleContributorData(contribution.user_first_name, contribution.user_id, storyMessages);
 
                 const voiceBlock = {
                     id: currentBlockId++,
@@ -1574,7 +1650,7 @@ export default function StoryCutStudio() {
                                                 <div className="flex items-center justify-between mb-2">
                                                     <div className="flex items-center gap-3">
                                                         {/* Reorder Controls */}
-                                                        <div className="flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                        <div className="flex flex-col gap-1.5 opacity-100 transition-opacity duration-200">
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -1611,7 +1687,7 @@ export default function StoryCutStudio() {
                                                                 <img
                                                                     src={block.mediaUrl}
                                                                     alt={block.mediaName || 'Media'}
-                                                                    className="w-20 h-20 object-cover rounded-xl border-2 border-white shadow-lg"
+                                                                    className="w-20 h-20 object-cover rounded-xl"
                                                                     onError={(e) => {
                                                                         e.target.style.display = 'none';
                                                                     }}
@@ -1622,13 +1698,10 @@ export default function StoryCutStudio() {
                                                         <div className="flex items-center gap-2">
                                                             <div className="flex flex-col">
                                                                 <span
-                                                                    className={`font-bold text-base ${textColor}`}
+                                                                    className={`font-bold text-base text-left sm:text-center ${textColor}`}
                                                                     title={block.mediaName || ''}
                                                                 >
                                                                     {block.mediaName && block.mediaName.length > 20 ? `${block.mediaName.substring(0, 20)}...` : block.mediaName}
-                                                                </span>
-                                                                <span className="text-xs text-gray-500">
-                                                                    📷 Media ID: {block.mediaId ? block.mediaId.substring(0, 8) + '...' : 'none'}
                                                                 </span>
                                                             </div>
                                                             {block.effect && (
@@ -1639,7 +1712,7 @@ export default function StoryCutStudio() {
                                                         </div>
                                                     </div>
                                                     <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full font-medium shadow-sm">
-                                                        Media Block
+                                                        Media
                                                     </span>
                                                 </div>
 
@@ -1988,7 +2061,7 @@ export default function StoryCutStudio() {
                                                         <div className="flex items-center justify-between mb-2">
                                                             <div className="flex items-center gap-2">
                                                                 {/* Reorder Controls */}
-                                                                <div className="flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                                <div className="flex flex-col gap-1.5 opacity-100 transition-opacity duration-200">
                                                                     <button
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
@@ -2019,27 +2092,52 @@ export default function StoryCutStudio() {
                                                                     </button>
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
-                                                                    {block.voiceType === 'contributor' && block.contributorData ? (
-                                                                        <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
-                                                                            <AvatarImage
-                                                                                src={block.contributorData.avatarUrl}
-                                                                                alt={`${block.contributorData.firstName || ''} ${block.contributorData.lastName || ''}`.trim() || block.voiceTag}
-                                                                            />
-                                                                            <AvatarFallback className="text-sm font-medium bg-green-100 text-green-800">
-                                                                                {block.contributorData.fallbackText}
-                                                                            </AvatarFallback>
-                                                                        </Avatar>
-                                                                    ) : (
-                                                                        <img
-                                                                            src={block.avatarUrl}
-                                                                            alt={block.voiceTag}
-                                                                            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                                                                            onError={(e) => {
-                                                                                e.target.style.display = 'none';
-                                                                            }}
-                                                                        />
-                                                                    )}
-                                                                    <span className={`font-bold text-base ${textColor}`}>{block.voiceTag}</span>
+                                                                    {/* Avatar for all voice types */}
+                                                                    <Avatar className="h-10 w-10 shadow-sm">
+                                                                        {block.voiceType === 'contributor' && block.contributorData ? (
+                                                                            <>
+                                                                                <AvatarImage
+                                                                                    src={block.contributorData.avatarUrl}
+                                                                                    alt={(() => {
+                                                                                        const storyMessage = storyMessages.find(msg =>
+                                                                                            msg.user_id === block.messageId ||
+                                                                                            msg.user_first_name?.toLowerCase() === block.voiceTag?.toLowerCase()
+                                                                                        );
+                                                                                        return getContributorDisplayName(block.contributorData, storyMessage, block.voiceTag);
+                                                                                    })()}
+                                                                                />
+                                                                                <AvatarFallback className="text-sm font-medium bg-green-100 text-green-800">
+                                                                                    {block.contributorData.fallbackText}
+                                                                                </AvatarFallback>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                {/* Ember and Narrator use favicon */}
+                                                                                <AvatarImage
+                                                                                    src="/EMBERFAV.svg"
+                                                                                    alt={block.voiceType === 'ember' ? 'Ember Voice' : block.voiceType === 'narrator' ? 'Narrator' : block.voiceTag}
+                                                                                />
+                                                                                <AvatarFallback className={`text-sm font-medium ${block.voiceType === 'ember'
+                                                                                    ? 'bg-purple-100 text-purple-800'
+                                                                                    : block.voiceType === 'narrator'
+                                                                                        ? 'bg-yellow-100 text-yellow-800'
+                                                                                        : 'bg-gray-100 text-gray-800'
+                                                                                    }`}>
+                                                                                    {block.voiceType === 'ember' ? 'E' : block.voiceType === 'narrator' ? 'N' : '?'}
+                                                                                </AvatarFallback>
+                                                                            </>
+                                                                        )}
+                                                                    </Avatar>
+                                                                    <span className={`font-bold text-base ${textColor}`}>
+                                                                        {(() => {
+                                                                            // Find corresponding story message for full name
+                                                                            const storyMessage = storyMessages.find(msg =>
+                                                                                msg.user_id === block.messageId ||
+                                                                                msg.user_first_name?.toLowerCase() === block.voiceTag?.toLowerCase()
+                                                                            );
+                                                                            return getContributorDisplayName(block.contributorData, storyMessage, block.voiceTag);
+                                                                        })()}
+                                                                    </span>
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-2">
@@ -2078,7 +2176,7 @@ export default function StoryCutStudio() {
                                                     <>
                                                         <div className="flex items-center gap-2 mb-2">
                                                             {/* Reorder Controls */}
-                                                            <div className="flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                            <div className="flex flex-col gap-1.5 opacity-100 transition-opacity duration-200">
                                                                 <button
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
@@ -2108,7 +2206,31 @@ export default function StoryCutStudio() {
                                                                     <ArrowDown className="w-4 h-4" />
                                                                 </button>
                                                             </div>
-                                                            <span className={`font-bold text-base ${textColor}`}>[{block.voiceTag}]</span>
+                                                            {/* Avatar for all voice types (fallback section) */}
+                                                            <Avatar className="h-10 w-10 shadow-sm">
+                                                                <AvatarImage
+                                                                    src="/EMBERFAV.svg"
+                                                                    alt={block.voiceType === 'ember' ? 'Ember Voice' : block.voiceType === 'narrator' ? 'Narrator' : block.voiceTag}
+                                                                />
+                                                                <AvatarFallback className={`text-sm font-medium ${block.voiceType === 'ember'
+                                                                    ? 'bg-purple-100 text-purple-800'
+                                                                    : block.voiceType === 'narrator'
+                                                                        ? 'bg-yellow-100 text-yellow-800'
+                                                                        : 'bg-gray-100 text-gray-800'
+                                                                    }`}>
+                                                                    {block.voiceType === 'ember' ? 'E' : block.voiceType === 'narrator' ? 'N' : '?'}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <span className={`font-bold text-base ${textColor}`}>
+                                                                {(() => {
+                                                                    // Find corresponding story message for full name
+                                                                    const storyMessage = storyMessages.find(msg =>
+                                                                        msg.user_id === block.messageId ||
+                                                                        msg.user_first_name?.toLowerCase() === block.voiceTag?.toLowerCase()
+                                                                    );
+                                                                    return getContributorDisplayName(block.contributorData, storyMessage, block.voiceTag);
+                                                                })()}
+                                                            </span>
                                                             {isBlockEditable(block, index) && (
                                                                 <button
                                                                     onClick={(e) => {
@@ -2215,7 +2337,7 @@ export default function StoryCutStudio() {
                                                         <span className={`font-semibold ${textColor}`}>{block.title}</span>
                                                     </div>
                                                     <span className={`text-xs px-2 py-1 rounded-full ${block.type === 'start' ? 'bg-gray-300 text-gray-900' : 'bg-gray-300 text-gray-900'}`}>
-                                                        {block.type === 'start' ? 'Story Start' : 'Story End'}
+                                                        {block.type === 'start' ? 'Start' : 'End'}
                                                     </span>
                                                 </div>
                                             </>

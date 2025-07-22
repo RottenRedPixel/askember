@@ -41,8 +41,8 @@ const getUserInitials = (email, firstName = '', lastName = '') => {
     return email.substring(0, 2).toUpperCase();
 };
 
-// Helper function to get display name
-const getDisplayName = (firstName, lastName, email) => {
+// Helper function to get display name (consistent with StoryCutStudio)
+const getContributorDisplayName = (firstName, lastName, email) => {
     if (firstName && lastName) {
         return `${firstName} ${lastName}`;
     }
@@ -190,7 +190,7 @@ const ModalContent = ({
                                         <Avatar className="h-8 w-8 flex-shrink-0">
                                             <AvatarImage
                                                 src={message.avatar_url || message.user_avatar_url}
-                                                alt={getDisplayName(message.user_first_name, message.user_last_name, message.user_email)}
+                                                alt={getContributorDisplayName(message.user_first_name, message.user_last_name, message.user_email)}
                                             />
                                             <AvatarFallback className="bg-green-100 text-green-700 text-xs font-medium">
                                                 {getUserInitials(message.user_email, message.user_first_name, message.user_last_name)}
@@ -199,7 +199,7 @@ const ModalContent = ({
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="text-sm font-medium text-green-800">
-                                                    {getDisplayName(message.user_first_name, message.user_last_name, message.user_email)}
+                                                    {getContributorDisplayName(message.user_first_name, message.user_last_name, message.user_email)}
                                                 </span>
                                                 <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 flex items-center gap-1">
                                                     {message.has_audio && <Mic size={12} />}
