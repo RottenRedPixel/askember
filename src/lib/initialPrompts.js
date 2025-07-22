@@ -236,30 +236,28 @@ VOICE PREFERENCE RULES:
 🚨 CRITICAL JSON BLOCK GENERATION RULES:
 
 1. **FOR RECORDED QUOTES**: When using contributor_quotes with message_id, you MUST include the exact message_id and user_id in the JSON block:
-   ```json
+   
    {
-    "type": "voice",
-    "speaker": "Zia",
-    "content": "At Supercharged, we went to see if we were tall enough to go go-karting.",
-    "voice_preference": "recorded",
-    "message_id": "abc123-def456",
-    "user_id": "user789",
-    "order": 3
-  }
-    ```
+     "type": "voice",
+     "speaker": "Zia",
+     "content": "At Supercharged, we went to see if we were tall enough to go go-karting.",
+     "voice_preference": "recorded",
+     "message_id": "abc123-def456",
+     "user_id": "user789",
+     "order": 3
+   }
 
 2. **FOR AI-GENERATED CONTENT** (Ember/Narrator voices):
-   ```json
+   
    {
-    "type": "voice",
-    "speaker": "EMBER VOICE",
-    "content": "A day of adventure begins...",
-    "voice_preference": "Lily",
-    "message_id": null,
-    "user_id": null,
-    "order": 2
-  }
-    ```
+     "type": "voice", 
+     "speaker": "EMBER VOICE",
+     "content": "A day of adventure begins...",
+     "voice_preference": "Lily",
+     "message_id": null,
+     "user_id": null,
+     "order": 2
+   }
 
 3. **MANDATORY FIELD INCLUSION**: Every voice block MUST include message_id and user_id fields (use null for AI-generated content).
 
