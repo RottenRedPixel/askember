@@ -64,6 +64,12 @@ export default function StoryCutStudio() {
     const [editingBlockIndex, setEditingBlockIndex] = useState(null);
     const [editedContent, setEditedContent] = useState('');
 
+    // Save/Cancel functionality
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [originalBlocks, setOriginalBlocks] = useState([]);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState(null);
+
 
 
     // Initialize contributor preferences when blocks are loaded
@@ -189,6 +195,13 @@ export default function StoryCutStudio() {
                 }
 
                 setStoryCut(targetStoryCut);
+
+                console.log('🔍 DEBUG - Story cut loaded:', {
+                    id: targetStoryCut?.id,
+                    title: targetStoryCut?.title,
+                    keys: Object.keys(targetStoryCut || {}),
+                    fullObject: targetStoryCut
+                });
 
                 // Load ember data for the player
                 console.log('🌟 Loading ember data for player...');
@@ -733,6 +746,9 @@ export default function StoryCutStudio() {
 
                 setBlocks(realBlocks);
 
+                // Store original blocks for change detection
+                setOriginalBlocks(JSON.parse(JSON.stringify(realBlocks)));
+
                 // Initialize selected effects for blocks that have effects by default
                 realBlocks.forEach(block => {
 
@@ -825,6 +841,134 @@ export default function StoryCutStudio() {
         loadEditableBlocks();
     }, [user?.id, storyCut?.id]); // Reload when user or story cut changes
 
+    // Navigation protection for unsaved changes
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasUnsavedChanges]);
+
+    // Detect changes and update dirty state
+    useEffect(() => {
+        if (originalBlocks.length === 0 || blocks.length === 0) return;
+
+        // Deep compare blocks to detect changes
+        const hasChanges = JSON.stringify(originalBlocks) !== JSON.stringify(blocks);
+        setHasUnsavedChanges(hasChanges);
+    }, [blocks, originalBlocks]);
+
+    // Handle saving changes to database
+    const handleUpdateStoryCut = async () => {
+        console.log('🔍 DEBUG - Save attempt:', {
+            storyCut,
+            'storyCut.id': storyCut?.id,
+            'user.id': user?.id,
+            hasUnsavedChanges
+        });
+
+        if (!storyCut?.id || !hasUnsavedChanges || !user?.id) {
+            console.log('❌ Missing required data for save:', {
+                'storyCut.id exists': !!storyCut?.id,
+                'user.id exists': !!user?.id,
+                'hasUnsavedChanges': hasUnsavedChanges
+            });
+            return;
+        }
+
+        try {
+            setIsSaving(true);
+            setSaveError(null);
+
+            console.log('📦 Converting blocks to save format...');
+
+            // Convert UI blocks back to JSON format for database
+            const blocksToSave = blocks
+                .filter(block => block.type !== 'start' && block.type !== 'end')
+                .map((block, index) => {
+                    if (block.type === 'voice') {
+                        return {
+                            type: 'voice',
+                            order: index + 1,
+                            content: block.content,
+                            speaker: block.voiceTag,
+                            user_id: block.voiceType === 'contributor' ? (block.contributorData?.user_id || null) : null,
+                            voice_preference: block.preference || 'text',
+                            message_id: block.messageId || null
+                        };
+                    } else if (block.type === 'media') {
+                        return {
+                            type: 'media',
+                            order: index + 1,
+                            media_id: block.mediaId,
+                            media_name: block.mediaName,
+                            media_url: block.mediaUrl,
+                            effects: block.effects || [],
+                            effect_config: block.effectConfig || {}
+                        };
+                    }
+                    return null;
+                }).filter(Boolean);
+
+            console.log('💾 Saving blocks to database:', {
+                storyCutId: storyCut.id,
+                userId: user.id,
+                blocksCount: blocksToSave.length,
+                blocks: blocksToSave
+            });
+
+            // Update the story cut with new blocks (requires userId for permission check)
+            await updateStoryCut(storyCut.id, {
+                blocks: {
+                    blocks: blocksToSave,
+                    version: '2.0'
+                }
+            }, user.id);
+
+                        // Reset dirty state and update original blocks
+            setOriginalBlocks(JSON.parse(JSON.stringify(blocks)));
+            setHasUnsavedChanges(false);
+            
+            console.log('✅ Story cut updated successfully');
+
+        } catch (error) {
+            console.error('❌ Failed to update story cut:', error);
+            console.error('❌ Error details:', {
+                message: error.message,
+                stack: error.stack,
+                storyCutId: storyCut?.id,
+                userId: user?.id
+            });
+            setSaveError(error.message || 'Failed to save changes');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Handle canceling changes
+    const handleCancelChanges = () => {
+        if (!hasUnsavedChanges) {
+            // No changes, just navigate back
+            navigate(`/embers/${id}/manage?view=story-cuts`);
+            return;
+        }
+
+        // Confirm before discarding changes
+        if (window.confirm('Are you sure you want to discard all unsaved changes?')) {
+            // Revert to original blocks
+            setBlocks(JSON.parse(JSON.stringify(originalBlocks)));
+            setHasUnsavedChanges(false);
+
+            // Navigate back
+            navigate(`/embers/${id}/manage?view=story-cuts`);
+        }
+    };
+
     // Script editing sync removed - JSON blocks are now the canonical representation
 
 
@@ -893,8 +1037,6 @@ export default function StoryCutStudio() {
         setEditedContent('');
 
         console.log('✅ Content updated successfully');
-
-        // TODO: Save to database
     };
 
     // Handle canceling edit
@@ -1294,7 +1436,9 @@ export default function StoryCutStudio() {
                             </button>
                         </div>
                         <div className="text-center">
-                            <p className="text-sm text-gray-600">JSON Block Editor</p>
+                            {hasUnsavedChanges && (
+                                <p className="text-sm text-amber-600 font-medium">• Unsaved changes</p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1436,8 +1580,8 @@ export default function StoryCutStudio() {
                                                                     e.stopPropagation();
                                                                     moveBlockUp(index);
                                                                 }}
-                                                                disabled={index === 0}
-                                                                className={`p-1 rounded-full transition-colors duration-200 ${index === 0
+                                                                disabled={index === 0 || block.type === 'start' || block.type === 'end'}
+                                                                className={`p-1 rounded-full transition-colors duration-200 ${(index === 0 || block.type === 'start' || block.type === 'end')
                                                                     ? getArrowButtonColors(block).disabled
                                                                     : getArrowButtonColors(block).active
                                                                     }`}
@@ -1450,8 +1594,8 @@ export default function StoryCutStudio() {
                                                                     e.stopPropagation();
                                                                     moveBlockDown(index);
                                                                 }}
-                                                                disabled={index === blocks.length - 1}
-                                                                className={`p-1 rounded-full transition-colors duration-200 ${index === blocks.length - 1
+                                                                disabled={index === blocks.length - 1 || block.type === 'start' || block.type === 'end'}
+                                                                className={`p-1 rounded-full transition-colors duration-200 ${(index === blocks.length - 1 || block.type === 'start' || block.type === 'end')
                                                                     ? getArrowButtonColors(block).disabled
                                                                     : getArrowButtonColors(block).active
                                                                     }`}
@@ -1850,8 +1994,8 @@ export default function StoryCutStudio() {
                                                                             e.stopPropagation();
                                                                             moveBlockUp(index);
                                                                         }}
-                                                                        disabled={index === 0}
-                                                                        className={`p-1 rounded-full transition-colors duration-200 ${index === 0
+                                                                        disabled={index === 0 || block.type === 'start' || block.type === 'end'}
+                                                                        className={`p-1 rounded-full transition-colors duration-200 ${(index === 0 || block.type === 'start' || block.type === 'end')
                                                                             ? getArrowButtonColors(block).disabled
                                                                             : getArrowButtonColors(block).active
                                                                             }`}
@@ -1864,8 +2008,8 @@ export default function StoryCutStudio() {
                                                                             e.stopPropagation();
                                                                             moveBlockDown(index);
                                                                         }}
-                                                                        disabled={index === blocks.length - 1}
-                                                                        className={`p-1 rounded-full transition-colors duration-200 ${index === blocks.length - 1
+                                                                        disabled={index === blocks.length - 1 || block.type === 'start' || block.type === 'end'}
+                                                                        className={`p-1 rounded-full transition-colors duration-200 ${(index === blocks.length - 1 || block.type === 'start' || block.type === 'end')
                                                                             ? getArrowButtonColors(block).disabled
                                                                             : getArrowButtonColors(block).active
                                                                             }`}
@@ -1940,8 +2084,8 @@ export default function StoryCutStudio() {
                                                                         e.stopPropagation();
                                                                         moveBlockUp(index);
                                                                     }}
-                                                                    disabled={index === 0}
-                                                                    className={`p-1 rounded-full transition-colors duration-200 ${index === 0
+                                                                    disabled={index === 0 || block.type === 'start' || block.type === 'end'}
+                                                                    className={`p-1 rounded-full transition-colors duration-200 ${(index === 0 || block.type === 'start' || block.type === 'end')
                                                                         ? getArrowButtonColors(block).disabled
                                                                         : getArrowButtonColors(block).active
                                                                         }`}
@@ -1954,8 +2098,8 @@ export default function StoryCutStudio() {
                                                                         e.stopPropagation();
                                                                         moveBlockDown(index);
                                                                     }}
-                                                                    disabled={index === blocks.length - 1}
-                                                                    className={`p-1 rounded-full transition-colors duration-200 ${index === blocks.length - 1
+                                                                    disabled={index === blocks.length - 1 || block.type === 'start' || block.type === 'end'}
+                                                                    className={`p-1 rounded-full transition-colors duration-200 ${(index === blocks.length - 1 || block.type === 'start' || block.type === 'end')
                                                                         ? getArrowButtonColors(block).disabled
                                                                         : getArrowButtonColors(block).active
                                                                         }`}
@@ -2082,8 +2226,49 @@ export default function StoryCutStudio() {
                         </div>
                     )}
 
+                    {/* Action Bar - Save/Cancel */}
+                    {!loading && !error && (
+                        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 py-4 mt-6">
+                            <div className="max-w-4xl mx-auto flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    {hasUnsavedChanges && (
+                                        <div className="flex items-center gap-2 text-amber-600">
+                                            <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                                            <span className="text-sm font-medium">Unsaved changes</span>
+                                        </div>
+                                    )}
+                                    {saveError && (
+                                        <div className="text-red-600 text-sm">
+                                            Error: {saveError}
+                                        </div>
+                                    )}
+                                </div>
 
-
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={handleCancelChanges}
+                                        className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleUpdateStoryCut}
+                                        disabled={!hasUnsavedChanges || isSaving}
+                                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:bg-blue-300 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        {isSaving ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            'Update Story Cut'
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                 </div>
             </div>
