@@ -401,8 +401,13 @@ export default function EmberPlay() {
                 total += parseFloat(block.loadDuration || 2.0);
             } else if (block.type === 'media') {
                 total += 2.0; // Media blocks are typically 2 seconds
+            } else if (block.type === 'voice') {
+                // ✅ FIXED: Handle AI-generated voice blocks
+                const cleanContent = block.content.replace(/<[^>]+>/g, '').trim();
+                const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
+                total += estimatedDuration;
             } else if (block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor') {
-                // Estimate voice block duration by text length
+                // Legacy format compatibility
                 const cleanContent = block.content.replace(/<[^>]+>/g, '').trim();
                 const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
                 total += estimatedDuration;
@@ -427,7 +432,13 @@ export default function EmberPlay() {
                 elapsedTime += parseFloat(block.loadDuration || 2.0);
             } else if (block.type === 'media') {
                 elapsedTime += 2.0;
+            } else if (block.type === 'voice') {
+                // ✅ FIXED: Handle AI-generated voice blocks
+                const cleanContent = block.content.replace(/<[^>]+>/g, '').trim();
+                const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
+                elapsedTime += estimatedDuration;
             } else if (block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor') {
+                // Legacy format compatibility
                 const cleanContent = block.content.replace(/<[^>]+>/g, '').trim();
                 const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
                 elapsedTime += estimatedDuration;
@@ -546,11 +557,11 @@ export default function EmberPlay() {
     useEffect(() => {
         if (primaryStoryCut) {
             try {
-                                console.log('🔍 EmberPlay: Primary story cut structure:', primaryStoryCut);
+                console.log('🔍 EmberPlay: Primary story cut structure:', primaryStoryCut);
                 console.log('🔍 EmberPlay: blocks field:', primaryStoryCut.blocks);
                 console.log('🔍 EmberPlay: blocks type:', typeof primaryStoryCut.blocks);
                 console.log('🔍 EmberPlay: blocks is array:', Array.isArray(primaryStoryCut.blocks));
-                
+
                 // Extract blocks from versioned structure: {blocks: Array, version: '2.0'} or direct array
                 let blocks = null;
                 if (Array.isArray(primaryStoryCut.blocks)) {
@@ -563,7 +574,7 @@ export default function EmberPlay() {
                     console.log('✅ EmberPlay: Using versioned blocks array from blocks.blocks');
                     console.log('🔍 EmberPlay: Version:', primaryStoryCut.blocks.version);
                 }
-                
+
                 if (blocks && Array.isArray(blocks)) {
                     const duration = calculateTotalDuration(blocks);
                     setTotalDuration(duration);

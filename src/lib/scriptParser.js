@@ -603,16 +603,16 @@ export const estimateSegmentDuration = (content, segmentType) => {
  * @returns {Promise<string|null>} - Resolved media URL or null if not found
  */
 export const resolveMediaReference = async (segment, emberId) => {
-    if (!segment || (!segment.mediaId && !segment.mediaName && !segment.mediaPath)) {
+    if (!segment || (!segment.media_id && !segment.media_name && !segment.media_url)) {
         console.log('⚠️ No media reference to resolve');
         return null;
     }
 
     try {
-        // If we have a direct path, return it immediately (new format)
-        if (segment.mediaPath) {
-            console.log(`✅ Using direct media path: ${segment.mediaPath}`);
-            return segment.mediaPath;
+        // If we have a direct URL, return it immediately (new format)
+        if (segment.media_url) {
+            console.log(`✅ Using direct media URL: ${segment.media_url}`);
+            return segment.media_url;
         }
 
         // Get all available media for this ember (legacy format)
@@ -625,21 +625,21 @@ export const resolveMediaReference = async (segment, emberId) => {
             getEmberSupportingMedia(emberId)
         ]);
 
-        console.log(`🔍 Resolving media reference: ${segment.mediaId || segment.mediaName}`);
+        console.log(`🔍 Resolving media reference: ${segment.media_id || segment.media_name}`);
         console.log(`📸 Available photos: ${emberPhotos.length}`);
         console.log(`📁 Available supporting media: ${supportingMedia.length}`);
 
         // Search by ID first (more specific)
-        if (segment.mediaId) {
+        if (segment.media_id) {
             // Check ember photos
-            const photoMatch = emberPhotos.find(photo => photo.id === segment.mediaId);
+            const photoMatch = emberPhotos.find(photo => photo.id === segment.media_id);
             if (photoMatch) {
                 console.log(`✅ Found photo by ID: ${photoMatch.display_name || photoMatch.original_filename}`);
                 return photoMatch.storage_url;
             }
 
             // Check supporting media
-            const mediaMatch = supportingMedia.find(media => media.id === segment.mediaId);
+            const mediaMatch = supportingMedia.find(media => media.id === segment.media_id);
             if (mediaMatch) {
                 console.log(`✅ Found supporting media by ID: ${mediaMatch.display_name || mediaMatch.file_name}`);
                 return mediaMatch.file_url;
@@ -662,17 +662,17 @@ export const resolveMediaReference = async (segment, emberId) => {
                 }
             }
 
-            // Legacy: treat mediaId as direct URL if no match found and no fallback available
-            console.log(`ℹ️ No ID match found, treating as legacy reference: ${segment.mediaId}`);
-            return segment.mediaId;
+            // Legacy: treat media_id as direct URL if no match found and no fallback available
+            console.log(`ℹ️ No ID match found, treating as legacy reference: ${segment.media_id}`);
+            return segment.media_id;
         }
 
         // Search by display name
-        if (segment.mediaName) {
+        if (segment.media_name) {
             // Check ember photos
             const photoMatch = emberPhotos.find(photo =>
-                photo.display_name === segment.mediaName ||
-                photo.original_filename === segment.mediaName
+                photo.display_name === segment.media_name ||
+                photo.original_filename === segment.media_name
             );
             if (photoMatch) {
                 console.log(`✅ Found photo by name: ${photoMatch.display_name || photoMatch.original_filename}`);
@@ -681,15 +681,15 @@ export const resolveMediaReference = async (segment, emberId) => {
 
             // Check supporting media
             const mediaMatch = supportingMedia.find(media =>
-                media.display_name === segment.mediaName ||
-                media.file_name === segment.mediaName
+                media.display_name === segment.media_name ||
+                media.file_name === segment.media_name
             );
             if (mediaMatch) {
                 console.log(`✅ Found supporting media by name: ${mediaMatch.display_name || mediaMatch.file_name}`);
                 return mediaMatch.file_url;
             }
 
-            console.log(`⚠️ No media found with name: ${segment.mediaName}`);
+            console.log(`⚠️ No media found with name: ${segment.media_name}`);
             return null;
         }
 

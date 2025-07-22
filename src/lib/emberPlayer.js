@@ -373,15 +373,17 @@ export const debugRecordedAudio = (recordedAudio, blocks) => {
     seg.type === 'contributor' ||
     (seg.type === 'voice' && seg.speaker && seg.speaker !== 'EMBER VOICE' && seg.speaker !== 'NARRATOR')
   ).forEach((segment, index) => {
-    const segmentVoiceTag = segment.voiceTag || segment.speaker || 'Unknown';
+    // ✅ FIXED: Use standard AI field names
+    const segmentVoiceTag = segment.speaker || 'Unknown';
 
     console.log(`  📋 Segment ${index + 1}:`);
     console.log(`    - Voice Tag: "${segmentVoiceTag}"`);
     console.log(`    - Content: "${segment.content}"`);
     console.log(`    - Type: ${segment.type}`);
     console.log(`    - Speaker: ${segment.speaker || 'NONE'}`);
-    console.log(`    - Message ID: ${segment.messageId || 'NONE'}`);
-    console.log(`    - Preference: ${segment.preference || 'NONE'}`);
+    console.log(`    - Message ID: ${segment.message_id || 'NONE'}`);
+    console.log(`    - User ID: ${segment.user_id || 'NONE'}`);
+    console.log(`    - Voice Preference: ${segment.voice_preference || 'NONE'}`);
 
     // Check for matches
     const matches = Object.entries(recordedAudio).filter(([userId, audioData]) => {
@@ -430,11 +432,12 @@ export const debugRecordedAudio = (recordedAudio, blocks) => {
  * @returns {Promise<Object>} Audio segment with metadata
  */
 export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => {
-  const { voiceTag, content, originalContent, type, speaker } = segment;
+  // ✅ FIXED: Use standard AI field names from JSON blocks
+  const { speaker, content, originalContent, type, message_id, user_id } = segment;
 
   // ✅ ENHANCED: Derive actual voice type for backward compatibility  
   let actualVoiceType = type;
-  let actualVoiceTag = voiceTag || speaker || 'Unknown Voice';
+  let actualVoiceTag = speaker || 'Unknown Voice'; // Use speaker field directly
 
   // For type 'voice' blocks, derive the actual type from speaker
   if (type === 'voice' && speaker) {
@@ -523,19 +526,19 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
 
       // Only look for recorded audio if user preference is 'recorded'
       if (userPreference === 'recorded') {
-        // NEW: Prioritize sacred format contributionId for 100% reliable matching
-        if (segment.contributionId && segment.contributionId !== 'null' && storyCut.metadata?.messageIdMap) {
-          const messageData = storyCut.metadata.messageIdMap[segment.contributionId];
+        // ✅ FIXED: Use standard AI field message_id for direct matching
+        if (message_id && storyCut.metadata?.messageIdMap) {
+          const messageData = storyCut.metadata.messageIdMap[message_id];
 
           if (messageData) {
-            console.log(`🆔 SACRED FORMAT: Direct message ID match using contributionId ${segment.contributionId}`);
+            console.log(`🆔 DIRECT MESSAGE ID MATCH: Using message_id ${message_id}`);
             console.log(`🆔 Message data:`, messageData);
 
             // Check if we have recorded audio for this message
             const hasRecordedAudio = !!(messageData.audio_url);
 
             if (hasRecordedAudio) {
-              console.log(`🎯 RECORDED AUDIO FOUND via sacred contributionId: Using recorded audio`);
+              console.log(`🎯 RECORDED AUDIO FOUND via message_id: Using recorded audio`);
               console.log(`🎯 Audio URL: ${messageData.audio_url}`);
               console.log(`🎯 Content: "${messageData.content}"`);
 
@@ -545,86 +548,39 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
                 type: 'contributor_recorded',
                 audio,
                 url: messageData.audio_url,
-                voiceTag,
+                voiceTag: actualVoiceTag,
                 content: messageData.content,
                 userId: messageData.user_id,
-                messageId: segment.contributionId,
-                source: 'sacred_format'
+                messageId: message_id,
+                source: 'ai_generated_block'
               };
             } else {
-              console.log(`⚠️ Sacred contributionId found but no recorded audio - using fallback`);
+              console.log(`⚠️ Message ID found but no recorded audio - using fallback`);
             }
           } else {
-            console.log(`⚠️ Sacred contributionId ${segment.contributionId} not found in messageIdMap`);
+            console.log(`⚠️ Message ID ${message_id} not found in messageIdMap`);
             console.log(`⚠️ Available message IDs:`, Object.keys(storyCut.metadata?.messageIdMap || {}));
           }
-        }
-
-        // FALLBACK: Legacy message ID lookup (backward compatibility)
-        if (segment.messageId && segment.messageId !== segment.contributionId && storyCut.metadata?.messageIdMap && storyCut.metadata.messageIdMap[segment.messageId]) {
-          const messageData = storyCut.metadata.messageIdMap[segment.messageId];
-          console.log(`🆔 LEGACY FORMAT: Using legacy messageId ${segment.messageId} for ${voiceTag}`);
-          console.log(`🆔 Message data:`, messageData);
-
-          // Check if we have recorded audio for this message
-          const hasRecordedAudio = !!(messageData.audio_url);
-
-          if (hasRecordedAudio) {
-            console.log(`🎯 RECORDED AUDIO FOUND via legacy messageId: Using recorded audio`);
-            console.log(`🎯 Audio URL: ${messageData.audio_url}`);
-            console.log(`🎯 Content: "${messageData.content}"`);
-
-            const audio = new Audio(messageData.audio_url);
-            registerAudio(audio);
-            return {
-              type: 'contributor_recorded',
-              audio,
-              url: messageData.audio_url,
-              voiceTag,
-              content: messageData.content,
-              userId: messageData.user_id,
-              messageId: segment.messageId,
-              source: 'legacy_format'
-            };
-          } else {
-            console.log(`⚠️ Legacy messageId found but no recorded audio - using user fallback`);
-            // Continue with user-based fallback logic below
-          }
-        } else if (segment.messageId || segment.contributionId) {
-          const idToCheck = segment.contributionId || segment.messageId;
-          console.log(`⚠️ Message ID ${idToCheck} not found in messageIdMap - using fallback matching`);
-          console.log(`⚠️ Available message IDs:`, Object.keys(storyCut.metadata?.messageIdMap || {}));
+        } else if (message_id) {
+          console.log(`⚠️ Message ID ${message_id} found but no messageIdMap in story cut metadata`);
         } else {
-          console.log(`ℹ️ No contribution/message ID in segment - using traditional matching`);
+          console.log(`ℹ️ No message_id in segment - using traditional matching`);
         }
       }
 
       // Use the existing sophisticated contributor audio generation logic
       console.log(`🎯 Using handleContributorAudioGeneration with preference: ${userPreference}`);
 
-      // Get recorded audio data if available (for handleContributorAudioGeneration)
-      let audioData = null;
-      let hasRecordedAudio = false;
-
-      if (segment.contributionId && storyCut.metadata?.messageIdMap) {
-        const messageData = storyCut.metadata.messageIdMap[segment.contributionId];
-        if (messageData && messageData.audio_url) {
-          audioData = messageData;
-          hasRecordedAudio = true;
-          console.log(`🎙️ Found recorded audio for contribution ${segment.contributionId}`);
-        }
-      }
-
       // Check for personal voice model
       let hasPersonalVoice = false;
       let userVoiceModel = null;
 
-      // Try to get user ID from contribution data
-      let userId = null;
-      if (audioData && audioData.user_id) {
-        userId = audioData.user_id;
-      } else if (segment.contributionId && storyCut.metadata?.messageIdMap) {
-        const messageData = storyCut.metadata.messageIdMap[segment.contributionId];
+      // ✅ FIXED: Use user_id from AI block instead of trying to derive it
+      let userId = user_id; // Direct from AI block
+
+      // Fallback: try to get user ID from messageIdMap if not in block
+      if (!userId && message_id && storyCut.metadata?.messageIdMap) {
+        const messageData = storyCut.metadata.messageIdMap[message_id];
         if (messageData && messageData.user_id) {
           userId = messageData.user_id;
         }
@@ -637,21 +593,34 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
           hasPersonalVoice = !!(userVoiceModel && userVoiceModel.elevenlabs_voice_id);
 
           if (hasPersonalVoice) {
-            console.log(`🎤 Found personal voice model for ${voiceTag}:`, {
+            console.log(`🎤 Found personal voice model for ${actualVoiceTag}:`, {
               userId,
               voiceId: userVoiceModel.elevenlabs_voice_id,
               voiceName: userVoiceModel.elevenlabs_voice_name
             });
           } else {
-            console.log(`⚠️ No personal voice model found for ${voiceTag} (userId: ${userId})`);
+            console.log(`⚠️ No personal voice model found for ${actualVoiceTag} (userId: ${userId})`);
           }
         } catch (error) {
-          console.error(`❌ Error looking up voice model for ${voiceTag}:`, error);
+          console.error(`❌ Error looking up voice model for ${actualVoiceTag}:`, error);
           hasPersonalVoice = false;
           userVoiceModel = null;
         }
       } else {
-        console.log(`⚠️ No user ID found for ${voiceTag} - cannot check for personal voice model`);
+        console.log(`⚠️ No user ID found for ${actualVoiceTag} - cannot check for personal voice model`);
+      }
+
+      // Get recorded audio data if available (for handleContributorAudioGeneration)
+      let audioData = null;
+      let hasRecordedAudio = false;
+
+      if (message_id && storyCut.metadata?.messageIdMap) {
+        const messageData = storyCut.metadata.messageIdMap[message_id];
+        if (messageData && messageData.audio_url) {
+          audioData = messageData;
+          hasRecordedAudio = true;
+          console.log(`🎙️ Found recorded audio for message ${message_id}`);
+        }
       }
 
       // Call the sophisticated contributor audio generation function
@@ -858,8 +827,8 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
     for (let index = 0; index < blocks.length; index++) {
       const block = blocks[index];
 
-      // ✅ ENHANCED: Get voice tag for all blocks (for consistent logging)
-      const voiceTag = block.voiceTag || block.speaker || 'Unknown Voice';
+      // ✅ FIXED: Get voice tag from speaker field (standard AI field name)
+      const voiceTag = block.speaker || 'Unknown Voice';
 
       if (block.type === 'loadscreen') {
         // Load screen block - add to timeline for sequential processing
@@ -879,7 +848,7 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
           block: block,
           blockIndex: index // Add block index for progress tracking
         });
-        console.log(`📺 Timeline ${index + 1}: MEDIA switch - ${(block.content || block.mediaName || 'Media').substring(0, 50)}...`);
+        console.log(`📺 Timeline ${index + 1}: MEDIA switch - ${(block.content || block.media_name || 'Media').substring(0, 50)}...`);
       } else if (block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor' ||
         (block.type === 'voice' && block.voiceType) ||
         (block.type === 'voice' && block.speaker)) {
@@ -913,8 +882,6 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
           voiceType: voiceType
         });
         console.log(`🎤 Timeline ${index + 1}: VOICE audio - [${voiceTag}] (${voiceType})`);
-      } else {
-        console.warn(`⚠️ Skipping timeline step ${index + 1}: No audio available for [${voiceTag}]`);
       }
     }
 
@@ -970,7 +937,13 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
             currentBlockStartTime += parseFloat(block.loadDuration || 2.0);
           } else if (block.type === 'media') {
             currentBlockStartTime += 2.0;
+          } else if (block.type === 'voice') {
+            // ✅ FIXED: Handle AI-generated voice blocks
+            const cleanContent = block.content.replace(/<[^>]+>/g, '').trim();
+            const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
+            currentBlockStartTime += estimatedDuration;
           } else if (block.type === 'ember' || block.type === 'narrator' || block.type === 'contributor') {
+            // Legacy format compatibility
             const cleanContent = block.content.replace(/<[^>]+>/g, '').trim();
             const estimatedDuration = Math.max(1, cleanContent.length * 0.08);
             currentBlockStartTime += estimatedDuration;
@@ -1020,11 +993,11 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
         // Media step - switch background image and continue immediately
         const block = currentStep.block;
 
-        console.log(`📺 Switching to media: ${(block.content || block.mediaName || 'Media').substring(0, 50)}...`);
+        console.log(`📺 Switching to media: ${(block.content || block.media_name || 'Media').substring(0, 50)}...`);
 
         // Resolve the media reference to get the actual image URL
         resolveMediaReference(block, ember.id).then(resolvedMediaUrl => {
-          console.log(`🔍 Resolved media URL for "${block.mediaPath || block.mediaName || block.mediaId}":`, resolvedMediaUrl);
+          console.log(`🔍 Resolved media URL for "${block.media_url || block.media_name || block.media_id}":`, resolvedMediaUrl);
 
           if (resolvedMediaUrl) {
             // Extract all effects directly from Sacred Format content  
@@ -1101,7 +1074,7 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
             // Clear any color overlays when switching to image
             setCurrentMediaColor(null);
           } else {
-            console.warn(`⚠️ Could not resolve media reference: ${block.mediaPath || block.mediaName || block.mediaId}`);
+            console.warn(`⚠️ Could not resolve media reference: ${block.media_url || block.media_name || block.media_id}`);
           }
 
           // Continue immediately to next timeline step (media changes are instant)
