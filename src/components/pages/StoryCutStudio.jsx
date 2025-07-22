@@ -2457,50 +2457,47 @@ export default function StoryCutStudio() {
                                                     return (
                                                         <div className="mt-3" style={{ marginLeft: '24px' }}>
                                                             <div className="flex items-center gap-4">
-                                                                {/* Show "Audio" option only if contributor left an audio message */}
-                                                                {block.messageType === 'Audio Message' && (
-                                                                    <label className="flex items-center gap-2 cursor-pointer">
-                                                                        <input
-                                                                            type="radio"
-                                                                            name={`audio-${block.id}`}
-                                                                            value="recorded"
-                                                                            checked={contributorAudioPreferences[blockKey] === 'recorded'}
-                                                                            onChange={(e) => {
-                                                                                if (e.target.checked) {
-                                                                                    setContributorAudioPreferences(prev => ({
-                                                                                        ...prev,
-                                                                                        [blockKey]: 'recorded'
-                                                                                    }));
-                                                                                    console.log(`🎙️ Set ${blockKey} to use audio (DATABASE PERSISTENT)`);
-                                                                                }
-                                                                            }}
-                                                                            className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
-                                                                        />
-                                                                        <span className="text-sm text-green-700">Audio</span>
-                                                                        {/* Inline play button for recorded audio */}
-                                                                        {(() => {
-                                                                            const audioUrl = getAudioUrlForBlock(block, storyMessages);
-                                                                            const playKey = `${block.id}-recorded-inline`;
-
-                                                                            return audioUrl ? (
-                                                                                <button
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        playMessageAudio(playKey, audioUrl);
-                                                                                    }}
-                                                                                    className="ml-1 p-1 hover:bg-green-100 rounded-full transition-colors"
-                                                                                    title={playingMessageId === playKey ? "Stop audio" : "Play audio"}
-                                                                                >
-                                                                                    {playingMessageId === playKey ? (
-                                                                                        <Pause size={12} className="text-green-600" />
-                                                                                    ) : (
-                                                                                        <Play size={12} className="text-green-600" />
-                                                                                    )}
-                                                                                </button>
-                                                                            ) : null;
-                                                                        })()}
-                                                                    </label>
-                                                                )}
+                                                                                                                                 {/* Show "Audio" option only if contributor has recorded audio available */}
+                                                                 {(() => {
+                                                                     const audioUrl = getAudioUrlForBlock(block, storyMessages);
+                                                                     return (block.messageType === 'Audio Message' || audioUrl) ? (
+                                                                         <label className="flex items-center gap-2 cursor-pointer">
+                                                                             <input
+                                                                                 type="radio"
+                                                                                 name={`audio-${block.id}`}
+                                                                                 value="recorded"
+                                                                                 checked={contributorAudioPreferences[blockKey] === 'recorded'}
+                                                                                 onChange={(e) => {
+                                                                                     if (e.target.checked) {
+                                                                                         setContributorAudioPreferences(prev => ({
+                                                                                             ...prev,
+                                                                                             [blockKey]: 'recorded'
+                                                                                         }));
+                                                                                         console.log(`🎙️ Set ${blockKey} to use audio (DATABASE PERSISTENT)`);
+                                                                                     }
+                                                                                 }}
+                                                                                 className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
+                                                                             />
+                                                                             <span className="text-sm text-green-700">Audio</span>
+                                                                             {/* Inline play button for recorded audio */}
+                                                                             <button
+                                                                                 onClick={(e) => {
+                                                                                     e.stopPropagation();
+                                                                                     const playKey = `${block.id}-recorded-inline`;
+                                                                                     playMessageAudio(playKey, audioUrl);
+                                                                                 }}
+                                                                                 className="ml-1 p-1 hover:bg-green-100 rounded-full transition-colors"
+                                                                                 title={playingMessageId === `${block.id}-recorded-inline` ? "Stop audio" : "Play audio"}
+                                                                             >
+                                                                                 {playingMessageId === `${block.id}-recorded-inline` ? (
+                                                                                     <Pause size={12} className="text-green-600" />
+                                                                                 ) : (
+                                                                                     <Play size={12} className="text-green-600" />
+                                                                                 )}
+                                                                             </button>
+                                                                         </label>
+                                                                     ) : null;
+                                                                 })()}
                                                                 {/* Only show Synth option if contributor has voice model (or if hasVoiceModel is undefined for backward compatibility) */}
                                                                 {(block.hasVoiceModel === true || block.hasVoiceModel === undefined) && (
                                                                     <label className="flex items-center gap-2 cursor-pointer">
