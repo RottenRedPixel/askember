@@ -34,6 +34,9 @@ function replaceVariables(template, variables) {
 }
 
 export default async function handler(req, res) {
+  // Debug: Force fresh deployment - v1.0.282+
+  console.log('🚀 API Handler loaded - v1.0.282+');
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
