@@ -1173,7 +1173,13 @@ export default function StoryCutStudio() {
 
                             // ✅ ENHANCED: User/Audio metadata
                             user_id: block.voiceType === 'contributor' ? (block.contributorData?.user_id || null) : null,
-                            voice_preference: block.preference || 'text',
+                            voice_preference: (() => {
+                                if (block.voiceType === 'contributor') {
+                                    const blockKey = `${block.voiceTag}-${block.id}`;
+                                    return contributorAudioPreferences[blockKey] || 'text';
+                                }
+                                return block.preference || 'text';
+                            })(),
                             message_id: block.messageId || null,
 
                             // ✅ ENHANCED: Audio metadata
@@ -1356,6 +1362,84 @@ export default function StoryCutStudio() {
         setEditingBlock(null);
         setEditingBlockIndex(null);
         setEditedContent('');
+    };
+
+    // Handle deleting a block
+    const handleDeleteBlock = (blockId, blockType) => {
+        // Prevent deletion of start and end blocks
+        if (blockType === 'start' || blockType === 'end') {
+            console.log('❌ Cannot delete start or end blocks');
+            return;
+        }
+
+        // Show confirmation dialog
+        const confirmDelete = window.confirm('Are you sure you want to delete this block? This action cannot be undone.');
+
+        if (confirmDelete) {
+            console.log('🗑️ Deleting block:', blockId, blockType);
+
+            // Remove the block from the array
+            setBlocks(prev => prev.filter(block => block.id !== blockId));
+
+            // Clean up any effect states for this block
+            setSelectedEffects(prev => {
+                const updated = { ...prev };
+                delete updated[`effect-${blockId}`];
+                return updated;
+            });
+
+            setEffectDirections(prev => {
+                const updated = { ...prev };
+                Object.keys(updated).forEach(key => {
+                    if (key.includes(`-${blockId}`)) {
+                        delete updated[key];
+                    }
+                });
+                return updated;
+            });
+
+            setEffectDurations(prev => {
+                const updated = { ...prev };
+                Object.keys(updated).forEach(key => {
+                    if (key.includes(`-${blockId}`)) {
+                        delete updated[key];
+                    }
+                });
+                return updated;
+            });
+
+            setEffectDistances(prev => {
+                const updated = { ...prev };
+                Object.keys(updated).forEach(key => {
+                    if (key.includes(`-${blockId}`)) {
+                        delete updated[key];
+                    }
+                });
+                return updated;
+            });
+
+            setEffectScales(prev => {
+                const updated = { ...prev };
+                Object.keys(updated).forEach(key => {
+                    if (key.includes(`-${blockId}`)) {
+                        delete updated[key];
+                    }
+                });
+                return updated;
+            });
+
+            setEffectTargets(prev => {
+                const updated = { ...prev };
+                Object.keys(updated).forEach(key => {
+                    if (key.includes(`-${blockId}`)) {
+                        delete updated[key];
+                    }
+                });
+                return updated;
+            });
+
+            console.log('✅ Block deleted successfully');
+        }
     };
 
     // Helper function to get arrow button colors based on block type
@@ -1947,9 +2031,21 @@ export default function StoryCutStudio() {
                                                             )}
                                                         </div>
                                                     </div>
-                                                    <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full font-medium shadow-sm">
-                                                        Media
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteBlock(block.id, block.type);
+                                                            }}
+                                                            className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full transition-colors duration-200"
+                                                            title="Delete media block"
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                        <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full font-medium shadow-sm">
+                                                            Media
+                                                        </span>
+                                                    </div>
                                                 </div>
 
                                                 {/* Visual Effect Radio Buttons */}
@@ -2377,6 +2473,36 @@ export default function StoryCutStudio() {
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-2">
+                                                                {isBlockEditable(block, index) && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleEditVoiceContent(block, index);
+                                                                        }}
+                                                                        className={`p-1 rounded-full transition-colors duration-200 ${block.voiceType === 'ember'
+                                                                            ? 'bg-purple-100 hover:bg-purple-200 text-purple-600'
+                                                                            : 'bg-yellow-100 hover:bg-yellow-200 text-yellow-600'
+                                                                            }`}
+                                                                        title="Edit content"
+                                                                    >
+                                                                        <Edit className="w-3 h-3" />
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteBlock(block.id, block.type);
+                                                                    }}
+                                                                    className={`p-1 rounded-full transition-colors duration-200 ${block.voiceType === 'contributor'
+                                                                        ? 'bg-green-100 hover:bg-green-200 text-green-600'
+                                                                        : block.voiceType === 'narrator'
+                                                                            ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-600'
+                                                                            : 'bg-purple-100 hover:bg-purple-200 text-purple-600'
+                                                                        }`}
+                                                                    title="Delete voice block"
+                                                                >
+                                                                    <X className="w-3 h-3" />
+                                                                </button>
                                                                 {block.messageType && (
                                                                     <span className={`text-xs px-2 py-1 rounded-full ${block.voiceType === 'contributor'
                                                                         ? 'bg-green-100 text-green-800'
@@ -2387,25 +2513,10 @@ export default function StoryCutStudio() {
                                                                         {block.messageType}
                                                                     </span>
                                                                 )}
-                                                                {isBlockEditable(block, index) && (
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            handleEditVoiceContent(block, index);
-                                                                        }}
-                                                                        className={`text-xs px-2 py-1 rounded-full transition-colors ${block.voiceType === 'ember'
-                                                                            ? 'bg-purple-100 hover:bg-purple-200 text-purple-700'
-                                                                            : 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700'
-                                                                            }`}
-                                                                        title="Edit content"
-                                                                    >
-                                                                        <Edit className="w-3 h-3" />
-                                                                    </button>
-                                                                )}
                                                             </div>
                                                         </div>
                                                         <div className="ml-6 mt-3 p-3 bg-white/50 rounded-lg">
-                                                            <p className={`${textColor.replace('600', '700')} text-sm leading-relaxed italic`}>"{block.content}"</p>
+                                                            <p className={`${textColor.replace('600', '700')} text-lg leading-relaxed italic`}>"{block.content}"</p>
                                                         </div>
                                                     </>
                                                 ) : (
@@ -2484,7 +2595,7 @@ export default function StoryCutStudio() {
                                                             )}
                                                         </div>
                                                         <div className="ml-6 mt-3 p-3 bg-white/50 rounded-lg">
-                                                            <p className={`${textColor.replace('600', '700')} text-sm leading-relaxed italic`}>"{block.content}"</p>
+                                                            <p className={`${textColor.replace('600', '700')} text-lg leading-relaxed italic`}>"{block.content}"</p>
                                                         </div>
                                                     </>
                                                 )}
@@ -2494,7 +2605,7 @@ export default function StoryCutStudio() {
                                                     return (
                                                         <div className="mt-3" style={{ marginLeft: '24px' }}>
                                                             <div className="flex items-center gap-4">
-                                                                {/* Show "Recorded" option only if contributor left an audio message */}
+                                                                {/* Show "Audio" option only if contributor left an audio message */}
                                                                 {block.messageType === 'Audio Message' && (
                                                                     <label className="flex items-center gap-2 cursor-pointer">
                                                                         <input
@@ -2513,31 +2624,30 @@ export default function StoryCutStudio() {
                                                                             }}
                                                                             className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
                                                                         />
-                                                                        <span className="text-sm text-green-700">Recorded</span>
+                                                                        <span className="text-sm text-green-700">Audio</span>
                                                                     </label>
                                                                 )}
-                                                                {/* Only show Synth option if contributor has voice model (or if hasVoiceModel is undefined for backward compatibility) */}
-                                                                {(block.hasVoiceModel === true || block.hasVoiceModel === undefined) && (
-                                                                    <label className="flex items-center gap-2 cursor-pointer">
-                                                                        <input
-                                                                            type="radio"
-                                                                            name={`audio-${block.id}`}
-                                                                            value="synth"
-                                                                            checked={contributorAudioPreferences[blockKey] === 'synth'}
-                                                                            onChange={(e) => {
-                                                                                if (e.target.checked) {
-                                                                                    setContributorAudioPreferences(prev => ({
-                                                                                        ...prev,
-                                                                                        [blockKey]: 'synth'
-                                                                                    }));
-                                                                                    console.log(`🎤 Set ${blockKey} to use synth voice (DATABASE PERSISTENT)`);
-                                                                                }
-                                                                            }}
-                                                                            className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
-                                                                        />
-                                                                        <span className="text-sm text-green-700">Synth</span>
-                                                                    </label>
-                                                                )}
+                                                                {/* Always show Synth option */}
+                                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`audio-${block.id}`}
+                                                                        value="synth"
+                                                                        checked={contributorAudioPreferences[blockKey] === 'synth'}
+                                                                        onChange={(e) => {
+                                                                            if (e.target.checked) {
+                                                                                setContributorAudioPreferences(prev => ({
+                                                                                    ...prev,
+                                                                                    [blockKey]: 'synth'
+                                                                                }));
+                                                                                console.log(`🎤 Set ${blockKey} to use synth voice (DATABASE PERSISTENT)`);
+                                                                            }
+                                                                        }}
+                                                                        className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
+                                                                    />
+                                                                    <span className="text-sm text-green-700">Synth</span>
+                                                                </label>
+                                                                {/* Always show Text option - will use narrator voice */}
                                                                 <label className="flex items-center gap-2 cursor-pointer">
                                                                     <input
                                                                         type="radio"
@@ -2550,12 +2660,12 @@ export default function StoryCutStudio() {
                                                                                     ...prev,
                                                                                     [blockKey]: 'text'
                                                                                 }));
-                                                                                console.log(`📝 Set ${blockKey} to use text response (DATABASE PERSISTENT)`);
+                                                                                console.log(`📝 Set ${blockKey} to use narrator voice with quoted format (DATABASE PERSISTENT)`);
                                                                             }
                                                                         }}
                                                                         className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
                                                                     />
-                                                                    <span className="text-sm text-green-700">Text Response</span>
+                                                                    <span className="text-sm text-green-700">Text</span>
                                                                 </label>
                                                             </div>
                                                         </div>
@@ -2586,26 +2696,20 @@ export default function StoryCutStudio() {
 
                     {/* Action Bar - Save/Cancel */}
                     {!loading && !error && (
-                        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 py-4 mt-6">
-                            <div className="max-w-4xl mx-auto flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    {hasUnsavedChanges && (
-                                        <div className="flex items-center gap-2 text-amber-600">
-                                            <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                                            <span className="text-sm font-medium">Unsaved changes</span>
-                                        </div>
-                                    )}
-                                    {saveError && (
+                        <div className="sticky bottom-0 bg-white md:px-4 py-4 mt-6">
+                            <div className="max-w-4xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                {saveError && (
+                                    <div className="flex items-center gap-3">
                                         <div className="text-red-600 text-sm">
                                             Error: {saveError}
                                         </div>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
 
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 w-full md:w-auto">
                                     <button
                                         onClick={handleCancelChanges}
-                                        className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+                                        className="flex-1 md:flex-none px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
                                     >
                                         Cancel
                                     </button>
@@ -2614,15 +2718,14 @@ export default function StoryCutStudio() {
                                             // Navigate to EmberPlay with this specific story cut
                                             navigate(`/embers/${id}?cut=${storyCut.id}`);
                                         }}
-                                        className="px-4 py-2 text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-medium flex items-center gap-2"
+                                        className="flex-1 md:flex-none px-4 py-2 text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-medium"
                                     >
-                                        <PlayCircle size={18} />
                                         Preview
                                     </button>
                                     <button
                                         onClick={handleUpdateStoryCut}
                                         disabled={!hasUnsavedChanges || isSaving}
-                                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:bg-blue-300 disabled:cursor-not-allowed flex items-center gap-2"
+                                        className="flex-1 md:flex-none px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:bg-blue-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {isSaving ? (
                                             <>

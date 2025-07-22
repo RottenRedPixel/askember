@@ -264,8 +264,9 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
         throw new Error(`No voice available for text response fallback from ${voiceTag}`);
       }
 
-      // Use clean content without attribution
-      const audioBlob = await textToSpeech(audioContent, fallbackVoiceId);
+      // Add speaker attribution for text response
+      const attributedContent = `${voiceTag} said, ${audioContent}`;
+      const audioBlob = await textToSpeech(attributedContent, fallbackVoiceId);
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
       registerAudio(audio);
@@ -276,7 +277,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
         url: audioUrl,
         blob: audioBlob,
         voiceTag,
-        content: audioContent, // Use clean content
+        content: attributedContent, // Use attributed content
         fallbackVoice: fallbackVoiceName
       };
     } else if (userPreference === 'recorded' && hasRecordedAudio) {
@@ -433,7 +434,7 @@ export const debugRecordedAudio = (recordedAudio, blocks) => {
  */
 export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => {
   // ✅ FIXED: Use standard AI field names from JSON blocks
-  const { speaker, content, originalContent, type, message_id, user_id } = segment;
+  const { speaker, content, originalContent, type, message_id, user_id, voice_preference } = segment;
 
   // ✅ ENHANCED: Derive actual voice type for backward compatibility  
   let actualVoiceType = type;
@@ -469,18 +470,19 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
       let userPreference = 'recorded'; // default
       let foundStudioPreference = false;
 
-      // PRIORITY 1: Check if preference is embedded in script segment (from sacred format)
-      if (segment.preference) {
+      // PRIORITY 1: Check if preference is embedded in script segment (from JSON blocks or sacred format)
+      const segmentPreference = voice_preference || segment.preference;
+      if (segmentPreference) {
         // Convert script preference format to audio generation format
-        if (segment.preference === 'synth') {
+        if (segmentPreference === 'synth') {
           userPreference = 'personal';
-        } else if (segment.preference === 'recorded') {
+        } else if (segmentPreference === 'recorded') {
           userPreference = 'recorded';
-        } else if (segment.preference === 'text') {
+        } else if (segmentPreference === 'text') {
           userPreference = 'text';
         }
         foundStudioPreference = true;
-        console.log(`🎯 ✅ Using ${segment.format || 'embedded'} script preference: ${segment.preference} → ${userPreference}`);
+        console.log(`🎯 ✅ Using ${voice_preference ? 'JSON blocks' : segment.format || 'embedded'} script preference: ${segmentPreference} → ${userPreference}`);
       } else {
         console.log(`🎯 ❌ No embedded preference found in segment`);
         console.log(`🎯 ❌ Full segment data:`, {

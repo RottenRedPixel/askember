@@ -741,12 +741,8 @@ export default function EmberPlay() {
 
     const handleExitPlay = () => {
         handleStop();
-        // If user is authenticated, go to management view, otherwise go to home
-        if (user) {
-            navigate(`/embers/${id}/manage`);
-        } else {
-            navigate('/');
-        }
+        // Go back to the previous screen in browser history
+        navigate(-1);
     };
 
     const handlePlaybackComplete = () => {

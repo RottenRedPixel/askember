@@ -1935,7 +1935,8 @@ export default function EmberDetail() {
                   return (
                     <div
                       key={cut.id}
-                      className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors border border-gray-200 relative group"
+                      className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors border border-gray-200 relative group cursor-pointer"
+                      onClick={() => navigate(`/embers/${ember.id}/studio/${cut.id}`)}
                     >
                       {/* Primary Badge - Matches media section "Cover" badge style */}
                       {isPrimary && (
@@ -2015,18 +2016,6 @@ export default function EmberDetail() {
                                   </button>
                                 )}
 
-                                {/* Studio Button - Always show for visual editing */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/embers/${ember.id}/studio/${cut.id}`);
-                                  }}
-                                  className="p-1 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-full transition-colors duration-200"
-                                  title="Open in Studio"
-                                >
-                                  <Sliders size={24} />
-                                </button>
-
                                 {/* Make Primary Button - Always show for owner, blue when primary, grey when not */}
                                 {userPermission === 'owner' && (
                                   <button
@@ -2046,18 +2035,6 @@ export default function EmberDetail() {
                                     <Star size={24} />
                                   </button>
                                 )}
-
-                                {/* Play Button - Always show to play this specific story cut */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/embers/${id}?cut=${cut.id}`);
-                                  }}
-                                  className="p-1 bg-green-100 hover:bg-green-200 text-green-600 rounded-full transition-colors duration-200"
-                                  title="Play This Story Cut"
-                                >
-                                  <PlayCircle size={24} />
-                                </button>
                               </div>
                             </div>
                           </div>
