@@ -7,19 +7,19 @@ import { smartSplitEffects } from './effectUtils';
  * Extracted from EmberDetail.jsx to improve maintainability
  */
 
-// Enhanced Sacred Format regex that handles flexible spacing around pipes
+// Enhanced structured format regex that handles flexible spacing around pipes
 const SACRED_FORMAT_REGEX = /\[([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^\]]+?)\]\s*<([^>]*)>/g;
 
 /**
- * Parse sacred format voice line: [NAME | preference | ID] <content>
+ * Parse structured format voice line: [NAME | preference | ID] <content>
  * @param {string} line - Line to parse
- * @returns {Object|null} Parsed sacred data or null if not sacred format
+ * @returns {Object|null} Parsed structured data or null if not structured format
  */
 const parseSacredVoiceLine = (line) => {
     // Reset regex for each use (global flag requires this)
     SACRED_FORMAT_REGEX.lastIndex = 0;
 
-    // Match sacred format with flexible spacing: [NAME | preference | ID] <content>
+    // Match structured format with flexible spacing: [NAME | preference | ID] <content>
     const sacredMatch = SACRED_FORMAT_REGEX.exec(line);
     if (sacredMatch) {
         const name = sacredMatch[1].trim();
@@ -72,8 +72,8 @@ const parseLegacyVoiceLine = (line) => {
 };
 
 /**
- * Determine voice type from sacred format name
- * @param {string} name - Name from sacred format
+ * Determine voice type from structured format name
+ * @param {string} name - Name from structured format
  * @returns {string} Voice type: 'ember', 'narrator', 'media', or 'contributor'
  */
 const determineSacredVoiceType = (name) => {
@@ -173,10 +173,10 @@ export function parseScriptSegments(script) {
             return;
         }
 
-        // Try to parse as sacred format first
+        // Try to parse as structured format first
         const sacredData = parseSacredVoiceLine(line);
         if (sacredData) {
-            // Special handling for MEDIA blocks in Sacred Format
+            // Special handling for MEDIA blocks in structured format
             if (sacredData.voiceType === 'media') {
                 // Parse media reference from the content
                 const parsedMedia = parseMediaReference(sacredData.content);
@@ -189,7 +189,7 @@ export function parseScriptSegments(script) {
                     line: line,
                     finalContent: sacredData.content,
                     mediaReference: parsedMedia.mediaReference || sacredData.content,
-                    mediaId: sacredData.contributionId, // Use the ID from Sacred Format
+                    mediaId: sacredData.contributionId, // Use the ID from structured format
                     mediaName: sacredData.preference, // Use the friendly name
                     mediaPath: parsedMedia.mediaPath,
                     fallbackName: parsedMedia.fallbackName || sacredData.preference,
@@ -211,7 +211,7 @@ export function parseScriptSegments(script) {
                 return;
             }
 
-            // Create voice segment with sacred format data (for non-MEDIA blocks)
+            // Create voice segment with structured format data (for non-MEDIA blocks)
             const voiceSegment = {
                 line: line,
                 finalContent: sacredData.content,

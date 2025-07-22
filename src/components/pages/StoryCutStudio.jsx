@@ -1639,7 +1639,7 @@ export default function StoryCutStudio() {
                                                         </div>
                                                     </div>
                                                     <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full font-medium shadow-sm">
-                                                        📸 Media Block
+                                                        Media Block
                                                     </span>
                                                 </div>
 

@@ -170,6 +170,9 @@ Always return valid JSON with the exact structure specified in the user prompt.`
 STORY CIRCLE CONVERSATIONS:
 {{story_conversations}}
 
+SELECTED MEDIA FOR STORY:
+{{selected_media}}
+
 STYLE DIRECTIVE:
 {{style_prompt}}
 
@@ -189,10 +192,12 @@ DIRECT QUOTES AVAILABLE:
 {{contributor_quotes}}
 
 CRITICAL - JSON BLOCK STRUCTURE:
-You MUST generate structured JSON blocks for each voice segment. This creates a clean, parsable format that preserves all necessary data without complex text parsing.
+You MUST generate structured JSON blocks for each voice segment AND media element. This creates a clean, parsable format that preserves all necessary data without complex text parsing.
 
 JSON BLOCK SCHEMA:
-Each voice segment is a JSON object with these fields:
+Each block is a JSON object with these fields:
+
+VOICE BLOCKS:
 {
   "type": "voice",
   "speaker": "string",           // Name of speaker ("Sarah", "EMBER VOICE", "NARRATOR")
@@ -202,6 +207,21 @@ Each voice segment is a JSON object with these fields:
   "user_id": "string|null",     // User ID for recorded content, null for AI
   "order": number               // Sequence order in the story
 }
+
+MEDIA BLOCKS:
+{
+  "type": "media",
+  "media_id": "string",         // Unique media identifier
+  "media_name": "string",       // Display name for the media
+  "media_url": "string|null",   // URL to the media file, null if not available
+  "order": number               // Sequence order in the story
+}
+
+CRITICAL MEDIA INSTRUCTIONS:
+- **ALWAYS include the cover photo as the first media block (order: 1)**
+- Use the first item from selected_media as the cover photo
+- Include additional media blocks throughout the story as appropriate
+- Media blocks should be interspersed with voice blocks to create visual flow
 
 SPEAKER TYPES:
 - Contributors: Use actual first names ("Sarah", "Mike", "Amado")
@@ -240,7 +260,16 @@ CONTRIBUTOR QUOTE MATCHING:
 - Never repeat the same quote multiple times
 
 JSON BLOCKS EXAMPLES:
-Example 1 - Ember Voice:
+Example 1 - Cover Photo (ALWAYS FIRST):
+{
+  "type": "media",
+  "media_id": "cover-photo-id",
+  "media_name": "Cover Photo",
+  "media_url": "https://example.com/photo.jpg",
+  "order": 1
+}
+
+Example 2 - Ember Voice:
 {
   "type": "voice",
   "speaker": "EMBER VOICE",
@@ -248,10 +277,10 @@ Example 1 - Ember Voice:
   "voice_preference": "{{ember_voice_name}}",
   "message_id": null,
   "user_id": null,
-  "order": 1
+  "order": 2
 }
 
-Example 2 - Contributor with Recording:
+Example 3 - Contributor with Recording:
 {
   "type": "voice", 
   "speaker": "Sarah",
@@ -259,10 +288,10 @@ Example 2 - Contributor with Recording:
   "voice_preference": "recorded",
   "message_id": "abc123-def456", 
   "user_id": "user456",
-  "order": 2
+  "order": 3
 }
 
-Example 3 - Narrator Voice:
+Example 4 - Narrator Voice:
 {
   "type": "voice",
   "speaker": "NARRATOR", 
@@ -270,7 +299,16 @@ Example 3 - Narrator Voice:
   "voice_preference": "{{narrator_voice_name}}",
   "message_id": null,
   "user_id": null,
-  "order": 3
+  "order": 4
+}
+
+Example 5 - Additional Media:
+{
+  "type": "media",
+  "media_id": "supporting-photo-id",
+  "media_name": "Family Fun",
+  "media_url": "https://example.com/photo2.jpg",
+  "order": 5
 }
 
 VOICE ARRAYS (Legacy Support):
@@ -287,13 +325,20 @@ Return a JSON object with this exact structure:
   "wordCount": {{word_count}},
   "blocks": [
     {
+      "type": "media",
+      "media_id": "cover-photo-id",
+      "media_name": "Cover Photo",
+      "media_url": "photo-url",
+      "order": 1
+    },
+    {
       "type": "voice",
       "speaker": "EMBER VOICE",
       "content": "Opening narrative line",
       "voice_preference": "{{ember_voice_name}}",
       "message_id": null,
       "user_id": null,
-      "order": 1
+      "order": 2
     }
   ],
   "ember_voice_lines": ["Opening narrative line"],

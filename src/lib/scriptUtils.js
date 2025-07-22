@@ -9,7 +9,7 @@ export function generateScript({
     effectTargets,
     contributorAudioPreferences
 }) {
-    // Generate scripts using the new SACRED FORMAT to preserve critical data
+    // Generate scripts using structured format to preserve critical data
     console.log('🔍 DEBUG - generateScript() ENTRY');
     console.log('🔍 DEBUG - Current blocks:', blocks?.length, blocks?.map(b => ({ type: b.type, id: b.id, mediaId: b.mediaId })));
 
@@ -18,7 +18,7 @@ export function generateScript({
 
         switch (block.type) {
             case 'media':
-                // PRESERVE Sacred Format metadata - only update <content>
+                // PRESERVE structured format metadata - only update <content>
                 let mediaId = block.mediaId || 'generated';
                 let mediaName = block.mediaName || 'media';
 
@@ -74,7 +74,7 @@ export function generateScript({
                 return mediaLine;
 
             case 'voice':
-                // Voice blocks use Sacred Format: [NAME | preference | contributionID] <content>
+                // Voice blocks use structured format: [NAME | preference | contributionID] <content>
                 const contributorName = block.contributorName || block.voiceTag || 'Unknown';
 
                 // Get audio preference from the current state
