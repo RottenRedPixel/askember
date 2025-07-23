@@ -17,6 +17,7 @@ import useStore from '@/store';
 import { useUIState } from '@/lib/useUIState';
 import AddBlockModal from '@/components/AddBlockModal';
 import ZoomTargetModal from '@/components/ZoomTargetModal';
+import MediaEffectPreview from '@/components/MediaEffectPreview';
 
 // Conversion functions between slider values (-5 to +5) and actual zoom scales
 const sliderToScale = (sliderValue) => {
@@ -104,6 +105,8 @@ export default function StoryCutStudio() {
     const [editingBlock, setEditingBlock] = useState(null);
     const [editingBlockIndex, setEditingBlockIndex] = useState(null);
     const [editedContent, setEditedContent] = useState('');
+
+
 
     // Save/Cancel functionality
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -193,6 +196,12 @@ export default function StoryCutStudio() {
         mediaTimeoutsRef,
         message, setMessage
     } = uiState;
+
+    // Helper function to check if a block has active effects
+    const hasActiveEffects = (block) => {
+        const blockEffects = selectedEffects[`effect-${block.id}`] || [];
+        return blockEffects.includes('pan') || blockEffects.includes('zoom') || blockEffects.includes('fade');
+    };
 
     // Helper function to get contributor display name (consistent with AddBlockModal)
     const getContributorDisplayName = (contributorData, storyMessage, voiceTag) => {
@@ -2365,51 +2374,59 @@ export default function StoryCutStudio() {
                                                             </button>
                                                         </div>
 
-                                                        {/* Media Thumbnail */}
+                                                        {/* Media Effect Preview Thumbnail */}
                                                         {block.mediaUrl && (
                                                             <div className="flex-shrink-0">
-                                                                <img
-                                                                    src={block.mediaUrl}
-                                                                    alt={block.mediaName || 'Media'}
-                                                                    className="w-20 h-20 object-cover rounded-xl"
-                                                                    onError={(e) => {
-                                                                        e.target.style.display = 'none';
-                                                                    }}
+                                                                <MediaEffectPreview
+                                                                    block={block}
+                                                                    selectedEffects={selectedEffects}
+                                                                    effectStartPositions={effectStartPositions}
+                                                                    effectEndPositions={effectEndPositions}
+                                                                    effectStartScales={effectStartScales}
+                                                                    effectEndScales={effectEndScales}
+                                                                    effectDurations={effectDurations}
+                                                                    effectDirections={effectDirections}
                                                                 />
                                                             </div>
                                                         )}
 
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="flex flex-col">
-                                                                <span
-                                                                    className={`font-bold text-base text-left sm:text-center ${textColor}`}
-                                                                    title={block.mediaName || ''}
-                                                                >
-                                                                    {block.mediaName && block.mediaName.length > 20 ? `${block.mediaName.substring(0, 20)}...` : block.mediaName}
-                                                                </span>
+                                                        {/* Media Title - Hidden when effects are active */}
+                                                        {!hasActiveEffects(block) && (
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex flex-col">
+                                                                    <span
+                                                                        className={`font-bold text-base text-left sm:text-center ${textColor}`}
+                                                                        title={block.mediaName || ''}
+                                                                    >
+                                                                        {block.mediaName && block.mediaName.length > 20 ? `${block.mediaName.substring(0, 20)}...` : block.mediaName}
+                                                                    </span>
+                                                                </div>
+                                                                {block.effect && (
+                                                                    <span className={`text-xs ${bgColor.replace('50', '100')} ${textColor.replace('600', '800')} px-2 py-1 rounded`}>
+                                                                        {block.effect} {block.duration > 0 ? `${block.duration} sec` : ''}
+                                                                    </span>
+                                                                )}
                                                             </div>
-                                                            {block.effect && (
-                                                                <span className={`text-xs ${bgColor.replace('50', '100')} ${textColor.replace('600', '800')} px-2 py-1 rounded`}>
-                                                                    {block.effect} {block.duration > 0 ? `${block.duration} sec` : ''}
-                                                                </span>
-                                                            )}
+                                                        )}
+                                                    </div>
+                                                    {/* Control Buttons - Hidden when effects are active */}
+                                                    {!hasActiveEffects(block) && (
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteBlock(block.id, block.type);
+                                                                }}
+                                                                className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full transition-colors duration-200"
+                                                                title="Delete media block"
+                                                            >
+                                                                <X className="w-3 h-3" />
+                                                            </button>
+                                                            <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full font-medium shadow-sm">
+                                                                Media
+                                                            </span>
                                                         </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDeleteBlock(block.id, block.type);
-                                                            }}
-                                                            className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full transition-colors duration-200"
-                                                            title="Delete media block"
-                                                        >
-                                                            <X className="w-3 h-3" />
-                                                        </button>
-                                                        <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full font-medium shadow-sm">
-                                                            Media
-                                                        </span>
-                                                    </div>
+                                                    )}
                                                 </div>
 
                                                 {/* Visual Effect Radio Buttons */}
@@ -2758,6 +2775,8 @@ export default function StoryCutStudio() {
                                                         )}
                                                     </div>
                                                 )}
+
+
                                             </>
                                         )}
 
