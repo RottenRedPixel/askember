@@ -992,7 +992,20 @@ export const getStoryCutsForEmber = async (emberId) => {
       console.log('🌍 Public RPC data:', result.data);
       console.log('🌍 Public RPC error:', result.error);
 
-      data = result.data;
+      // Transform RPC result to match authenticated query structure
+      if (result.data) {
+        data = result.data.map(cut => ({
+          ...cut,
+          creator: cut.creator_first_name ? {
+            user_id: cut.creator_user_id_profile,
+            first_name: cut.creator_first_name,
+            last_name: cut.creator_last_name,
+            avatar_url: cut.creator_avatar_url
+          } : null
+        }));
+      } else {
+        data = result.data;
+      }
       error = result.error;
     }
 
@@ -2094,7 +2107,17 @@ export const getEmberSupportingMedia = async (emberId) => {
         }
 
         console.log('🌍 Public RPC supporting media response:', data);
-        supportingMedia = data || [];
+
+        // Transform RPC result to match authenticated query structure
+        supportingMedia = (data || []).map(media => ({
+          ...media,
+          uploader: media.uploader_first_name ? {
+            user_id: media.uploader_user_id,
+            first_name: media.uploader_first_name,
+            last_name: media.uploader_last_name,
+            avatar_url: media.uploader_avatar_url
+          } : null
+        }));
       } catch (rpcError) {
         // RPC function doesn't exist yet - gracefully fallback to empty array
         console.warn('🌍 Public supporting media RPC not available (migration needed):', rpcError.message);

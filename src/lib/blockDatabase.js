@@ -91,7 +91,21 @@ export const getStoryCutsWithBlocks = async (emberId) => {
             const result = await supabase.rpc('get_public_story_cuts', {
                 ember_uuid: emberId
             });
-            data = result.data;
+            
+            // Transform RPC result to match authenticated query structure
+            if (result.data) {
+                data = result.data.map(cut => ({
+                    ...cut,
+                    creator: cut.creator_first_name ? {
+                        user_id: cut.creator_user_id_profile,
+                        first_name: cut.creator_first_name,
+                        last_name: cut.creator_last_name,
+                        avatar_url: cut.creator_avatar_url
+                    } : null
+                }));
+            } else {
+                data = result.data;
+            }
             error = result.error;
         }
 

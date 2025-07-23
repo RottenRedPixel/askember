@@ -603,12 +603,12 @@ export default function EmberPlay() {
         );
     };
 
-    // Auto-trigger background processing when ember loads (removed for shared users)
-    // These functions are not needed for public sharing
+    // Background processing disabled for EmberPlay - not needed for playback
+    // These functions are for creation/editing phase, not playback
     /*
     useEffect(() => {
         if (ember && ember.id && user) {
-            // Only trigger for authenticated users
+            // Only trigger for authenticated users in creation/editing contexts
             autoTriggerImageAnalysis(ember, setMessage);
             autoTriggerExifProcessing(ember, setMessage);
             autoTriggerLocationProcessing(ember, setMessage);

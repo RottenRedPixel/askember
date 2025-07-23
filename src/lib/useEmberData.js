@@ -184,72 +184,44 @@ export const useEmber = (id, userProfile = null) => {
                     setUserPermission('none');
                 }
             } else {
-                // For public/unauthenticated users, still try to fetch sharing data for avatars
-                console.log('🌍 Public user - fetching sharing data for avatar display...');
+                // For public/unauthenticated users, use unified avatar display approach
+                console.log('🌍 Public user - using unified avatar display approach...');
+
+                // Set permission as public
+                setUserPermission('public');
+
+                // Use story messages for avatar data (consistent for both auth states)
                 try {
-                    const sharingData = await getEmberWithSharing(id);
-                    console.log('🌍 Public sharing data:', sharingData);
+                    const storyData = await getAllStoryMessagesForEmber(id);
+                    const allMessages = storyData.messages || [];
 
-                    // Set permission as public
-                    setUserPermission('public');
+                    // Filter to user responses and extract unique contributors
+                    const userResponses = allMessages.filter(message =>
+                        message.sender === 'user' || message.message_type === 'response'
+                    );
 
-                    if (sharingData.shares && sharingData.shares.length > 0) {
-                        // Extract shared users with their profile information for avatar display
-                        const invitedUsers = sharingData.shares
-                            .filter(share => share.shared_user && share.shared_user.user_id)
-                            .map(share => ({
-                                id: share.shared_user.id,
-                                user_id: share.shared_user.user_id,
-                                first_name: share.shared_user.first_name,
-                                last_name: share.shared_user.last_name,
-                                avatar_url: share.shared_user.avatar_url,
-                                email: share.shared_with_email,
-                                permission_level: share.permission_level
-                            }));
-                        setSharedUsers(invitedUsers);
-                        console.log('🌍 Public invited users for avatar display:', invitedUsers);
-                    } else {
-                        setSharedUsers([]);
-                    }
-                } catch (sharingError) {
-                    console.warn('🌍 Could not fetch sharing data for public user (avatars will not show):', sharingError);
-                    console.log('🔄 Attempting to extract avatar data from story messages...');
+                    // Build unique user map from story messages
+                    const userMap = new Map();
+                    userResponses.forEach(message => {
+                        if (message.user_id && !userMap.has(message.user_id)) {
+                            userMap.set(message.user_id, {
+                                id: message.user_id,
+                                user_id: message.user_id,
+                                first_name: message.user_first_name || 'Unknown',
+                                last_name: message.user_last_name || '',
+                                avatar_url: message.user_avatar_url || null,
+                                email: message.user_email || '',
+                                permission_level: 'view'
+                            });
+                        }
+                    });
 
-                    // Fallback: Extract avatar data from story messages which ARE accessible to public users
-                    try {
-                        const storyData = await getAllStoryMessagesForEmber(id);
-                        const allMessages = storyData.messages || [];
-
-                        // Filter to user responses and extract unique contributors
-                        const userResponses = allMessages.filter(message =>
-                            message.sender === 'user' || message.message_type === 'response'
-                        );
-
-                        // Build unique user map from story messages
-                        const userMap = new Map();
-                        userResponses.forEach(message => {
-                            if (message.user_id && !userMap.has(message.user_id)) {
-                                userMap.set(message.user_id, {
-                                    id: message.user_id,
-                                    user_id: message.user_id,
-                                    first_name: message.user_first_name || 'Unknown',
-                                    last_name: message.user_last_name || '',
-                                    avatar_url: message.user_avatar_url || null,
-                                    email: message.user_email || '',
-                                    permission_level: 'view'
-                                });
-                            }
-                        });
-
-                        const contributorUsers = Array.from(userMap.values());
-                        setSharedUsers(contributorUsers);
-                        console.log('✅ Public avatar fallback successful - extracted from story messages:', contributorUsers);
-                    } catch (storyError) {
-                        console.warn('⚠️ Could not extract avatar data from story messages:', storyError);
-                        setSharedUsers([]);
-                    }
-
-                    setUserPermission('public');
+                    const contributorUsers = Array.from(userMap.values());
+                    setSharedUsers(contributorUsers);
+                    console.log('🌍 Public avatar display successful - extracted from story messages:', contributorUsers);
+                } catch (storyError) {
+                    console.warn('⚠️ Could not extract avatar data from story messages:', storyError);
+                    setSharedUsers([]);
                 }
             }
         } catch (err) {
