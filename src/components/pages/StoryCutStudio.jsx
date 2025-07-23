@@ -1504,13 +1504,23 @@ export default function StoryCutStudio() {
     // Helper function to check if a block is editable by current user
     const isBlockEditable = (block, blockIndex) => {
         if (!storyCut?.id || !block || block.type !== 'voice') return false;
-        if (!['ember', 'narrator'].includes(block.voiceType)) return false;
 
-        // Adjust for UI offset: UI has "start" block at index 0, so voice blocks are shifted +1
-        // Database returns original JSON block indexes, so we need to subtract 1
-        const jsonBlockIndex = blockIndex - 1;
-        const key = `${storyCut.id}-${jsonBlockIndex}`;
-        return editableBlocksMap.has(key);
+        // Allow ember and narrator voice editing (existing functionality)
+        if (['ember', 'narrator'].includes(block.voiceType)) {
+            // Adjust for UI offset: UI has "start" block at index 0, so voice blocks are shifted +1
+            // Database returns original JSON block indexes, so we need to subtract 1
+            const jsonBlockIndex = blockIndex - 1;
+            const key = `${storyCut.id}-${jsonBlockIndex}`;
+            return editableBlocksMap.has(key);
+        }
+
+        // NEW: Allow editing of ALL contributor voice blocks (collaborative editing)
+        if (block.voiceType === 'contributor') {
+            console.log(`✅ All contributions are editable: ${block.voiceTag}`);
+            return true;
+        }
+
+        return false;
     };
 
     // Handle opening edit modal for voice content
@@ -2557,7 +2567,7 @@ export default function StoryCutStudio() {
                                                                         className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
                                                                     />
                                                                 </div>
-                                                                    </div>
+                                                            </div>
                                                         )}
                                                         {selectedEffects[`effect-${block.id}`].includes('pan') && (
                                                             <div className="flex items-center gap-4">
@@ -2630,7 +2640,7 @@ export default function StoryCutStudio() {
                                                                     />
                                                                 </div>
 
-                                                                    </div>
+                                                            </div>
                                                         )}
                                                         {selectedEffects[`effect-${block.id}`].includes('zoom') && (
                                                             <div className="flex items-center gap-4">
@@ -2849,9 +2859,11 @@ export default function StoryCutStudio() {
                                                                             e.stopPropagation();
                                                                             handleEditVoiceContent(block, index);
                                                                         }}
-                                                                        className={`p-1 rounded-full transition-colors duration-200 ${block.voiceType === 'ember'
-                                                                            ? 'bg-purple-100 hover:bg-purple-200 text-purple-600'
-                                                                            : 'bg-yellow-100 hover:bg-yellow-200 text-yellow-600'
+                                                                        className={`p-1 rounded-full transition-colors duration-200 ${block.voiceType === 'contributor'
+                                                                            ? 'bg-green-100 hover:bg-green-200 text-green-600'
+                                                                            : block.voiceType === 'narrator'
+                                                                                ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-600'
+                                                                                : 'bg-purple-100 hover:bg-purple-200 text-purple-600'
                                                                             }`}
                                                                         title="Edit content"
                                                                     >
@@ -2959,9 +2971,11 @@ export default function StoryCutStudio() {
                                                                         e.stopPropagation();
                                                                         handleEditVoiceContent(block, index);
                                                                     }}
-                                                                    className={`text-xs px-2 py-1 rounded-full transition-colors ${block.voiceType === 'ember'
-                                                                        ? 'bg-purple-100 hover:bg-purple-200 text-purple-700'
-                                                                        : 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700'
+                                                                    className={`text-xs px-2 py-1 rounded-full transition-colors ${block.voiceType === 'contributor'
+                                                                        ? 'bg-green-100 hover:bg-green-200 text-green-700'
+                                                                        : block.voiceType === 'narrator'
+                                                                            ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700'
+                                                                            : 'bg-purple-100 hover:bg-purple-200 text-purple-700'
                                                                         }`}
                                                                     title="Edit content"
                                                                 >
@@ -3221,15 +3235,22 @@ export default function StoryCutStudio() {
                     <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-200">
                             <h2 className="text-xl font-semibold text-gray-900">
-                                Edit {editingBlock?.voiceType === 'ember' ? 'Ember AI' : 'Narrator'} Content
+                                Edit {editingBlock?.voiceType === 'ember' ? 'Ember AI' :
+                                    editingBlock?.voiceType === 'narrator' ? 'Narrator' :
+                                        'Contribution'} Content
                             </h2>
                             <p className="text-sm text-gray-500 mt-1">
                                 Speaker: {formatVoiceTag(editingBlock)}
                             </p>
+                            {editingBlock?.voiceType === 'contributor' && (
+                                <p className="text-xs text-amber-600 mt-1 font-medium">
+                                    ⚠️ Note: This will only change the text content, not the original audio recording
+                                </p>
+                            )}
                         </div>
 
                         <div className="px-6 py-4">
-                            {/* Voice Selection for AI voices */}
+                            {/* Voice Selection for AI voices only (not contributors) */}
                             {(editingBlock?.voiceType === 'ember' || editingBlock?.voiceType === 'narrator') && (
                                 <div className="mb-4">
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -3260,16 +3281,36 @@ export default function StoryCutStudio() {
                                 </div>
                             )}
 
+                            {/* Contributor Voice Info (read-only) */}
+                            {editingBlock?.voiceType === 'contributor' && (
+                                <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                                            <span className="text-green-600 text-sm">👤</span>
+                                        </div>
+                                        <span className="font-medium text-green-700">Contributor Voice</span>
+                                    </div>
+                                    <p className="text-sm text-green-600">
+                                        Voice: {editingBlock?.messageType === 'Audio Message' ? 'Original Recording' : 'AI Voice Clone'}
+                                    </p>
+                                    <p className="text-xs text-green-500 mt-1">
+                                        Voice settings cannot be changed for contributions - only text content can be edited for story refinement
+                                    </p>
+                                </div>
+                            )}
+
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Voice Content
                             </label>
                             <textarea
                                 value={editedContent}
                                 onChange={(e) => setEditedContent(e.target.value)}
-                                placeholder="Enter voice content..."
+                                placeholder={editingBlock?.voiceType === 'contributor'
+                                    ? "Refine the text content for this contribution..."
+                                    : "Enter voice content..."}
                                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                                 rows={6}
-                                autoFocus={editingBlock?.voiceType === 'contributor'}
+                                autoFocus={editingBlock?.voiceType !== 'contributor'}
                             />
                             <p className="text-xs text-gray-500 mt-2">
                                 Original: "{editingBlock?.content}"
@@ -3288,7 +3329,7 @@ export default function StoryCutStudio() {
                                 disabled={!editedContent.trim()}
                                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:bg-blue-300"
                             >
-                                Save Changes
+                                {editingBlock?.voiceType === 'contributor' ? 'Refine Text' : 'Save Changes'}
                             </button>
                         </div>
                     </div>

@@ -124,8 +124,8 @@ const ModalContent = ({
                                 key={type.id}
                                 onClick={() => setSelectedBlockType(type.id)}
                                 className={`p-3 rounded-lg border transition-all text-left ${isSelected
-                                        ? `border-${type.color}-500 bg-${type.color}-50`
-                                        : 'border-gray-200 hover:border-gray-300'
+                                    ? `border-${type.color}-500 bg-${type.color}-50`
+                                    : 'border-gray-200 hover:border-gray-300'
                                     }`}
                             >
                                 <div className="flex items-center gap-2 mb-1">
@@ -305,13 +305,15 @@ const ModalContent = ({
 
             {selectedBlockType === 'contributions' && (
                 <>
+
+
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <MessageCircle size={16} className="text-green-600" />
                             <span className="text-sm font-medium text-gray-900">Select Contributions to Add</span>
                         </div>
                         <Badge variant="outline" className="text-xs">
-                            {storyMessages?.filter(msg => msg.sender === 'user').length || 0} available
+                            {storyMessages?.filter(msg => msg.sender === 'user' || msg.message_type === 'answer').length || 0} available
                         </Badge>
                     </div>
 
@@ -323,14 +325,14 @@ const ModalContent = ({
                         <div className="flex items-center justify-center py-4">
                             <div className="text-sm text-gray-500">Loading contributions...</div>
                         </div>
-                    ) : !storyMessages || storyMessages.filter(msg => msg.sender === 'user').length === 0 ? (
+                    ) : !storyMessages || storyMessages.filter(msg => msg.sender === 'user' || msg.message_type === 'answer').length === 0 ? (
                         <div className="flex items-center justify-center py-4">
                             <div className="text-sm text-gray-500">No contributions available</div>
                         </div>
                     ) : (
                         <div className="space-y-2">
                             {storyMessages
-                                .filter(msg => msg.sender === 'user')
+                                .filter(msg => msg.sender === 'user' || msg.message_type === 'answer')
                                 .map((message) => (
                                     <div
                                         key={message.id}
@@ -349,7 +351,7 @@ const ModalContent = ({
                                     >
                                         <div className="flex items-start gap-3">
                                             <Avatar className="w-8 h-8 flex-shrink-0">
-                                                <AvatarImage src={message.userAvatarUrl} />
+                                                <AvatarImage src={message.user_avatar_url || message.avatar_url} />
                                                 <AvatarFallback className="bg-green-200 text-green-800 text-xs">
                                                     {getUserInitials(message.user_email, message.user_first_name, message.user_last_name)}
                                                 </AvatarFallback>
@@ -359,15 +361,21 @@ const ModalContent = ({
                                                     <span className="font-medium text-sm text-green-900">
                                                         {getContributorDisplayName(message.user_first_name, message.user_last_name, message.user_email)}
                                                     </span>
-                                                    {message.hasVoiceRecording && (
+                                                    {(message.hasVoiceRecording || message.has_audio) ? (
                                                         <Badge variant="secondary" className="text-xs bg-green-200 text-green-800">
                                                             Audio
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="secondary" className="text-xs bg-blue-200 text-blue-800">
+                                                            Text
                                                         </Badge>
                                                     )}
                                                 </div>
                                                 <p className="text-sm text-green-800">{message.content}</p>
                                                 <div className="flex items-center gap-2 mt-2">
-                                                    <span className="text-xs text-green-600">{message.timestamp}</span>
+                                                    <span className="text-xs text-green-600">
+                                                        {message.timestamp || (message.created_at && new Date(message.created_at).toLocaleDateString())}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
