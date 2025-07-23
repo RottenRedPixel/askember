@@ -1883,15 +1883,23 @@ export default function StoryCutStudio() {
         setSelectedZoomBlock(null);
     };
 
-    // Handle adding a new media block
+    // Handle adding a new block (media, AI content, or contributions)
     const handleAddMediaBlock = async (selection) => {
         if (!selection || !user || !storyCut) return;
 
-        // Handle both old format (direct media) and new format (object with media/contributions)
+        // Handle different block types from new AddBlockModal format
+        const blockType = selection.blockType || 'legacy';
         const selectedMedia = selection.media || (selection.name ? selection : null);
         const selectedContributions = selection.contributions || [];
+        const emberContent = selection.emberContent || null;
+        const narratorContent = selection.narratorContent || null;
 
-        if (!selectedMedia && selectedContributions.length === 0) return;
+        // Validate that we have content for the selected block type
+        if (blockType === 'media' && !selectedMedia) return;
+        if (blockType === 'ember' && !emberContent) return;
+        if (blockType === 'narrator' && !narratorContent) return;
+        if (blockType === 'contributions' && selectedContributions.length === 0) return;
+        if (blockType === 'legacy' && !selectedMedia && selectedContributions.length === 0) return;
 
         try {
             const newBlocks = [...blocks];
@@ -1945,6 +1953,46 @@ export default function StoryCutStudio() {
                 }
 
                 blocksToAdd.push(mediaBlock);
+            }
+
+            // Add Ember AI voice block
+            if (blockType === 'ember' && emberContent) {
+                console.log('➕ Adding new Ember AI block:', emberContent.substring(0, 50));
+
+                const emberBlock = {
+                    id: currentBlockId++,
+                    type: 'voice',
+                    voiceTag: 'EMBER VOICE',
+                    content: emberContent,
+                    voiceType: 'ember',
+                    avatarUrl: '/EMBERFAV.svg', // Default ember avatar
+                    messageType: 'Ember AI',
+                    preference: currentEmberVoiceId || 'text',
+                    messageId: null, // AI-generated content has no original message
+                    hasVoiceModel: true // AI voices are always available
+                };
+
+                blocksToAdd.push(emberBlock);
+            }
+
+            // Add Narrator voice block
+            if (blockType === 'narrator' && narratorContent) {
+                console.log('➕ Adding new Narrator block:', narratorContent.substring(0, 50));
+
+                const narratorBlock = {
+                    id: currentBlockId++,
+                    type: 'voice',
+                    voiceTag: 'NARRATOR',
+                    content: narratorContent,
+                    voiceType: 'narrator',
+                    avatarUrl: '/EMBERFAV.svg', // Default narrator avatar
+                    messageType: 'Narrator',
+                    preference: currentNarratorVoiceId || 'text',
+                    messageId: null, // AI-generated content has no original message
+                    hasVoiceModel: true // AI voices are always available
+                };
+
+                blocksToAdd.push(narratorBlock);
             }
 
             // Add voice blocks from contributions
@@ -2509,7 +2557,7 @@ export default function StoryCutStudio() {
                                                                         className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
                                                                     />
                                                                 </div>
-                                                            </div>
+                                                                    </div>
                                                         )}
                                                         {selectedEffects[`effect-${block.id}`].includes('pan') && (
                                                             <div className="flex items-center gap-4">
@@ -2582,7 +2630,7 @@ export default function StoryCutStudio() {
                                                                     />
                                                                 </div>
 
-                                                            </div>
+                                                                    </div>
                                                         )}
                                                         {selectedEffects[`effect-${block.id}`].includes('zoom') && (
                                                             <div className="flex items-center gap-4">
@@ -3154,6 +3202,8 @@ export default function StoryCutStudio() {
                 emberId={id}
                 onAddBlock={handleAddMediaBlock}
                 storyMessages={storyMessages}
+                currentEmberVoiceId={currentEmberVoiceId}
+                currentNarratorVoiceId={currentNarratorVoiceId}
             />
 
             {/* Zoom Target Modal */}
