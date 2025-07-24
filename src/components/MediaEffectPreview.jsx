@@ -199,8 +199,8 @@ const MediaEffectPreview = ({
     const endStyles = transforms.end;
 
     // Container for dual thumbnails
-    const dualContainerClasses = `flex gap-1 ${getBorderColor()} border-2 shadow-md rounded-xl p-1 transition-all duration-300`;
-    const thumbnailClasses = 'w-32 h-32 rounded-lg relative overflow-hidden bg-gray-100';
+    const dualContainerClasses = `flex gap-1 shadow-md rounded-xl p-1 transition-all duration-300`;
+    const thumbnailClasses = `w-32 h-32 rounded-lg relative overflow-hidden bg-gray-100 border-2 ${getBorderColor()}`;
 
     return (
         <div className={dualContainerClasses}>
