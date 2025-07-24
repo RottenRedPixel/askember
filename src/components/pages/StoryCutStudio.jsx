@@ -1629,6 +1629,39 @@ export default function StoryCutStudio() {
         }
     };
 
+    // Helper function to calculate block duration in seconds
+    const calculateBlockDuration = (block) => {
+        if (!block) return 0;
+
+        if (block.type === 'voice') {
+            // Voice blocks: estimate based on text length (0.08 seconds per character)
+            const cleanContent = block.content?.replace(/<[^>]+>/g, '').trim() || '';
+            return Math.max(1, cleanContent.length * 0.08);
+        } else if (block.type === 'media') {
+            // Media blocks: fixed 2 seconds
+            return 2.0;
+        } else if (block.type === 'loadscreen') {
+            // Load screen blocks: use duration or default
+            return parseFloat(block.loadDuration || 2.0);
+        } else if (block.type === 'hold') {
+            // Hold blocks: use duration or default
+            return parseFloat(block.duration || 3.0);
+        }
+
+        return 0;
+    };
+
+    // Helper function to format duration for display (e.g., "2.4s", "12s")
+    const formatBlockDuration = (block) => {
+        const duration = calculateBlockDuration(block);
+        if (duration === 0) return '';
+        
+        // Show 1 decimal place if less than 10 seconds and has decimal, otherwise round
+        return duration < 10 && duration % 1 !== 0 
+            ? `${duration.toFixed(1)}s` 
+            : `${Math.round(duration)}s`;
+    };
+
     // Handle voice change for AI voices (ember/narrator)
     const handleVoiceChange = async (voiceType, newVoiceId) => {
         if (!storyCut?.id || !user?.id) {
@@ -2422,9 +2455,14 @@ export default function StoryCutStudio() {
                                                             >
                                                                 <X className="w-3 h-3" />
                                                             </button>
-                                                            <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full font-medium shadow-sm">
-                                                                Media
-                                                            </span>
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full font-medium shadow-sm">
+                                                                    Media
+                                                                </span>
+                                                                <span className="text-xs text-gray-500 font-medium">
+                                                                    {formatBlockDuration(block)}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -2854,21 +2892,28 @@ export default function StoryCutStudio() {
                                                                             </>
                                                                         )}
                                                                     </Avatar>
-                                                                    <span className={`font-bold text-base text-left ${textColor}`}>
-                                                                        {(() => {
-                                                                            // Use formatVoiceTagJSX for ember/narrator, getContributorDisplayName for contributors
-                                                                            if (block.voiceType === 'ember' || block.voiceType === 'narrator') {
-                                                                                return formatVoiceTagJSX(block);
-                                                                            } else {
-                                                                                // Find corresponding story message for full name (contributors)
-                                                                                const storyMessage = storyMessages.find(msg =>
-                                                                                    msg.user_id === block.messageId ||
-                                                                                    msg.user_first_name?.toLowerCase() === block.voiceTag?.toLowerCase()
-                                                                                );
-                                                                                return getContributorDisplayName(block.contributorData, storyMessage, block.voiceTag);
-                                                                            }
-                                                                        })()}
-                                                                    </span>
+                                                                    <div className="flex flex-col">
+                                                                        <span className={`font-bold text-base text-left ${textColor}`}>
+                                                                            {(() => {
+                                                                                // Use formatVoiceTagJSX for ember/narrator, getContributorDisplayName for contributors
+                                                                                if (block.voiceType === 'ember' || block.voiceType === 'narrator') {
+                                                                                    return formatVoiceTagJSX(block);
+                                                                                } else {
+                                                                                    // Find corresponding story message for full name (contributors)
+                                                                                    const storyMessage = storyMessages.find(msg =>
+                                                                                        msg.user_id === block.messageId ||
+                                                                                        msg.user_first_name?.toLowerCase() === block.voiceTag?.toLowerCase()
+                                                                                    );
+                                                                                    return getContributorDisplayName(block.contributorData, storyMessage, block.voiceTag);
+                                                                                }
+                                                                            })()}
+                                                                        </span>
+                                                                        {!block.messageType && (
+                                                                            <span className="text-xs text-gray-500 font-medium text-left">
+                                                                                {formatBlockDuration(block)}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-2">
@@ -2905,14 +2950,19 @@ export default function StoryCutStudio() {
                                                                     <X className="w-3 h-3" />
                                                                 </button>
                                                                 {block.messageType && (
-                                                                    <span className={`text-xs px-2 py-1 rounded-full ${block.voiceType === 'contributor'
-                                                                        ? 'bg-green-100 text-green-800'
-                                                                        : block.voiceType === 'narrator'
-                                                                            ? 'bg-yellow-100 text-yellow-800'
-                                                                            : 'bg-purple-100 text-purple-800'
-                                                                        }`}>
-                                                                        {block.messageType}
-                                                                    </span>
+                                                                    <div className="flex flex-col items-center gap-1">
+                                                                        <span className={`text-xs px-2 py-1 rounded-full ${block.voiceType === 'contributor'
+                                                                            ? 'bg-green-100 text-green-800'
+                                                                            : block.voiceType === 'narrator'
+                                                                                ? 'bg-yellow-100 text-yellow-800'
+                                                                                : 'bg-purple-100 text-purple-800'
+                                                                            }`}>
+                                                                            {block.messageType}
+                                                                        </span>
+                                                                        <span className="text-xs text-gray-500 font-medium">
+                                                                            {formatBlockDuration(block)}
+                                                                        </span>
+                                                                    </div>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -2969,21 +3019,26 @@ export default function StoryCutStudio() {
                                                                     {getShortVoiceTag(block)}
                                                                 </AvatarFallback>
                                                             </Avatar>
-                                                            <span className={`font-bold text-base text-left ${textColor}`}>
-                                                                {(() => {
-                                                                    // Use formatVoiceTagJSX for ember/narrator, getContributorDisplayName for contributors
-                                                                    if (block.voiceType === 'ember' || block.voiceType === 'narrator') {
-                                                                        return formatVoiceTagJSX(block);
-                                                                    } else {
-                                                                        // Find corresponding story message for full name (contributors)
-                                                                        const storyMessage = storyMessages.find(msg =>
-                                                                            msg.user_id === block.messageId ||
-                                                                            msg.user_first_name?.toLowerCase() === block.voiceTag?.toLowerCase()
-                                                                        );
-                                                                        return getContributorDisplayName(block.contributorData, storyMessage, block.voiceTag);
-                                                                    }
-                                                                })()}
-                                                            </span>
+                                                            <div className="flex flex-col">
+                                                                <span className={`font-bold text-base text-left ${textColor}`}>
+                                                                    {(() => {
+                                                                        // Use formatVoiceTagJSX for ember/narrator, getContributorDisplayName for contributors
+                                                                        if (block.voiceType === 'ember' || block.voiceType === 'narrator') {
+                                                                            return formatVoiceTagJSX(block);
+                                                                        } else {
+                                                                            // Find corresponding story message for full name (contributors)
+                                                                            const storyMessage = storyMessages.find(msg =>
+                                                                                msg.user_id === block.messageId ||
+                                                                                msg.user_first_name?.toLowerCase() === block.voiceTag?.toLowerCase()
+                                                                            );
+                                                                            return getContributorDisplayName(block.contributorData, storyMessage, block.voiceTag);
+                                                                        }
+                                                                    })()}
+                                                                </span>
+                                                                <span className="text-xs text-gray-500 font-medium text-left">
+                                                                    {formatBlockDuration(block)}
+                                                                </span>
+                                                            </div>
                                                             {isBlockEditable(block, index) && (
                                                                 <button
                                                                     onClick={(e) => {
