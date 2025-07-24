@@ -1087,7 +1087,7 @@ export default function EmberPlay() {
                             </div>
 
                             {/* Progress Bar - Between photo and text sections */}
-                            {isPlaying && totalDuration > 0 && (
+                            {totalDuration > 0 && (
                                 <div className="mt-2.5">
                                     <ProgressBar />
                                 </div>
@@ -1326,7 +1326,7 @@ export default function EmberPlay() {
                                 <div className="absolute inset-0 bg-black"></div>
 
                                 {/* Progress Bar - Near bottom of area */}
-                                {(isPlaying || showEndHold) && totalDuration > 0 && (
+                                {totalDuration > 0 && (
                                     <div className="absolute bottom-20 left-0 right-0">
                                         <ProgressBar />
                                     </div>
