@@ -79,6 +79,9 @@ export const useAudioState = () => {
     const [currentLoadingMessage, setCurrentLoadingMessage] = useState('');
     const [currentLoadingIcon, setCurrentLoadingIcon] = useState('default');
 
+    // Loading sub-steps state
+    const [loadingSubSteps, setLoadingSubSteps] = useState([]);
+
     // Visual effects state
     const [currentFadeEffect, setCurrentFadeEffect] = useState(null);
     const [currentPanEffect, setCurrentPanEffect] = useState(null);
@@ -143,6 +146,7 @@ export const useAudioState = () => {
         currentLoadingState, setCurrentLoadingState,
         currentLoadingMessage, setCurrentLoadingMessage,
         currentLoadingIcon, setCurrentLoadingIcon,
+        loadingSubSteps, setLoadingSubSteps,
 
         // Visual effects state
         currentFadeEffect, setCurrentFadeEffect,

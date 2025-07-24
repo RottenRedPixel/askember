@@ -243,6 +243,7 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
         setCurrentLoadingState,
         setCurrentLoadingMessage,
         setCurrentLoadingIcon,
+        setLoadingSubSteps,
         // Sentence-by-sentence display state setters
         setCurrentDisplayText,
         setCurrentVoiceTag,
@@ -278,6 +279,30 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
         setCurrentLoadingMessage('Preparing Story...');
         setCurrentLoadingState(true);
 
+        // Initialize loading sub-steps - start with just the first step
+        setLoadingSubSteps([
+            { text: 'Loading Story Cut', status: 'current' }
+        ]);
+
+        // Progressive step display during audio generation (no artificial delay)
+        setTimeout(() => {
+            setLoadingSubSteps([
+                { text: 'Preparing Voices', status: 'current' }
+            ]);
+        }, 2000);
+
+        setTimeout(() => {
+            setLoadingSubSteps([
+                { text: 'Processing Story Blocks', status: 'current' }
+            ]);
+        }, 4000);
+
+        setTimeout(() => {
+            setLoadingSubSteps([
+                { text: 'Generating Audio Segments', status: 'current' }
+            ]);
+        }, 6000);
+
         console.log('🎬 Visual effects will be driven by audio segments');
 
         // Check if we have story cuts available
@@ -300,6 +325,8 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
                 setCurrentLoadingMessage(`Loading "${selectedStoryCut.title}"...`);
             }
 
+            // Sub-steps are now handled by timer, no manual updates needed here
+
             setCurrentlyPlayingStoryCut(selectedStoryCut);
 
             console.log('📖 Story cut blocks:', selectedStoryCut.blocks?.length || 0, 'blocks');
@@ -315,6 +342,8 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
             } else {
                 setCurrentLoadingMessage('Preparing story voice...');
             }
+
+            // Sub-steps are now handled by timer, no manual updates needed here
 
             // Always use multi-voice playback system (recorded audio is optional)
             console.log('🎵 Using multi-voice playback system');
@@ -349,6 +378,8 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
 
             setCurrentLoadingMessage('Processing story blocks...');
 
+            // Sub-steps are now handled by timer, no manual updates needed here
+
             if (blocks.length > 0) {
                 setCurrentLoadingMessage('Generating audio segments...');
 
@@ -369,6 +400,7 @@ export const handlePlay = async (ember, storyCuts, primaryStoryCut, selectedEmbe
                     setCurrentLoadingState,
                     setCurrentLoadingMessage,
                     setCurrentLoadingIcon,
+                    setLoadingSubSteps,
                     // 🎯 Add visual effects state setters
                     setCurrentFadeEffect,
                     setCurrentPanEffect,
@@ -485,6 +517,7 @@ export const handlePlaybackComplete = (setters) => {
         setCurrentLoadingState,
         setCurrentLoadingMessage,
         setCurrentLoadingIcon,
+        setLoadingSubSteps,
         setCurrentDisplayText,
         setCurrentVoiceTag,
         setCurrentSentenceIndex,
@@ -511,6 +544,7 @@ export const handlePlaybackComplete = (setters) => {
     setCurrentLoadingState(false);
     setCurrentLoadingMessage('');
     setCurrentLoadingIcon('default');
+    setLoadingSubSteps([]);
 
     // Clear sentence-by-sentence display state
     setCurrentDisplayText('');
@@ -548,6 +582,7 @@ export const handleExitPlay = (setters) => {
         setCurrentLoadingState,
         setCurrentLoadingMessage,
         setCurrentLoadingIcon,
+        setLoadingSubSteps,
         setCurrentDisplayText,
         setCurrentVoiceTag,
         setCurrentSentenceIndex,
@@ -601,6 +636,7 @@ export const handleExitPlay = (setters) => {
     setCurrentLoadingState(false);
     setCurrentLoadingMessage('');
     setCurrentLoadingIcon('default');
+    setLoadingSubSteps([]);
 
     // Clear sentence-by-sentence display state
     setCurrentDisplayText('');

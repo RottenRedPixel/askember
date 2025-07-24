@@ -178,6 +178,8 @@ export default function EmberPlay() {
         setCurrentLoadingMessage,
         currentLoadingIcon,
         setCurrentLoadingIcon,
+        loadingSubSteps,
+        setLoadingSubSteps,
         currentSentenceIndex,
         setCurrentSentenceIndex,
         currentSegmentSentences,
@@ -639,6 +641,7 @@ export default function EmberPlay() {
                 setCurrentLoadingState,
                 setCurrentLoadingMessage,
                 setCurrentLoadingIcon,
+                setLoadingSubSteps,
                 setCurrentFadeEffect,
                 setCurrentPanEffect,
                 setCurrentZoomEffect,
@@ -777,6 +780,7 @@ export default function EmberPlay() {
             setCurrentLoadingState,
             setCurrentLoadingMessage,
             setCurrentLoadingIcon,
+            setLoadingSubSteps,
             setCurrentDisplayText,
             setCurrentVoiceTag,
             setCurrentSentenceIndex,
@@ -814,6 +818,7 @@ export default function EmberPlay() {
             setCurrentLoadingState,
             setCurrentLoadingMessage,
             setCurrentLoadingIcon,
+            setLoadingSubSteps,
             setCurrentFadeEffect,
             setCurrentPanEffect,
             setCurrentZoomEffect,
@@ -922,7 +927,7 @@ export default function EmberPlay() {
             {/* Inject CSS keyframes */}
             <style dangerouslySetInnerHTML={{ __html: fadeInKeyframes }} />
 
-            {/* Mobile Layout */}
+                                        {/* Mobile Layout */}
             <div className="md:hidden h-screen overflow-hidden">
                 <Card className="py-0 w-full h-full bg-black rounded-none border-0">
                     <CardContent className="p-0 h-full">
@@ -985,13 +990,29 @@ export default function EmberPlay() {
                                         <div className="flex flex-col items-center space-y-4">
                                             {/* Loading Spinner */}
                                             <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                                            {/* Loading Message */}
+                                            {/* Main Loading Message */}
                                             <p className="text-white text-lg font-medium text-center">
                                                 {isGeneratingAudio ?
                                                     "Preparing Story..." :
                                                     currentLoadingMessage
                                                 }
                                             </p>
+                                            {/* Sub-steps Display */}
+                                            {isGeneratingAudio && loadingSubSteps.length > 0 && (
+                                                <div className="flex flex-col items-center mt-2">
+                                                    <p
+                                                        key={loadingSubSteps[0]?.text}
+                                                        className="text-sm text-center text-gray-400 transition-all duration-500"
+                                                        style={{
+                                                            animation: 'textFadeIn 0.5s ease-out forwards',
+                                                            opacity: 0,
+                                                            animationFillMode: 'forwards'
+                                                        }}
+                                                    >
+                                                        {loadingSubSteps[0]?.text}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -1158,7 +1179,7 @@ export default function EmberPlay() {
                 </Card>
             </div>
 
-            {/* Desktop Layout */}
+                                        {/* Desktop Layout */}
             <div className="hidden md:block h-screen overflow-hidden">
                 <Card className="py-0 w-full h-full bg-black rounded-none border-0">
                     <CardContent className="p-0 h-full">
@@ -1219,13 +1240,29 @@ export default function EmberPlay() {
                                         <div className="flex flex-col items-center space-y-4">
                                             {/* Loading Spinner */}
                                             <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                                            {/* Loading Message */}
+                                            {/* Main Loading Message */}
                                             <p className="text-white text-lg font-medium text-center">
                                                 {isGeneratingAudio ?
                                                     "Preparing Story..." :
                                                     currentLoadingMessage
                                                 }
                                             </p>
+                                            {/* Sub-steps Display */}
+                                            {isGeneratingAudio && loadingSubSteps.length > 0 && (
+                                                <div className="flex flex-col items-center mt-2">
+                                                    <p
+                                                        key={loadingSubSteps[0]?.text}
+                                                        className="text-sm text-center text-gray-400 transition-all duration-500"
+                                                        style={{
+                                                            animation: 'textFadeIn 0.5s ease-out forwards',
+                                                            opacity: 0,
+                                                            animationFillMode: 'forwards'
+                                                        }}
+                                                    >
+                                                        {loadingSubSteps[0]?.text}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}

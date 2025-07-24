@@ -710,6 +710,7 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
     setCurrentLoadingState,
     setCurrentLoadingMessage,
     setCurrentLoadingIcon,
+    setLoadingSubSteps,
     // 🎯 Visual effects state setters
     setCurrentFadeEffect,
     setCurrentPanEffect,
@@ -889,12 +890,21 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
     setIsGeneratingAudio(false);
     setIsPlaying(true);
 
+    // Mark final sub-step as completed now that timeline is starting
+    if (setLoadingSubSteps) {
+      setLoadingSubSteps([
+        { text: 'Audio Ready', status: 'current' }
+      ]);
+    }
+
     // Use imperative playback approach with nested callbacks
     // This ensures proper sequential timing and visual effect coordination
     // No background media processing - MEDIA elements are now in timeline
 
     let currentTimelineIndex = 0;
     let currentBlockIndex = -1; // Track which block we're currently processing (start at -1 so first block triggers update)
+    let pendingEffects = null; // Store visual effects to apply when next audio starts
+    let pendingMediaUrl = null; // Store media URL to apply when next audio starts
 
     const playNextTimelineStep = () => {
       if (playbackStoppedRef.current || currentTimelineIndex >= timeline.length) {
@@ -985,60 +995,49 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
         mediaTimeoutsRef.current.push(timeoutId);
 
       } else if (currentStep.type === 'media') {
-        // Media step - switch background image and continue immediately
+        // Media step - store effects and media URL to apply when next audio starts
         const block = currentStep.block;
 
-        console.log(`📺 Switching to media: ${(block.content || block.media_name || 'Media').substring(0, 50)}...`);
+        console.log(`📺 Preparing media effects (sync with next audio): ${(block.content || block.media_name || 'Media').substring(0, 50)}...`);
 
         // Resolve the media reference to get the actual image URL
         resolveMediaReference(block, ember.id).then(resolvedMediaUrl => {
-          console.log(`🔍 Resolved media URL for "${block.media_url || block.media_name || block.media_id}":`, resolvedMediaUrl);
+          console.log(`🔍 Resolved media URL for sync: "${block.media_url || block.media_name || block.media_id}":`, resolvedMediaUrl);
 
           if (resolvedMediaUrl) {
-            // Use effects directly from block object (no string parsing needed)
+            // Store effects and media URL for synchronized application
             const effects = block.effects || {};
-            console.log(`🎬 Using effects from block object:`, effects);
+            pendingEffects = {
+              fade: effects.fade || null,
+              pan: effects.pan || null,
+              zoom: effects.zoom || null
+            };
+            pendingMediaUrl = resolvedMediaUrl;
 
-            // Set effects state directly - no parsing required
-            setCurrentFadeEffect(effects.fade || null);
-            setCurrentPanEffect(effects.pan || null);
-            setCurrentZoomEffect(effects.zoom || null);
-
-            // Force React state change by clearing first, then setting - ensures re-render even with same URL
-            setCurrentMediaImageUrl(null);
-            setTimeout(() => {
-              setCurrentMediaImageUrl(resolvedMediaUrl);
-            }, 10); // Brief delay to ensure React processes the null first
-
-            // Log effects for debugging
-            if (effects.fade) {
-              console.log(`🎬 Fade effect: ${effects.fade.type} - ${effects.fade.duration}s`);
-            }
-            if (effects.pan) {
-              console.log(`🎬 Pan effect: ${effects.pan.type} - ${effects.pan.duration}s - ${effects.pan.distance}%`);
-            }
-            if (effects.zoom) {
-              console.log(`🎬 Zoom effect: ${effects.zoom.startScale}x → ${effects.zoom.endScale}x over ${effects.zoom.duration}s`);
-            }
-
-            // Clear any color overlays when switching to image
-            setCurrentMediaColor(null);
+            console.log(`🎬 Stored pending effects for sync:`, pendingEffects);
+            console.log(`📺 Stored pending media URL for sync:`, pendingMediaUrl);
           } else {
-            console.warn(`⚠️ Could not resolve media reference: ${block.media_url || block.media_name || block.media_id}`);
+            console.warn(`⚠️ Could not resolve media reference for sync: ${block.media_url || block.media_name || block.media_id}`);
+            // Clear pending effects if media resolution fails
+            pendingEffects = null;
+            pendingMediaUrl = null;
           }
 
-          // Continue immediately to next timeline step (media changes are instant)
+          // Continue immediately to next timeline step (media preparation is instant)
           currentTimelineIndex++;
           playNextTimelineStep();
         }).catch(error => {
-          console.error('❌ Error resolving media reference:', error);
+          console.error('❌ Error resolving media reference for sync:', error);
+          // Clear pending effects on error
+          pendingEffects = null;
+          pendingMediaUrl = null;
           // Continue anyway
           currentTimelineIndex++;
           playNextTimelineStep();
         });
 
       } else if (currentStep.type === 'voice') {
-        // Voice step - play audio
+        // Voice step - apply pending visual effects when audio starts, then play audio
         if (!currentStep.audio || !currentStep.audio.audio) {
           console.error(`❌ No audio available for voice block [${currentStep.voiceTag || currentStep.block?.voiceTag || currentStep.block?.speaker || 'Unknown Voice'}] - skipping`);
           currentTimelineIndex++;
@@ -1049,7 +1048,40 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
         const audio = currentStep.audio.audio;
         const block = currentStep.block;
 
-        console.log(`▶️ Playing voice block: [${block.voiceTag}]`);
+        console.log(`▶️ Playing voice block with synchronized effects: [${block.voiceTag}]`);
+
+        // 🎯 SYNCHRONIZED: Apply pending visual effects when audio starts
+        if (pendingEffects || pendingMediaUrl) {
+          console.log(`🎬 Applying synchronized visual effects and media`);
+
+          if (pendingEffects) {
+            // Apply visual effects synchronized with audio start
+            setCurrentFadeEffect(pendingEffects.fade);
+            setCurrentPanEffect(pendingEffects.pan);
+            setCurrentZoomEffect(pendingEffects.zoom);
+
+            // Log effects for debugging
+            if (pendingEffects.fade) {
+              console.log(`🎬 Synchronized fade effect: ${pendingEffects.fade.type} - ${pendingEffects.fade.duration}s`);
+            }
+            if (pendingEffects.pan) {
+              console.log(`🎬 Synchronized pan effect: ${pendingEffects.pan.startPosition}% → ${pendingEffects.pan.endPosition}% over ${pendingEffects.pan.duration}s`);
+            }
+            if (pendingEffects.zoom) {
+              console.log(`🎬 Synchronized zoom effect: ${pendingEffects.zoom.startScale}x → ${pendingEffects.zoom.endScale}x over ${pendingEffects.zoom.duration}s`);
+            }
+          }
+
+          if (pendingMediaUrl) {
+            // Apply media URL synchronized with audio start
+            setCurrentMediaImageUrl(pendingMediaUrl);
+            console.log(`📺 Applied synchronized media URL: ${pendingMediaUrl}`);
+          }
+
+          // Clear pending effects after applying
+          pendingEffects = null;
+          pendingMediaUrl = null;
+        }
 
         // Clear any color overlays during voice playback
         setCurrentVoiceType(null);
@@ -1060,9 +1092,7 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
         const displayText = currentStep.audio.content || block.originalContent || block.content;
         const voiceTag = block.voiceTag;
 
-        console.log(`📝 Displaying text for [${voiceTag}]: "${displayText}"`);
-        console.log(`📝 Audio content: "${currentStep.audio.content}"`);
-        console.log(`📝 Original script content: "${block.originalContent || block.content}"`);
+        console.log(`📝 Displaying synchronized text for [${voiceTag}]: "${displayText}"`);
 
         // Set text display immediately when voice starts
         setCurrentDisplayText(displayText);
@@ -1080,7 +1110,7 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
         audio.onended = () => {
           if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
 
-          console.log(`✅ Completed voice block: [${block.voiceTag}]`);
+          console.log(`✅ Completed synchronized voice block: [${block.voiceTag}]`);
 
           // Stop smooth progress tracking when audio ends
           if (stopSmoothProgress) {
@@ -1095,7 +1125,7 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
         audio.onerror = (error) => {
           if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
 
-          console.error(`❌ Error playing voice block [${block.voiceTag}]:`, error);
+          console.error(`❌ Error playing synchronized voice block [${block.voiceTag}]:`, error);
 
           // Stop smooth progress tracking on error
           if (stopSmoothProgress) {
@@ -1117,7 +1147,7 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
         }).catch(error => {
           if (playbackStoppedRef.current) return; // Don't continue if playback was stopped
 
-          console.error(`❌ Failed to play voice block [${block.voiceTag}]:`, error);
+          console.error(`❌ Failed to play synchronized voice block [${block.voiceTag}]:`, error);
           currentTimelineIndex++;
           playNextTimelineStep(); // Continue to next timeline step
         });
@@ -1174,6 +1204,7 @@ export const stopMultiVoiceAudio = (stateSetters) => {
     setCurrentLoadingState,
     setCurrentLoadingMessage,
     setCurrentLoadingIcon,
+    setLoadingSubSteps,
     setCurrentFadeEffect,
     setCurrentPanEffect,
     setCurrentZoomEffect,
@@ -1225,6 +1256,9 @@ export const stopMultiVoiceAudio = (stateSetters) => {
   setCurrentLoadingState(false);
   setCurrentLoadingMessage('');
   setCurrentLoadingIcon('default');
+  if (setLoadingSubSteps) {
+    setLoadingSubSteps([]);
+  }
   setCurrentFadeEffect(null);
   setCurrentPanEffect(null);
   setCurrentZoomEffect(null);
