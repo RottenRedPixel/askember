@@ -1146,7 +1146,7 @@ export default function EmberPlay() {
 
                             {/* Logo - Positioned below progress bar - Only show on start and end screens */}
                             {(!isPlaying || showEndHold) && (
-                                <div className="mt-4 px-6">
+                                <div className="mt-2 px-6">
                                     <div className="flex justify-center">
                                         <img
                                             src="/EMBERFAV.svg"
@@ -1158,7 +1158,7 @@ export default function EmberPlay() {
                             )}
 
                             {/* Text Display - Positioned below logo */}
-                            <div className="mt-4 px-6">
+                            <div className="mt-2 px-6">
                                 <div className="text-center max-w-md mx-auto">
                                     {currentDisplayText && (
                                         <div className="mb-4">
@@ -1184,7 +1184,7 @@ export default function EmberPlay() {
 
                                     {showEndHold && (
                                         <div className="text-center">
-                                            <p className="text-white text-lg font-bold leading-relaxed mb-2.5">
+                                            <p className="text-white text-lg font-bold leading-relaxed mb-1">
                                                 Ask Ember about this memory...
                                             </p>
                                         </div>
@@ -1194,7 +1194,7 @@ export default function EmberPlay() {
 
                             {/* Input Box - Only for end screen */}
                             {showEndHold && (
-                                <div className="mt-4 px-6">
+                                <div className="mt-2 px-6">
                                     <div className="max-w-md mx-auto relative">
                                         <div className="relative flex items-center bg-gray-800 rounded-full px-4 py-3 w-full">
                                             <Question className="w-5 h-5 text-gray-400 mr-3 flex-shrink-0" />
@@ -1437,7 +1437,7 @@ export default function EmberPlay() {
 
                                 {/* Logo - Positioned below progress bar - Only show on start and end screens */}
                                 {(!isPlaying || showEndHold) && (
-                                    <div className="absolute bottom-20 left-0 right-0 p-8">
+                                    <div className="absolute bottom-16 left-0 right-0 p-4">
                                         <div className="flex justify-center">
                                             <img
                                                 src="/EMBERFAV.svg"
@@ -1449,7 +1449,7 @@ export default function EmberPlay() {
                                 )}
 
                                 {/* Text Display - Positioned below logo */}
-                                <div className="absolute bottom-0 left-0 right-0 p-8">
+                                <div className="absolute bottom-0 left-0 right-0 p-4">
                                     <div className="text-center max-w-md mx-auto">
                                         {currentDisplayText && (
                                             <div className="mb-4">
@@ -1475,13 +1475,13 @@ export default function EmberPlay() {
 
                                         {showEndHold && (
                                             <div className="text-center relative">
-                                                <p className="text-white text-lg font-bold leading-relaxed mb-2.5">
+                                                <p className="text-white text-lg font-bold leading-relaxed mb-1">
                                                     Ask Ember about this memory...
                                                 </p>
 
                                                 {/* Input Box - Only for end screen */}
                                                 <div className="relative">
-                                                    <div className="relative flex items-center bg-gray-800 rounded-full px-4 py-3 w-full mt-4">
+                                                    <div className="relative flex items-center bg-gray-800 rounded-full px-4 py-3 w-full mt-2">
                                                         <Question className="w-5 h-5 text-gray-400 mr-3 flex-shrink-0" />
                                                         <input
                                                             type="text"
