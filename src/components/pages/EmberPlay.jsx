@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { PlayCircle, X, Gear } from 'phosphor-react';
+import { PlayCircle, X, Gear, Question, ArrowUp } from 'phosphor-react';
 import { useEmberData } from '@/lib/useEmberData';
 import { useUIState } from '@/lib/useUIState';
 import { autoTriggerImageAnalysis, autoTriggerExifProcessing, autoTriggerLocationProcessing, handlePlay as handleMediaPlay, handlePlaybackComplete as handleMediaPlaybackComplete, handleExitPlay as handleMediaExitPlay } from '@/lib/mediaHandlers';
@@ -210,9 +210,49 @@ export default function EmberPlay() {
     const [currentAudioElement, setCurrentAudioElement] = useState(null);
     const [textKey, setTextKey] = useState(0); // For triggering text animation
     const [showEndHold, setShowEndHold] = useState(false);
-    const [showEndLogo, setShowEndLogo] = useState(false);
-    const [showEndText, setShowEndText] = useState(false);
+    const [askEmberInput, setAskEmberInput] = useState('');
+    const [showSuggestions, setShowSuggestions] = useState(false);
     const [taggedPeople, setTaggedPeople] = useState([]); // For zoom target person lookup
+
+    // Suggested questions for Ask Ember
+    const suggestedQuestions = [
+        "Who else was there?",
+        "Where exactly was this?",
+        "What was the weather like?",
+        "What time of day was it?",
+        "What happened next?"
+    ];
+
+    // Ask Ember handlers
+    const handleInputFocus = () => {
+        setShowSuggestions(true);
+    };
+
+    const handleInputBlur = () => {
+        // Delay hiding to allow click on suggestions
+        setTimeout(() => setShowSuggestions(false), 150);
+    };
+
+    const handleSuggestionClick = (question) => {
+        setAskEmberInput(question);
+        setShowSuggestions(false);
+    };
+
+    const handleAskEmberSubmit = () => {
+        if (askEmberInput.trim()) {
+            console.log('Ask Ember question:', askEmberInput);
+            // TODO: Implement actual AI chat functionality
+            alert(`You asked: "${askEmberInput}"\n\nAI chat functionality coming soon!`);
+            setAskEmberInput('');
+        }
+    };
+
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            handleAskEmberSubmit();
+        }
+    };
+
     const [zoomAnimationPhase, setZoomAnimationPhase] = useState('idle'); // 'idle', 'starting', 'animating'
 
     // Playback control refs
@@ -471,28 +511,7 @@ export default function EmberPlay() {
         }
     }, [currentZoomEffect]);
 
-    // Handle end screen animation sequence
-    useEffect(() => {
-        if (showEndHold) {
-            // Reset animation states
-            setShowEndLogo(false);
-            setShowEndText(false);
 
-            // Start logo fade-in immediately
-            setTimeout(() => {
-                setShowEndLogo(true);
-            }, 100);
-
-            // Start text fade-in after logo
-            setTimeout(() => {
-                setShowEndText(true);
-            }, 800);
-        } else {
-            // Reset states when end screen is hidden
-            setShowEndLogo(false);
-            setShowEndText(false);
-        }
-    }, [showEndHold]);
 
     // Progress tracking functions
     const calculateTotalDuration = useCallback((blocks) => {
@@ -591,13 +610,14 @@ export default function EmberPlay() {
 
     // Progress Bar Component
     const ProgressBar = () => {
-        const percentage = totalDuration > 0 ? Math.min((currentProgress / totalDuration) * 100, 100) : 0;
+        // Show 0% progress on end screen, actual progress during playback
+        const percentage = showEndHold ? 0 : (totalDuration > 0 ? Math.min((currentProgress / totalDuration) * 100, 100) : 0);
 
         return (
             <div className="w-full bg-black/50 backdrop-blur-sm px-4 py-2">
                 <div className="w-full bg-gray-700 rounded-full h-1">
                     <div
-                        className="bg-white h-1 rounded-full transition-all duration-300 ease-out"
+                        className="bg-orange-500 h-1 rounded-full transition-all duration-300 ease-out"
                         style={{ width: `${percentage}%` }}
                     />
                 </div>
@@ -756,7 +776,10 @@ export default function EmberPlay() {
             return;
         }
 
-        // Reset progress when starting playback
+        // Reset end screen and progress when starting playback
+        setShowEndHold(false);
+        setAskEmberInput('');
+        setShowSuggestions(false);
         setCurrentProgress(0);
         setCurrentTimelineStep(0);
         setCurrentSegmentStartTime(0);
@@ -837,7 +860,9 @@ export default function EmberPlay() {
         // Additional EmberPlay-specific cleanup
         setCurrentlyPlayingStoryCut(null);
         setCurrentAudio(null);
-
+        setShowEndHold(false);
+        setAskEmberInput('');
+        setShowSuggestions(false);
 
         // Reset progress tracking
         setCurrentProgress(0);
@@ -849,6 +874,9 @@ export default function EmberPlay() {
 
     const handleExitPlay = () => {
         handleStop();
+        setShowEndHold(false);
+        setAskEmberInput('');
+        setShowSuggestions(false);
         // Go back to the previous screen in browser history
         navigate(-1);
     };
@@ -875,7 +903,6 @@ export default function EmberPlay() {
         setCurrentPanEffect(null);
         setCurrentZoomEffect(null);
 
-
         // Reset progress tracking
         setCurrentProgress(totalDuration);
         setCurrentTimelineStep(totalTimelineSteps);
@@ -887,6 +914,9 @@ export default function EmberPlay() {
         mediaTimeouts.forEach(timeout => clearTimeout(timeout));
         setMediaTimeouts([]);
         mediaTimeoutsRef.current = [];
+
+        // Show the end screen with Ask Ember interface
+        setShowEndHold(true);
     };
 
 
@@ -927,7 +957,7 @@ export default function EmberPlay() {
             {/* Inject CSS keyframes */}
             <style dangerouslySetInnerHTML={{ __html: fadeInKeyframes }} />
 
-                                        {/* Mobile Layout */}
+            {/* Mobile Layout */}
             <div className="md:hidden h-screen overflow-hidden">
                 <Card className="py-0 w-full h-full bg-black rounded-none border-0">
                     <CardContent className="p-0 h-full">
@@ -946,7 +976,7 @@ export default function EmberPlay() {
 
 
                                 {/* Background Image - with visual effects coordination */}
-                                {!isGeneratingAudio && !currentMediaColor && currentMediaImageUrl && (
+                                {!isGeneratingAudio && !showEndHold && !currentMediaColor && currentMediaImageUrl && (
                                     <img
                                         src={currentMediaImageUrl}
                                         alt={ember?.title || 'Ember'}
@@ -956,7 +986,7 @@ export default function EmberPlay() {
                                 )}
 
                                 {/* Show main ember image when no media image and playing without story cut - with visual effects coordination */}
-                                {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
+                                {!isGeneratingAudio && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
                                     <img
                                         src={ember.image_url}
                                         alt={ember?.title || 'Ember'}
@@ -965,8 +995,8 @@ export default function EmberPlay() {
                                     />
                                 )}
 
-                                {/* Default ember image when not playing */}
-                                {!isPlaying && !isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && ember?.image_url && (
+                                {/* Default ember image when not playing OR on end screen */}
+                                {!isGeneratingAudio && !currentMediaColor && !currentMediaImageUrl && (!isPlaying || showEndHold) && ember?.image_url && (
                                     <img
                                         src={ember.image_url}
                                         alt={ember?.title || 'Ember'}
@@ -1114,7 +1144,20 @@ export default function EmberPlay() {
                                 </div>
                             )}
 
-                            {/* Text Display - Positioned below progress bar */}
+                            {/* Logo - Positioned below progress bar - Only show on start and end screens */}
+                            {(!isPlaying || showEndHold) && (
+                                <div className="mt-4 px-6">
+                                    <div className="flex justify-center">
+                                        <img
+                                            src="/EMBERFAV.svg"
+                                            alt="Ember Logo"
+                                            className="w-12 h-12"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Text Display - Positioned below logo */}
                             <div className="mt-4 px-6">
                                 <div className="text-center max-w-md mx-auto">
                                     {currentDisplayText && (
@@ -1131,55 +1174,78 @@ export default function EmberPlay() {
                                         </div>
                                     )}
 
-                                    {!isPlaying && !isGeneratingAudio && !currentDisplayText && (
+                                    {!isPlaying && !isGeneratingAudio && !currentDisplayText && !showEndHold && (
                                         <div className="text-center">
                                             <p className="text-white text-lg font-bold leading-relaxed">
                                                 Press play to start this Ember
                                             </p>
                                         </div>
                                     )}
+
+                                    {showEndHold && (
+                                        <div className="text-center">
+                                            <p className="text-white text-lg font-bold leading-relaxed mb-2.5">
+                                                Ask Ember about this memory...
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
+
+                            {/* Input Box - Only for end screen */}
+                            {showEndHold && (
+                                <div className="mt-4 px-6">
+                                    <div className="max-w-md mx-auto relative">
+                                        <div className="relative flex items-center bg-gray-800 rounded-full px-4 py-3 w-full">
+                                            <Question className="w-5 h-5 text-gray-400 mr-3 flex-shrink-0" />
+                                            <input
+                                                type="text"
+                                                placeholder="What would you like to know?"
+                                                className="flex-1 bg-transparent text-white placeholder-gray-400 outline-none text-sm"
+                                                value={askEmberInput}
+                                                onChange={(e) => setAskEmberInput(e.target.value)}
+                                                onFocus={handleInputFocus}
+                                                onBlur={handleInputBlur}
+                                                onKeyPress={handleKeyPress}
+                                            />
+                                            <button
+                                                onClick={handleAskEmberSubmit}
+                                                className="ml-3 flex-shrink-0 hover:bg-gray-700 rounded-full p-1 transition-colors"
+                                                disabled={!askEmberInput.trim()}
+                                            >
+                                                <ArrowUp className={`w-5 h-5 ${askEmberInput.trim() ? 'text-white' : 'text-gray-400'}`} />
+                                            </button>
+                                        </div>
+
+                                        {/* Suggestions Dropdown */}
+                                        {showSuggestions && (
+                                            <div className="absolute bottom-full left-0 right-0 mb-2 bg-gray-800 rounded-lg shadow-lg border border-gray-700 z-50">
+                                                {suggestedQuestions.map((question, index) => (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() => handleSuggestionClick(question)}
+                                                        className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors first:rounded-t-lg last:rounded-b-lg"
+                                                    >
+                                                        {question}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Bottom Section - Black background area - flexible height */}
                             <div className="relative flex-1 overflow-hidden">
                                 {/* Background for remaining area */}
                                 <div className="absolute inset-0 bg-black"></div>
-
-                                {/* End hold screen */}
-                                {showEndHold && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black">
-                                        <div className="text-center">
-                                            <div className="flex justify-center mb-4">
-                                                <img
-                                                    src="/EMBERFAV.svg"
-                                                    alt="Ember Logo"
-                                                    className="w-16 h-16"
-                                                    style={{
-                                                        opacity: showEndLogo ? 1 : 0,
-                                                        animation: showEndLogo ? 'logoFadeIn 0.8s ease-out forwards' : 'none'
-                                                    }}
-                                                />
-                                            </div>
-                                            <p
-                                                className="text-white text-lg font-medium"
-                                                style={{
-                                                    opacity: showEndText ? 1 : 0,
-                                                    animation: showEndText ? 'endTextFadeIn 0.8s ease-out forwards' : 'none'
-                                                }}
-                                            >
-                                                Ask Ember AI
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-                                        {/* Desktop Layout */}
+            {/* Desktop Layout */}
             <div className="hidden md:block h-screen overflow-hidden">
                 <Card className="py-0 w-full h-full bg-black rounded-none border-0">
                     <CardContent className="p-0 h-full">
@@ -1206,7 +1272,7 @@ export default function EmberPlay() {
                                 )}
 
                                 {/* Show main ember image when no media image and playing without story cut - with visual effects coordination */}
-                                {!isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
+                                {!isGeneratingAudio && !currentMediaColor && !currentMediaImageUrl && (isPlaying && !currentlyPlayingStoryCut) && ember?.image_url && (
                                     <img
                                         src={ember.image_url}
                                         alt={ember?.title || 'Ember'}
@@ -1215,8 +1281,8 @@ export default function EmberPlay() {
                                     />
                                 )}
 
-                                {/* Default ember image when not playing */}
-                                {!isPlaying && !isGeneratingAudio && !showEndHold && !currentMediaColor && !currentMediaImageUrl && ember?.image_url && (
+                                {/* Default ember image when not playing OR on end screen */}
+                                {!isGeneratingAudio && !currentMediaColor && !currentMediaImageUrl && (!isPlaying || showEndHold) && ember?.image_url && (
                                     <img
                                         src={ember.image_url}
                                         alt={ember?.title || 'Ember'}
@@ -1364,12 +1430,25 @@ export default function EmberPlay() {
 
                                 {/* Progress Bar - Near bottom of area */}
                                 {totalDuration > 0 && (
-                                    <div className="absolute bottom-20 left-0 right-0">
+                                    <div className="absolute bottom-32 left-0 right-0">
                                         <ProgressBar />
                                     </div>
                                 )}
 
-                                {/* Text Display - Positioned below progress bar */}
+                                {/* Logo - Positioned below progress bar - Only show on start and end screens */}
+                                {(!isPlaying || showEndHold) && (
+                                    <div className="absolute bottom-20 left-0 right-0 p-8">
+                                        <div className="flex justify-center">
+                                            <img
+                                                src="/EMBERFAV.svg"
+                                                alt="Ember Logo"
+                                                className="w-12 h-12"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Text Display - Positioned below logo */}
                                 <div className="absolute bottom-0 left-0 right-0 p-8">
                                     <div className="text-center max-w-md mx-auto">
                                         {currentDisplayText && (
@@ -1386,34 +1465,64 @@ export default function EmberPlay() {
                                             </div>
                                         )}
 
-                                        {!isPlaying && !isGeneratingAudio && !currentDisplayText && (
+                                        {!isPlaying && !isGeneratingAudio && !currentDisplayText && !showEndHold && (
                                             <div className="text-center">
                                                 <p className="text-white text-lg font-bold leading-relaxed">
                                                     Press play to start this Ember
                                                 </p>
                                             </div>
                                         )}
+
+                                        {showEndHold && (
+                                            <div className="text-center relative">
+                                                <p className="text-white text-lg font-bold leading-relaxed mb-2.5">
+                                                    Ask Ember about this memory...
+                                                </p>
+
+                                                {/* Input Box - Only for end screen */}
+                                                <div className="relative">
+                                                    <div className="relative flex items-center bg-gray-800 rounded-full px-4 py-3 w-full mt-4">
+                                                        <Question className="w-5 h-5 text-gray-400 mr-3 flex-shrink-0" />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="What would you like to know?"
+                                                            className="flex-1 bg-transparent text-white placeholder-gray-400 outline-none text-sm"
+                                                            value={askEmberInput}
+                                                            onChange={(e) => setAskEmberInput(e.target.value)}
+                                                            onFocus={handleInputFocus}
+                                                            onBlur={handleInputBlur}
+                                                            onKeyPress={handleKeyPress}
+                                                        />
+                                                        <button
+                                                            onClick={handleAskEmberSubmit}
+                                                            className="ml-3 flex-shrink-0 hover:bg-gray-700 rounded-full p-1 transition-colors"
+                                                            disabled={!askEmberInput.trim()}
+                                                        >
+                                                            <ArrowUp className={`w-5 h-5 ${askEmberInput.trim() ? 'text-white' : 'text-gray-400'}`} />
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Suggestions Dropdown */}
+                                                    {showSuggestions && (
+                                                        <div className="absolute bottom-full left-0 right-0 mb-2 bg-gray-800 rounded-lg shadow-lg border border-gray-700 z-50">
+                                                            {suggestedQuestions.map((question, index) => (
+                                                                <button
+                                                                    key={index}
+                                                                    onClick={() => handleSuggestionClick(question)}
+                                                                    className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors first:rounded-t-lg last:rounded-b-lg"
+                                                                >
+                                                                    {question}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* End hold screen */}
-                                {showEndHold && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black">
-                                        <div className="text-center">
-                                            <div className="flex justify-center">
-                                                <img
-                                                    src="/EMBERFAV.svg"
-                                                    alt="Ember Logo"
-                                                    className="w-16 h-16"
-                                                    style={{
-                                                        opacity: showEndLogo ? 1 : 0,
-                                                        animation: showEndLogo ? 'logoFadeIn 0.8s ease-out forwards' : 'none'
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+
                             </div>
                         </div>
                     </CardContent>

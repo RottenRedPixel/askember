@@ -161,7 +161,13 @@ export default function StoryCutStudio() {
         }
     }, [blocks]);
 
-
+    // Expose contributor preferences globally for audio generation (matches EmberDetail pattern)
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            window.messageAudioPreferences = contributorAudioPreferences;
+            console.log('🎯 StoryCutStudio: Exposed audio preferences globally for preview:', contributorAudioPreferences);
+        }
+    }, [contributorAudioPreferences]);
 
     // Expose contributor preferences globally for audio generation
 
@@ -1655,10 +1661,10 @@ export default function StoryCutStudio() {
     const formatBlockDuration = (block) => {
         const duration = calculateBlockDuration(block);
         if (duration === 0) return '';
-
+        
         // Show 1 decimal place if less than 10 seconds and has decimal, otherwise round
-        return duration < 10 && duration % 1 !== 0
-            ? `${duration.toFixed(1)}s`
+        return duration < 10 && duration % 1 !== 0 
+            ? `${duration.toFixed(1)}s` 
             : `${Math.round(duration)}s`;
     };
 
@@ -3092,25 +3098,25 @@ export default function StoryCutStudio() {
                                                                 )}
                                                                 {/* Show Synth option only if contributor has a trained voice */}
                                                                 {block.hasVoiceModel && (
-                                                                    <label className="flex items-center gap-2 cursor-pointer">
-                                                                        <input
-                                                                            type="radio"
-                                                                            name={`audio-${block.id}`}
-                                                                            value="synth"
-                                                                            checked={contributorAudioPreferences[blockKey] === 'synth'}
-                                                                            onChange={(e) => {
-                                                                                if (e.target.checked) {
-                                                                                    setContributorAudioPreferences(prev => ({
-                                                                                        ...prev,
-                                                                                        [blockKey]: 'synth'
-                                                                                    }));
-                                                                                    console.log(`🎤 Set ${blockKey} to use synth voice (DATABASE PERSISTENT)`);
-                                                                                }
-                                                                            }}
-                                                                            className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
-                                                                        />
-                                                                        <span className="text-sm text-green-700">Synth</span>
-                                                                    </label>
+                                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={`audio-${block.id}`}
+                                                                        value="synth"
+                                                                        checked={contributorAudioPreferences[blockKey] === 'synth'}
+                                                                        onChange={(e) => {
+                                                                            if (e.target.checked) {
+                                                                                setContributorAudioPreferences(prev => ({
+                                                                                    ...prev,
+                                                                                    [blockKey]: 'synth'
+                                                                                }));
+                                                                                console.log(`🎤 Set ${blockKey} to use synth voice (DATABASE PERSISTENT)`);
+                                                                            }
+                                                                        }}
+                                                                        className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
+                                                                    />
+                                                                    <span className="text-sm text-green-700">Synth</span>
+                                                                </label>
                                                                 )}
                                                                 {/* Always show Text option - will use narrator voice */}
                                                                 <label className="flex items-center gap-2 cursor-pointer">
