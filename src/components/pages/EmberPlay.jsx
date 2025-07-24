@@ -242,7 +242,7 @@ export default function EmberPlay() {
         if (askEmberInput.trim()) {
             console.log('Ask Ember question:', askEmberInput);
             // TODO: Implement actual AI chat functionality
-            alert(`You asked: "${askEmberInput}"\n\nAI chat functionality coming soon!`);
+            alert('Ember AI Interactive Memory is coming soon.');
             setAskEmberInput('');
         }
     };
