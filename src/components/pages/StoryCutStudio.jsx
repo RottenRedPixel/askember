@@ -18,6 +18,7 @@ import { useUIState } from '@/lib/useUIState';
 import AddBlockModal from '@/components/AddBlockModal';
 import ZoomTargetModal from '@/components/ZoomTargetModal';
 import MediaEffectPreview from '@/components/MediaEffectPreview';
+import VoiceCloningModal from '@/components/VoiceCloningModal';
 
 // Conversion functions between slider values (-5 to +5) and actual zoom scales
 const sliderToScale = (sliderValue) => {
@@ -106,6 +107,10 @@ export default function StoryCutStudio() {
     const [editingBlockIndex, setEditingBlockIndex] = useState(null);
     const [editedContent, setEditedContent] = useState('');
 
+    // Demo block voice selection state
+    const [selectedDemoVoice, setSelectedDemoVoice] = useState('');
+    const [isVoiceCloningModalOpen, setIsVoiceCloningModalOpen] = useState(false);
+
 
 
     // Save/Cancel functionality
@@ -134,7 +139,7 @@ export default function StoryCutStudio() {
     // Initialize contributor preferences when blocks are loaded
     useEffect(() => {
         if (blocks && blocks.length > 0) {
-            const contributorBlocks = blocks.filter(block => block.voiceType === 'contributor');
+            const contributorBlocks = blocks.filter(block => block.voiceType === 'contributor' || block.voiceType === 'demo');
 
             setContributorAudioPreferences(prev => {
                 const newPreferences = { ...prev };
@@ -144,14 +149,22 @@ export default function StoryCutStudio() {
                     // Use unique key for each block (voiceTag + block content)
                     const blockKey = `${block.voiceTag}-${block.id}`;
 
-                    // Use embedded preference if available, otherwise set default
-                    const preferenceToUse = block.preference || (block.messageType === 'Audio Message' ? 'recorded' : 'text');
+                    // Intelligent preference setting for both contributor and demo blocks
+                    let preferenceToUse;
+
+                    if (block.voiceType === 'contributor') {
+                        // Story Circle logic: use embedded preference or intelligent default
+                        preferenceToUse = block.preference || (block.messageType === 'Audio Message' ? 'recorded' : 'text');
+                    } else if (block.voiceType === 'demo') {
+                        // Demo Circle logic: use embedded preference or intelligent default
+                        preferenceToUse = block.preference || (block.messageType === 'Audio Message' ? 'recorded' : 'text');
+                    }
 
                     // Update preference if it's different from what we have
                     if (newPreferences[blockKey] !== preferenceToUse) {
                         newPreferences[blockKey] = preferenceToUse;
                         hasChanges = true;
-                        console.log(`🎯 Setting preference for ${blockKey} from ${block.preference ? 'embedded script' : 'default'}: ${preferenceToUse}`);
+                        console.log(`🎯 Setting preference for ${block.voiceType} ${blockKey} from ${block.preference ? 'embedded script' : 'intelligent default'}: ${preferenceToUse}`);
                     }
                 });
 
@@ -808,6 +821,18 @@ export default function StoryCutStudio() {
                             // Use simple storyMessages lookup (like AddBlockModal - this works!)
                             const contributorData = getSimpleContributorData(jsonBlock.speaker, jsonBlock.user_id, loadedStoryMessages);
 
+                            // DEBUG: Log demo block load data
+                            if (voiceType === 'demo') {
+                                console.log('🔍 LOAD DEBUG - Demo block being loaded:', {
+                                    speaker: jsonBlock.speaker,
+                                    voiceType: voiceType,
+                                    hasDemo_data: !!jsonBlock.demo_data,
+                                    demo_data: jsonBlock.demo_data,
+                                    demo_contribution_id: jsonBlock.demo_contribution_id,
+                                    jsonBlockKeys: Object.keys(jsonBlock)
+                                });
+                            }
+
                             const voiceBlock = {
                                 id: blockId++,
                                 type: 'voice',
@@ -824,6 +849,17 @@ export default function StoryCutStudio() {
                                 demo_contribution_id: jsonBlock.demo_contribution_id || null,
                                 demoData: jsonBlock.demo_data || null
                             };
+
+                            // DEBUG: Log final demo block structure
+                            if (voiceType === 'demo') {
+                                console.log('🔍 LOAD DEBUG - Final demo block structure:', {
+                                    voiceTag: voiceBlock.voiceTag,
+                                    voiceType: voiceBlock.voiceType,
+                                    hasDemoData: !!voiceBlock.demoData,
+                                    demoData: voiceBlock.demoData,
+                                    demo_contribution_id: voiceBlock.demo_contribution_id
+                                });
+                            }
 
                             realBlocks.push(voiceBlock);
                             // console.log('✅ Added JSON voice block:', voiceBlock.voiceTag);
@@ -1368,6 +1404,17 @@ export default function StoryCutStudio() {
                 .filter(block => block.type !== 'start' && block.type !== 'end')
                 .map((block, index) => {
                     if (block.type === 'voice') {
+                        // DEBUG: Log demo block save data
+                        if (block.voiceType === 'demo') {
+                            console.log('🔍 SAVE DEBUG - Demo block being saved:', {
+                                voiceTag: block.voiceTag,
+                                voiceType: block.voiceType,
+                                hasDemoData: !!block.demoData,
+                                demoData: block.demoData,
+                                demo_contribution_id: block.demo_contribution_id
+                            });
+                        }
+
                         return {
                             // ✅ ENHANCED: Core fields
                             type: 'voice',
@@ -1566,7 +1613,78 @@ export default function StoryCutStudio() {
         setEditingBlock(block);
         setEditingBlockIndex(blockIndex);
         setEditedContent(block.content);
+
+        // Initialize demo voice selection if editing a demo block
+        if (block.voiceType === 'demo') {
+            const currentDemoVoice = block.demoData?.elevenlabsVoiceId || '';
+            setSelectedDemoVoice(currentDemoVoice);
+            console.log('🎤 Demo voice initialized:', currentDemoVoice);
+        }
+
         setShowEditModal(true);
+    };
+
+    // Handle demo voice selection change
+    const handleDemoVoiceChange = (voiceId) => {
+        setSelectedDemoVoice(voiceId);
+        console.log('🎤 Demo voice selected:', voiceId);
+
+        // Find the voice name for the selected voice ID
+        const selectedVoice = availableVoices.find(voice => voice.voice_id === voiceId);
+        const voiceName = selectedVoice?.name || null;
+
+        // Update the demo block with the new voice selection
+        if (editingBlock && editingBlockIndex !== null) {
+            const updatedBlocks = [...blocks];
+            const updatedBlock = {
+                ...updatedBlocks[editingBlockIndex],
+                demoData: {
+                    ...updatedBlocks[editingBlockIndex].demoData,
+                    elevenlabsVoiceId: voiceId || null,
+                    elevenlabsVoiceName: voiceName
+                }
+            };
+            updatedBlocks[editingBlockIndex] = updatedBlock;
+            setBlocks(updatedBlocks);
+            setEditingBlock(updatedBlock); // Update editing block state too
+
+            console.log('✅ Demo voice updated in block:', {
+                voiceId: voiceId || null,
+                voiceName
+            });
+        }
+    };
+
+    // Handle voice creation for demo blocks
+    const handleDemoVoiceCreated = (newVoice) => {
+        console.log('🎤 New demo voice created:', newVoice);
+
+        // Auto-select the newly created voice
+        setSelectedDemoVoice(newVoice.voice_id);
+
+        // Update the demo block with the new voice
+        if (editingBlock && editingBlockIndex !== null) {
+            const updatedBlocks = [...blocks];
+            const updatedBlock = {
+                ...updatedBlocks[editingBlockIndex],
+                demoData: {
+                    ...updatedBlocks[editingBlockIndex].demoData,
+                    elevenlabsVoiceId: newVoice.voice_id,
+                    elevenlabsVoiceName: newVoice.name
+                }
+            };
+            updatedBlocks[editingBlockIndex] = updatedBlock;
+            setBlocks(updatedBlocks);
+            setEditingBlock(updatedBlock);
+
+            console.log('✅ New demo voice applied to block:', {
+                voiceId: newVoice.voice_id,
+                voiceName: newVoice.name
+            });
+        }
+
+        // Close the voice cloning modal
+        setIsVoiceCloningModalOpen(false);
     };
 
     // Handle saving edited voice content
@@ -1601,6 +1719,7 @@ export default function StoryCutStudio() {
         setEditingBlock(null);
         setEditingBlockIndex(null);
         setEditedContent('');
+        setSelectedDemoVoice(''); // Reset demo voice selection
     };
 
     // Helper function to format voice tags with voice names (string version for alt text)
@@ -1613,6 +1732,15 @@ export default function StoryCutStudio() {
         } else if (block.voiceType === 'narrator') {
             const voiceName = storyCut?.narrator_voice_name || 'Unknown Voice';
             return `Narrator (${voiceName})`;
+        } else if (block.voiceType === 'demo') {
+            // Demo blocks: show voice name if synth voice is selected
+            const demoVoiceName = block.demoData?.elevenlabsVoiceName;
+            if (demoVoiceName) {
+                return `${block.voiceTag} (${demoVoiceName})`;
+            } else {
+                // No synth voice selected, just show the name
+                return block.voiceTag || 'Unknown Voice';
+            }
         } else {
             // For contributors, use the original voiceTag (user's name)
             return block.voiceTag || 'Unknown Voice';
@@ -1637,6 +1765,19 @@ export default function StoryCutStudio() {
                     Narrator <span className="font-normal text-xs opacity-80">({voiceName})</span>
                 </>
             );
+        } else if (block.voiceType === 'demo') {
+            // Demo blocks: show voice name if synth voice is selected
+            const demoVoiceName = block.demoData?.elevenlabsVoiceName;
+            if (demoVoiceName) {
+                return (
+                    <>
+                        {block.voiceTag} <span className="font-normal text-xs opacity-80">({demoVoiceName})</span>
+                    </>
+                );
+            } else {
+                // No synth voice selected, just show the name
+                return block.voiceTag || 'Unknown Voice';
+            }
         } else {
             // For contributors, use the original voiceTag (user's name)
             return block.voiceTag || 'Unknown Voice';
@@ -2981,8 +3122,8 @@ export default function StoryCutStudio() {
                                                                                 if (block.voiceType === 'ember' || block.voiceType === 'narrator') {
                                                                                     return formatVoiceTagJSX(block);
                                                                                 } else if (block.voiceType === 'demo') {
-                                                                                    // Demo blocks use the voiceTag directly (already formatted)
-                                                                                    return block.voiceTag;
+                                                                                    // Demo blocks use formatVoiceTagJSX to show synth voice names
+                                                                                    return formatVoiceTagJSX(block);
                                                                                 } else {
                                                                                     // Find corresponding story message for full name (contributors)
                                                                                     const storyMessage = storyMessages.find(msg =>
@@ -3119,8 +3260,8 @@ export default function StoryCutStudio() {
                                                                         if (block.voiceType === 'ember' || block.voiceType === 'narrator') {
                                                                             return formatVoiceTagJSX(block);
                                                                         } else if (block.voiceType === 'demo') {
-                                                                            // Demo blocks use the voiceTag directly (already formatted)
-                                                                            return block.voiceTag;
+                                                                            // Demo blocks use formatVoiceTagJSX to show synth voice names
+                                                                            return formatVoiceTagJSX(block);
                                                                         } else {
                                                                             // Find corresponding story message for full name (contributors)
                                                                             const storyMessage = storyMessages.find(msg =>
@@ -3471,7 +3612,8 @@ export default function StoryCutStudio() {
                             <h2 className="text-xl font-semibold text-gray-900">
                                 Edit {editingBlock?.voiceType === 'ember' ? 'Ember AI' :
                                     editingBlock?.voiceType === 'narrator' ? 'Narrator' :
-                                        'Contribution'} Content
+                                        editingBlock?.voiceType === 'demo' ? 'Demo' :
+                                            'Contribution'} Content
                             </h2>
                             <p className="text-sm text-gray-500 mt-1">
                                 Speaker: {formatVoiceTag(editingBlock)}
@@ -3533,6 +3675,43 @@ export default function StoryCutStudio() {
                                 </div>
                             )}
 
+                            {/* Demo Block Voice Selection */}
+                            {editingBlock?.voiceType === 'demo' && (
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Demo Voice Selection
+                                    </label>
+                                    <select
+                                        value={selectedDemoVoice}
+                                        onChange={(e) => handleDemoVoiceChange(e.target.value)}
+                                        disabled={voicesLoading}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+                                    >
+                                        {voicesLoading ? (
+                                            <option>Loading voices...</option>
+                                        ) : (
+                                            <>
+                                                <option value="">No voice selected (Text mode only)</option>
+                                                {availableVoices.map((voice) => (
+                                                    <option key={voice.voice_id} value={voice.voice_id}>
+                                                        {voice.name} {voice.labels?.gender ? `(${voice.labels.gender})` : ''}
+                                                    </option>
+                                                ))}
+                                            </>
+                                        )}
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Optional: Select a voice for the "Synth" audio option. Leave empty to only use recorded audio and text mode.
+                                    </p>
+                                    <button
+                                        onClick={() => setIsVoiceCloningModalOpen(true)}
+                                        className="mt-2 px-3 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-600 rounded-md border border-red-200 transition-colors"
+                                    >
+                                        + Clone New Voice
+                                    </button>
+                                </div>
+                            )}
+
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Voice Content
                             </label>
@@ -3569,6 +3748,14 @@ export default function StoryCutStudio() {
                     </div>
                 </div>
             )}
+
+            {/* Voice Cloning Modal for Demo Blocks */}
+            <VoiceCloningModal
+                isOpen={isVoiceCloningModalOpen}
+                onClose={() => setIsVoiceCloningModalOpen(false)}
+                onVoiceCreated={handleDemoVoiceCreated}
+                userProfile={user}
+            />
         </div>
     );
 }

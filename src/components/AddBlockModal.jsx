@@ -1,13 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Camera, X, MessageCircle, Mic, User, Sparkles } from 'lucide-react';
+import { Plus, Camera, X, MessageCircle, Mic, User, Sparkles, Settings, Play, Pause, MicOff, Check } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import { getEmberPhotos } from '@/lib/photos';
 import { getEmberSupportingMedia, createDemoContribution, getDemoContributionsForEmber, updateDemoContribution, deleteDemoContribution } from '@/lib/database';
+import { speechToText } from '@/lib/elevenlabs';
+import { uploadToBlob } from '@/lib/storage';
 import useStore from '@/store';
 
 // Custom hook to detect mobile devices
@@ -55,6 +60,66 @@ const getContributorDisplayName = (firstName, lastName, email) => {
         return email.split('@')[0];
     }
     return 'Unknown User';
+};
+
+// Microphone Combobox Component for Demo Circle
+const MicrophoneCombobox = ({ microphones, selectedMicrophone, onSelectMicrophone, disabled }) => {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    size="sm"
+                    disabled={disabled}
+                    className={cn(
+                        "h-9 w-9 p-0",
+                        selectedMicrophone && "border-red-500 bg-red-50"
+                    )}
+                    title="Select microphone"
+                >
+                    <Settings
+                        size={16}
+                        className={cn(
+                            "transition-colors",
+                            selectedMicrophone ? "text-red-600" : "text-gray-500"
+                        )}
+                    />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0 bg-white border border-gray-200 shadow-lg rounded-md focus:outline-none" align="start">
+                <Command>
+                    <CommandInput placeholder="Search microphones..." className="h-9" />
+                    <CommandList>
+                        <CommandEmpty>No microphone found.</CommandEmpty>
+                        <CommandGroup heading="Available Microphones">
+                            {microphones.map((mic) => (
+                                <CommandItem
+                                    key={mic.deviceId}
+                                    value={mic.deviceId}
+                                    onSelect={() => {
+                                        onSelectMicrophone(mic.deviceId);
+                                        setOpen(false);
+                                    }}
+                                >
+                                    {mic.label || `Microphone ${mic.deviceId.slice(0, 8)}...`}
+                                    <Check
+                                        className={cn(
+                                            "ml-auto h-4 w-4",
+                                            selectedMicrophone === mic.deviceId ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
 };
 
 // Block type configuration
@@ -110,6 +175,7 @@ const ModalContent = ({
     narratorContent,
     setNarratorContent,
     loading,
+    setLoading,
     onAddBlock,
     onClose,
     currentEmberVoiceId,
@@ -128,7 +194,23 @@ const ModalContent = ({
     setEditingDemoId,
     onCreateDemo,
     emberId,
-    user
+    user,
+    fetchDemoContributions,
+    // Demo Circle recording props
+    isRecording,
+    recordingDuration,
+    hasRecording,
+    isPlaying,
+    audioBlob,
+    availableMicrophones,
+    selectedMicrophone,
+    setSelectedMicrophone,
+    isTranscribing,
+    startRecording,
+    stopRecording,
+    playRecording,
+    resetRecording,
+    audioRef
 }) => {
     return (
         <div className="space-y-4">
@@ -459,39 +541,206 @@ const ModalContent = ({
                             />
                         </div>
 
+                        {/* Recording Controls */}
+                        <div className="space-y-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Mic size={16} className="text-red-600" />
+                                <span className="text-sm font-medium text-red-800">Audio Recording (Optional)</span>
+                            </div>
+
+                            {/* Recording Controls Row */}
+                            <div className="flex items-center gap-2">
+                                {/* Microphone Selection */}
+                                <MicrophoneCombobox
+                                    microphones={availableMicrophones}
+                                    selectedMicrophone={selectedMicrophone}
+                                    onSelectMicrophone={setSelectedMicrophone}
+                                    disabled={isRecording}
+                                />
+
+                                {/* Record/Stop Button */}
+                                <Button
+                                    onClick={isRecording ? stopRecording : startRecording}
+                                    variant={isRecording ? "destructive" : "outline"}
+                                    size="sm"
+                                    className={cn(
+                                        "min-w-24",
+                                        !isRecording && "border-red-500 text-red-600 hover:bg-red-50"
+                                    )}
+                                    disabled={isTranscribing}
+                                >
+                                    {isRecording ? (
+                                        <>
+                                            <MicOff size={16} className="mr-2" />
+                                            Stop
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Mic size={16} className="mr-2" />
+                                            Record
+                                        </>
+                                    )}
+                                </Button>
+
+                                {/* Recording Duration */}
+                                {isRecording && (
+                                    <div className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-800 rounded-md text-sm font-mono">
+                                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                                        {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
+                                    </div>
+                                )}
+
+                                {/* Play/Pause Button */}
+                                {hasRecording && !isRecording && (
+                                    <Button
+                                        onClick={playRecording}
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-red-500 text-red-600 hover:bg-red-50"
+                                        disabled={isTranscribing}
+                                    >
+                                        {isPlaying ? (
+                                            <>
+                                                <Pause size={16} className="mr-2" />
+                                                Pause
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Play size={16} className="mr-2" />
+                                                Play
+                                            </>
+                                        )}
+                                    </Button>
+                                )}
+
+                                {/* Clear Recording Button */}
+                                {hasRecording && !isRecording && (
+                                    <Button
+                                        onClick={resetRecording}
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-gray-300 text-gray-600 hover:bg-gray-50"
+                                        disabled={isTranscribing}
+                                    >
+                                        <X size={16} />
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* Recording Status */}
+                            {hasRecording && (
+                                <div className="text-xs text-red-600">
+                                    ✓ Audio recorded ({Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')})
+                                    {isTranscribing && (
+                                        <span className="ml-2 inline-flex items-center gap-1">
+                                            <div className="w-3 h-3 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                                            Transcribing...
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Instructions */}
+                            <div className="text-xs text-red-600 opacity-80">
+                                Record a voice message and it will be automatically transcribed to text when you stop recording.
+                            </div>
+                        </div>
+
+                        {/* Hidden audio element for playback */}
+                        <audio ref={audioRef} style={{ display: 'none' }} />
+
                         <Button
                             onClick={async () => {
                                 if (!newDemoFirstName.trim() || !newDemoContent.trim()) return;
 
                                 try {
+                                    setLoading(true);
+
+                                    let audioUrl = null;
+                                    let audioDuration = null;
+
+                                    // Handle audio upload if recording exists
+                                    if (hasRecording && audioBlob) {
+                                        try {
+                                            console.log('📤 Uploading demo audio...');
+
+                                            // Create audio file with proper extension
+                                            const getFileExtension = (mimeType) => {
+                                                if (mimeType.includes('webm')) return 'webm';
+                                                if (mimeType.includes('mp4')) return 'm4a';
+                                                if (mimeType.includes('ogg')) return 'ogg';
+                                                if (mimeType.includes('wav')) return 'wav';
+                                                return 'webm'; // fallback
+                                            };
+
+                                            const extension = getFileExtension(audioBlob.type);
+                                            const audioFile = new File([audioBlob], `demo-${Date.now()}.${extension}`, {
+                                                type: audioBlob.type
+                                            });
+
+                                            console.log('📁 Demo audio file created:', {
+                                                name: audioFile.name,
+                                                type: audioFile.type,
+                                                size: audioFile.size
+                                            });
+
+                                            // Upload to blob storage
+                                            const uploadResult = await uploadToBlob(audioFile, 'audio', user?.id);
+                                            audioUrl = uploadResult.url;
+                                            audioDuration = recordingDuration;
+
+                                            console.log('✅ Demo audio uploaded:', audioUrl);
+                                        } catch (uploadError) {
+                                            console.error('❌ Error uploading demo audio:', uploadError);
+                                            alert('Failed to upload audio. The demo contribution will be created without audio.');
+                                        }
+                                    }
+
+                                    // Create demo contribution
                                     await createDemoContribution({
                                         emberId,
-                                        userId: user?.id, // Use user ID from store
+                                        userId: user?.id,
                                         firstName: newDemoFirstName.trim(),
                                         lastName: newDemoLastName.trim() || null,
                                         content: newDemoContent.trim(),
-                                        hasAudio: false,
-                                        audioUrl: null,
-                                        audioDuration: null,
+                                        hasAudio: !!audioUrl,
+                                        audioUrl,
+                                        audioDuration,
                                         elevenlabsVoiceId: null,
                                         elevenlabsVoiceName: null
                                     });
 
-                                    // Reset form
+                                    console.log('✅ Demo contribution created successfully');
+
+                                    // Reset form and recording
                                     setNewDemoFirstName('');
                                     setNewDemoLastName('');
                                     setNewDemoContent('');
+                                    resetRecording();
 
                                     // Refresh list
-                                    onCreateDemo();
+                                    fetchDemoContributions();
                                 } catch (error) {
                                     console.error('Error creating demo contribution:', error);
+                                    alert('Failed to create demo contribution. Please try again.');
+                                } finally {
+                                    setLoading(false);
                                 }
                             }}
-                            disabled={!newDemoFirstName.trim() || !newDemoContent.trim()}
+                            disabled={!newDemoFirstName.trim() || !newDemoContent.trim() || loading || isRecording || isTranscribing}
                             className="w-full bg-red-600 hover:bg-red-700"
                         >
-                            Create Demo Contribution
+                            {loading ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                    Creating...
+                                </>
+                            ) : (
+                                <>
+                                    <Plus size={16} className="mr-2" />
+                                    Create Demo Contribution
+                                </>
+                            )}
                         </Button>
                     </div>
 
@@ -553,11 +802,6 @@ const ModalContent = ({
                                                             Text
                                                         </Badge>
                                                     )}
-                                                    {demo.elevenlabs_voice_id && (
-                                                        <Badge variant="secondary" className="text-xs bg-purple-200 text-purple-800">
-                                                            Voice
-                                                        </Badge>
-                                                    )}
                                                 </div>
                                                 <p className="text-sm text-red-800">{demo.content}</p>
                                                 <div className="flex items-center gap-2 mt-2">
@@ -590,7 +834,8 @@ const ModalContent = ({
                         (selectedBlockType === 'media' && !selectedMedia) ||
                         (selectedBlockType === 'ember' && !emberContent?.trim()) ||
                         (selectedBlockType === 'narrator' && !narratorContent?.trim()) ||
-                        (selectedBlockType === 'contributions' && selectedContributions.length === 0)
+                        (selectedBlockType === 'contributions' && selectedContributions.length === 0) ||
+                        (selectedBlockType === 'demo' && selectedDemoContributions.length === 0)
                     }
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                 >
@@ -598,7 +843,8 @@ const ModalContent = ({
                     Add {selectedBlockType === 'media' ? 'Media Block' :
                         selectedBlockType === 'ember' ? 'Ember AI Block' :
                             selectedBlockType === 'narrator' ? 'Narrator Block' :
-                                selectedContributions.length > 0 ? `${selectedContributions.length} Voice Block${selectedContributions.length > 1 ? 's' : ''}` : 'Block'}
+                                selectedBlockType === 'contributions' ? `${selectedContributions.length} Voice Block${selectedContributions.length > 1 ? 's' : ''}` :
+                                    selectedBlockType === 'demo' ? `${selectedDemoContributions.length} Demo Block${selectedDemoContributions.length > 1 ? 's' : ''}` : 'Block'}
                 </Button>
             </div>
         </div>
@@ -630,6 +876,21 @@ export default function AddBlockModal({
     const [newDemoContent, setNewDemoContent] = useState('');
     const [editingDemoId, setEditingDemoId] = useState(null);
 
+    // Demo Circle recording state
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingDuration, setRecordingDuration] = useState(0);
+    const [hasRecording, setHasRecording] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [audioBlob, setAudioBlob] = useState(null);
+    const [availableMicrophones, setAvailableMicrophones] = useState([]);
+    const [selectedMicrophone, setSelectedMicrophone] = useState('');
+    const [isTranscribing, setIsTranscribing] = useState(false);
+
+    // Demo Circle refs
+    const mediaRecorderRef = useRef(null);
+    const audioRef = useRef(null);
+    const recordingIntervalRef = useRef(null);
+
     const isMobile = useMediaQuery("(max-width: 768px)");
     const { user } = useStore();
 
@@ -637,6 +898,8 @@ export default function AddBlockModal({
         if (isOpen && emberId) {
             fetchAvailableMedia();
             fetchDemoContributions();
+            // Initialize microphones for demo recording
+            getAvailableMicrophones();
         } else if (!isOpen) {
             // Reset state when modal closes
             setSelectedBlockType('media');
@@ -652,8 +915,17 @@ export default function AddBlockModal({
             setNewDemoLastName('');
             setNewDemoContent('');
             setEditingDemoId(null);
+            // Reset recording state
+            resetRecording();
         }
     }, [isOpen, emberId]);
+
+    // Cleanup recording resources on unmount
+    useEffect(() => {
+        return () => {
+            resetRecording();
+        };
+    }, []);
 
     const fetchAvailableMedia = async () => {
         if (!emberId) return;
@@ -714,6 +986,252 @@ export default function AddBlockModal({
         }
     };
 
+    // Demo Circle recording functions
+    const getAvailableMicrophones = async () => {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            // Filter out microphones with empty deviceId (iOS issue)
+            const audioInputs = devices.filter(device =>
+                device.kind === 'audioinput' &&
+                device.deviceId &&
+                device.deviceId.trim() !== ''
+            );
+
+            // If no valid microphones found, add a default entry
+            if (audioInputs.length === 0) {
+                const defaultMic = {
+                    deviceId: 'default',
+                    label: 'Default Microphone',
+                    kind: 'audioinput'
+                };
+                audioInputs.push(defaultMic);
+                console.log('No specific microphones found, using default');
+            }
+
+            setAvailableMicrophones(audioInputs);
+
+            // Set default microphone if none selected
+            if (audioInputs.length > 0 && !selectedMicrophone) {
+                setSelectedMicrophone(audioInputs[0].deviceId);
+            }
+        } catch (error) {
+            console.error('Error getting microphones:', error);
+        }
+    };
+
+    // Helper function to detect mobile devices
+    const isMobileDevice = () => {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    };
+
+    // Helper function to get supported audio MIME type
+    const getSupportedMimeType = () => {
+        const types = [
+            'audio/webm;codecs=opus',
+            'audio/webm',
+            'audio/mp4',
+            'audio/wav',
+            'audio/ogg;codecs=opus',
+            'audio/ogg'
+        ];
+
+        for (const type of types) {
+            if (MediaRecorder.isTypeSupported(type)) {
+                console.log('📝 Using supported MIME type:', type);
+                return type;
+            }
+        }
+
+        console.warn('⚠️ No supported audio MIME types found, using default');
+        return 'audio/webm'; // Fallback
+    };
+
+    const startRecording = async () => {
+        try {
+            console.log('🎤 Starting demo recording...');
+
+            // Mobile-optimized audio constraints
+            const baseConstraints = {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+            };
+
+            // Add mobile-specific optimizations
+            if (isMobileDevice()) {
+                baseConstraints.sampleRate = 16000; // Lower for mobile networks
+                baseConstraints.channelCount = 1; // Mono for smaller files
+            } else {
+                baseConstraints.sampleRate = 44100;
+            }
+
+            const audioConstraints = { ...baseConstraints };
+
+            // Only specify deviceId if it's not the default fallback
+            if (selectedMicrophone && selectedMicrophone !== 'default') {
+                audioConstraints.deviceId = { exact: selectedMicrophone };
+            }
+
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+            console.log('✅ Microphone stream obtained');
+
+            // Get the best supported MIME type for this device
+            const mimeType = getSupportedMimeType();
+
+            const mediaRecorder = new MediaRecorder(stream, { mimeType });
+            console.log('🎬 MediaRecorder created');
+
+            mediaRecorderRef.current = mediaRecorder;
+
+            const audioChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                console.log('⏹️ Demo recording stopped');
+
+                const audioBlob = new Blob(audioChunks, { type: mimeType });
+                console.log('🎵 Demo audio blob created:', {
+                    size: audioBlob.size,
+                    type: audioBlob.type,
+                    sizeMB: (audioBlob.size / 1024 / 1024).toFixed(2)
+                });
+
+                setAudioBlob(audioBlob);
+                setHasRecording(true);
+
+                // Stop all tracks to release microphone
+                stream.getTracks().forEach(track => track.stop());
+                console.log('✅ Demo recording processing complete');
+
+                // Auto-transcribe the audio
+                setTimeout(async () => {
+                    setIsTranscribing(true);
+                    try {
+                        console.log('🎤 Auto-transcribing demo recording...');
+                        const transcription = await speechToText(audioBlob);
+                        console.log('✅ Auto-transcription completed:', transcription);
+
+                        // Set the transcribed text as the content
+                        setNewDemoContent(transcription);
+                    } catch (error) {
+                        console.error('❌ Auto-transcription error:', error);
+                        // Don't show alert for auto-transcription failure, just log it
+                        console.warn('Auto-transcription failed, user can type manually or try recording again');
+                    } finally {
+                        setIsTranscribing(false);
+                    }
+                }, 100); // Small delay to ensure state updates are processed
+            };
+
+            mediaRecorder.onerror = (error) => {
+                console.error('❌ MediaRecorder error:', error);
+            };
+
+            mediaRecorder.start();
+            console.log('🔴 Demo recording started');
+
+            setIsRecording(true);
+            setRecordingDuration(0);
+
+            // Start duration counter
+            recordingIntervalRef.current = setInterval(() => {
+                setRecordingDuration(prev => prev + 1);
+            }, 1000);
+
+        } catch (error) {
+            console.error('❌ Error starting demo recording:', error);
+
+            if (error.name === 'NotAllowedError') {
+                const message = isMobileDevice()
+                    ? 'Microphone access denied. On mobile, please:\n1. Refresh the page\n2. Allow microphone when prompted\n3. Check your browser settings'
+                    : 'Microphone access denied. Please allow microphone permissions and try again.';
+                alert(message);
+            } else if (error.name === 'NotFoundError') {
+                const message = isMobileDevice()
+                    ? 'No microphone found. Please check that your device has a microphone and try again.'
+                    : 'No microphone found. Please connect a microphone and try again.';
+                alert(message);
+            } else {
+                const message = isMobileDevice()
+                    ? 'Could not start recording. Please ensure you\'re using HTTPS and a supported mobile browser (Chrome, Safari, Firefox).'
+                    : 'Could not start recording. Please check microphone permissions.';
+                alert(message);
+            }
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+
+            if (recordingIntervalRef.current) {
+                clearInterval(recordingIntervalRef.current);
+                recordingIntervalRef.current = null;
+            }
+        }
+    };
+
+    const playRecording = async () => {
+        if (audioBlob && audioRef.current) {
+            try {
+                if (isPlaying) {
+                    audioRef.current.pause();
+                    setIsPlaying(false);
+                } else {
+                    // Clean up any existing object URL
+                    if (audioRef.current.src && audioRef.current.src.startsWith('blob:')) {
+                        URL.revokeObjectURL(audioRef.current.src);
+                    }
+
+                    // Set up new audio source
+                    audioRef.current.src = URL.createObjectURL(audioBlob);
+
+                    // Set up event handlers before playing
+                    audioRef.current.onended = () => {
+                        setIsPlaying(false);
+                    };
+
+                    audioRef.current.onerror = (e) => {
+                        console.error('Audio playback error:', e);
+                        setIsPlaying(false);
+                        alert('Could not play audio recording. Please try recording again.');
+                    };
+
+                    // Play audio
+                    await audioRef.current.play();
+                    setIsPlaying(true);
+                }
+            } catch (error) {
+                console.error('Error playing recording:', error);
+                setIsPlaying(false);
+            }
+        }
+    };
+
+    const resetRecording = () => {
+        setIsRecording(false);
+        setRecordingDuration(0);
+        setHasRecording(false);
+        setIsPlaying(false);
+        setAudioBlob(null);
+        setIsTranscribing(false);
+
+        if (recordingIntervalRef.current) {
+            clearInterval(recordingIntervalRef.current);
+            recordingIntervalRef.current = null;
+        }
+
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
+    };
+
     const handleAddBlock = () => {
         let blockData = { blockType: selectedBlockType };
 
@@ -753,6 +1271,7 @@ export default function AddBlockModal({
             narratorContent={narratorContent}
             setNarratorContent={setNarratorContent}
             loading={loading}
+            setLoading={setLoading}
             onAddBlock={handleAddBlock}
             onClose={onClose}
             currentEmberVoiceId={currentEmberVoiceId}
@@ -772,44 +1291,61 @@ export default function AddBlockModal({
             onCreateDemo={fetchDemoContributions}
             emberId={emberId}
             user={user}
+            fetchDemoContributions={fetchDemoContributions}
+            // Demo Circle recording props
+            isRecording={isRecording}
+            recordingDuration={recordingDuration}
+            hasRecording={hasRecording}
+            isPlaying={isPlaying}
+            audioBlob={audioBlob}
+            availableMicrophones={availableMicrophones}
+            selectedMicrophone={selectedMicrophone}
+            setSelectedMicrophone={setSelectedMicrophone}
+            isTranscribing={isTranscribing}
+            startRecording={startRecording}
+            stopRecording={stopRecording}
+            playRecording={playRecording}
+            resetRecording={resetRecording}
+            audioRef={audioRef}
         />
     );
 
-    if (isMobile) {
-        return (
-            <Drawer open={isOpen} onOpenChange={onClose}>
-                <DrawerContent className="bg-white focus:outline-none">
-                    <DrawerHeader className="bg-white">
-                        <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-                            <Plus size={20} className="text-blue-600" />
-                            Add Block
-                        </DrawerTitle>
-                        <DrawerDescription className="text-left text-gray-600">
-                            Add media, AI content, or story contributions
-                        </DrawerDescription>
-                    </DrawerHeader>
-                    <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
-                        {modalContent}
-                    </div>
-                </DrawerContent>
-            </Drawer>
-        );
-    }
-
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-                        <Plus size={20} className="text-blue-600" />
-                        Add Block
-                    </DialogTitle>
-                    <DialogDescription className="text-gray-600">
-                        Add media, AI content, or story contributions
-                    </DialogDescription>
-                </DialogHeader>
-                {modalContent}
-            </DialogContent>
-        </Dialog>
+        <>
+            {isMobile ? (
+                <Drawer open={isOpen} onOpenChange={onClose}>
+                    <DrawerContent className="bg-white focus:outline-none">
+                        <DrawerHeader className="bg-white">
+                            <DrawerTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+                                <Plus size={20} className="text-blue-600" />
+                                Add Block
+                            </DrawerTitle>
+                            <DrawerDescription className="text-left text-gray-600">
+                                Add media, AI content, or story contributions
+                            </DrawerDescription>
+                        </DrawerHeader>
+                        <div className="px-4 pb-4 bg-white max-h-[70vh] overflow-y-auto">
+                            {modalContent}
+                        </div>
+                    </DrawerContent>
+                </Drawer>
+            ) : (
+                <Dialog open={isOpen} onOpenChange={onClose}>
+                    <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto bg-white sm:w-full sm:max-w-2xl rounded-2xl focus:outline-none">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+                                <Plus size={20} className="text-blue-600" />
+                                Add Block
+                            </DialogTitle>
+                            <DialogDescription className="text-gray-600">
+                                Add media, AI content, or story contributions
+                            </DialogDescription>
+                        </DialogHeader>
+                        {modalContent}
+                    </DialogContent>
+                </Dialog>
+            )}
+
+        </>
     );
 } 

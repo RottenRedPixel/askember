@@ -433,8 +433,13 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
   let actualVoiceType = type;
   let actualVoiceTag = speaker || 'Unknown Voice'; // Use speaker field directly
 
-  // For type 'voice' blocks, derive the actual type from speaker
-  if (type === 'voice' && speaker) {
+  // Check for explicit voiceType first (for demo blocks and modern blocks)
+  if (segment.voiceType) {
+    actualVoiceType = segment.voiceType;
+    actualVoiceTag = speaker || segment.voiceTag || actualVoiceTag;
+    console.log(`🎯 Using explicit voiceType: ${segment.voiceType} for "${actualVoiceTag}"`);
+  } else if (type === 'voice' && speaker) {
+    // For legacy type 'voice' blocks, derive the actual type from speaker
     if (speaker === 'EMBER VOICE') {
       actualVoiceType = 'ember';
       actualVoiceTag = 'Ember Voice';
@@ -631,6 +636,114 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         content,
         segment
       );
+    } else if (actualVoiceType === 'demo') {
+      // DEMO VOICE - Handle demo contributions with recorded audio
+      console.log(`🎯 Generating DEMO voice audio for: "${actualVoiceTag}"`);
+
+      // DEBUG: Log the entire segment structure for demo blocks
+      console.log(`🔍 DEMO DEBUG - Full segment structure:`, {
+        id: segment.id,
+        type: segment.type,
+        voiceType: segment.voiceType,
+        speaker: segment.speaker,
+        voiceTag: segment.voiceTag,
+        demoData: segment.demoData,
+        preference: segment.preference,
+        voice_preference: segment.voice_preference,
+        hasDemo: !!segment.demoData,
+        demoKeys: segment.demoData ? Object.keys(segment.demoData) : 'NONE'
+      });
+
+      // Get user preference from voice_preference field
+      const segmentPreference = voice_preference || segment.preference;
+      let userPreference = 'text'; // default for demo
+
+      if (segmentPreference) {
+        userPreference = segmentPreference; // recorded, synth, or text
+        console.log(`🎯 Demo preference from segment: ${segmentPreference}`);
+      } else if (window.messageAudioPreferences) {
+        // Check for UI preferences
+        const blockKey = `${actualVoiceTag}-${segment.id}`;
+        if (window.messageAudioPreferences[blockKey]) {
+          userPreference = window.messageAudioPreferences[blockKey];
+          console.log(`🎯 Demo preference from UI: ${userPreference}`);
+        }
+      }
+
+      // Check if demo has recorded audio
+      const demoData = segment.demoData;
+      const hasRecordedAudio = !!(demoData && demoData.recordedAudioUrl);
+
+      console.log(`🔍 DEMO DEBUG - Audio check:`, {
+        hasDemoData: !!demoData,
+        hasRecordedAudio,
+        recordedAudioUrl: demoData?.recordedAudioUrl,
+        userPreference
+      });
+
+      if (userPreference === 'recorded' && hasRecordedAudio) {
+        // Use the actual recorded audio from demo contribution
+        console.log(`🎙️ ✅ Using recorded audio for demo: ${actualVoiceTag}`);
+        console.log(`🔗 Demo audio URL:`, demoData.recordedAudioUrl);
+
+        const audio = new Audio(demoData.recordedAudioUrl);
+        registerAudio(audio);
+        return {
+          type: 'demo_recorded',
+          audio,
+          url: demoData.recordedAudioUrl,
+          voiceTag: actualVoiceTag,
+          content: audioContent
+        };
+      } else if (userPreference === 'synth' && demoData?.elevenlabsVoiceId) {
+        // Use ElevenLabs voice synthesis for demo
+        console.log(`🎤 ✅ Using ElevenLabs voice for demo: ${actualVoiceTag}`);
+        console.log(`🔗 Voice ID:`, demoData.elevenlabsVoiceId);
+
+        const audioBlob = await textToSpeech(audioContent, demoData.elevenlabsVoiceId);
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        registerAudio(audio);
+
+        return {
+          type: 'demo_synth',
+          audio,
+          url: audioUrl,
+          blob: audioBlob,
+          voiceTag: actualVoiceTag,
+          content: audioContent,
+          voiceModel: demoData.elevenlabsVoiceName
+        };
+      } else {
+        // Fallback to narrator voice for text display with attribution
+        console.log(`📝 Using narrator voice for demo text: ${actualVoiceTag}`);
+
+        const voiceId = getVoiceId(segment, storyCut, 'narrator');
+        if (!voiceId) {
+          throw new Error('No narrator voice ID configured for demo fallback');
+        }
+
+        // ✅ Format demo text with attribution like Story Circle contributions
+        const demoFirstName = demoData?.firstName || actualVoiceTag;
+        const attributedContent = `${demoFirstName} said, "${audioContent}"`;
+        console.log(`📝 Demo text with attribution: "${attributedContent}"`);
+
+        const audioBlob = await textToSpeech(attributedContent, voiceId);
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        registerAudio(audio);
+
+        return {
+          type: 'demo_text_fallback',
+          audio,
+          url: audioUrl,
+          blob: audioBlob,
+          voiceTag: actualVoiceTag,
+          content: attributedContent, // Show attributed content
+          originalContent: audioContent, // Keep original for reference
+          fallbackVoice: 'narrator'
+        };
+      }
     } else if (actualVoiceType === 'ember') {
       // EMBER VOICE
       console.log(`🔥 Generating EMBER voice audio: "${audioContent}"`);
@@ -739,6 +852,23 @@ export const playMultiVoiceAudio = async (blocks, storyCut, recordedAudio, state
   }
 
   console.log('🎭 Starting multi-voice playback with', blocks.length, 'blocks');
+
+  // ✅ ENHANCED: Convert demo_data to demoData for blocks loaded directly from database
+  const processedBlocks = blocks.map(block => {
+    if (block.type === 'voice' && block.voiceType === 'demo' && block.demo_data && !block.demoData) {
+      console.log('🔄 Converting demo_data to demoData for:', block.speaker);
+      return {
+        ...block,
+        demoData: block.demo_data,
+        // Keep demo_data for backward compatibility
+        demo_data: block.demo_data
+      };
+    }
+    return block;
+  });
+
+  // Use processed blocks for the rest of the function
+  blocks = processedBlocks;
 
   // Clear any previous audio registry to start fresh
   clearAudioRegistry();
