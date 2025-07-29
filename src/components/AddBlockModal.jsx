@@ -7,7 +7,8 @@ import { Plus, Camera, X, MessageCircle, Mic, User, Sparkles } from 'lucide-reac
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { getEmberPhotos } from '@/lib/photos';
-import { getEmberSupportingMedia } from '@/lib/database';
+import { getEmberSupportingMedia, createDemoContribution, getDemoContributionsForEmber, updateDemoContribution, deleteDemoContribution } from '@/lib/database';
+import useStore from '@/store';
 
 // Custom hook to detect mobile devices
 function useMediaQuery(query) {
@@ -85,6 +86,13 @@ const blockTypes = [
         icon: MessageCircle,
         color: 'green',
         description: 'Add existing story circle messages'
+    },
+    {
+        id: 'demo',
+        label: 'Demo Circle',
+        icon: User,
+        color: 'red',
+        description: 'Create and manage demo contributions'
     }
 ];
 
@@ -105,7 +113,22 @@ const ModalContent = ({
     onAddBlock,
     onClose,
     currentEmberVoiceId,
-    currentNarratorVoiceId
+    currentNarratorVoiceId,
+    // Demo Circle props
+    demoContributions,
+    selectedDemoContributions,
+    setSelectedDemoContributions,
+    newDemoFirstName,
+    setNewDemoFirstName,
+    newDemoLastName,
+    setNewDemoLastName,
+    newDemoContent,
+    setNewDemoContent,
+    editingDemoId,
+    setEditingDemoId,
+    onCreateDemo,
+    emberId,
+    user
 }) => {
     return (
         <div className="space-y-4">
@@ -386,6 +409,172 @@ const ModalContent = ({
                 </>
             )}
 
+            {selectedBlockType === 'demo' && (
+                <>
+                    {/* Create New Demo Contribution */}
+                    <div className="space-y-4 border-b border-gray-200 pb-4">
+                        <div className="flex items-center gap-2">
+                            <User size={16} className="text-red-600" />
+                            <span className="text-sm font-medium text-gray-900">Create New Demo Contribution</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    First Name *
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newDemoFirstName}
+                                    onChange={(e) => setNewDemoFirstName(e.target.value)}
+                                    placeholder="John"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    Last Name
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newDemoLastName}
+                                    onChange={(e) => setNewDemoLastName(e.target.value)}
+                                    placeholder="Smith"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Message Content *
+                            </label>
+                            <Textarea
+                                value={newDemoContent}
+                                onChange={(e) => setNewDemoContent(e.target.value)}
+                                placeholder="Enter what this demo contributor would say..."
+                                className="min-h-20 focus:ring-red-500 focus:border-red-500"
+                                required
+                            />
+                        </div>
+
+                        <Button
+                            onClick={async () => {
+                                if (!newDemoFirstName.trim() || !newDemoContent.trim()) return;
+
+                                try {
+                                    await createDemoContribution({
+                                        emberId,
+                                        userId: user?.id, // Use user ID from store
+                                        firstName: newDemoFirstName.trim(),
+                                        lastName: newDemoLastName.trim() || null,
+                                        content: newDemoContent.trim(),
+                                        hasAudio: false,
+                                        audioUrl: null,
+                                        audioDuration: null,
+                                        elevenlabsVoiceId: null,
+                                        elevenlabsVoiceName: null
+                                    });
+
+                                    // Reset form
+                                    setNewDemoFirstName('');
+                                    setNewDemoLastName('');
+                                    setNewDemoContent('');
+
+                                    // Refresh list
+                                    onCreateDemo();
+                                } catch (error) {
+                                    console.error('Error creating demo contribution:', error);
+                                }
+                            }}
+                            disabled={!newDemoFirstName.trim() || !newDemoContent.trim()}
+                            className="w-full bg-red-600 hover:bg-red-700"
+                        >
+                            Create Demo Contribution
+                        </Button>
+                    </div>
+
+                    {/* Select Existing Demo Contributions */}
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <User size={16} className="text-red-600" />
+                                <span className="text-sm font-medium text-gray-900">Select Demo Contributions</span>
+                            </div>
+                            <Badge variant="outline" className="text-xs">
+                                {demoContributions?.length || 0} available
+                            </Badge>
+                        </div>
+
+                        <p className="text-sm text-gray-600">
+                            Choose demo contributions to add as voice blocks.
+                        </p>
+
+                        {demoContributions?.length === 0 ? (
+                            <div className="flex items-center justify-center py-4">
+                                <div className="text-sm text-gray-500">No demo contributions created yet</div>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {demoContributions.map((demo) => (
+                                    <div
+                                        key={demo.id}
+                                        onClick={() => {
+                                            const isSelected = selectedDemoContributions.some(d => d.id === demo.id);
+                                            if (isSelected) {
+                                                setSelectedDemoContributions(selectedDemoContributions.filter(d => d.id !== demo.id));
+                                            } else {
+                                                setSelectedDemoContributions([...selectedDemoContributions, demo]);
+                                            }
+                                        }}
+                                        className={`p-3 rounded-lg cursor-pointer transition-all ${selectedDemoContributions.some(d => d.id === demo.id)
+                                            ? 'border-2 border-red-500 bg-red-100'
+                                            : 'border border-red-200 bg-red-50 hover:border-red-300 hover:bg-red-100'
+                                            }`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <Avatar className="w-8 h-8 flex-shrink-0">
+                                                <AvatarFallback className="bg-red-200 text-red-800 text-xs">
+                                                    {getUserInitials('', demo.first_name, demo.last_name)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="font-medium text-sm text-red-900">
+                                                        {getContributorDisplayName(demo.first_name, demo.last_name, '')}
+                                                    </span>
+                                                    {demo.has_audio ? (
+                                                        <Badge variant="secondary" className="text-xs bg-red-200 text-red-800">
+                                                            Audio
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="secondary" className="text-xs bg-blue-200 text-blue-800">
+                                                            Text
+                                                        </Badge>
+                                                    )}
+                                                    {demo.elevenlabs_voice_id && (
+                                                        <Badge variant="secondary" className="text-xs bg-purple-200 text-purple-800">
+                                                            Voice
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm text-red-800">{demo.content}</p>
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <span className="text-xs text-red-600">
+                                                        {new Date(demo.created_at).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
+
             {/* Action buttons */}
             <div className="flex items-center gap-3 pt-4">
                 <Button
@@ -433,11 +622,21 @@ export default function AddBlockModal({
     const [narratorContent, setNarratorContent] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // Demo Circle state
+    const [demoContributions, setDemoContributions] = useState([]);
+    const [selectedDemoContributions, setSelectedDemoContributions] = useState([]);
+    const [newDemoFirstName, setNewDemoFirstName] = useState('');
+    const [newDemoLastName, setNewDemoLastName] = useState('');
+    const [newDemoContent, setNewDemoContent] = useState('');
+    const [editingDemoId, setEditingDemoId] = useState(null);
+
     const isMobile = useMediaQuery("(max-width: 768px)");
+    const { user } = useStore();
 
     useEffect(() => {
         if (isOpen && emberId) {
             fetchAvailableMedia();
+            fetchDemoContributions();
         } else if (!isOpen) {
             // Reset state when modal closes
             setSelectedBlockType('media');
@@ -446,6 +645,13 @@ export default function AddBlockModal({
             setEmberContent('');
             setNarratorContent('');
             setAvailableMedia([]);
+            // Reset demo state
+            setDemoContributions([]);
+            setSelectedDemoContributions([]);
+            setNewDemoFirstName('');
+            setNewDemoLastName('');
+            setNewDemoContent('');
+            setEditingDemoId(null);
         }
     }, [isOpen, emberId]);
 
@@ -494,6 +700,20 @@ export default function AddBlockModal({
         }
     };
 
+    const fetchDemoContributions = async () => {
+        if (!emberId) return;
+
+        try {
+            console.log('📋 Fetching demo contributions for ember:', emberId);
+            const demos = await getDemoContributionsForEmber(emberId);
+            setDemoContributions(demos);
+            console.log(`📋 Found ${demos.length} demo contributions`);
+        } catch (error) {
+            console.error('❌ Error fetching demo contributions:', error);
+            setDemoContributions([]);
+        }
+    };
+
     const handleAddBlock = () => {
         let blockData = { blockType: selectedBlockType };
 
@@ -509,6 +729,9 @@ export default function AddBlockModal({
         } else if (selectedBlockType === 'contributions') {
             if (selectedContributions.length === 0) return;
             blockData.contributions = selectedContributions;
+        } else if (selectedBlockType === 'demo') {
+            if (selectedDemoContributions.length === 0) return;
+            blockData.demoContributions = selectedDemoContributions;
         }
 
         onAddBlock(blockData);
@@ -534,6 +757,21 @@ export default function AddBlockModal({
             onClose={onClose}
             currentEmberVoiceId={currentEmberVoiceId}
             currentNarratorVoiceId={currentNarratorVoiceId}
+            // Demo Circle props
+            demoContributions={demoContributions}
+            selectedDemoContributions={selectedDemoContributions}
+            setSelectedDemoContributions={setSelectedDemoContributions}
+            newDemoFirstName={newDemoFirstName}
+            setNewDemoFirstName={setNewDemoFirstName}
+            newDemoLastName={newDemoLastName}
+            setNewDemoLastName={setNewDemoLastName}
+            newDemoContent={newDemoContent}
+            setNewDemoContent={setNewDemoContent}
+            editingDemoId={editingDemoId}
+            setEditingDemoId={setEditingDemoId}
+            onCreateDemo={fetchDemoContributions}
+            emberId={emberId}
+            user={user}
         />
     );
 

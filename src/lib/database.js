@@ -2712,3 +2712,120 @@ export const getEditableVoiceBlocks = async (userId) => {
     throw error;
   }
 };
+
+// === Demo Contributions Functions ===
+
+/**
+ * Create a new demo contribution
+ * @param {Object} demoData - Demo contribution data
+ * @returns {Promise<string>} ID of created demo contribution
+ */
+export const createDemoContribution = async (demoData) => {
+  try {
+    const { data, error } = await supabase
+      .from('demo_contributions')
+      .insert({
+        ember_id: demoData.emberId,
+        user_id: demoData.userId,
+        first_name: demoData.firstName,
+        last_name: demoData.lastName || null,
+        content: demoData.content,
+        has_audio: demoData.hasAudio || false,
+        audio_url: demoData.audioUrl || null,
+        audio_duration: demoData.audioDuration || null,
+        elevenlabs_voice_id: demoData.elevenlabsVoiceId || null,
+        elevenlabs_voice_name: demoData.elevenlabsVoiceName || null
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    console.log(`✅ Created demo contribution: ${demoData.firstName} ${demoData.lastName || ''}`);
+    return data.id;
+  } catch (error) {
+    console.error('Error creating demo contribution:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get all demo contributions for an ember
+ * @param {string} emberId - Ember ID
+ * @returns {Promise<Array>} Array of demo contributions
+ */
+export const getDemoContributionsForEmber = async (emberId) => {
+  try {
+    const { data, error } = await supabase
+      .from('demo_contributions')
+      .select('*')
+      .eq('ember_id', emberId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    console.log(`✅ Found ${data?.length || 0} demo contributions for ember`);
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching demo contributions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update a demo contribution
+ * @param {string} demoId - Demo contribution ID  
+ * @param {Object} updates - Fields to update
+ * @returns {Promise<Object>} Updated demo contribution
+ */
+export const updateDemoContribution = async (demoId, updates) => {
+  try {
+    const { data, error } = await supabase
+      .from('demo_contributions')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', demoId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    console.log(`✅ Updated demo contribution: ${demoId}`);
+    return data;
+  } catch (error) {
+    console.error('Error updating demo contribution:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a demo contribution
+ * @param {string} demoId - Demo contribution ID
+ * @returns {Promise<boolean>} Success status
+ */
+export const deleteDemoContribution = async (demoId) => {
+  try {
+    const { error } = await supabase
+      .from('demo_contributions')
+      .delete()
+      .eq('id', demoId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    console.log(`✅ Deleted demo contribution: ${demoId}`);
+    return true;
+  } catch (error) {
+    console.error('Error deleting demo contribution:', error);
+    throw error;
+  }
+};

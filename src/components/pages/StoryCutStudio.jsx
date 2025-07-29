@@ -551,6 +551,8 @@ export default function StoryCutStudio() {
                         return 'Ember AI';
                     } else if (voiceType === 'narrator') {
                         return 'Narrator';
+                    } else if (voiceType === 'demo') {
+                        return 'Demo User';
                     } else if (voiceType !== 'contributor') {
                         return null; // Don't show badge for unknown voice types
                     }
@@ -787,14 +789,18 @@ export default function StoryCutStudio() {
 
                         if (jsonBlock.type === 'voice') {
                             // Process voice block
-                            // Determine voice type from speaker name
-                            let voiceType;
-                            if (jsonBlock.speaker === 'EMBER VOICE') {
-                                voiceType = 'ember';
-                            } else if (jsonBlock.speaker === 'NARRATOR') {
-                                voiceType = 'narrator';
-                            } else {
-                                voiceType = 'contributor';
+                            // First check if voiceType is already saved (new format)
+                            let voiceType = jsonBlock.voiceType;
+
+                            // Fallback: Determine voice type from speaker name (legacy format)
+                            if (!voiceType) {
+                                if (jsonBlock.speaker === 'EMBER VOICE') {
+                                    voiceType = 'ember';
+                                } else if (jsonBlock.speaker === 'NARRATOR') {
+                                    voiceType = 'narrator';
+                                } else {
+                                    voiceType = 'contributor';
+                                }
                             }
 
                             const messageType = determineMessageType(jsonBlock.speaker, jsonBlock.content, voiceType);
@@ -813,7 +819,10 @@ export default function StoryCutStudio() {
                                 messageType: messageType,
                                 avatarUrl: contributorData.avatarUrl,
                                 contributorData: contributorData,
-                                hasVoiceModel: false // Will be checked later
+                                hasVoiceModel: false, // Will be checked later
+                                // Demo block specific data
+                                demo_contribution_id: jsonBlock.demo_contribution_id || null,
+                                demoData: jsonBlock.demo_data || null
                             };
 
                             realBlocks.push(voiceBlock);
@@ -1376,10 +1385,17 @@ export default function StoryCutStudio() {
                                 if (block.voiceType === 'contributor') {
                                     const blockKey = `${block.voiceTag}-${block.id}`;
                                     return contributorAudioPreferences[blockKey] || 'text';
+                                } else if (block.voiceType === 'demo') {
+                                    const blockKey = `${block.voiceTag}-${block.id}`;
+                                    return contributorAudioPreferences[blockKey] || 'text';
                                 }
                                 return block.preference || 'text';
                             })(),
                             message_id: block.messageId || null,
+
+                            // ✅ ENHANCED: Demo block metadata
+                            demo_contribution_id: block.voiceType === 'demo' ? block.demo_contribution_id : null,
+                            demo_data: block.voiceType === 'demo' ? block.demoData : null,
 
                             // ✅ ENHANCED: Audio metadata
                             hasRecordedAudio: block.messageType === 'Audio Message',
@@ -1535,6 +1551,12 @@ export default function StoryCutStudio() {
             return true;
         }
 
+        // NEW: Allow editing of demo voice blocks
+        if (block.voiceType === 'demo') {
+            console.log(`✅ Demo blocks are editable: ${block.voiceTag}`);
+            return true;
+        }
+
         return false;
     };
 
@@ -1661,10 +1683,10 @@ export default function StoryCutStudio() {
     const formatBlockDuration = (block) => {
         const duration = calculateBlockDuration(block);
         if (duration === 0) return '';
-        
+
         // Show 1 decimal place if less than 10 seconds and has decimal, otherwise round
-        return duration < 10 && duration % 1 !== 0 
-            ? `${duration.toFixed(1)}s` 
+        return duration < 10 && duration % 1 !== 0
+            ? `${duration.toFixed(1)}s`
             : `${Math.round(duration)}s`;
     };
 
@@ -1817,6 +1839,17 @@ export default function StoryCutStudio() {
                     active: 'bg-green-100 hover:bg-green-200 text-green-600',
                     disabled: 'bg-green-50 text-green-300 cursor-not-allowed'
                 };
+            } else if (block.voiceType === 'demo') {
+                return {
+                    active: 'bg-red-100 hover:bg-red-200 text-red-600',
+                    disabled: 'bg-red-50 text-red-300 cursor-not-allowed'
+                };
+            } else {
+                // Default fallback for voice blocks with unknown voiceType
+                return {
+                    active: 'bg-gray-100 hover:bg-gray-200 text-gray-600',
+                    disabled: 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                };
             }
         } else if (block.type === 'loadscreen') {
             return {
@@ -1951,12 +1984,14 @@ export default function StoryCutStudio() {
         const selectedContributions = selection.contributions || [];
         const emberContent = selection.emberContent || null;
         const narratorContent = selection.narratorContent || null;
+        const selectedDemoContributions = selection.demoContributions || [];
 
         // Validate that we have content for the selected block type
         if (blockType === 'media' && !selectedMedia) return;
         if (blockType === 'ember' && !emberContent) return;
         if (blockType === 'narrator' && !narratorContent) return;
         if (blockType === 'contributions' && selectedContributions.length === 0) return;
+        if (blockType === 'demo' && selectedDemoContributions.length === 0) return;
         if (blockType === 'legacy' && !selectedMedia && selectedContributions.length === 0) return;
 
         try {
@@ -2087,6 +2122,39 @@ export default function StoryCutStudio() {
                 };
 
                 blocksToAdd.push(voiceBlock);
+            }
+
+            // Add demo contribution voice blocks
+            for (const demoContribution of selectedDemoContributions) {
+                console.log('➕ Adding new demo block:', demoContribution.first_name, demoContribution.last_name);
+
+                const displayName = demoContribution.last_name
+                    ? `${demoContribution.first_name} ${demoContribution.last_name}`
+                    : demoContribution.first_name;
+
+                const demoBlock = {
+                    id: currentBlockId++,
+                    type: 'voice',
+                    voiceTag: displayName,
+                    content: demoContribution.content,
+                    voiceType: 'demo',
+                    avatarUrl: null, // Demo users use initials
+                    demoData: {
+                        firstName: demoContribution.first_name,
+                        lastName: demoContribution.last_name,
+                        recordedAudioUrl: demoContribution.audio_url,
+                        elevenlabsVoiceId: demoContribution.elevenlabs_voice_id,
+                        elevenlabsVoiceName: demoContribution.elevenlabs_voice_name
+                    },
+                    messageType: demoContribution.has_audio ? 'Audio Message' : 'Text Response',
+                    preference: demoContribution.has_audio ? 'recorded' :
+                        (demoContribution.elevenlabs_voice_id ? demoContribution.elevenlabs_voice_id : 'text'),
+                    messageId: null, // Demo contributions don't have original messages
+                    hasVoiceModel: !!(demoContribution.has_audio || demoContribution.elevenlabs_voice_id),
+                    demo_contribution_id: demoContribution.id // Reference to demo table
+                };
+
+                blocksToAdd.push(demoBlock);
             }
 
             // Insert all new blocks at once
@@ -2342,6 +2410,12 @@ export default function StoryCutStudio() {
                                         textColor = 'text-green-600';
                                         ringColor = 'ring-green-500';
                                         hoverColor = 'hover:bg-green-100';
+                                    } else if (block.voiceType === 'demo') {
+                                        bgColor = 'bg-red-50';
+                                        borderColor = 'border-red-200';
+                                        textColor = 'text-red-600';
+                                        ringColor = 'ring-red-500';
+                                        hoverColor = 'hover:bg-red-100';
                                     } else {
                                         // Default fallback for voice blocks with unknown voiceType
                                         bgColor = 'bg-gray-50';
@@ -2891,7 +2965,9 @@ export default function StoryCutStudio() {
                                                                                     ? 'bg-purple-100 text-purple-800'
                                                                                     : block.voiceType === 'narrator'
                                                                                         ? 'bg-yellow-100 text-yellow-800'
-                                                                                        : 'bg-gray-100 text-gray-800'
+                                                                                        : block.voiceType === 'demo'
+                                                                                            ? 'bg-red-100 text-red-800'
+                                                                                            : 'bg-gray-100 text-gray-800'
                                                                                     }`}>
                                                                                     {getShortVoiceTag(block)}
                                                                                 </AvatarFallback>
@@ -2904,6 +2980,9 @@ export default function StoryCutStudio() {
                                                                                 // Use formatVoiceTagJSX for ember/narrator, getContributorDisplayName for contributors
                                                                                 if (block.voiceType === 'ember' || block.voiceType === 'narrator') {
                                                                                     return formatVoiceTagJSX(block);
+                                                                                } else if (block.voiceType === 'demo') {
+                                                                                    // Demo blocks use the voiceTag directly (already formatted)
+                                                                                    return block.voiceTag;
                                                                                 } else {
                                                                                     // Find corresponding story message for full name (contributors)
                                                                                     const storyMessage = storyMessages.find(msg =>
@@ -2933,7 +3012,9 @@ export default function StoryCutStudio() {
                                                                             ? 'bg-green-100 hover:bg-green-200 text-green-600'
                                                                             : block.voiceType === 'narrator'
                                                                                 ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-600'
-                                                                                : 'bg-purple-100 hover:bg-purple-200 text-purple-600'
+                                                                                : block.voiceType === 'demo'
+                                                                                    ? 'bg-red-100 hover:bg-red-200 text-red-600'
+                                                                                    : 'bg-purple-100 hover:bg-purple-200 text-purple-600'
                                                                             }`}
                                                                         title="Edit content"
                                                                     >
@@ -2949,7 +3030,9 @@ export default function StoryCutStudio() {
                                                                         ? 'bg-green-100 hover:bg-green-200 text-green-600'
                                                                         : block.voiceType === 'narrator'
                                                                             ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-600'
-                                                                            : 'bg-purple-100 hover:bg-purple-200 text-purple-600'
+                                                                            : block.voiceType === 'demo'
+                                                                                ? 'bg-red-100 hover:bg-red-200 text-red-600'
+                                                                                : 'bg-purple-100 hover:bg-purple-200 text-purple-600'
                                                                         }`}
                                                                     title="Delete voice block"
                                                                 >
@@ -2961,7 +3044,9 @@ export default function StoryCutStudio() {
                                                                             ? 'bg-green-100 text-green-800'
                                                                             : block.voiceType === 'narrator'
                                                                                 ? 'bg-yellow-100 text-yellow-800'
-                                                                                : 'bg-purple-100 text-purple-800'
+                                                                                : block.voiceType === 'demo'
+                                                                                    ? 'bg-red-100 text-red-800'
+                                                                                    : 'bg-purple-100 text-purple-800'
                                                                             }`}>
                                                                             {block.messageType}
                                                                         </span>
@@ -3020,7 +3105,9 @@ export default function StoryCutStudio() {
                                                                     ? 'bg-purple-100 text-purple-800'
                                                                     : block.voiceType === 'narrator'
                                                                         ? 'bg-yellow-100 text-yellow-800'
-                                                                        : 'bg-gray-100 text-gray-800'
+                                                                        : block.voiceType === 'demo'
+                                                                            ? 'bg-red-100 text-red-800'
+                                                                            : 'bg-gray-100 text-gray-800'
                                                                     }`}>
                                                                     {getShortVoiceTag(block)}
                                                                 </AvatarFallback>
@@ -3031,6 +3118,9 @@ export default function StoryCutStudio() {
                                                                         // Use formatVoiceTagJSX for ember/narrator, getContributorDisplayName for contributors
                                                                         if (block.voiceType === 'ember' || block.voiceType === 'narrator') {
                                                                             return formatVoiceTagJSX(block);
+                                                                        } else if (block.voiceType === 'demo') {
+                                                                            // Demo blocks use the voiceTag directly (already formatted)
+                                                                            return block.voiceTag;
                                                                         } else {
                                                                             // Find corresponding story message for full name (contributors)
                                                                             const storyMessage = storyMessages.find(msg =>
@@ -3055,7 +3145,9 @@ export default function StoryCutStudio() {
                                                                         ? 'bg-green-100 hover:bg-green-200 text-green-700'
                                                                         : block.voiceType === 'narrator'
                                                                             ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700'
-                                                                            : 'bg-purple-100 hover:bg-purple-200 text-purple-700'
+                                                                            : block.voiceType === 'demo'
+                                                                                ? 'bg-red-100 hover:bg-red-200 text-red-700'
+                                                                                : 'bg-purple-100 hover:bg-purple-200 text-purple-700'
                                                                         }`}
                                                                     title="Edit content"
                                                                 >
@@ -3098,25 +3190,25 @@ export default function StoryCutStudio() {
                                                                 )}
                                                                 {/* Show Synth option only if contributor has a trained voice */}
                                                                 {block.hasVoiceModel && (
-                                                                <label className="flex items-center gap-2 cursor-pointer">
-                                                                    <input
-                                                                        type="radio"
-                                                                        name={`audio-${block.id}`}
-                                                                        value="synth"
-                                                                        checked={contributorAudioPreferences[blockKey] === 'synth'}
-                                                                        onChange={(e) => {
-                                                                            if (e.target.checked) {
-                                                                                setContributorAudioPreferences(prev => ({
-                                                                                    ...prev,
-                                                                                    [blockKey]: 'synth'
-                                                                                }));
-                                                                                console.log(`🎤 Set ${blockKey} to use synth voice (DATABASE PERSISTENT)`);
-                                                                            }
-                                                                        }}
-                                                                        className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
-                                                                    />
-                                                                    <span className="text-sm text-green-700">Synth</span>
-                                                                </label>
+                                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                                        <input
+                                                                            type="radio"
+                                                                            name={`audio-${block.id}`}
+                                                                            value="synth"
+                                                                            checked={contributorAudioPreferences[blockKey] === 'synth'}
+                                                                            onChange={(e) => {
+                                                                                if (e.target.checked) {
+                                                                                    setContributorAudioPreferences(prev => ({
+                                                                                        ...prev,
+                                                                                        [blockKey]: 'synth'
+                                                                                    }));
+                                                                                    console.log(`🎤 Set ${blockKey} to use synth voice (DATABASE PERSISTENT)`);
+                                                                                }
+                                                                            }}
+                                                                            className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
+                                                                        />
+                                                                        <span className="text-sm text-green-700">Synth</span>
+                                                                    </label>
                                                                 )}
                                                                 {/* Always show Text option - will use narrator voice */}
                                                                 <label className="flex items-center gap-2 cursor-pointer">
@@ -3145,20 +3237,80 @@ export default function StoryCutStudio() {
                                             </>
                                         )}
 
-
-
-                                        {(block.type === 'start' || block.type === 'end') && (
-                                            <>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`font-semibold ${textColor}`}>{block.title}</span>
+                                        {block.voiceType === 'demo' && (() => {
+                                            const blockKey = `${block.voiceTag}-${block.id}`;
+                                            return (
+                                                <div className="mt-3" style={{ marginLeft: '24px' }}>
+                                                    <div className="flex items-center gap-4">
+                                                        {/* Show "Audio" option only if demo has recorded audio */}
+                                                        {block.demoData?.recordedAudioUrl && (
+                                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                                <input
+                                                                    type="radio"
+                                                                    name={`audio-${block.id}`}
+                                                                    value="recorded"
+                                                                    checked={contributorAudioPreferences[blockKey] === 'recorded'}
+                                                                    onChange={(e) => {
+                                                                        if (e.target.checked) {
+                                                                            setContributorAudioPreferences(prev => ({
+                                                                                ...prev,
+                                                                                [blockKey]: 'recorded'
+                                                                            }));
+                                                                            console.log(`🎙️ Set demo ${blockKey} to use recorded audio`);
+                                                                        }
+                                                                    }}
+                                                                    className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
+                                                                />
+                                                                <span className="text-sm text-red-700">Audio</span>
+                                                            </label>
+                                                        )}
+                                                        {/* Show Synth option if demo has ElevenLabs voice */}
+                                                        {block.demoData?.elevenlabsVoiceId && (
+                                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                                <input
+                                                                    type="radio"
+                                                                    name={`audio-${block.id}`}
+                                                                    value="synth"
+                                                                    checked={contributorAudioPreferences[blockKey] === 'synth'}
+                                                                    onChange={(e) => {
+                                                                        if (e.target.checked) {
+                                                                            setContributorAudioPreferences(prev => ({
+                                                                                ...prev,
+                                                                                [blockKey]: 'synth'
+                                                                            }));
+                                                                            console.log(`🎤 Set demo ${blockKey} to use ElevenLabs voice`);
+                                                                        }
+                                                                    }}
+                                                                    className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
+                                                                />
+                                                                <span className="text-sm text-red-700">Synth</span>
+                                                            </label>
+                                                        )}
+                                                        {/* Always show Text option */}
+                                                        <label className="flex items-center gap-2 cursor-pointer">
+                                                            <input
+                                                                type="radio"
+                                                                name={`audio-${block.id}`}
+                                                                value="text"
+                                                                checked={contributorAudioPreferences[blockKey] === 'text'}
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) {
+                                                                        setContributorAudioPreferences(prev => ({
+                                                                            ...prev,
+                                                                            [blockKey]: 'text'
+                                                                        }));
+                                                                        console.log(`📝 Set demo ${blockKey} to use text-only display`);
+                                                                    }
+                                                                }}
+                                                                className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
+                                                            />
+                                                            <span className="text-sm text-red-700">Text</span>
+                                                        </label>
                                                     </div>
-                                                    <span className={`text-xs px-2 py-1 rounded-full ${block.type === 'start' ? 'bg-gray-300 text-gray-900' : 'bg-gray-300 text-gray-900'}`}>
-                                                        {block.type === 'start' ? 'Start' : 'End'}
-                                                    </span>
                                                 </div>
-                                            </>
-                                        )}
+                                            );
+                                        })()}
+
                                     </div>
                                 );
                             })}
