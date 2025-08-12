@@ -118,9 +118,9 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       content: attributedContent, // Use attributed content
       fallbackVoice: fallbackVoiceName
     };
-  } else if (userPreference === 'personal' && hasPersonalVoice) {
-    // User wants personal voice model and it's available
-    console.log(`🎙️ ✅ Using personal voice model for ${voiceTag} (user preference)`);
+  } else if ((userPreference === 'personal' || userPreference === 'synth') && hasPersonalVoice) {
+    // User wants personal voice model and it's available (accept both 'personal' and 'synth')
+    console.log(`🎙️ ✅ Using personal voice model for ${voiceTag} (user preference: ${userPreference})`);
     console.log(`🎤 Personal voice ID: ${userVoiceModel.elevenlabs_voice_id}`);
 
     // Use the original transcribed text if this is a recorded message, otherwise use script content
@@ -196,7 +196,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
       content: audioContent, // Use clean content
       fallbackVoice: fallbackVoiceName
     };
-  } else if (userPreference === 'personal' && !hasPersonalVoice) {
+  } else if ((userPreference === 'personal' || userPreference === 'synth') && !hasPersonalVoice) {
     // User wants personal voice but none available - fallback to text response
     console.log(`⚠️ User wanted personal voice but none available for ${voiceTag} - falling back to text response`);
     console.log(`⚠️ Voice model check failed:`, {
@@ -284,7 +284,7 @@ const handleContributorAudioGeneration = async (userPreference, hasRecordedAudio
         voiceTag,
         content: audioData.message_content || content // Use recorded content if available, fallback to script content
       };
-    } else if (userPreference === 'personal' && hasPersonalVoice) {
+    } else if ((userPreference === 'personal' || userPreference === 'synth') && hasPersonalVoice) {
       console.log(`🎤 ✅ Using personal voice model (final fallback)`);
 
       // Use the original transcribed text if this is a recorded message, otherwise use script content
@@ -464,65 +464,47 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
 
   try {
     if (actualVoiceType === 'contributor') {
-      // Check per-message preference for this content FIRST
+      // Check per-message preference for this content
       let userPreference = 'recorded'; // default
-      let foundStudioPreference = false;
+      let foundUIPreference = false;
 
-      // PRIORITY 1: Check if preference is embedded in script segment (from JSON blocks or sacred format)
-      const segmentPreference = voice_preference || segment.preference;
-      if (segmentPreference) {
-        // Convert script preference format to audio generation format
-        if (segmentPreference === 'synth') {
-          userPreference = 'personal';
-        } else if (segmentPreference === 'recorded') {
-          userPreference = 'recorded';
-        } else if (segmentPreference === 'text') {
-          userPreference = 'text';
+      // PRIORITY 1: Check for UI preferences from StoryCutStudio (highest priority)
+      if (window.messageAudioPreferences) {
+        const blockKey = `${actualVoiceTag}-${segment.id}`;
+        if (window.messageAudioPreferences[blockKey]) {
+          userPreference = window.messageAudioPreferences[blockKey];
+          foundUIPreference = true;
+          console.log(`🎯 ✅ Using UI preference from StoryCutStudio: ${blockKey} → ${userPreference}`);
         }
-        foundStudioPreference = true;
-        console.log(`🎯 ✅ Using ${voice_preference ? 'JSON blocks' : segment.format || 'embedded'} script preference: ${segmentPreference} → ${userPreference}`);
-      } else {
-        console.log(`🎯 ❌ No embedded preference found in segment`);
-        console.log(`🎯 ❌ Full segment data:`, {
-          voiceTag: segment.voiceTag,
-          content: segment.content.substring(0, 50) + '...',
-          originalContent: segment.originalContent?.substring(0, 50) + '...',
-          type: segment.type,
-          preference: segment.preference,
-          format: segment.format
-        });
       }
 
-      // Fallback to detailed message preferences if no studio preference found
-      if (!foundStudioPreference && window.messageAudioPreferences) {
-        // Strategy 1: Try to find exact content match
-        const matchingKey = Object.keys(window.messageAudioPreferences).find(key => {
-          const keyContent = key.split('-').slice(1).join('-'); // Remove messageIndex prefix
-          return keyContent === audioContent.substring(0, 50) || audioContent.includes(keyContent);
-        });
-
-        if (matchingKey) {
-          userPreference = window.messageAudioPreferences[matchingKey];
-          console.log(`🎯 Found preference match: "${matchingKey}" → ${userPreference}`);
-        } else {
-          // Strategy 2: Try partial content matching
-          const partialMatch = Object.keys(window.messageAudioPreferences).find(key => {
-            const keyContent = key.split('-').slice(1).join('-');
-            return keyContent.length > 10 && audioContent.includes(keyContent);
-          });
-
-          if (partialMatch) {
-            userPreference = window.messageAudioPreferences[partialMatch];
-            console.log(`🎯 Found partial preference match: "${partialMatch}" → ${userPreference}`);
-          } else {
-            console.log(`⚠️ No preference match found for content: "${audioContent.substring(0, 50)}..."`);
-            console.log(`⚠️ Available preferences:`, Object.keys(window.messageAudioPreferences));
+      // PRIORITY 2: Fallback to embedded script preference (from JSON blocks or sacred format)
+      if (!foundUIPreference) {
+        const segmentPreference = voice_preference || segment.preference;
+        if (segmentPreference) {
+          // Convert script preference format to audio generation format
+          if (segmentPreference === 'synth') {
+            userPreference = 'personal';
+          } else if (segmentPreference === 'recorded') {
+            userPreference = 'recorded';
+          } else if (segmentPreference === 'text') {
+            userPreference = 'text';
           }
+          console.log(`🎯 ✅ Using ${voice_preference ? 'JSON blocks' : segment.format || 'embedded'} script preference: ${segmentPreference} → ${userPreference}`);
+        } else {
+          console.log(`🎯 ❌ No embedded preference found in segment, using default: ${userPreference}`);
         }
       }
+
+
 
       console.log(`🎤 User preference for "${audioContent.substring(0, 30)}...": ${userPreference}`);
       console.log(`🔍 All available preferences:`, window.messageAudioPreferences);
+      console.log(`🔍 Block messageId:`, message_id);
+      console.log(`🔍 StoryCut has messageIdMap:`, !!(storyCut.metadata?.messageIdMap));
+      console.log(`🔍 MessageIdMap keys:`, Object.keys(storyCut.metadata?.messageIdMap || {}));
+      console.log(`🔍 User ID from block:`, user_id);
+      console.log(`🔍 Voice tag:`, actualVoiceTag);
 
       // Only look for recorded audio if user preference is 'recorded'
       if (userPreference === 'recorded') {
@@ -662,11 +644,14 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
         userPreference = segmentPreference; // recorded, synth, or text
         console.log(`🎯 Demo preference from segment: ${segmentPreference}`);
       } else if (window.messageAudioPreferences) {
-        // Check for UI preferences
+        // Check for UI preferences using StoryCutStudio key format
         const blockKey = `${actualVoiceTag}-${segment.id}`;
         if (window.messageAudioPreferences[blockKey]) {
           userPreference = window.messageAudioPreferences[blockKey];
           console.log(`🎯 Demo preference from UI: ${userPreference}`);
+        } else {
+          console.log(`🎯 No demo UI preference found for key: ${blockKey}`);
+          console.log(`🎯 Available preferences:`, Object.keys(window.messageAudioPreferences));
         }
       }
 
@@ -695,8 +680,8 @@ export const generateSegmentAudio = async (segment, storyCut, recordedAudio) => 
           voiceTag: actualVoiceTag,
           content: audioContent
         };
-      } else if (userPreference === 'synth' && demoData?.elevenlabsVoiceId) {
-        // Use ElevenLabs voice synthesis for demo
+      } else if ((userPreference === 'synth' || userPreference === 'personal') && demoData?.elevenlabsVoiceId) {
+        // Use ElevenLabs voice synthesis for demo (accept both 'synth' and 'personal')
         console.log(`🎤 ✅ Using ElevenLabs voice for demo: ${actualVoiceTag}`);
         console.log(`🔗 Voice ID:`, demoData.elevenlabsVoiceId);
 

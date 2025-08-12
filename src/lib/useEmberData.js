@@ -296,6 +296,9 @@ export const useStoryCuts = (emberId, userProfile) => {
             // Also fetch the primary story cut
             const primary = await getPrimaryStoryCut(emberId);
             console.log('🎬 Primary story cut fetched:', primary);
+
+
+
             setPrimaryStoryCutState(primary);
 
             // 🚫 REMOVED: Auto-set single story cut as "The One" - this was causing story cut reuse
@@ -380,6 +383,8 @@ export const useStoryMessages = (emberId) => {
             fetchStoryMessages();
         }
     }, [emberId]);
+
+
 
     return {
         storyMessages,
@@ -603,6 +608,40 @@ export const useEmberData = (id, userProfile) => {
             });
         }
     }, [emberData.ember, mediaForStoryData.availableMediaForStory, userProfile?.user_id]); // FIXED: Removed selectedMedia dependency to prevent loops
+
+    // 🔧 ENHANCEMENT: Rebuild messageIdMap for EmberPlay when both primary story cut and story messages are available
+    useEffect(() => {
+        if (storyCutsData.primaryStoryCut && storyMessagesData.storyMessages && storyMessagesData.storyMessages.length > 0) {
+            const rebuiltMessageIdMap = {};
+            storyMessagesData.storyMessages.forEach(msg => {
+                if (msg.sender === 'user') {
+                    rebuiltMessageIdMap[msg.id] = {
+                        user_id: msg.user_id,
+                        user_first_name: msg.user_first_name,
+                        content: msg.content,
+                        audio_url: msg.audio_url || null,
+                        audio_filename: msg.audio_filename || null,
+                        audio_duration_seconds: msg.audio_duration_seconds || null
+                    };
+                }
+            });
+
+            if (Object.keys(rebuiltMessageIdMap).length > 0) {
+                // Create a new primary story cut object with updated messageIdMap
+                const updatedPrimaryCut = { ...storyCutsData.primaryStoryCut };
+                if (!updatedPrimaryCut.metadata) {
+                    updatedPrimaryCut.metadata = {};
+                }
+                updatedPrimaryCut.metadata.messageIdMap = rebuiltMessageIdMap;
+                console.log('🔧 [EmberPlay] Rebuilt messageIdMap with', Object.keys(rebuiltMessageIdMap).length, 'entries');
+                console.log('🔧 [EmberPlay] Available message IDs for playback:', Object.keys(rebuiltMessageIdMap));
+
+                // Note: This updates the object but won't trigger a state change
+                // The object reference is the same, but the nested property is updated
+                storyCutsData.primaryStoryCut.metadata = updatedPrimaryCut.metadata;
+            }
+        }
+    }, [storyCutsData.primaryStoryCut, storyMessagesData.storyMessages]);
 
     return {
         // Ember data

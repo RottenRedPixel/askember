@@ -105,12 +105,8 @@ const MessageAudioControls = ({ line, messageIndex, messageType, storyMessages, 
         analyzeMessage();
     }, [line, messageIndex, messageType, storyMessages, ember, userId, preferencesLoaded, messagePreferences]);
 
-    // Store preferences globally for audio generation
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            window.messageAudioPreferences = messagePreferences;
-        }
-    }, [messagePreferences]);
+    // Note: Global preference setting removed to prevent conflicts with StoryCutStudio
+    // StoryCutStudio is now the single source of truth for audio preferences
 
     const handlePreferenceChange = async (messageKey, preference) => {
         console.log(`🔄 Changing preference for message ${messageIndex} (${messageKey}): ${preference}`);

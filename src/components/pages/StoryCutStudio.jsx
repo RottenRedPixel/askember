@@ -261,6 +261,7 @@ export default function StoryCutStudio() {
                 firstName: message.user_first_name || speakerName,
                 lastName: message.user_last_name || '',
                 email: message.user_email || '',
+                user_id: message.user_id, // ✅ CRITICAL: Include user_id for voice model lookup
                 fallbackText: getUserInitials(message.user_email, message.user_first_name, message.user_last_name)
             };
             console.log(`✅ Simple lookup found for "${speakerName}":`, { avatarUrl: result.avatarUrl ? 'present' : 'missing', firstName: result.firstName });
@@ -438,6 +439,40 @@ export default function StoryCutStudio() {
                     loadedStoryMessages = allStoryMessages?.messages || [];
                     setStoryMessages(loadedStoryMessages);
                     console.log('✅ Loaded story messages:', loadedStoryMessages.length);
+
+                    // 🔧 ENHANCEMENT: Rebuild messageIdMap from current story messages for audio lookup
+                    if (loadedStoryMessages && loadedStoryMessages.length > 0) {
+                        const rebuiltMessageIdMap = {};
+                        loadedStoryMessages.forEach(msg => {
+                            if (msg.sender === 'user') {
+                                rebuiltMessageIdMap[msg.id] = {
+                                    user_id: msg.user_id,
+                                    user_first_name: msg.user_first_name,
+                                    content: msg.content,
+                                    audio_url: msg.audio_url || null,
+                                    audio_filename: msg.audio_filename || null,
+                                    audio_duration_seconds: msg.audio_duration_seconds || null
+                                };
+                            }
+                        });
+
+                        // Update story cut metadata with rebuilt messageIdMap
+                        if (targetStoryCut) {
+                            // Ensure metadata object exists
+                            if (!targetStoryCut.metadata) {
+                                targetStoryCut.metadata = {};
+                                console.log('🔧 Created missing metadata object');
+                            }
+                            targetStoryCut.metadata.messageIdMap = rebuiltMessageIdMap;
+                            console.log('🔧 Rebuilt messageIdMap with', Object.keys(rebuiltMessageIdMap).length, 'entries');
+                            console.log('🔧 Available message IDs:', Object.keys(rebuiltMessageIdMap));
+                            // Log the actual audio URLs for debugging
+                            Object.keys(rebuiltMessageIdMap).forEach(msgId => {
+                                const msgData = rebuiltMessageIdMap[msgId];
+                                console.log(`🔧   Message ${msgId}: ${msgData.user_first_name} - Audio: ${msgData.audio_url ? 'YES' : 'NO'}`);
+                            });
+                        }
+                    }
                 } catch (messageError) {
                     console.warn('⚠️ Could not load story messages:', messageError);
                     setStoryMessages([]);
@@ -1030,10 +1065,14 @@ export default function StoryCutStudio() {
 
                         // Check voice model if we found a user ID
                         if (userId) {
+                            console.log(`🎤 Checking voice model for ${block.voiceTag} (userId: ${userId})`);
                             try {
                                 const userVoiceModel = await getUserVoiceModel(userId);
                                 block.hasVoiceModel = !!(userVoiceModel && userVoiceModel.elevenlabs_voice_id);
-                                // console.log(`🎤 Voice model check for ${block.voiceTag}: ${block.hasVoiceModel ? 'available' : 'not available'}`);
+                                console.log(`🎤 Voice model check for ${block.voiceTag}: ${block.hasVoiceModel ? 'available' : 'not available'}`);
+                                if (userVoiceModel) {
+                                    console.log(`🎤 Voice model data:`, userVoiceModel);
+                                }
                             } catch (error) {
                                 console.warn(`Failed to check voice model for ${block.voiceTag}:`, error);
                                 block.hasVoiceModel = false;
@@ -3335,15 +3374,15 @@ export default function StoryCutStudio() {
                                                                         <input
                                                                             type="radio"
                                                                             name={`audio-${block.id}`}
-                                                                            value="synth"
-                                                                            checked={contributorAudioPreferences[blockKey] === 'synth'}
+                                                                            value="personal"
+                                                                            checked={contributorAudioPreferences[blockKey] === 'personal'}
                                                                             onChange={(e) => {
                                                                                 if (e.target.checked) {
                                                                                     setContributorAudioPreferences(prev => ({
                                                                                         ...prev,
-                                                                                        [blockKey]: 'synth'
+                                                                                        [blockKey]: 'personal'
                                                                                     }));
-                                                                                    console.log(`🎤 Set ${blockKey} to use synth voice (DATABASE PERSISTENT)`);
+                                                                                    console.log(`🎤 Set ${blockKey} to use personal voice (DATABASE PERSISTENT)`);
                                                                                 }
                                                                             }}
                                                                             className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
@@ -3411,15 +3450,15 @@ export default function StoryCutStudio() {
                                                                 <input
                                                                     type="radio"
                                                                     name={`audio-${block.id}`}
-                                                                    value="synth"
-                                                                    checked={contributorAudioPreferences[blockKey] === 'synth'}
+                                                                    value="personal"
+                                                                    checked={contributorAudioPreferences[blockKey] === 'personal'}
                                                                     onChange={(e) => {
                                                                         if (e.target.checked) {
                                                                             setContributorAudioPreferences(prev => ({
                                                                                 ...prev,
-                                                                                [blockKey]: 'synth'
+                                                                                [blockKey]: 'personal'
                                                                             }));
-                                                                            console.log(`🎤 Set demo ${blockKey} to use ElevenLabs voice`);
+                                                                            console.log(`🎤 Set demo ${blockKey} to use personal voice`);
                                                                         }
                                                                     }}
                                                                     className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
