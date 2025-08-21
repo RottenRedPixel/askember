@@ -173,19 +173,19 @@ const useStore = create((set, get) => ({
     } catch (error) {
       console.error('Error in createUser:', error);
 
-            // If the admin function doesn't exist, try to create it
+      // If the admin function doesn't exist, try to create it
       if (error.message.includes('function') && (error.message.includes('does not exist') || error.message.includes('not found') || error.message.includes('schema cache'))) {
         console.log('Admin function not found, trying to create it...');
         try {
           await createAdminUserCreationFunction();
           console.log('Admin function created, retrying user creation...');
-          
+
           const data = await createUserProfileAdmin(userData);
           console.log('User profile created successfully after function creation:', data);
-          
+
           // Refresh users list
           await get().fetchAllUsers();
-          
+
           return { success: true, data };
         } catch (setupError) {
           console.error('Error setting up admin function:', setupError);
@@ -207,6 +207,25 @@ const useStore = create((set, get) => ({
       return { success: true, message: 'Admin user creation function created successfully' };
     } catch (error) {
       console.error('Error setting up admin user creation:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Send password reset email
+  sendPasswordReset: async (email) => {
+    const { isAdmin } = get();
+    if (!isAdmin) return { success: false, error: 'Not authorized' };
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/admin/reset-password`
+      });
+
+      if (error) throw error;
+
+      return { success: true, message: 'Password reset email sent successfully' };
+    } catch (error) {
+      console.error('Error sending password reset:', error);
       return { success: false, error: error.message };
     }
   },

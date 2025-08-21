@@ -5,12 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
-import { 
-  Search, 
-  Filter, 
-  Plus, 
-  Users, 
-  UserCheck, 
+import {
+  Search,
+  Filter,
+  Plus,
+  Users,
+  UserCheck,
   UserX,
   MoreVertical,
   Edit,
@@ -21,6 +21,7 @@ import useStore from '@/store';
 import UserTable from './UserTable';
 import UserFilters from './UserFilters';
 import UserModal from './UserModal';
+import PasswordResetModal from './PasswordResetModal';
 
 export default function UserManagement() {
   const { allUsers, fetchAllUsers, adminLoading } = useStore();
@@ -29,6 +30,8 @@ export default function UserManagement() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isPasswordResetModalOpen, setIsPasswordResetModalOpen] = useState(false);
+  const [passwordResetUser, setPasswordResetUser] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Fetch users on component mount
@@ -38,13 +41,13 @@ export default function UserManagement() {
 
   // Filter users based on search and role
   const filteredUsers = allUsers.filter(user => {
-    const matchesSearch = !searchQuery || 
+    const matchesSearch = !searchQuery ||
       user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.last_name?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
-    
+
     return matchesSearch && matchesRole;
   });
 
@@ -53,7 +56,7 @@ export default function UserManagement() {
     total: allUsers.length,
     admins: allUsers.filter(u => u.role === 'super_admin' || u.role === 'admin').length,
     users: allUsers.filter(u => u.role === 'user').length,
-    active: allUsers.filter(u => u.last_sign_in_at && 
+    active: allUsers.filter(u => u.last_sign_in_at &&
       new Date(u.last_sign_in_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length
   };
 
@@ -72,6 +75,16 @@ export default function UserManagement() {
     setIsEditModalOpen(false);
     setSelectedUser(null);
     fetchAllUsers(); // Refresh data
+  };
+
+  const handlePasswordReset = (user) => {
+    setPasswordResetUser(user);
+    setIsPasswordResetModalOpen(true);
+  };
+
+  const handlePasswordResetModalClose = () => {
+    setIsPasswordResetModalOpen(false);
+    setPasswordResetUser(null);
   };
 
   if (adminLoading) {
@@ -103,7 +116,7 @@ export default function UserManagement() {
             <div className="text-2xl font-bold text-gray-900 mt-1">{userStats.total}</div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -113,7 +126,7 @@ export default function UserManagement() {
             <div className="text-2xl font-bold text-gray-900 mt-1">{userStats.active}</div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -123,7 +136,7 @@ export default function UserManagement() {
             <div className="text-2xl font-bold text-gray-900 mt-1">{userStats.admins}</div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -160,7 +173,7 @@ export default function UserManagement() {
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="bottom" className="h-[400px]">
-                  <UserFilters 
+                  <UserFilters
                     selectedRole={selectedRole}
                     onRoleChange={setSelectedRole}
                     onClose={() => setFiltersOpen(false)}
@@ -171,7 +184,7 @@ export default function UserManagement() {
 
             {/* Desktop Filters */}
             <div className="hidden sm:block">
-              <UserFilters 
+              <UserFilters
                 selectedRole={selectedRole}
                 onRoleChange={setSelectedRole}
                 compact
@@ -191,7 +204,7 @@ export default function UserManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <UserTable 
+          <UserTable
             users={filteredUsers}
             onEditUser={handleEditUser}
           />
@@ -209,7 +222,7 @@ export default function UserManagement() {
       {/* Create User Modal (Desktop) / Sheet (Mobile) */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
         <DialogContent className="hidden sm:block max-w-2xl">
-          <UserModal 
+          <UserModal
             user={null}
             onClose={handleModalClose}
             isCreate
@@ -219,7 +232,7 @@ export default function UserManagement() {
 
       <Sheet open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
         <SheetContent side="bottom" className="sm:hidden h-[90vh]">
-          <UserModal 
+          <UserModal
             user={null}
             onClose={handleModalClose}
             isCreate
@@ -231,18 +244,40 @@ export default function UserManagement() {
       {/* Edit User Modal (Desktop) / Sheet (Mobile) */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="hidden sm:block max-w-2xl">
-          <UserModal 
+          <UserModal
             user={selectedUser}
             onClose={handleModalClose}
+            onPasswordReset={handlePasswordReset}
           />
         </DialogContent>
       </Dialog>
 
       <Sheet open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <SheetContent side="bottom" className="sm:hidden h-[90vh]">
-          <UserModal 
+          <UserModal
             user={selectedUser}
             onClose={handleModalClose}
+            onPasswordReset={handlePasswordReset}
+            isMobile
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* Password Reset Modal (Desktop) / Sheet (Mobile) */}
+      <Dialog open={isPasswordResetModalOpen} onOpenChange={setIsPasswordResetModalOpen}>
+        <DialogContent className="hidden sm:block max-w-lg">
+          <PasswordResetModal
+            user={passwordResetUser}
+            onClose={handlePasswordResetModalClose}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Sheet open={isPasswordResetModalOpen} onOpenChange={setIsPasswordResetModalOpen}>
+        <SheetContent side="bottom" className="sm:hidden h-[70vh]">
+          <PasswordResetModal
+            user={passwordResetUser}
+            onClose={handlePasswordResetModalClose}
             isMobile
           />
         </SheetContent>

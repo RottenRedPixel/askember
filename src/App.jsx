@@ -21,6 +21,7 @@ import AdminLayout from './components/admin/layout/AdminLayout';
 import AdminDashboard from './components/admin/dashboard/AdminDashboard';
 import UserManagement from './components/admin/users/UserManagement';
 import PromptManagement from './components/admin/prompts/PromptManagement';
+import PasswordResetPage from './components/admin/PasswordResetPage';
 import { addPrimaryStoryCutColumn, runPublicEmberAccessMigration } from './lib/database';
 import './App.css'
 
@@ -95,6 +96,9 @@ export default function App() {
                 <Settings />
               </AuthGuard>
             } />
+
+            {/* Password Reset Route (no auth required) */}
+            <Route path="/admin/reset-password" element={<PasswordResetPage />} />
 
             {/* Admin Routes */}
             <Route path="/admin/*" element={
